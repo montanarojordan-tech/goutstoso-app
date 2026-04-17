@@ -1,0 +1,27 @@
+kind = "mobile"
+previewPath = "/goutstoso/"
+title = "Goutstoso"
+version = "1.0.0"
+id = "artifacts/goutstoso"
+router = "expo-domain"
+
+[[integratedSkills]]
+name = "expo"
+version = "1.0.0"
+
+[[services]]
+ensurePreviewReachable = "/status"
+name = "expo"
+paths = [ "/goutstoso/" ]
+localPort = 22572
+
+[services.development]
+run = "pnpm --filter @workspace/goutstoso run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/goutstoso", "run", "build" ]
+run = [ "pnpm", "--filter", "@workspace/goutstoso", "run", "serve" ]
+
+[services.env]
+PORT = "22572"
+BASE_PATH = "/goutstoso/"
