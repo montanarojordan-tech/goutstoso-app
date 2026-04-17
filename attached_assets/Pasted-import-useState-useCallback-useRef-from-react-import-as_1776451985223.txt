@@ -1,0 +1,1499 @@
+import { useState, useCallback, useRef } from “react”;
+import * as React from “react”;
+
+/* ═══════════════════════════════════════════════════════════════
+GOÛTSTOSO — Application de Gestion Complète
+Limoncello Artisanal · Suisse
+═══════════════════════════════════════════════════════════════ */
+
+const STYLE = `@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Jost:wght@300;400;500;600&display=swap'); *{box-sizing:border-box;margin:0;padding:0;} :root{ --ink:#111111; --cream:#FDFBF5; --lemon:#F2C94C; --lemon2:#E6B800; --lemon-pale:#FEF9E7; --lemon-border:#F2C94C40; --white:#FFFFFF; --gray:#9CA3AF; --gray-light:#F5F5F0; --gray-mid:#E5E5E0; --green:#166534; --green-bg:#DCFCE7; --red:#991B1B; --red-bg:#FEE2E2; --orange:#92400E; --orange-bg:#FEF3C7; --blue:#1E3A5F; --blue-bg:#DBEAFE; --shadow:0 2px 16px rgba(0,0,0,.07); --shadow-lg:0 8px 40px rgba(0,0,0,.12); --r:12px; --r-sm:8px; } body{font-family:'Jost',sans-serif;background:var(--cream);color:var(--ink);min-height:100vh;} h1,h2,h3{font-family:'Cormorant Garamond',serif;} input,select,textarea{ font-family:'Jost',sans-serif;font-size:14px; border:1.5px solid var(--gray-mid);border-radius:var(--r-sm); padding:9px 13px;width:100%;background:var(--white);color:var(--ink); outline:none;transition:border-color .18s,box-shadow .18s; } input:focus,select:focus,textarea:focus{ border-color:var(--lemon);box-shadow:0 0 0 3px #F2C94C25; } button{cursor:pointer;font-family:'Jost',sans-serif;} ::-webkit-scrollbar{width:4px;} ::-webkit-scrollbar-thumb{background:#F2C94C60;border-radius:99px;} .fade{animation:fadeUp .25s ease both;} @keyframes fadeUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}`;
+
+// ── UTILS ──────────────────────────────────────────────────────
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2);
+const chf = v => `CHF ${parseFloat(v||0).toFixed(2)}`;
+const fmt = d => d ? new Date(d).toLocaleDateString(“fr-CH”) : “—”;
+const today = () => new Date().toISOString().slice(0,10);
+const sum = arr => arr.reduce((a,b)=>a+b,0);
+
+// ── LOGO GOUTSTOSO ─────────────────────────────────────────────
+const LOGO_B64 = “data:image/png;base64,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”;
+// ── ICÔNES ─────────────────────────────────────────────────────
+const Ic = ({n,s=16}) => {
+const d = {
+dash:“M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z”,
+prod:“M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-14L4 7m8 4v10M4 7v10l8 4”,
+stock:“M9 17H7A5 5 0 0 1 7 7h2M15 7h2a5 5 0 0 1 0 10h-2M8 12h8”,
+depot:“M3 9l9-6 9 6v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z”,
+contrat:“M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M16 13H8M16 17H8M10 9H8”,
+facture:“M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 1 1 0 4H9a2 2 0 0 1-2-2”,
+compta:“M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6”,
+plus:“M12 5v14M5 12h14”,
+x:“M18 6 6 18M6 6l12 12”,
+check:“M20 6 9 17l-5-5”,
+edit:“M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4z”,
+trash:“M3 6h18M8 6V4h8v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6”,
+export:“M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3”,
+eye:“M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8zM12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z”,
+warn:“M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0zM12 9v4M12 17h.01”,
+coin:“M12 2a10 10 0 1 0 0 20A10 10 0 0 0 12 2zM12 6v2M12 16v2M8 12h8”,
+};
+return (
+<svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+<path d={d[n]||d.dash}/>
+</svg>
+);
+};
+
+// ── BADGE ──────────────────────────────────────────────────────
+const Badge = ({c=“gray”,children}) => {
+const styles = {
+green:{background:”#DCFCE7”,color:”#166534”},
+red:{background:”#FEE2E2”,color:”#991B1B”},
+yellow:{background:”#FEF9E7”,color:”#92400E”,border:“1px solid #F2C94C”},
+blue:{background:”#DBEAFE”,color:”#1E3A5F”},
+gray:{background:”#F5F5F0”,color:”#6B7280”},
+};
+const s = styles[c]||styles.gray;
+return <span style={{display:“inline-flex”,alignItems:“center”,padding:“2px 10px”,borderRadius:99,fontSize:12,fontWeight:500,background:s.background,color:s.color,border:s.border||“none”}}>{children}</span>;
+};
+
+// ── MODAL ──────────────────────────────────────────────────────
+const Modal = ({title,onClose,children,wide}) => (
+
+  <div style={{position:"fixed",inset:0,zIndex:999,display:"flex",alignItems:"center",justifyContent:"center",padding:16,background:"rgba(0,0,0,.45)",backdropFilter:"blur(3px)"}}>
+    <div style={{background:"var(--white)",borderRadius:"var(--r)",boxShadow:"var(--shadow-lg)",width:"100%",maxWidth:wide?720:520,maxHeight:"90vh",overflowY:"auto"}} className="fade">
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"18px 22px",borderBottom:"1px solid var(--gray-mid)",position:"sticky",top:0,background:"var(--white)",zIndex:1}}>
+        <h3 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:20,fontWeight:600}}>{title}</h3>
+        <button onClick={onClose} style={{background:"none",border:"none",color:"var(--gray)",padding:4,borderRadius:6,display:"flex"}}><Ic n="x" s={18}/></button>
+      </div>
+      <div style={{padding:"20px 22px"}}>{children}</div>
+    </div>
+  </div>
+);
+
+// ── FIELD ──────────────────────────────────────────────────────
+const F = ({label,type=“text”,value,onChange,placeholder,required,small}) => (
+
+  <div style={{display:"flex",flexDirection:"column",gap:4}}>
+    {label && <label style={{fontSize:11,fontWeight:600,color:"var(--gray)",textTransform:"uppercase",letterSpacing:".06em"}}>{label}{required&&" *"}</label>}
+    <input type={type} value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder} style={small?{padding:"7px 10px",fontSize:13}:{}}/>
+  </div>
+);
+const Sel = ({label,value,onChange,options,required}) => (
+  <div style={{display:"flex",flexDirection:"column",gap:4}}>
+    {label && <label style={{fontSize:11,fontWeight:600,color:"var(--gray)",textTransform:"uppercase",letterSpacing:".06em"}}>{label}{required&&" *"}</label>}
+    <select value={value} onChange={e=>onChange(e.target.value)}>
+      {options.map(o=><option key={o.v} value={o.v}>{o.l}</option>)}
+    </select>
+  </div>
+);
+
+// ── BTN ────────────────────────────────────────────────────────
+const Btn = ({onClick,children,variant=“primary”,small,icon,danger,full}) => {
+const bg = danger?”#FEE2E2”:variant===“primary”?“var(–lemon)”:variant===“ghost”?“var(–gray-light)”:“none”;
+const col = danger?”#991B1B”:“var(–ink)”;
+const border = variant===“outline”?“1.5px solid var(–gray-mid)”:“none”;
+return (
+<button onClick={onClick} style={{
+background:bg,color:col,border:border,
+borderRadius:“var(–r-sm)”,
+padding:small?“6px 14px”:“9px 18px”,
+fontSize:small?12:14,fontWeight:500,
+display:“flex”,alignItems:“center”,gap:6,
+width:full?“100%”:“auto”,
+justifyContent:full?“center”:“flex-start”,
+}}>
+{icon&&<Ic n={icon} s={small?13:15}/>}{children}
+</button>
+);
+};
+
+// ── CARD ───────────────────────────────────────────────────────
+const Card = ({children,style}) => (
+
+  <div style={Object.assign({background:"var(--white)",borderRadius:"var(--r)",boxShadow:"var(--shadow)",padding:"18px 20px"},style||{})}>{children}</div>
+);
+
+// ── SECTION TITLE ──────────────────────────────────────────────
+const SectionTitle = ({children,action}) => (
+
+  <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:18}}>
+    <h2 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:26,fontWeight:700,color:"var(--ink)"}}>{children}</h2>
+    {action}
+  </div>
+);
+
+// ══════════════════════════════════════════════════════════════
+// INITIAL DATA
+// ══════════════════════════════════════════════════════════════
+// ── INFOS ENTREPRISE ──────────────────────────────────────────
+const SOCIETE = {
+nom: “Goûtstoso”,
+responsable: “Jordan Montanaro”,
+adresse: “Rue des Sources 19”,
+npa: “2613 Villeret”,
+email: “admin@goutstoso.ch”,
+web: “www.goutstoso.ch”,
+iban: “CH23 0900 0000 1565 1485 8”,
+banque: “PostFinance”,
+};
+
+// ── CGV COMPLÈTES ──────────────────────────────────────────────
+const CGV = `1. Objet
+Le présent document régit les relations commerciales entre Goûtstoso (ci-après « le Fournisseur ») et ses clients professionnels ou partenaires (ci-après « le Client » ou « le Dépositaire »), dans le cadre de la vente et/ou de la mise en dépôt-vente de liqueurs artisanales. Toute commande ou mise en dépôt implique l’acceptation sans réserve des présentes conditions.
+
+1. Produits
+   Les produits concernés sont des liqueurs artisanales fournies par le Fournisseur, telles que spécifiées dans les offres, bons de commande ou accords de dépôt-vente.
+1. Offres et prix
+   Les prix sont exprimés en francs suisses (CHF), hors TVA sauf mention contraire. Les tarifs professionnels sont réservés aux partenaires revendeurs. Le Fournisseur se réserve le droit de modifier ses prix à tout moment. Les prix applicables sont ceux en vigueur à la date de confirmation de commande. Sauf mention contraire, les offres sont valables pendant 30 jours à compter de leur émission.
+1. Commandes
+   Les commandes doivent être effectuées par écrit (email ou autre moyen validé). Elles deviennent fermes après confirmation par le Fournisseur. Le Fournisseur se réserve le droit de refuser une commande en cas de litige antérieur ou de non-paiement.
+1. Dépôt-vente
+   Le Fournisseur peut mettre à disposition ses produits en dépôt-vente auprès du Dépositaire. Le contrat de dépôt-vente est conclu pour une durée de 2 mois à compter de sa signature.
+1. Modalités de paiement
+   Sauf accord contraire, les factures sont payables à 30 jours net à compter de la date de facturation. Dans le cadre du dépôt-vente : après 1 mois, un premier bilan est effectué et le Dépositaire règle les produits vendus ; après 2 mois, un second bilan est réalisé et le solde des ventes est réglé.
+1. Retard de paiement
+   En cas de retard, des frais de rappel sont appliqués : 1er rappel gratuit, 2ème rappel CHF 15.–, 3ème rappel CHF 25.–. Après le troisième rappel, le Fournisseur peut engager une procédure de recouvrement. Les frais en résultant sont à la charge du Client.
+1. Produits invendus (dépôt-vente)
+   À l’issue de la période de dépôt, les produits invendus sont restitués au Fournisseur ou font l’objet d’un nouvel accord entre les parties.
+1. Livraison
+   Les délais de livraison sont indicatifs et non contraignants. Le Fournisseur ne peut être tenu responsable des retards indépendants de sa volonté. Les modalités et frais de livraison sont définis lors de la commande.
+1. Transfert des risques
+   Les risques sont transférés au Client dès la remise des marchandises au transporteur ou au Client. Dans le cadre du dépôt-vente, le Dépositaire est responsable des produits pendant toute la durée du dépôt (perte, vol, détérioration).
+1. Réserve de propriété
+   Les marchandises restent la propriété du Fournisseur jusqu’au paiement intégral des sommes dues.
+1. Réclamations et retours
+   Toute réclamation doit être formulée dans un délai de 5 jours suivant la réception des produits. Aucun retour ne sera accepté sans accord préalable du Fournisseur.
+1. Responsabilité
+   Le Fournisseur garantit la conformité des produits aux normes en vigueur. Sa responsabilité est limitée au remplacement ou au remboursement des produits défectueux. Toute responsabilité pour dommages indirects ou perte de chiffre d’affaires est exclue.
+1. Produits alcoolisés
+   Les produits vendus sont des boissons alcoolisées. Le Client s’engage à respecter la législation en vigueur, notamment l’interdiction de vente aux mineurs.
+1. Protection des données
+   Les données personnelles sont utilisées uniquement dans le cadre de la relation commerciale et ne sont pas transmises à des tiers sans consentement.
+1. Résiliation
+   Dans le cadre du dépôt-vente, chaque partie peut mettre fin au contrat à tout moment d’un commun accord.
+1. Droit applicable et for juridique
+   Les présentes conditions sont soumises au droit suisse. Le for juridique est fixé au siège du Fournisseur.
+1. Acceptation
+   Toute commande ou accord de dépôt-vente, quel que soit le moyen utilisé, vaut acceptation pleine et entière des présentes conditions, sans nécessité de signature.`;
+
+const INIT = {
+produits:[
+{id:“p1”,nom:“Limonta”,variante:“Citron jaune”,format:“250ml”,description:“Macération artisanale de zestes de citron jaune frais. 30% vol.”,prixClient:19,prixRevendeur:15,coutRevient:8.34,actif:true},
+{id:“p2”,nom:“Limonta”,variante:“Citron jaune”,format:“500ml”,description:“Macération artisanale de zestes de citron jaune frais. 30% vol.”,prixClient:29,prixRevendeur:23,coutRevient:12.19,actif:true},
+{id:“p3”,nom:“Limelo”,variante:“Citron vert”,format:“250ml”,description:“Macération artisanale de zestes de citron vert frais. 30% vol.”,prixClient:22,prixRevendeur:16,coutRevient:8.34,actif:true},
+{id:“p4”,nom:“Limelo”,variante:“Citron vert”,format:“500ml”,description:“Macération artisanale de zestes de citron vert frais. 30% vol.”,prixClient:32,prixRevendeur:24,coutRevient:12.19,actif:true},
+{id:“p5”,nom:“Clementino”,variante:“Clémentine”,format:“250ml”,description:“Macération artisanale de zestes de clémentine fraîche. 30% vol.”,prixClient:22,prixRevendeur:16,coutRevient:8.34,actif:true},
+{id:“p6”,nom:“Clementino”,variante:“Clémentine”,format:“500ml”,description:“Macération artisanale de zestes de clémentine fraîche. 30% vol.”,prixClient:32,prixRevendeur:24,coutRevient:12.19,actif:true},
+],
+partenaires:[
+{id:“pv1”,nom:“Temple 5 - Epicerie Fine Sàrl”,adresse:“Rue du Temple 5, 2610 Saint-Imier”,contact:””,tel:””,type:“depot-vente”,commission:0,statut:“actif”},
+],
+stocks:[],
+depotStocks:[
+{id:“ds1”,partenaireId:“pv1”,produitId:“p1”,qteDeposee:2,qteVendue:0,qteRetournee:0,dateDepot:“2026-01-01”,dateInventaire:“2026-01-01”},
+{id:“ds2”,partenaireId:“pv1”,produitId:“p2”,qteDeposee:2,qteVendue:0,qteRetournee:0,dateDepot:“2026-01-01”,dateInventaire:“2026-01-01”},
+{id:“ds3”,partenaireId:“pv1”,produitId:“p3”,qteDeposee:2,qteVendue:0,qteRetournee:0,dateDepot:“2026-01-01”,dateInventaire:“2026-01-01”},
+{id:“ds4”,partenaireId:“pv1”,produitId:“p4”,qteDeposee:2,qteVendue:0,qteRetournee:0,dateDepot:“2026-01-01”,dateInventaire:“2026-01-01”},
+{id:“ds5”,partenaireId:“pv1”,produitId:“p5”,qteDeposee:2,qteVendue:0,qteRetournee:0,dateDepot:“2026-01-01”,dateInventaire:“2026-01-01”},
+{id:“ds6”,partenaireId:“pv1”,produitId:“p6”,qteDeposee:2,qteVendue:0,qteRetournee:0,dateDepot:“2026-01-01”,dateInventaire:“2026-01-01”},
+],
+contrats:[
+{id:“c1”,numero:“DPT-2026-002”,type:“depot-vente”,partenaireId:“pv1”,dateSignature:“2026-01-01”,dateDebut:“2026-01-01”,dateFin:“2026-03-01”,commission:0,statut:“actif”,lignes:[{produitId:“p1”,qte:2},{produitId:“p2”,qte:2},{produitId:“p3”,qte:2},{produitId:“p4”,qte:2},{produitId:“p5”,qte:2},{produitId:“p6”,qte:2}],notes:””},
+],
+factures:[],
+transactions:[
+// Journal comptable réel — extrait des images
+{id:“t1”,date:“2026-04-27”,compte:“4200”,libelle:“Bouteilles / Bouchons”,type:“depense”,categorie:“Emballages”,montant:289.90,description:“Bouteilles et bouchons”},
+{id:“t2”,date:“2026-04-14”,compte:“3001”,libelle:“Vente Limonta”,type:“recette”,categorie:“Vente Limonta”,montant:29.00,description:“Commande #1004 - Vente”},
+{id:“t3”,date:“2026-04-14”,compte:“3001”,libelle:“Vente Limonta”,type:“recette”,categorie:“Vente Limonta”,montant:32.00,description:“Commande #1004 - Vente”},
+{id:“t4”,date:“2026-04-14”,compte:“3601”,libelle:“Commission Shopify”,type:“depense”,categorie:“Commissions”,montant:1.58,description:“Commande #1004 - Commission”},
+{id:“t5”,date:“2026-04-13”,compte:“3001”,libelle:“Vente Limonta”,type:“recette”,categorie:“Vente Limonta”,montant:19.00,description:“Commande #1002 - Vente”},
+{id:“t6”,date:“2026-04-13”,compte:“3002”,libelle:“Vente Limelo”,type:“recette”,categorie:“Vente Limelo”,montant:22.00,description:“Commande #1002 - Vente”},
+{id:“t7”,date:“2026-04-13”,compte:“3600”,libelle:“Frais expédition clients”,type:“recette”,categorie:“Expédition”,montant:9.90,description:“Commande #1002 - Expédition”},
+{id:“t8”,date:“2026-04-13”,compte:“3601”,libelle:“Commission Shopify”,type:“depense”,categorie:“Commissions”,montant:1.37,description:“Commande #1002 - Commission”},
+{id:“t9”,date:“2026-04-13”,compte:“3003”,libelle:“Vente Clementino”,type:“recette”,categorie:“Vente Clementino”,montant:32.00,description:“Commande #1003 - Vente”},
+{id:“t10”,date:“2026-04-13”,compte:“3601”,libelle:“Commission Shopify”,type:“depense”,categorie:“Commissions”,montant:0.98,description:“Commande #1003 - Commission”},
+{id:“t11”,date:“2026-04-02”,compte:“4010”,libelle:“Achat matières premières”,type:“depense”,categorie:“Matières premières”,montant:21.95,description:“Achat fruits - Migros”},
+{id:“t12”,date:“2026-04-02”,compte:“4210”,libelle:“Étiquettes”,type:“depense”,categorie:“Étiquettes”,montant:133.38,description:“Achat étiquettes 6.3.26”},
+{id:“t13”,date:“2026-04-02”,compte:“6610”,libelle:“Marketing”,type:“depense”,categorie:“Marketing”,montant:35.00,description:“Publicité Facebook”},
+{id:“t14”,date:“2026-04-02”,compte:“6610”,libelle:“Marketing”,type:“depense”,categorie:“Marketing”,montant:49.90,description:“Publicité Facebook”},
+{id:“t15”,date:“2026-04-02”,compte:“4000”,libelle:“Achats de matériel”,type:“depense”,categorie:“Matériel”,montant:14.40,description:“Achat divers matériel”},
+{id:“t16”,date:“2026-04-02”,compte:“3600”,libelle:“Frais expédition clients”,type:“depense”,categorie:“Expédition”,montant:9.00,description:“Envoi 99.60.006482.06243271”},
+{id:“t17”,date:“2026-03-23”,compte:“5201”,libelle:“Dédouanement”,type:“depense”,categorie:“Dédouanement”,montant:46.75,description:“Dédouanement - DPD”},
+{id:“t18”,date:“2026-03-23”,compte:“5201”,libelle:“Dédouanement”,type:“depense”,categorie:“Dédouanement”,montant:21.45,description:“Dédouanement - La Poste”},
+{id:“t19”,date:“2026-03-23”,compte:“5201”,libelle:“Dédouanement”,type:“depense”,categorie:“Dédouanement”,montant:22.75,description:“Dédouanement - La Poste”},
+{id:“t20”,date:“2026-03-23”,compte:“5201”,libelle:“Dédouanement”,type:“depense”,categorie:“Dédouanement”,montant:48.37,description:“Dédouanement - La Poste”},
+{id:“t21”,date:“2026-03-10”,compte:“3001”,libelle:“Vente Limonta”,type:“recette”,categorie:“Vente Limonta”,montant:58.00,description:“Vente (Jennifer)”},
+{id:“t22”,date:“2026-03-06”,compte:“4220”,libelle:“Emballages”,type:“depense”,categorie:“Emballages”,montant:251.19,description:“Emballages - Karton.eu”},
+{id:“t23”,date:“2026-03-06”,compte:“4220”,libelle:“Emballages”,type:“depense”,categorie:“Emballages”,montant:312.00,description:“Emballages - Moonpack”},
+{id:“t24”,date:“2026-03-04”,compte:“4010”,libelle:“Achat matières premières”,type:“depense”,categorie:“Matières premières”,montant:37.45,description:“Achat fruits - Migros”},
+{id:“t25”,date:“2026-03-04”,compte:“4010”,libelle:“Achat matières premières”,type:“depense”,categorie:“Matières premières”,montant:430.00,description:“Achat alcool - Larusée”},
+{id:“t26”,date:“2026-04-15”,compte:“4000”,libelle:“Achats de matériel”,type:“depense”,categorie:“Matériel”,montant:127.03,description:“Achat matériel”},
+{id:“t27”,date:“2026-04-15”,compte:“6610”,libelle:“Marketing”,type:“depense”,categorie:“Marketing”,montant:42.00,description:“Publicité Facebook”},
+],
+soldeBancaire: 798.24,
+};
+
+// ══════════════════════════════════════════════════════════════
+// EXPORT CSV
+// ══════════════════════════════════════════════════════════════
+const exportCSV = (rows, filename) => {
+const headers = Object.keys(rows[0]||{}).join(”;”);
+const body = rows.map(r=>Object.values(r).map(v=>`"${String(v||"").replace(/"/g,'""')}"`).join(”;”)).join(”\n”);
+const blob = new Blob([”\uFEFF”+headers+”\n”+body],{type:“text/csv;charset=utf-8;”});
+const a = document.createElement(“a”);
+a.href = URL.createObjectURL(blob);
+a.download = filename;
+a.click();
+};
+
+// ══════════════════════════════════════════════════════════════
+// PAGE: TABLEAU DE BORD
+// ══════════════════════════════════════════════════════════════
+const Dashboard = ({st}) => {
+const recettes = sum(st.transactions.filter(t=>t.type===“recette”).map(t=>t.montant));
+const depenses = sum(st.transactions.filter(t=>t.type===“depense”).map(t=>t.montant));
+const resultat = recettes - depenses;
+const caAttente = sum(st.factures.filter(f=>f.statut===“en attente”).map(f=>{
+const p = st.partenaires.find(p=>p.id===f.partenaireId);
+return sum(f.lignes.map(l=>{
+const prod = st.produits.find(pr=>pr.id===l.produitId);
+return ((f.typeClient===“revendeur”?prod?.prixRevendeur:prod?.prixClient)||0) * l.qte;
+}));
+}));
+const stockTotal = sum(st.produits.map(p=>{
+const qte = sum(st.stocks.filter(s=>s.produitId===p.id).map(s=>s.qte));
+return qte * p.prixRevendeur;
+}));
+const contratsActifs = st.contrats.filter(c=>c.statut===“actif”).length;
+
+const kpis = [
+{label:“Solde bancaire”,value:chf(st.soldeBancaire),icon:“coin”,color:”#F2C94C”,bg:”#FEF9E7”},
+{label:“Recettes totales”,value:chf(recettes),icon:“compta”,color:”#166534”,bg:”#DCFCE7”},
+{label:“Dépenses totales”,value:chf(depenses),icon:“warn”,color:”#991B1B”,bg:”#FEE2E2”},
+{label:“Résultat net”,value:chf(resultat),icon:“check”,color:resultat>=0?”#166534”:”#991B1B”,bg:resultat>=0?”#DCFCE7”:”#FEE2E2”},
+{label:“En attente paiement”,value:chf(caAttente),icon:“facture”,color:”#92400E”,bg:”#FEF3C7”},
+{label:“Valeur stock (revendeur)”,value:chf(stockTotal),icon:“stock”,color:”#1E3A5F”,bg:”#DBEAFE”},
+];
+
+return (
+<div className="fade">
+{/* Header brand */}
+<div style={{display:“flex”,alignItems:“center”,gap:14,marginBottom:28}}>
+<img src={LOGO_B64} alt=“GoûtStoso” style={{width:60,height:55,objectFit:“contain”}}/>
+<div>
+<h1 style={{fontFamily:”‘Cormorant Garamond’,serif”,fontSize:32,fontWeight:700,lineHeight:1}}>GoûtStoso</h1>
+<p style={{color:“var(–gray)”,fontSize:13,marginTop:2}}>Limoncello Artisanal · Tableau de bord</p>
+</div>
+</div>
+
+```
+  {/* Solde compte – grande mise en avant */}
+  <Card style={{background:"var(--ink)",marginBottom:20}}>
+    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+      <div>
+        <p style={{color:"#aaa",fontSize:12,fontWeight:500,textTransform:"uppercase",letterSpacing:".08em"}}>Solde du compte courant</p>
+        <p style={{color:"var(--lemon)",fontFamily:"'Cormorant Garamond',serif",fontSize:40,fontWeight:700,marginTop:4}}>{chf(st.soldeBancaire)}</p>
+      </div>
+      <div style={{background:"#F2C94C25",borderRadius:"50%",padding:14}}><Ic n="coin" s={28}/></div>
+    </div>
+  </Card>
+
+  {/* KPI grid */}
+  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:20}}>
+    {kpis.slice(1).map((k,i)=>(
+      <Card key={i} style={{padding:"14px 16px"}}>
+        <div style={{display:"flex",alignItems:"center",gap:10}}>
+          <div style={{background:k.bg,borderRadius:8,padding:8,color:k.color,flexShrink:0}}><Ic n={k.icon} s={16}/></div>
+          <div>
+            <p style={{fontSize:11,color:"var(--gray)",fontWeight:500}}>{k.label}</p>
+            <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:20,fontWeight:700,color:k.color}}>{k.value}</p>
+          </div>
+        </div>
+      </Card>
+    ))}
+  </div>
+
+  {/* Dernières transactions */}
+  <Card>
+    <h3 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:18,fontWeight:600,marginBottom:14}}>Dernières opérations</h3>
+    <div style={{display:"flex",flexDirection:"column",gap:2}}>
+      {st.transactions.slice(-5).reverse().map(t=>(
+        <div key={t.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"9px 0",borderBottom:"1px solid var(--gray-mid)"}}>
+          <div style={{display:"flex",alignItems:"center",gap:10}}>
+            <div style={{width:8,height:8,borderRadius:"50%",background:t.type==="recette"?"#166534":"#991B1B",flexShrink:0}}/>
+            <div>
+              <p style={{fontSize:13,fontWeight:500}}>{t.description}</p>
+              <p style={{fontSize:11,color:"var(--gray)"}}>{t.categorie} · {fmt(t.date)}</p>
+            </div>
+          </div>
+          <span style={{fontWeight:600,fontSize:14,color:t.type==="recette"?"#166534":"#991B1B"}}>
+            {t.type==="recette"?"+":"-"}{chf(t.montant)}
+          </span>
+        </div>
+      ))}
+    </div>
+  </Card>
+
+  {/* Alertes stock */}
+  {st.produits.map(p=>{
+    const qte = sum(st.stocks.filter(s=>s.produitId===p.id).map(s=>s.qte));
+    if(qte<20) return (
+      <div key={p.id} style={{display:"flex",alignItems:"center",gap:10,background:"#FEF3C7",border:"1px solid #F2C94C",borderRadius:"var(--r-sm)",padding:"10px 14px",marginTop:10}}>
+        <Ic n="warn" s={16}/>
+        <span style={{fontSize:13}}>Stock faible : <strong>{p.nom}</strong> — {qte} unités restantes</span>
+      </div>
+    );
+    return null;
+  })}
+</div>
+```
+
+);
+};
+
+// ══════════════════════════════════════════════════════════════
+// PAGE: PRODUITS
+// ══════════════════════════════════════════════════════════════
+const Produits = ({st,setSt}) => {
+const [modal,setModal] = useState(null);
+const empty = {nom:””,format:“50cl”,description:””,prixClient:0,prixRevendeur:0,actif:true};
+const [form,setForm] = useState(empty);
+
+const save = () => {
+if(!form.nom) return;
+if(form.id) {
+setSt(p=>({…p,produits:p.produits.map(x=>x.id===form.id?form:x)}));
+} else {
+setSt(p=>({…p,produits:[…p.produits,{…form,id:uid(),stock:0}]}));
+}
+setModal(null);
+};
+const del = id => setSt(p=>({…p,produits:p.produits.filter(x=>x.id!==id)}));
+const openEdit = p => {setForm(p);setModal(“form”);};
+const openAdd = () => {setForm({…empty,id:null});setModal(“form”);};
+
+return (
+<div className="fade">
+<SectionTitle action={<Btn icon="plus" onClick={openAdd}>Nouveau produit</Btn>}>
+Catalogue Produits
+</SectionTitle>
+
+```
+  <div style={{display:"grid",gap:14}}>
+    {st.produits.map(p=>{
+      const qteStock = sum(st.stocks.filter(s=>s.produitId===p.id).map(s=>s.qte));
+      return (
+        <Card key={p.id}>
+          <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:12}}>
+            <div style={{flex:1}}>
+              <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4,flexWrap:"wrap"}}>
+                <h3 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:18,fontWeight:600}}>{p.nom} <span style={{color:"var(--gray)",fontWeight:400,fontSize:16}}>{p.variante}</span></h3>
+                <Badge c={p.actif?"green":"gray"}>{p.actif?"Actif":"Inactif"}</Badge>
+                <span style={{background:"var(--lemon-pale)",border:"1px solid var(--lemon)",borderRadius:6,padding:"2px 8px",fontSize:11,fontWeight:600,color:"#92400E"}}>{p.format}</span>
+              </div>
+              {p.description && <p style={{fontSize:13,color:"var(--gray)",marginBottom:10}}>{p.description}</p>}
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10}}>
+                <div style={{background:"var(--gray-light)",borderRadius:8,padding:"10px 12px"}}>
+                  <p style={{fontSize:10,color:"var(--gray)",fontWeight:600,textTransform:"uppercase"}}>Prix client</p>
+                  <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:22,fontWeight:700,color:"var(--ink)"}}>{chf(p.prixClient)}</p>
+                </div>
+                <div style={{background:"var(--lemon-pale)",borderRadius:8,padding:"10px 12px"}}>
+                  <p style={{fontSize:10,color:"var(--gray)",fontWeight:600,textTransform:"uppercase"}}>Prix revendeur</p>
+                  <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:22,fontWeight:700,color:"var(--lemon2)"}}>{chf(p.prixRevendeur)}</p>
+                </div>
+                <div style={{background:qteStock<20?"#FEE2E2":"#DCFCE7",borderRadius:8,padding:"10px 12px"}}>
+                  <p style={{fontSize:10,color:"var(--gray)",fontWeight:600,textTransform:"uppercase"}}>En stock</p>
+                  <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:22,fontWeight:700,color:qteStock<20?"#991B1B":"#166534"}}>{qteStock} u.</p>
+                </div>
+              </div>
+            </div>
+            <div style={{display:"flex",gap:6}}>
+              <button onClick={()=>openEdit(p)} style={{background:"var(--gray-light)",border:"none",borderRadius:8,padding:8,display:"flex",color:"var(--ink)"}}><Ic n="edit" s={15}/></button>
+              <button onClick={()=>del(p.id)} style={{background:"#FEE2E2",border:"none",borderRadius:8,padding:8,display:"flex",color:"#991B1B"}}><Ic n="trash" s={15}/></button>
+            </div>
+          </div>
+        </Card>
+      );
+    })}
+  </div>
+
+  {modal==="form" && (
+    <Modal title={form.id?"Modifier produit":"Nouveau produit"} onClose={()=>setModal(null)}>
+      <div style={{display:"grid",gap:14}}>
+        <F label="Nom du produit" value={form.nom} onChange={v=>setForm(p=>({...p,nom:v}))} required/>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+          <Sel label="Format" value={form.format} onChange={v=>setForm(p=>({...p,format:v}))}
+            options={["20cl","50cl","75cl","1L","coffret","autre"].map(x=>({v:x,l:x}))}/>
+          <Sel label="Statut" value={form.actif?"true":"false"} onChange={v=>setForm(p=>({...p,actif:v==="true"}))}
+            options={[{v:"true",l:"Actif"},{v:"false",l:"Inactif"}]}/>
+        </div>
+        <F label="Description" value={form.description} onChange={v=>setForm(p=>({...p,description:v}))}/>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+          <F label="Prix de vente client (CHF)" type="number" value={form.prixClient} onChange={v=>setForm(p=>({...p,prixClient:+v}))} required/>
+          <F label="Prix de vente revendeur (CHF)" type="number" value={form.prixRevendeur} onChange={v=>setForm(p=>({...p,prixRevendeur:+v}))} required/>
+        </div>
+        <p style={{fontSize:12,color:"var(--gray)",background:"var(--lemon-pale)",borderRadius:8,padding:"8px 12px"}}>
+          💡 Ces prix s'appliqueront automatiquement dans les factures selon le type de client choisi.
+        </p>
+      </div>
+      <div style={{display:"flex",gap:10,marginTop:20}}>
+        <Btn onClick={save} full icon="check">Enregistrer</Btn>
+        <Btn onClick={()=>setModal(null)} variant="ghost" full>Annuler</Btn>
+      </div>
+    </Modal>
+  )}
+</div>
+```
+
+);
+};
+
+// ══════════════════════════════════════════════════════════════
+// PAGE: STOCKS
+// ══════════════════════════════════════════════════════════════
+const Stocks = ({st,setSt}) => {
+const [modal,setModal] = useState(null);
+const [form,setForm] = useState({produitId:””,qte:0,lot:””,dateEntree:today(),notes:””});
+
+const save = () => {
+if(!form.produitId||!form.qte) return;
+setSt(p=>({…p,stocks:[…p.stocks,{…form,id:uid(),qte:+form.qte}]}));
+setModal(null);
+};
+
+const exportStocks = () => {
+const rows = st.produits.map(p=>{
+const qte = sum(st.stocks.filter(s=>s.produitId===p.id).map(s=>s.qte));
+const enDepot = sum(st.depotStocks.filter(d=>d.produitId===p.id).map(d=>d.qteDeposee-d.qteVendue-d.qteRetournee));
+return {Produit:p.nom,Format:p.format,“Stock total”:qte,“En dépôt”:enDepot,“Stock propre”:qte-enDepot,“Prix revendeur”:p.prixRevendeur,“Valeur stock”:qte*p.prixRevendeur};
+});
+exportCSV(rows,“goutstoso_stocks.csv”);
+};
+
+return (
+<div className="fade">
+<SectionTitle action={
+<div style={{display:“flex”,gap:8}}>
+<Btn icon="export" variant="ghost" small onClick={exportStocks}>Export CSV</Btn>
+<Btn icon=“plus” onClick={()=>{setForm({produitId:st.produits[0]?.id||””,qte:0,lot:””,dateEntree:today(),notes:””});setModal(“form”);}}>Entrée stock</Btn>
+</div>
+}>Gestion des Stocks</SectionTitle>
+
+```
+  {/* Tableau stocks par produit */}
+  <Card style={{marginBottom:16,overflow:"auto"}}>
+    <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
+      <thead>
+        <tr style={{borderBottom:"2px solid var(--lemon)"}}>
+          {["Produit","Format","Stock propre","En dépôt-vente","Total","Val. revendeur"].map(h=>(
+            <th key={h} style={{textAlign:"left",padding:"8px 10px",fontSize:11,fontWeight:600,color:"var(--gray)",textTransform:"uppercase",letterSpacing:".06em"}}>{h}</th>
+          ))}
+        </tr>
+      </thead>
+      <tbody>
+        {st.produits.map((p,i)=>{
+          const total = sum(st.stocks.filter(s=>s.produitId===p.id).map(s=>s.qte));
+          const enDepot = sum(st.depotStocks.filter(d=>d.produitId===p.id).map(d=>d.qteDeposee-d.qteVendue-d.qteRetournee));
+          const propre = total - enDepot;
+          return (
+            <tr key={p.id} style={{background:i%2?"var(--gray-light)":"var(--white)",borderBottom:"1px solid var(--gray-mid)"}}>
+              <td style={{padding:"10px 10px",fontWeight:500}}>{p.nom}</td>
+              <td style={{padding:"10px 10px"}}><Badge c="yellow">{p.format}</Badge></td>
+              <td style={{padding:"10px 10px",color:propre<10?"#991B1B":"var(--ink)",fontWeight:propre<10?600:400}}>{propre}</td>
+              <td style={{padding:"10px 10px",color:"var(--blue)"}}>{enDepot}</td>
+              <td style={{padding:"10px 10px",fontWeight:600}}>{total}</td>
+              <td style={{padding:"10px 10px",fontFamily:"'Cormorant Garamond',serif",fontSize:16,fontWeight:600}}>{chf(total*p.prixRevendeur)}</td>
+            </tr>
+          );
+        })}
+      </tbody>
+    </table>
+  </Card>
+
+  {/* Historique entrées */}
+  <Card>
+    <h3 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:18,marginBottom:14}}>Entrées de stock</h3>
+    <div style={{display:"flex",flexDirection:"column",gap:8}}>
+      {st.stocks.map(s=>{
+        const p = st.produits.find(x=>x.id===s.produitId);
+        return (
+          <div key={s.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderBottom:"1px solid var(--gray-mid)"}}>
+            <div>
+              <p style={{fontSize:13,fontWeight:500}}>{p?.nom}</p>
+              <p style={{fontSize:11,color:"var(--gray)"}}>Lot {s.lot} · {fmt(s.dateEntree)}{s.notes?` · ${s.notes}`:""}</p>
+            </div>
+            <Badge c="blue">+{s.qte} u.</Badge>
+          </div>
+        );
+      })}
+    </div>
+  </Card>
+
+  {modal==="form" && (
+    <Modal title="Entrée de stock" onClose={()=>setModal(null)}>
+      <div style={{display:"grid",gap:14}}>
+        <Sel label="Produit" value={form.produitId} onChange={v=>setForm(p=>({...p,produitId:v}))} required
+          options={st.produits.map(p=>({v:p.id,l:p.nom}))}/>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+          <F label="Quantité" type="number" value={form.qte} onChange={v=>setForm(p=>({...p,qte:v}))} required/>
+          <F label="N° Lot" value={form.lot} onChange={v=>setForm(p=>({...p,lot:v}))}/>
+        </div>
+        <F label="Date d'entrée" type="date" value={form.dateEntree} onChange={v=>setForm(p=>({...p,dateEntree:v}))}/>
+        <F label="Notes" value={form.notes} onChange={v=>setForm(p=>({...p,notes:v}))}/>
+      </div>
+      <div style={{display:"flex",gap:10,marginTop:20}}>
+        <Btn onClick={save} full icon="check">Enregistrer</Btn>
+        <Btn onClick={()=>setModal(null)} variant="ghost" full>Annuler</Btn>
+      </div>
+    </Modal>
+  )}
+</div>
+```
+
+);
+};
+
+// ══════════════════════════════════════════════════════════════
+// PAGE: PARTENAIRES — avec mise à jour stock + génération facture
+// ══════════════════════════════════════════════════════════════
+const Partenaires = ({st,setSt}) => {
+const [modal,setModal] = useState(null);
+const [inventaireModal,setInventaireModal] = useState(null);
+const [inventaireData,setInventaireData] = useState([]);
+const empty = {nom:””,adresse:””,contact:””,tel:””,type:“depot-vente”,commission:0,statut:“actif”};
+const [form,setForm] = useState(empty);
+
+const save = () => {
+if(!form.nom) return;
+if(form.id) setSt(p=>({…p,partenaires:p.partenaires.map(x=>x.id===form.id?form:x)}));
+else setSt(p=>({…p,partenaires:[…p.partenaires,{…form,id:uid(),commission:+form.commission}]}));
+setModal(null);
+};
+const del = id => setSt(p=>({…p,partenaires:p.partenaires.filter(x=>x.id!==id)}));
+
+// Ouvrir le modal d’inventaire pour un partenaire
+const ouvrirInventaire = (pv) => {
+const depots = st.depotStocks.filter(d=>d.partenaireId===pv.id);
+setInventaireData(depots.map(d=>({…d,nouvellesVentes:0})));
+setInventaireModal(pv);
+};
+
+// Enregistrer l’inventaire et générer la facture automatiquement
+const enregistrerInventaire = () => {
+const pv = inventaireModal;
+const lignesFacture = [];
+const updatedDepots = st.depotStocks.map(d=>{
+const inv = inventaireData.find(x=>x.id===d.id);
+if(!inv || !inv.nouvellesVentes || +inv.nouvellesVentes===0) return d;
+const prod = st.produits.find(p=>p.id===d.produitId);
+lignesFacture.push({produitId:d.produitId, qte:+inv.nouvellesVentes});
+return {…d, qteVendue:d.qteVendue+(+inv.nouvellesVentes), dateInventaire:today()};
+});
+
+```
+if(lignesFacture.length===0){setSt(p=>({...p,depotStocks:updatedDepots}));setInventaireModal(null);return;}
+
+// Générer facture automatique au prix PRO (ils nous doivent le prix pro)
+const num = `FAC-${new Date().getFullYear()}-${String(st.factures.length+1).padStart(3,"0")}`;
+const total = sum(lignesFacture.map(l=>{
+  const p = st.produits.find(x=>x.id===l.produitId);
+  return (p?.prixRevendeur||0)*l.qte;
+}));
+const nouvelleFac = {
+  id:uid(), numero:num, date:today(),
+  partenaireId:pv.id, typeClient:"revendeur",
+  lignes:lignesFacture, statut:"en attente",
+  datePaiement:"", notes:`Bilan dépôt-vente ${pv.nom} — ${fmt(today())}`,
+  total,
+};
+
+// Ajouter aussi en transaction comptable
+const nouvelleTrans = {
+  id:uid(), date:today(), compte:"3001",
+  libelle:"Dépôt-vente — reversement",
+  type:"recette", categorie:"Dépôt-vente",
+  montant:total,
+  description:`Bilan ${pv.nom} — ${num}`,
+};
+
+setSt(p=>({...p,
+  depotStocks:updatedDepots,
+  factures:[...p.factures,nouvelleFac],
+  transactions:[...p.transactions,nouvelleTrans],
+}));
+setInventaireModal(null);
+alert(`✅ Facture ${num} créée automatiquement — ${chf(total)} due par ${pv.nom}`);
+```
+
+};
+
+return (
+<div className="fade">
+<SectionTitle action={<Btn icon=“plus” onClick={()=>{setForm({…empty,id:null});setModal(“form”);}}>Nouveau partenaire</Btn>}>
+Points de Vente
+</SectionTitle>
+
+```
+  <div style={{display:"grid",gap:12}}>
+    {st.partenaires.map(pv=>{
+      const depots = st.depotStocks.filter(d=>d.partenaireId===pv.id);
+      const qteChezEux = sum(depots.map(d=>d.qteDeposee-d.qteVendue-d.qteRetournee));
+      const totalDu = sum(depots.map(d=>{
+        const p = st.produits.find(x=>x.id===d.produitId);
+        return d.qteVendue*(p?.prixRevendeur||0);
+      }));
+      const facsPvPayees = st.factures.filter(f=>f.partenaireId===pv.id&&f.statut==="payée");
+      const dejaPaye = sum(facsPvPayees.map(f=>f.total||0));
+      const soldeRestant = totalDu - dejaPaye;
+      return (
+        <Card key={pv.id}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:12}}>
+            <div style={{flex:1}}>
+              <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6,flexWrap:"wrap"}}>
+                <h3 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:18,fontWeight:600}}>{pv.nom}</h3>
+                <Badge c={pv.statut==="actif"?"green":"gray"}>{pv.statut}</Badge>
+                <Badge c="blue">{pv.type==="depot-vente"?"Dépôt-vente":"Vente directe"}</Badge>
+              </div>
+              <p style={{fontSize:13,color:"var(--gray)"}}>{pv.adresse}</p>
+              {pv.contact&&<p style={{fontSize:13,color:"var(--gray)"}}>{pv.contact}{pv.tel?` · ${pv.tel}`:""}</p>}
+              <div style={{display:"flex",gap:16,marginTop:10,flexWrap:"wrap"}}>
+                <span style={{fontSize:12,color:"var(--gray)"}}>{qteChezEux} bouteilles en rayon</span>
+                <span style={{fontSize:12,fontWeight:600,color:soldeRestant>0?"#991B1B":"#166534"}}>
+                  {soldeRestant>0?`Doit: ${chf(soldeRestant)}`:"À jour ✓"}
+                </span>
+              </div>
+            </div>
+            <div style={{display:"flex",gap:6,flexShrink:0}}>
+              <button onClick={()=>ouvrirInventaire(pv)} style={{background:"var(--lemon-pale)",border:"1px solid var(--lemon)",borderRadius:8,padding:"7px 12px",display:"flex",alignItems:"center",gap:6,fontSize:12,fontWeight:600,color:"var(--orange)"}}>
+                <Ic n="edit" s={13}/> Inventaire
+              </button>
+              <button onClick={()=>{setForm(pv);setModal("form");}} style={{background:"var(--gray-light)",border:"none",borderRadius:8,padding:8,display:"flex"}}><Ic n="edit" s={15}/></button>
+              <button onClick={()=>del(pv.id)} style={{background:"#FEE2E2",border:"none",borderRadius:8,padding:8,display:"flex",color:"#991B1B"}}><Ic n="trash" s={15}/></button>
+            </div>
+          </div>
+
+          {depots.length>0&&(
+            <div style={{marginTop:12,paddingTop:12,borderTop:"1px solid var(--gray-mid)"}}>
+              <p style={{fontSize:11,color:"var(--gray)",fontWeight:600,textTransform:"uppercase",marginBottom:8}}>Stock en dépôt</p>
+              <div style={{overflowX:"auto"}}>
+                <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
+                  <thead>
+                    <tr style={{borderBottom:"1px solid var(--lemon)"}}>
+                      {["Produit","Déposé","Vendu","Restant","Montant dû"].map(h=>(
+                        <th key={h} style={{textAlign:h==="Produit"?"left":"right",padding:"5px 8px",color:"var(--gray)",fontWeight:600,fontSize:10,textTransform:"uppercase"}}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {depots.map((d,i)=>{
+                      const prod = st.produits.find(p=>p.id===d.produitId);
+                      const restant = d.qteDeposee-d.qteVendue-d.qteRetournee;
+                      const du = d.qteVendue*(prod?.prixRevendeur||0);
+                      return (
+                        <tr key={d.id} style={{background:i%2?"var(--gray-light)":"transparent",borderBottom:"1px solid var(--gray-mid)"}}>
+                          <td style={{padding:"7px 8px",fontWeight:500}}>{prod?.nom} {prod?.variante} {prod?.format}</td>
+                          <td style={{padding:"7px 8px",textAlign:"right"}}>{d.qteDeposee}</td>
+                          <td style={{padding:"7px 8px",textAlign:"right",color:"#166534",fontWeight:600}}>{d.qteVendue}</td>
+                          <td style={{padding:"7px 8px",textAlign:"right",color:restant===0?"#991B1B":"var(--ink)",fontWeight:restant===0?700:400}}>{restant}</td>
+                          <td style={{padding:"7px 8px",textAlign:"right",fontFamily:"'Cormorant Garamond',serif",fontSize:14,fontWeight:700,color:du>0?"#92400E":"var(--gray)"}}>{du>0?chf(du):"—"}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+              <div style={{display:"flex",justifyContent:"flex-end",marginTop:8,padding:"6px 8px",background:"var(--lemon-pale)",borderRadius:8}}>
+                <span style={{fontSize:12,fontWeight:500,color:"var(--orange)"}}>Total dû : </span>
+                <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:18,fontWeight:700,color:"var(--lemon2)",marginLeft:8}}>{chf(soldeRestant)}</span>
+              </div>
+            </div>
+          )}
+        </Card>
+      );
+    })}
+  </div>
+
+  {/* Modal inventaire */}
+  {inventaireModal&&(
+    <Modal title={`Inventaire — ${inventaireModal.nom}`} onClose={()=>setInventaireModal(null)} wide>
+      <p style={{fontSize:13,color:"var(--gray)",marginBottom:16}}>
+        Entrez les <strong>nouvelles ventes</strong> depuis le dernier inventaire. Une facture sera générée automatiquement au prix professionnel.
+      </p>
+      <div style={{display:"grid",gap:10}}>
+        {inventaireData.map((d,i)=>{
+          const prod = st.produits.find(p=>p.id===d.produitId);
+          const restant = d.qteDeposee-d.qteVendue-d.qteRetournee;
+          return (
+            <div key={d.id} style={{display:"grid",gridTemplateColumns:"2fr 1fr 1fr 1fr",gap:10,alignItems:"center",background:i%2?"var(--gray-light)":"var(--white)",borderRadius:8,padding:"10px 12px"}}>
+              <div>
+                <p style={{fontWeight:600,fontSize:13}}>{prod?.nom} {prod?.variante}</p>
+                <p style={{fontSize:11,color:"var(--gray)"}}>{prod?.format} · {chf(prod?.prixRevendeur)} /u</p>
+              </div>
+              <div style={{textAlign:"center"}}>
+                <p style={{fontSize:10,color:"var(--gray)"}}>En rayon</p>
+                <p style={{fontWeight:700,color:"var(--blue)"}}>{restant}</p>
+              </div>
+              <div style={{textAlign:"center"}}>
+                <p style={{fontSize:10,color:"var(--gray)"}}>Déjà vendu</p>
+                <p style={{fontWeight:700,color:"#166534"}}>{d.qteVendue}</p>
+              </div>
+              <div>
+                <p style={{fontSize:10,color:"var(--gray)",marginBottom:3}}>Nouvelles ventes</p>
+                <input type="number" min="0" max={restant}
+                  value={inventaireData[i].nouvellesVentes||0}
+                  onChange={e=>setInventaireData(prev=>prev.map((x,j)=>j===i?{...x,nouvellesVentes:Math.min(+e.target.value,restant)}:x))}
+                  style={{padding:"6px 8px",fontSize:13,textAlign:"center"}}/>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <div style={{marginTop:16,padding:"12px 16px",background:"var(--lemon-pale)",borderRadius:10,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+        <span style={{fontSize:13,fontWeight:500}}>Facture générée automatiquement</span>
+        <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:22,fontWeight:700,color:"var(--lemon2)"}}>
+          {chf(sum(inventaireData.map(d=>{
+            const p=st.produits.find(x=>x.id===d.produitId);
+            return (+d.nouvellesVentes||0)*(p?.prixRevendeur||0);
+          })))}
+        </span>
+      </div>
+      <div style={{display:"flex",gap:10,marginTop:16}}>
+        <Btn onClick={enregistrerInventaire} full icon="check">Enregistrer + Créer la facture</Btn>
+        <Btn onClick={()=>setInventaireModal(null)} variant="ghost" full>Annuler</Btn>
+      </div>
+    </Modal>
+  )}
+
+  {/* Modal nouveau partenaire */}
+  {modal==="form"&&(
+    <Modal title={form.id?"Modifier partenaire":"Nouveau partenaire"} onClose={()=>setModal(null)}>
+      <div style={{display:"grid",gap:14}}>
+        <F label="Nom" value={form.nom} onChange={v=>setForm(p=>({...p,nom:v}))} required/>
+        <F label="Adresse" value={form.adresse} onChange={v=>setForm(p=>({...p,adresse:v}))}/>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+          <F label="Contact" value={form.contact||""} onChange={v=>setForm(p=>({...p,contact:v}))}/>
+          <F label="Téléphone" value={form.tel||""} onChange={v=>setForm(p=>({...p,tel:v}))}/>
+        </div>
+        <Sel label="Type" value={form.type} onChange={v=>setForm(p=>({...p,type:v}))}
+          options={[{v:"depot-vente",l:"Dépôt-vente"},{v:"vente",l:"Vente directe"}]}/>
+      </div>
+      <div style={{display:"flex",gap:10,marginTop:20}}>
+        <Btn onClick={save} full icon="check">Enregistrer</Btn>
+        <Btn onClick={()=>setModal(null)} variant="ghost" full>Annuler</Btn>
+      </div>
+    </Modal>
+  )}
+</div>
+```
+
+);
+};
+
+// ══════════════════════════════════════════════════════════════
+// PAGE: CONTRATS
+// ══════════════════════════════════════════════════════════════
+// ── CANVAS SIGNATURE ──────────────────────────────────────────
+const SignaturePad = ({label,value,onChange}) => {
+const ref = React.useRef(null);
+const drawing = React.useRef(false);
+
+const getPos = (e, canvas) => {
+const r = canvas.getBoundingClientRect();
+const src = e.touches ? e.touches[0] : e;
+return {x:(src.clientX-r.left)*(canvas.width/r.width), y:(src.clientY-r.top)*(canvas.height/r.height)};
+};
+const start = e => { e.preventDefault(); drawing.current=true; const c=ref.current; const ctx=c.getContext(“2d”); const p=getPos(e,c); ctx.beginPath(); ctx.moveTo(p.x,p.y); };
+const move = e => { e.preventDefault(); if(!drawing.current)return; const c=ref.current; const ctx=c.getContext(“2d”); const p=getPos(e,c); ctx.lineWidth=2.5; ctx.lineCap=“round”; ctx.lineJoin=“round”; ctx.strokeStyle=”#111”; ctx.lineTo(p.x,p.y); ctx.stroke(); ctx.beginPath(); ctx.moveTo(p.x,p.y); };
+const end = e => { e.preventDefault(); drawing.current=false; onChange(ref.current.toDataURL()); };
+const clear = () => { const c=ref.current; c.getContext(“2d”).clearRect(0,0,c.width,c.height); onChange(null); };
+
+return (
+<div style={{display:“flex”,flexDirection:“column”,gap:5}}>
+<div style={{display:“flex”,justifyContent:“space-between”,alignItems:“center”}}>
+<label style={{fontSize:11,fontWeight:600,color:“var(–gray)”,textTransform:“uppercase”,letterSpacing:”.06em”}}>{label}</label>
+<button onClick={clear} style={{background:“none”,border:“none”,fontSize:11,color:“var(–gray)”,cursor:“pointer”,textDecoration:“underline”}}>Effacer</button>
+</div>
+<canvas ref={ref} width={560} height={120}
+onMouseDown={start} onMouseMove={move} onMouseUp={end} onMouseLeave={end}
+onTouchStart={start} onTouchMove={move} onTouchEnd={end}
+style={{border:“1.5px solid var(–gray-mid)”,borderRadius:“var(–r-sm)”,background:“var(–white)”,touchAction:“none”,width:“100%”,height:80,cursor:“crosshair”,display:“block”}}/>
+<p style={{fontSize:10,color:value?“var(–green)”:“var(–gray)”,fontStyle:value?“normal”:“italic”}}>{value?“✓ Signé — signature enregistrée”:“Signez ici avec votre doigt ou la souris”}</p>
+</div>
+);
+};
+
+const Contrats = ({st,setSt}) => {
+const [modal,setModal] = useState(null);
+const [view,setView] = useState(null);
+const [signFournisseur,setSignFournisseur] = useState(null);
+const [signClient,setSignClient] = useState(null);
+const [lieuSigne,setLieuSigne] = useState(“Villeret”);
+const empty = {type:“depot-vente”,partenaireId:””,dateSignature:today(),dateDebut:today(),dateFin:””,commission:0,lignes:[{produitId:””,qte:0}],notes:””,statut:“actif”};
+const [form,setForm] = useState(empty);
+
+const sauvegarderSignatures = () => {
+if(!signFournisseur && !signClient) return;
+setSt(p=>({…p,contrats:p.contrats.map(c=>c.id===view.id?{
+…c, signFournisseur, signClient, lieuSignature:lieuSigne,
+statut: (signFournisseur && signClient)?“signé”:c.statut
+}:c)}));
+setView(prev=>({…prev, signFournisseur, signClient, lieuSignature:lieuSigne, statut:(signFournisseur&&signClient)?“signé”:prev.statut}));
+alert(“Signatures enregistrées !”);
+};
+
+const nextNum = () => {
+const n = st.contrats.length+1;
+return `CTR-${new Date().getFullYear()}-${String(n).padStart(3,"0")}`;
+};
+const save = () => {
+if(!form.partenaireId) return;
+const newC = {…form,id:uid(),numero:form.numero||nextNum(),commission:+form.commission};
+setSt(p=>({…p,contrats:[…p.contrats,newC]}));
+setModal(null);
+};
+const toggle = id => setSt(p=>({…p,contrats:p.contrats.map(c=>c.id===id?{…c,statut:c.statut===“actif”?“terminé”:“actif”}:c)}));
+const del = id => setSt(p=>({…p,contrats:p.contrats.filter(c=>c.id!==id)}));
+
+const addLigne = () => setForm(f=>({…f,lignes:[…f.lignes,{produitId:””,qte:0}]}));
+const updLigne = (i,k,v) => setForm(f=>({…f,lignes:f.lignes.map((l,j)=>j===i?{…l,[k]:v}:l)}));
+
+return (
+<div className="fade">
+<SectionTitle action={<Btn icon=“plus” onClick={()=>{setForm({…empty,id:null,numero:nextNum(),partenaireId:st.partenaires[0]?.id||””});setModal(“form”);}}>Nouveau contrat</Btn>}>
+Contrats
+</SectionTitle>
+
+```
+  <div style={{display:"grid",gap:12}}>
+    {st.contrats.map(c=>{
+      const pv = st.partenaires.find(p=>p.id===c.partenaireId);
+      return (
+        <Card key={c.id}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+            <div style={{flex:1}}>
+              <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:6}}>
+                <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:15,fontWeight:700,color:"var(--gray)"}}>{c.numero}</span>
+                <Badge c={c.statut==="signé"?"green":c.statut==="actif"?"blue":"gray"}>{c.statut==="signé"?"✓ Signé":c.statut}</Badge>
+                <Badge c={c.type==="depot-vente"?"blue":"yellow"}>{c.type==="depot-vente"?"Dépôt-vente":"Vente"}</Badge>
+              </div>
+              <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:19,fontWeight:600}}>{pv?.nom||"—"}</p>
+              <p style={{fontSize:12,color:"var(--gray)",marginTop:2}}>Du {fmt(c.dateDebut)} au {fmt(c.dateFin)}{c.type==="depot-vente"?` · Commission : ${c.commission}%`:""}</p>
+              {c.notes && <p style={{fontSize:12,color:"var(--gray)",fontStyle:"italic",marginTop:4}}>{c.notes}</p>}
+            </div>
+            <div style={{display:"flex",gap:6,flexShrink:0}}>
+              <button onClick={()=>{setView(c);setSignFournisseur(null);setSignClient(null);setLieuSigne("Villeret");}} style={{background:"var(--blue-bg)",border:"none",borderRadius:8,padding:8,display:"flex",color:"var(--blue)"}}><Ic n="eye" s={15}/></button>
+              <button onClick={()=>toggle(c.id)} style={{background:"var(--gray-light)",border:"none",borderRadius:8,padding:8,display:"flex"}}><Ic n={c.statut==="actif"?"x":"check"} s={15}/></button>
+              <button onClick={()=>del(c.id)} style={{background:"#FEE2E2",border:"none",borderRadius:8,padding:8,display:"flex",color:"#991B1B"}}><Ic n="trash" s={15}/></button>
+            </div>
+          </div>
+        </Card>
+      );
+    })}
+  </div>
+
+  {modal==="form" && (
+    <Modal title="Nouveau contrat" onClose={()=>setModal(null)} wide>
+      <div style={{display:"grid",gap:14}}>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+          <Sel label="Type" value={form.type} onChange={v=>setForm(p=>({...p,type:v}))}
+            options={[{v:"depot-vente",l:"Dépôt-vente"},{v:"vente",l:"Vente directe"}]}/>
+          <Sel label="Partenaire" value={form.partenaireId} onChange={v=>setForm(p=>({...p,partenaireId:v}))} required
+            options={st.partenaires.map(p=>({v:p.id,l:p.nom}))}/>
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12}}>
+          <F label="Date signature" type="date" value={form.dateSignature} onChange={v=>setForm(p=>({...p,dateSignature:v}))}/>
+          <F label="Date début" type="date" value={form.dateDebut} onChange={v=>setForm(p=>({...p,dateDebut:v}))}/>
+          <F label="Date fin" type="date" value={form.dateFin} onChange={v=>setForm(p=>({...p,dateFin:v}))}/>
+        </div>
+        {form.type==="depot-vente" && <F label="Commission (%)" type="number" value={form.commission} onChange={v=>setForm(p=>({...p,commission:v}))}/>}
+        <div>
+          <label style={{fontSize:11,fontWeight:600,color:"var(--gray)",textTransform:"uppercase",letterSpacing:".06em",display:"block",marginBottom:8}}>Produits concernés</label>
+          {form.lignes.map((l,i)=>(
+            <div key={i} style={{display:"grid",gridTemplateColumns:"2fr 1fr",gap:8,marginBottom:8}}>
+              <Sel label="" value={l.produitId} onChange={v=>updLigne(i,"produitId",v)}
+                options={[{v:"",l:"— Sélectionner —"},...st.produits.map(p=>({v:p.id,l:p.nom}))]}/>
+              <F label="" type="number" value={l.qte} onChange={v=>updLigne(i,"qte",v)} placeholder="Qté"/>
+            </div>
+          ))}
+          <button onClick={addLigne} style={{background:"none",border:"none",color:"var(--lemon2)",fontSize:13,fontWeight:500,cursor:"pointer"}}>+ Ajouter une ligne</button>
+        </div>
+        <F label="Notes" value={form.notes} onChange={v=>setForm(p=>({...p,notes:v}))}/>
+      </div>
+      <div style={{display:"flex",gap:10,marginTop:20}}>
+        <Btn onClick={save} full icon="check">Créer le contrat</Btn>
+        <Btn onClick={()=>setModal(null)} variant="ghost" full>Annuler</Btn>
+      </div>
+    </Modal>
+  )}
+
+  {/* Aperçu contrat */}
+  {view && (
+    <Modal title={`Contrat ${view.numero}`} onClose={()=>setView(null)} wide>
+      {(() => {
+        const pv = st.partenaires.find(p=>p.id===view.partenaireId);
+        return (
+          <div style={{fontFamily:"'Cormorant Garamond',serif",lineHeight:1.8}}>
+            <div style={{textAlign:"center",marginBottom:24}}>
+              <img src={LOGO_B64} alt="GoûtStoso" style={{width:56,height:52,objectFit:"contain"}}/>
+              <h2 style={{fontSize:28,marginTop:8}}>GoûtStoso</h2>
+              <p style={{fontSize:14,color:"var(--gray)",fontFamily:"'Jost',sans-serif"}}>Limoncello Artisanal · Suisse</p>
+              <div style={{borderTop:"2px solid var(--lemon)",width:60,margin:"16px auto"}}/>
+              <h3 style={{fontSize:22,fontWeight:700}}>CONTRAT DE {view.type==="depot-vente"?"DÉPÔT-VENTE":"VENTE"}</h3>
+              <p style={{fontSize:14,fontFamily:"'Jost',sans-serif",color:"var(--gray)"}}>{view.numero}</p>
+            </div>
+            <div style={{background:"var(--gray-light)",borderRadius:12,padding:"16px 20px",marginBottom:16,fontFamily:"'Jost',sans-serif",fontSize:13}}>
+              <p><strong>Fournisseur :</strong> Goûtstoso / Jordan Montanaro, Rue des Sources 19, 2613 Villeret</p>
+              <p style={{marginTop:4}}><strong>Dépositaire :</strong> {pv?.nom}</p>
+              <p>{pv?.adresse}</p>
+              {pv?.contact && <p>Contact : {pv?.contact}</p>}
+            </div>
+            <div style={{fontFamily:"'Jost',sans-serif",fontSize:12,marginBottom:12,lineHeight:1.7}}>
+              <p style={{marginBottom:6}}><strong>Objet :</strong> Le présent contrat régit la mise en dépôt-vente de produits Goûtstoso au sein de l'établissement du Dépositaire.</p>
+              <p style={{marginBottom:6}}><strong>Durée :</strong> Du {fmt(view.dateDebut)} au {fmt(view.dateFin)} (2 mois). Renouvelable par accord mutuel.</p>
+              {view.type==="depot-vente" && <p style={{marginBottom:6}}><strong>Paiement :</strong> Bilan après 1 mois, solde après 2 mois. Factures payables à 30 jours.</p>}
+              <p style={{marginBottom:6}}><strong>Invendus :</strong> Les produits invendus sont restitués au Fournisseur à l'issue du contrat.</p>
+              <p style={{marginBottom:6}}><strong>Propriété :</strong> Les marchandises restent propriété de Goûtstoso jusqu'au paiement intégral.</p>
+              <p style={{marginBottom:6}}><strong>Responsabilité :</strong> Le Dépositaire est responsable des produits pendant toute la durée du dépôt (perte, vol, détérioration).</p>
+              {view.notes && <p style={{marginBottom:6}}><strong>Remarques :</strong> {view.notes}</p>}
+              <p style={{marginTop:8,fontSize:11,color:"var(--gray)"}}>Les CGV complètes de Goûtstoso s'appliquent et font partie intégrante du présent contrat.</p>
+            </div>
+            <div style={{marginTop:16,borderTop:"1px solid var(--gray-mid)",paddingTop:16}}>
+              <p style={{fontFamily:"'Jost',sans-serif",fontSize:12,color:"var(--gray)",marginBottom:12}}>Produits concernés :</p>
+              {view.lignes.filter(l=>l.produitId).map((l,i)=>{
+                const p = st.produits.find(x=>x.id===l.produitId);
+                return <p key={i} style={{fontFamily:"'Jost',sans-serif",fontSize:13}}>• {p?.nom} — {l.qte} unités</p>;
+              })}
+            </div>
+            {/* ZONE DE SIGNATURE */}
+            <div style={{marginTop:24,padding:"16px 18px",border:"1.5px solid var(--lemon)",borderRadius:"var(--r)",background:"var(--lemon-pale)"}}>
+              <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:17,fontWeight:700,marginBottom:14}}>Signatures</p>
+              <div style={{display:"flex",gap:8,marginBottom:12,alignItems:"center",flexWrap:"wrap"}}>
+                <div style={{flex:1,minWidth:160}}>
+                  <label style={{fontSize:11,fontWeight:600,color:"var(--gray)",textTransform:"uppercase",display:"block",marginBottom:4}}>Fait à</label>
+                  <input value={lieuSigne} onChange={e=>setLieuSigne(e.target.value)} style={{padding:"7px 10px",fontSize:13}}/>
+                </div>
+                <div style={{flex:1,minWidth:160}}>
+                  <label style={{fontSize:11,fontWeight:600,color:"var(--gray)",textTransform:"uppercase",display:"block",marginBottom:4}}>Le</label>
+                  <input type="date" value={view.dateSignature} readOnly style={{padding:"7px 10px",fontSize:13}}/>
+                </div>
+              </div>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:14}}>
+                <div>
+                  <SignaturePad label="Signature Goûtstoso (Fournisseur)" value={view.signFournisseur||signFournisseur} onChange={setSignFournisseur}/>
+                  {(view.signFournisseur||signFournisseur) && <img src={view.signFournisseur||signFournisseur} style={{width:"100%",height:50,objectFit:"contain",marginTop:4,border:"1px solid var(--gray-mid)",borderRadius:6}}/>}
+                  <p style={{fontSize:11,color:"var(--gray)",marginTop:4}}>Jordan Montanaro · Goûtstoso</p>
+                </div>
+                <div>
+                  <SignaturePad label={`Signature ${pv?.nom||"Client"}`} value={view.signClient||signClient} onChange={setSignClient}/>
+                  {(view.signClient||signClient) && <img src={view.signClient||signClient} style={{width:"100%",height:50,objectFit:"contain",marginTop:4,border:"1px solid var(--gray-mid)",borderRadius:6}}/>}
+                  <p style={{fontSize:11,color:"var(--gray)",marginTop:4}}>{pv?.nom}</p>
+                </div>
+              </div>
+              <div style={{display:"flex",gap:10,alignItems:"center"}}>
+                <button onClick={sauvegarderSignatures}
+                  style={{flex:1,background:"var(--lemon)",border:"none",borderRadius:"var(--r-sm)",padding:"10px 16px",fontWeight:600,fontSize:14,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+                  <Ic n="check" s={15}/> Enregistrer les signatures
+                </button>
+                {(view.signFournisseur||view.signClient) && (
+                  <Badge c={view.statut==="signé"?"green":"yellow"}>{view.statut==="signé"?"✓ Contrat signé":"Partiellement signé"}</Badge>
+                )}
+              </div>
+            </div>
+            <div style={{marginTop:24,padding:"16px 20px",background:"var(--gray-light)",borderRadius:10,borderTop:"3px solid var(--lemon)"}}>
+              <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:16,fontWeight:700,marginBottom:10}}>Conditions Générales de Vente — Annexe</p>
+              <div style={{fontFamily:"'Jost',sans-serif",fontSize:11,color:"var(--gray)",lineHeight:1.8,whiteSpace:"pre-wrap"}}>{CGV}</div>
+              <p style={{fontSize:10,color:"var(--gray)",marginTop:12,textAlign:"center"}}>Goûtstoso · Jordan Montanaro · Rue des Sources 19, 2613 Villeret · admin@goutstoso.ch</p>
+            </div>
+          </div>
+        );
+      })()}
+    </Modal>
+  )}
+</div>
+```
+
+);
+};
+
+// ══════════════════════════════════════════════════════════════
+// PAGE: FACTURES
+// ══════════════════════════════════════════════════════════════
+const Factures = ({st,setSt}) => {
+const [modal,setModal] = useState(null);
+const [view,setView] = useState(null);
+const empty = {partenaireId:””,typeClient:“revendeur”,lignes:[{produitId:””,qte:1}],statut:“en attente”,datePaiement:””,notes:””};
+const [form,setForm] = useState(empty);
+
+const nextNum = () => {
+const n = st.factures.length+1;
+return `FAC-${new Date().getFullYear()}-${String(n).padStart(3,"0")}`;
+};
+
+const calcTotal = (lignes, typeClient) => sum(lignes.filter(l=>l.produitId&&l.qte).map(l=>{
+const p = st.produits.find(x=>x.id===l.produitId);
+return ((typeClient===“revendeur”?p?.prixRevendeur:p?.prixClient)||0) * (+l.qte||0);
+}));
+
+const save = () => {
+if(!form.partenaireId||!form.lignes.some(l=>l.produitId)) return;
+const fac = {…form,id:uid(),numero:nextNum(),date:today(),total:calcTotal(form.lignes,form.typeClient)};
+setSt(p=>({…p,factures:[…p.factures,fac]}));
+setModal(null);
+};
+const marquerPayee = id => setSt(p=>({…p,factures:p.factures.map(f=>f.id===id?{…f,statut:“payée”,datePaiement:today()}:f)}));
+const del = id => setSt(p=>({…p,factures:p.factures.filter(f=>f.id!==id)}));
+const addLigne = () => setForm(f=>({…f,lignes:[…f.lignes,{produitId:””,qte:1}]}));
+const updLigne = (i,k,v) => setForm(f=>({…f,lignes:f.lignes.map((l,j)=>j===i?{…l,[k]:v}:l)}));
+
+const exportFact = () => {
+const rows = st.factures.map(f=>{
+const pv = st.partenaires.find(p=>p.id===f.partenaireId);
+return {Numéro:f.numero,Date:f.date,Client:pv?.nom||””,TypeClient:f.typeClient,Montant:calcTotal(f.lignes,f.typeClient),Statut:f.statut,DatePaiement:f.datePaiement||””};
+});
+exportCSV(rows,“goutstoso_factures.csv”);
+};
+
+return (
+<div className="fade">
+<SectionTitle action={
+<div style={{display:“flex”,gap:8}}>
+<Btn icon="export" variant="ghost" small onClick={exportFact}>Export CSV</Btn>
+<Btn icon=“plus” onClick={()=>{setForm({…empty,id:null,partenaireId:st.partenaires[0]?.id||””});setModal(“form”);}}>Nouvelle facture</Btn>
+</div>
+}>Facturation</SectionTitle>
+
+```
+  <div style={{display:"grid",gap:10}}>
+    {st.factures.slice().reverse().map(f=>{
+      const pv = st.partenaires.find(p=>p.id===f.partenaireId);
+      const total = calcTotal(f.lignes,f.typeClient);
+      return (
+        <Card key={f.id} style={{padding:"14px 18px"}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <div>
+              <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
+                <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:17,fontWeight:700}}>{f.numero}</span>
+                <Badge c={f.statut==="payée"?"green":"yellow"}>{f.statut}</Badge>
+                <Badge c={f.typeClient==="revendeur"?"blue":"gray"}>{f.typeClient}</Badge>
+              </div>
+              <p style={{fontSize:13,color:"var(--gray)"}}>{pv?.nom||"—"} · {fmt(f.date)}</p>
+            </div>
+            <div style={{textAlign:"right"}}>
+              <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:22,fontWeight:700}}>{chf(total)}</p>
+              <div style={{display:"flex",gap:6,marginTop:6,justifyContent:"flex-end"}}>
+                <button onClick={()=>setView(f)} style={{background:"var(--blue-bg)",border:"none",borderRadius:7,padding:"5px 8px",display:"flex",color:"var(--blue)"}}><Ic n="eye" s={14}/></button>
+                {f.statut!=="payée" && <button onClick={()=>marquerPayee(f.id)} style={{background:"var(--green-bg)",border:"none",borderRadius:7,padding:"5px 8px",display:"flex",color:"var(--green)"}}><Ic n="check" s={14}/></button>}
+                <button onClick={()=>del(f.id)} style={{background:"#FEE2E2",border:"none",borderRadius:7,padding:"5px 8px",display:"flex",color:"#991B1B"}}><Ic n="trash" s={14}/></button>
+              </div>
+            </div>
+          </div>
+        </Card>
+      );
+    })}
+  </div>
+
+  {modal==="form" && (
+    <Modal title="Nouvelle facture" onClose={()=>setModal(null)} wide>
+      <div style={{display:"grid",gap:14}}>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+          <Sel label="Client" value={form.partenaireId} onChange={v=>setForm(p=>({...p,partenaireId:v}))} required
+            options={st.partenaires.map(p=>({v:p.id,l:p.nom}))}/>
+          <Sel label="Type de prix" value={form.typeClient} onChange={v=>setForm(p=>({...p,typeClient:v}))}
+            options={[{v:"revendeur",l:"Prix revendeur"},{v:"client",l:"Prix client public"}]}/>
+        </div>
+        <div>
+          <label style={{fontSize:11,fontWeight:600,color:"var(--gray)",textTransform:"uppercase",letterSpacing:".06em",display:"block",marginBottom:8}}>Lignes de facturation</label>
+          {form.lignes.map((l,i)=>{
+            const prod = st.produits.find(p=>p.id===l.produitId);
+            const pu = prod?(form.typeClient==="revendeur"?prod.prixRevendeur:prod.prixClient):0;
+            return (
+              <div key={i} style={{display:"grid",gridTemplateColumns:"3fr 1fr 1fr",gap:8,marginBottom:8,alignItems:"end"}}>
+                <Sel label={i===0?"Produit":""} value={l.produitId} onChange={v=>updLigne(i,"produitId",v)}
+                  options={[{v:"",l:"— Sélectionner —"},...st.produits.map(p=>({v:p.id,l:p.nom}))]}/>
+                <F label={i===0?"Qté":""} type="number" value={l.qte} onChange={v=>updLigne(i,"qte",v)} small/>
+                <div style={{textAlign:"right",paddingBottom:2}}>
+                  <p style={{fontSize:11,color:"var(--gray)"}}>Total</p>
+                  <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:17,fontWeight:700}}>{chf(pu*(+l.qte||0))}</p>
+                </div>
+              </div>
+            );
+          })}
+          <button onClick={addLigne} style={{background:"none",border:"none",color:"var(--lemon2)",fontSize:13,fontWeight:500,cursor:"pointer"}}>+ Ajouter une ligne</button>
+        </div>
+        <div style={{background:"var(--lemon-pale)",border:"1px solid var(--lemon)",borderRadius:10,padding:"12px 16px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+          <span style={{fontSize:13,fontWeight:500}}>Total facture</span>
+          <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:26,fontWeight:700}}>{chf(calcTotal(form.lignes,form.typeClient))}</span>
+        </div>
+        <F label="Notes" value={form.notes} onChange={v=>setForm(p=>({...p,notes:v}))}/>
+      </div>
+      <div style={{display:"flex",gap:10,marginTop:20}}>
+        <Btn onClick={save} full icon="check">Créer la facture</Btn>
+        <Btn onClick={()=>setModal(null)} variant="ghost" full>Annuler</Btn>
+      </div>
+    </Modal>
+  )}
+
+  {/* Aperçu facture */}
+  {view && (
+    <Modal title={`Facture ${view.numero}`} onClose={()=>setView(null)} wide>
+      {(()=>{
+        const pv = st.partenaires.find(p=>p.id===view.partenaireId);
+        const total = calcTotal(view.lignes,view.typeClient);
+        return (
+          <div style={{fontFamily:"'Jost',sans-serif",fontSize:13}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:24}}>
+              <div style={{display:"flex",alignItems:"center",gap:12}}>
+                <img src={LOGO_B64} alt="GoûtStoso" style={{width:48,height:44,objectFit:"contain"}}/>
+                <div>
+                  <h2 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:24,fontWeight:700}}>GoûtStoso</h2>
+                  <p style={{fontSize:12,color:"var(--gray)"}}>Limoncello Artisanal</p>
+                </div>
+              </div>
+              <div style={{textAlign:"right"}}>
+                <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:22,fontWeight:700,color:"var(--lemon2)"}}>{view.numero}</p>
+                <p style={{color:"var(--gray)",fontSize:12}}>Date : {fmt(view.date)}</p>
+                <Badge c={view.statut==="payée"?"green":"yellow"}>{view.statut}</Badge>
+              </div>
+            </div>
+            <div style={{background:"var(--gray-light)",borderRadius:10,padding:"12px 16px",marginBottom:16}}>
+              <p style={{fontSize:11,fontWeight:600,color:"var(--gray)",textTransform:"uppercase",marginBottom:4}}>Facturé à</p>
+              <p style={{fontWeight:600}}>{pv?.nom}</p>
+              <p style={{color:"var(--gray)"}}>{pv?.adresse}</p>
+              <p style={{color:"var(--gray)"}}>{pv?.contact} · {pv?.tel}</p>
+            </div>
+            <table style={{width:"100%",borderCollapse:"collapse",marginBottom:16}}>
+              <thead>
+                <tr style={{borderBottom:"2px solid var(--lemon)"}}>
+                  {["Produit","Qté","Prix unitaire","Total"].map(h=>(
+                    <th key={h} style={{textAlign:h==="Total"||h==="Qté"?"right":"left",padding:"8px",fontSize:11,fontWeight:600,color:"var(--gray)",textTransform:"uppercase"}}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {view.lignes.filter(l=>l.produitId).map((l,i)=>{
+                  const p = st.produits.find(x=>x.id===l.produitId);
+                  const pu = p?(view.typeClient==="revendeur"?p.prixRevendeur:p.prixClient):0;
+                  return (
+                    <tr key={i} style={{borderBottom:"1px solid var(--gray-mid)"}}>
+                      <td style={{padding:"10px 8px"}}>{p?.nom}</td>
+                      <td style={{padding:"10px 8px",textAlign:"right"}}>{l.qte}</td>
+                      <td style={{padding:"10px 8px",textAlign:"right"}}>{chf(pu)}</td>
+                      <td style={{padding:"10px 8px",textAlign:"right",fontWeight:600}}>{chf(pu*l.qte)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+            <div style={{display:"flex",justifyContent:"flex-end"}}>
+              <div style={{background:"var(--lemon-pale)",borderRadius:10,padding:"12px 20px",minWidth:200}}>
+                <div style={{display:"flex",justifyContent:"space-between",gap:20,marginBottom:4}}>
+                  <span style={{color:"var(--gray)"}}>Sous-total</span>
+                  <span>{chf(total)}</span>
+                </div>
+                <div style={{display:"flex",justifyContent:"space-between",gap:20,marginBottom:4}}>
+                  <span style={{color:"var(--gray)"}}>TVA</span>
+                  <span style={{color:"var(--gray)"}}>Non assujetti</span>
+                </div>
+                <div style={{display:"flex",justifyContent:"space-between",gap:20,borderTop:"1px solid var(--lemon)",paddingTop:8,marginTop:4}}>
+                  <span style={{fontWeight:600}}>Total CHF</span>
+                  <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:22,fontWeight:700}}>{chf(total)}</span>
+                </div>
+              </div>
+            </div>
+            {view.notes && <p style={{marginTop:16,color:"var(--gray)",fontSize:12}}>Notes : {view.notes}</p>}
+            <div style={{marginTop:20,borderTop:"1px solid var(--gray-mid)",paddingTop:12,fontSize:11,color:"var(--gray)",textAlign:"center",lineHeight:1.8}}>
+              <p>Goûtstoso · Jordan Montanaro · Rue des Sources 19 · 2613 Villeret</p>
+              <p>admin@goutstoso.ch · www.goutstoso.ch</p>
+              <p style={{marginTop:4,fontWeight:600}}>IBAN : CH23 0900 0000 1565 1485 8 · PostFinance · Paiement à 30 jours</p>
+            </div>
+            <div style={{marginTop:16,padding:"14px 18px",background:"var(--gray-light)",borderRadius:10,borderTop:"3px solid var(--lemon)"}}>
+              <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:15,fontWeight:700,marginBottom:8}}>Conditions Générales de Vente — Annexe</p>
+              <div style={{fontFamily:"'Jost',sans-serif",fontSize:10,color:"var(--gray)",lineHeight:1.7,whiteSpace:"pre-wrap"}}>{CGV}</div>
+            </div>
+          </div>
+        );
+      })()}
+    </Modal>
+  )}
+</div>
+```
+
+);
+};
+
+// ══════════════════════════════════════════════════════════════
+// PAGE: COMPTABILITÉ — Plan comptable suisse + compte de résultat
+// ══════════════════════════════════════════════════════════════
+
+// Plan comptable PME suisse simplifié
+const PLAN_COMPTABLE = {
+“3001”:“Vente Limonta”,“3002”:“Vente Limelo”,“3003”:“Vente Clementino”,
+“3400”:“Ventes de prestations”,“3600”:“Frais d’expédition clients”,
+“3601”:“Commissions Shopify”,“3700”:“Prestations propres”,“3800”:“Autres produits”,
+“4000”:“Achats de matériel”,“4010”:“Achat matières premières”,“4020”:“Sucre et additifs”,
+“4200”:“Bouteilles / Bouchons”,“4210”:“Étiquettes”,“4220”:“Emballages”,
+“4400”:“Prestations / travaux de tiers”,“5000”:“Salaires”,“5201”:“Dédouanement”,
+“6000”:“Charges de locaux”,“6200”:“Transport”,“6300”:“Assurances”,
+“6400”:“Électricité”,“6510”:“Téléphone”,“6512”:“Internet”,
+“6513”:“Frais de port”,“6530”:“Services juridique et comptable”,
+“6600”:“Annonces publicitaires”,“6610”:“Marketing”,“6800”:“Amortissements”,
+“6900”:“Charges financières”,“8900”:“Impôts”,
+};
+
+const CATS_RECETTE = [“Vente Limonta”,“Vente Limelo”,“Vente Clementino”,“Dépôt-vente”,“Vente directe”,“Expédition”,“Autres produits”];
+const CATS_DEPENSE = [“Matières premières”,“Emballages”,“Étiquettes”,“Dédouanement”,“Marketing”,“Transport”,“Matériel”,“Commissions”,“Services”,“Salaires”,“Autres charges”];
+
+const Comptabilite = ({st,setSt}) => {
+const [modal,setModal] = useState(null);
+const [onglet,setOnglet] = useState(“journal”);
+const [soldeSaisi,setSoldeSaisi] = useState(false);
+const emptyT = {date:today(),type:“recette”,compte:“3001”,categorie:“Vente Limonta”,montant:””,description:””};
+const [form,setForm] = useState(emptyT);
+
+const recettes = sum(st.transactions.filter(t=>t.type===“recette”).map(t=>t.montant));
+const depenses = sum(st.transactions.filter(t=>t.type===“depense”).map(t=>t.montant));
+const resultat = recettes - depenses;
+
+// Grouper par compte pour compte de résultat
+const parCompte = {};
+st.transactions.forEach(t=>{
+if(!parCompte[t.compte]) parCompte[t.compte]={compte:t.compte,libelle:PLAN_COMPTABLE[t.compte]||t.libelle||t.categorie,recettes:0,depenses:0};
+if(t.type===“recette”) parCompte[t.compte].recettes+=t.montant;
+else parCompte[t.compte].depenses+=t.montant;
+});
+const comptes = Object.values(parCompte).sort((a,b)=>a.compte.localeCompare(b.compte));
+
+const save = () => {
+if(!form.montant||!form.description) return;
+setSt(p=>({…p,transactions:[…p.transactions,{…form,id:uid(),montant:+form.montant,libelle:PLAN_COMPTABLE[form.compte]||form.categorie}]}));
+setForm(emptyT);
+setModal(null);
+};
+const del = id => setSt(p=>({…p,transactions:p.transactions.filter(t=>t.id!==id)}));
+
+const exportCompta = () => {
+const rows = st.transactions.slice().sort((a,b)=>a.date.localeCompare(b.date)).map(t=>({
+Date:t.date, Compte:t.compte, Libellé:PLAN_COMPTABLE[t.compte]||t.libelle||””,
+Description:t.description, Revenus:t.type===“recette”?t.montant:””, Dépenses:t.type===“depense”?t.montant:””
+}));
+exportCSV(rows,“goutstoso_journal.csv”);
+};
+
+const onglets = [{id:“journal”,l:“Journal”},{id:“resultat”,l:“Compte de résultat”},{id:“saisie”,l:”+ Écriture”}];
+
+return (
+<div className="fade">
+<SectionTitle action={<Btn icon="export" variant="ghost" small onClick={exportCompta}>Export CSV</Btn>}>
+Comptabilité
+</SectionTitle>
+
+```
+  {/* Solde bancaire */}
+  <Card style={{background:"var(--ink)",marginBottom:16}}>
+    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+      <div>
+        <p style={{color:"#aaa",fontSize:11,fontWeight:600,textTransform:"uppercase",letterSpacing:".08em"}}>Solde PostFinance</p>
+        {soldeSaisi?(
+          <input type="number" defaultValue={st.soldeBancaire} autoFocus
+            onBlur={e=>{setSt(p=>({...p,soldeBancaire:+e.target.value}));setSoldeSaisi(false);}}
+            style={{background:"transparent",border:"none",borderBottom:"2px solid var(--lemon)",borderRadius:0,color:"var(--lemon)",fontFamily:"'Cormorant Garamond',serif",fontSize:32,fontWeight:700,padding:"0 0 2px 0",width:180}}/>
+        ):(
+          <button onClick={()=>setSoldeSaisi(true)} style={{background:"none",border:"none",cursor:"pointer",textAlign:"left",padding:0}}>
+            <p style={{color:"var(--lemon)",fontFamily:"'Cormorant Garamond',serif",fontSize:32,fontWeight:700}}>{chf(st.soldeBancaire)}</p>
+            <p style={{color:"#555",fontSize:10,marginTop:1}}>Cliquer pour modifier</p>
+          </button>
+        )}
+      </div>
+      <div style={{textAlign:"right"}}>
+        <p style={{color:"#aaa",fontSize:10,textTransform:"uppercase"}}>Résultat net</p>
+        <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:24,fontWeight:700,color:resultat>=0?"#4ade80":"#f87171"}}>{chf(resultat)}</p>
+      </div>
+    </div>
+  </Card>
+
+  {/* KPIs */}
+  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:16}}>
+    {[
+      {l:"Recettes",v:recettes,c:"#166534",bg:"#DCFCE7"},
+      {l:"Dépenses",v:depenses,c:"#991B1B",bg:"#FEE2E2"},
+      {l:"Résultat",v:resultat,c:resultat>=0?"#166534":"#991B1B",bg:resultat>=0?"#DCFCE7":"#FEE2E2"},
+    ].map((k,i)=>(
+      <div key={i} style={{background:k.bg,borderRadius:12,padding:"10px 12px"}}>
+        <p style={{fontSize:10,color:k.c,fontWeight:600,textTransform:"uppercase",opacity:.7}}>{k.l}</p>
+        <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:19,fontWeight:700,color:k.c}}>{chf(k.v)}</p>
+      </div>
+    ))}
+  </div>
+
+  {/* Onglets */}
+  <div style={{display:"flex",background:"var(--gray-light)",borderRadius:10,padding:3,marginBottom:16}}>
+    {onglets.map(o=>(
+      <button key={o.id} onClick={()=>setOnglet(o.id)} style={{flex:1,background:onglet===o.id?"var(--white)":"none",border:"none",borderRadius:8,padding:"7px 0",fontSize:12,fontWeight:onglet===o.id?600:400,color:onglet===o.id?"var(--ink)":"var(--gray)"}}>
+        {o.l}
+      </button>
+    ))}
+  </div>
+
+  {/* JOURNAL */}
+  {onglet==="journal"&&(
+    <Card style={{overflow:"auto"}}>
+      <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
+        <thead>
+          <tr style={{borderBottom:"2px solid var(--lemon)"}}>
+            {["Date","Cpt","Description","Revenus","Dépenses",""].map(h=>(
+              <th key={h} style={{textAlign:h==="Revenus"||h==="Dépenses"?"right":"left",padding:"6px 8px",fontSize:10,fontWeight:600,color:"var(--gray)",textTransform:"uppercase"}}>{h}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {st.transactions.slice().sort((a,b)=>b.date.localeCompare(a.date)).map((t,i)=>(
+            <tr key={t.id} style={{background:i%2?"var(--gray-light)":"var(--white)",borderBottom:"1px solid var(--gray-mid)"}}>
+              <td style={{padding:"7px 8px",color:"var(--gray)",whiteSpace:"nowrap"}}>{fmt(t.date)}</td>
+              <td style={{padding:"7px 8px"}}><Badge c="gray">{t.compte}</Badge></td>
+              <td style={{padding:"7px 8px",fontWeight:500}}>{t.description}</td>
+              <td style={{padding:"7px 8px",textAlign:"right",color:"#166534",fontWeight:t.type==="recette"?600:400}}>{t.type==="recette"?chf(t.montant):"—"}</td>
+              <td style={{padding:"7px 8px",textAlign:"right",color:"#991B1B",fontWeight:t.type==="depense"?600:400}}>{t.type==="depense"?chf(t.montant):"—"}</td>
+              <td style={{padding:"7px 4px"}}><button onClick={()=>del(t.id)} style={{background:"none",border:"none",color:"var(--gray)",display:"flex",padding:2}}><Ic n="trash" s={12}/></button></td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </Card>
+  )}
+
+  {/* COMPTE DE RÉSULTAT */}
+  {onglet==="resultat"&&(
+    <Card style={{overflow:"auto"}}>
+      <h3 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:20,marginBottom:4}}>Compte de résultat</h3>
+      <p style={{fontSize:11,color:"var(--gray)",marginBottom:16}}>Exercice 01.01.2026 au 31.12.2026 · Goûtstoso</p>
+      <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
+        <thead>
+          <tr style={{borderBottom:"2px solid var(--lemon)"}}>
+            {["Compte","Libellé","Revenus","Dépenses","Solde"].map(h=>(
+              <th key={h} style={{textAlign:h==="Compte"||h==="Libellé"?"left":"right",padding:"6px 10px",fontSize:10,fontWeight:600,color:"var(--gray)",textTransform:"uppercase"}}>{h}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {comptes.map((c,i)=>{
+            const solde = c.recettes - c.depenses;
+            return (
+              <tr key={c.compte} style={{background:i%2?"var(--gray-light)":"var(--white)",borderBottom:"1px solid var(--gray-mid)"}}>
+                <td style={{padding:"8px 10px",color:"var(--gray)",fontFamily:"monospace"}}>{c.compte}</td>
+                <td style={{padding:"8px 10px",fontWeight:500}}>{c.libelle}</td>
+                <td style={{padding:"8px 10px",textAlign:"right",color:"#166534"}}>{c.recettes>0?chf(c.recettes):"—"}</td>
+                <td style={{padding:"8px 10px",textAlign:"right",color:"#991B1B"}}>{c.depenses>0?chf(c.depenses):"—"}</td>
+                <td style={{padding:"8px 10px",textAlign:"right",fontWeight:700,fontFamily:"'Cormorant Garamond',serif",fontSize:15,color:solde>=0?"#166534":"#991B1B"}}>{chf(solde)}</td>
+              </tr>
+            );
+          })}
+          <tr style={{background:"var(--ink)"}}>
+            <td colSpan={2} style={{padding:"10px",color:"var(--white)",fontWeight:700}}>RÉSULTAT DE L'ENTREPRISE</td>
+            <td style={{padding:"10px",textAlign:"right",color:"#4ade80",fontWeight:700}}>{chf(recettes)}</td>
+            <td style={{padding:"10px",textAlign:"right",color:"#f87171",fontWeight:700}}>{chf(depenses)}</td>
+            <td style={{padding:"10px",textAlign:"right",fontFamily:"'Cormorant Garamond',serif",fontSize:18,fontWeight:700,color:resultat>=0?"#4ade80":"#f87171"}}>{chf(resultat)}</td>
+          </tr>
+        </tbody>
+      </table>
+    </Card>
+  )}
+
+  {/* NOUVELLE ÉCRITURE */}
+  {onglet==="saisie"&&(
+    <Card>
+      <h3 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:20,marginBottom:16}}>Nouvelle écriture</h3>
+      <div style={{display:"grid",gap:14}}>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+          <Sel label="Type" value={form.type} onChange={v=>setForm(p=>({...p,type:v,categorie:v==="recette"?CATS_RECETTE[0]:CATS_DEPENSE[0]}))}
+            options={[{v:"recette",l:"Recette (+)"},{v:"depense",l:"Dépense (-)"}]}/>
+          <F label="Date" type="date" value={form.date} onChange={v=>setForm(p=>({...p,date:v}))}/>
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+          <Sel label="Compte" value={form.compte} onChange={v=>setForm(p=>({...p,compte:v,libelle:PLAN_COMPTABLE[v]||""}))}
+            options={Object.entries(PLAN_COMPTABLE).map(([k,v])=>({v:k,l:`${k} — ${v}`}))}/>
+          <F label="Montant (CHF)" type="number" value={form.montant} onChange={v=>setForm(p=>({...p,montant:v}))} required/>
+        </div>
+        <F label="Description" value={form.description} onChange={v=>setForm(p=>({...p,description:v}))} required/>
+        <Btn onClick={save} full icon="check">Enregistrer l'écriture</Btn>
+      </div>
+    </Card>
+  )}
+</div>
+```
+
+);
+};
+
+// ══════════════════════════════════════════════════════════════
+// APP SHELL
+// ══════════════════════════════════════════════════════════════
+const TABS = [
+{id:“dashboard”,label:“Tableau de bord”,icon:“dash”},
+{id:“produits”,label:“Produits”,icon:“prod”},
+{id:“stocks”,label:“Stocks”,icon:“stock”},
+{id:“partenaires”,label:“Points de vente”,icon:“depot”},
+{id:“contrats”,label:“Contrats”,icon:“contrat”},
+{id:“factures”,label:“Factures”,icon:“facture”},
+{id:“compta”,label:“Comptabilité”,icon:“compta”},
+];
+
+export default function App() {
+const [tab,setTab] = useState(“dashboard”);
+const [st,setSt] = useState(INIT);
+
+const pages = {
+dashboard:<Dashboard st={st}/>,
+produits:<Produits st={st} setSt={setSt}/>,
+stocks:<Stocks st={st} setSt={setSt}/>,
+partenaires:<Partenaires st={st} setSt={setSt}/>,
+contrats:<Contrats st={st} setSt={setSt}/>,
+factures:<Factures st={st} setSt={setSt}/>,
+compta:<Comptabilite st={st} setSt={setSt}/>,
+};
+
+return (
+<>
+<style>{STYLE}</style>
+<div style={{display:“flex”,minHeight:“100vh”}}>
+{/* Sidebar */}
+<div style={{width:220,background:“var(–ink)”,display:“flex”,flexDirection:“column”,position:“fixed”,top:0,left:0,height:“100vh”,zIndex:100}}>
+{/* Brand */}
+<div style={{padding:“20px 18px 16px”,borderBottom:“1px solid #ffffff15”,textAlign:“center”}}>
+<img src={LOGO_B64} alt=“GoûtStoso” style={{width:72,height:66,objectFit:“contain”,filter:“brightness(0) invert(1)”}}/>
+<p style={{fontFamily:”‘Cormorant Garamond’,serif”,fontSize:18,fontWeight:700,color:“var(–white)”,lineHeight:1,marginTop:6}}>GoûtStoso</p>
+<p style={{fontSize:10,color:”#888”,marginTop:3,letterSpacing:”.08em”,textTransform:“uppercase”}}>Gestion · Admin</p>
+</div>
+{/* Nav */}
+<nav style={{flex:1,padding:“12px 10px”,overflowY:“auto”}}>
+{TABS.map(t=>(
+<button key={t.id} onClick={()=>setTab(t.id)} style={{
+display:“flex”,alignItems:“center”,gap:10,width:“100%”,
+padding:“10px 12px”,borderRadius:10,border:“none”,
+background:tab===t.id?”#F2C94C18”:“none”,
+color:tab===t.id?“var(–lemon)”:”#aaa”,
+fontSize:13,fontWeight:tab===t.id?600:400,
+marginBottom:2,transition:“all .15s”,
+}}>
+<Ic n={t.icon} s={16}/> {t.label}
+</button>
+))}
+</nav>
+{/* Footer */}
+<div style={{padding:“14px 18px”,borderTop:“1px solid #ffffff15”}}>
+<p style={{fontSize:10,color:”#555”,lineHeight:1.6}}>Goûtstoso · Villeret<br/>admin@goutstoso.ch<br/>Non assujetti TVA · CHF</p>
+</div>
+</div>
+
+```
+    {/* Main */}
+    <div style={{marginLeft:220,flex:1,padding:"28px 28px 60px",maxWidth:900}}>
+      {pages[tab]||null}
+    </div>
+  </div>
+</>
+```
+
+);
+}
