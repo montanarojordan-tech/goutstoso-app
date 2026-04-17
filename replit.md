@@ -16,12 +16,13 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 - **API codegen**: Orval (from OpenAPI spec)
 - **Build**: esbuild (CJS bundle)
 - **Mobile/Web preview**: Expo Router / React
+- **External sync**: Goutstoso currently includes user-provided Supabase REST synchronization in the single-file app source.
 
 ## Artifacts
 
 - `artifacts/api-server` — shared Express API server at `/api`
 - `artifacts/mockup-sandbox` — canvas component preview sandbox
-- `artifacts/goutstoso` — Goutstoso management app using the latest user-provided single-file React application. The current implementation lives in `artifacts/goutstoso/app/index.tsx` and includes the mobile-oriented French Goûtstoso admin interface with bottom navigation, products, stocks, points de vente, contrats, factures, comptabilité, and localStorage persistence.
+- `artifacts/goutstoso` — Goutstoso management app using the latest user-provided single-file React application. The current implementation lives in `artifacts/goutstoso/app/index.tsx` and includes the mobile-oriented French Goûtstoso admin interface with bottom navigation, products, stocks, points de vente, contrats, factures, comptabilité, PDF invoice export, localStorage persistence, and Supabase REST sync.
 
 ## Key Commands
 
