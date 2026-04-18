@@ -2452,26 +2452,26 @@ const [st,setSt] = useState(INIT);
 const [loading, setLoading] = React.useState(true);
 const [syncing, setSyncing] = React.useState(false);
 
-// JSONBin - stockage cloud simple, aucune config requise
-const BIN_ID = "681a2e4a8561e97a50260e83";
-const BIN_KEY = "$2a$10$GxQpOiAVz2JVb1KJ6Q8GFeRtNK5nXCfvXEQfTqgAJsWlJfT3VCUQ6";
-const BIN_URL = `https://api.jsonbin.io/v3/b/${BIN_ID}`;
+const CLOUD_URL = "https://hc12z9cbqiy.preview.infomaniak.website/api.php";
 
 const cloudSave = async (data) => {
 try {
-await fetch(BIN_URL, {
-method:"PUT",
-headers:{"Content-Type":"application/json","X-Master-Key":BIN_KEY,"X-Bin-Versioning":"false"},
+const r = await fetch(CLOUD_URL, {
+method:"POST",
+headers:{"Content-Type":"application/json","Accept":"application/json"},
 body: JSON.stringify(data)
 });
+return r.ok;
 } catch(e){}
+return false;
 };
 
 const cloudLoad = async () => {
 try {
-const r = await fetch(BIN_URL+"/latest", {headers:{"X-Master-Key":BIN_KEY}});
+const r = await fetch(CLOUD_URL, {headers:{"Accept":"application/json"}});
+if(!r.ok) return null;
 const j = await r.json();
-if(j?.record?.produits?.length > 0) return j.record;
+if(j?.produits?.length > 0) return j;
 } catch(e){}
 return null;
 };
@@ -2508,7 +2508,15 @@ try { localStorage.setItem("goutstoso_v2", JSON.stringify(next)); } catch(e){}
 } else {
 try {
 const saved = localStorage.getItem("goutstoso_v2");
-if(saved) { const p = JSON.parse(saved); if(p?.produits?.length > 0) { const next = hydrateData(p); setSt(next); cloudSave(next); } }
+if(saved) {
+const p = JSON.parse(saved);
+if(p?.produits?.length > 0) { const next = hydrateData(p); setSt(next); cloudSave(next); }
+else { const next = hydrateData(INIT); setSt(next); cloudSave(next); }
+} else {
+const next = hydrateData(INIT);
+setSt(next);
+cloudSave(next);
+}
 } catch(e){}
 }
 setLoading(false);
