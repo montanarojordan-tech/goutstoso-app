@@ -1,5 +1,4 @@
 uploads = []
-outputs = []
 
 [[generated]]
 id = "Z9Jq1L7drr7PGJw1F7a_-"
@@ -18,3 +17,9 @@ id = "ou8BZcvQBiRQ8ma4UNP9z"
 uri = "file://artifacts/goutstoso/assets/images/product-line.png"
 type = "image"
 title = "generated_image"
+
+[[outputs]]
+id = "KTwAKsPhal-9Q4G1S6R1T"
+uri = "file://goutstoso-infomaniak.tar.gz"
+type = "unspecified"
+title = "Goutstoso — fichiers production Infomaniak"
