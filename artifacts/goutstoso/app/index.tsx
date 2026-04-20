@@ -276,9 +276,12 @@ const prod = st.produits.find(pr=>pr.id===l.produitId);
 return ((f.typeClient==="revendeur"?prod?.prixRevendeur:prod?.prixClient)||0) * l.qte;
 }));
 }));
-const stockTotal = sum(st.produits.map(p=>{
-const qte = sum(st.stocks.filter(s=>s.produitId===p.id).map(s=>s.qte));
-return qte * p.prixRevendeur;
+const stockTotal = sum(st.produits.filter(p=>!p.nom.includes("Coffret")).map(p=>{
+// Stock propre (entrées manuelles)
+const qtePropre = sum((st.stocks||[]).filter(s=>s.produitId===p.id).map(s=>s.qte));
+// Stock en dépôt non vendu
+const qteDepot = sum((st.depotStocks||[]).filter(d=>d.produitId===p.id).map(d=>d.qteDeposee-d.qteVendue-(d.qteRetournee||0)));
+return (qtePropre + qteDepot) * (p.prixRevendeur||0);
 }));
 const contratsActifs = st.contrats.filter(c=>c.statut==="actif").length;
 
@@ -2872,6 +2875,7 @@ if(remote) { const next = hydrateData(remote); setSt(next); try { localStorage.s
 }, 30000);
 return ()=>clearInterval(iv);
 },[]);
+
 
 
 const pages = {
