@@ -1133,20 +1133,47 @@ return (
             const p = st.produits.find(x=>x.id===d.produitId);
             const reste = d.qteDeposee - d.qteVendue - d.qteRetournee;
             return (
-              <div key={d.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderBottom:"1px solid #F5F5F0"}}>
-                <div>
-                  <p style={{fontSize:13,fontWeight:600}}>{p?.nom} {p?.variante} {p?.format}</p>
-                  <p style={{fontSize:11,color:"#9CA3AF"}}>Déposé {fmt(d.dateDepot)}</p>
-                </div>
-                <div style={{display:"flex",gap:8,alignItems:"center"}}>
-                  <div style={{textAlign:"right"}}>
-                    <p style={{fontSize:11,color:"#9CA3AF"}}>Déposé: {d.qteDeposee}</p>
-                    <p style={{fontSize:11,color:"#166534"}}>Vendu: {d.qteVendue}</p>
+              <div key={d.id} style={{padding:"10px 0",borderBottom:"1px solid #F5F5F0"}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+                  <div style={{flex:1,minWidth:0}}>
+                    <p style={{fontSize:13,fontWeight:600}}>{p?.nom} {p?.variante} {p?.format}</p>
+                    <p style={{fontSize:10,color:"#9CA3AF",marginTop:1}}>
+                      Déposé: {d.qteDeposee} · Vendu: {d.qteVendue} · Retourné: {d.qteRetournee||0}
+                    </p>
                   </div>
-                  <div style={{background:reste<=2?"#FEE2E2":"#DCFCE7",borderRadius:8,padding:"6px 10px",textAlign:"center"}}>
-                    <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:20,fontWeight:700,color:reste<=2?"#991B1B":"#166534"}}>{reste}</p>
+                  <div style={{background:reste<=2?"#FEE2E2":"#DCFCE7",borderRadius:8,padding:"6px 10px",textAlign:"center",marginLeft:10}}>
+                    <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:20,fontWeight:700,color:reste<=2?"#991B1B":"#166534",lineHeight:1}}>{reste}</p>
                     <p style={{fontSize:9,color:"#9CA3AF"}}>restant</p>
                   </div>
+                </div>
+                <div style={{display:"flex",gap:6}}>
+                  <button onClick={()=>{
+                    const n = parseInt(window.prompt("Nombre de ventes à ajouter pour "+p?.nom+" "+p?.variante+" "+p?.format+" ?","1"));
+                    if(!n||n<1) return;
+                    if(n>reste){alert("Maximum "+reste+" disponibles");return;}
+                    setSt(p2=>({...p2,depotStocks:p2.depotStocks.map(x=>x.id===d.id?{...x,qteVendue:x.qteVendue+n}:x)}));
+                  }} style={{flex:2,background:"#166534",color:"#fff",border:"none",borderRadius:8,padding:"7px",fontSize:11,fontWeight:600,cursor:"pointer"}}>
+                    + Vente
+                  </button>
+                  <button onClick={()=>{
+                    const n = parseInt(window.prompt("Nombre de retours pour "+p?.nom+" "+p?.variante+" "+p?.format+" ?","1"));
+                    if(!n||n<1) return;
+                    if(n>reste){alert("Maximum "+reste+" disponibles");return;}
+                    setSt(p2=>({...p2,depotStocks:p2.depotStocks.map(x=>x.id===d.id?{...x,qteRetournee:(x.qteRetournee||0)+n}:x)}));
+                  }} style={{flex:1,background:"#F5F5F0",border:"none",borderRadius:8,padding:"7px",fontSize:11,fontWeight:500,cursor:"pointer"}}>
+                    ↩ Retour
+                  </button>
+                  <button onClick={()=>{
+                    if(d.qteVendue===0 && (d.qteRetournee||0)===0) {
+                      if(!window.confirm("Supprimer cette ligne de dépôt ?")) return;
+                      setSt(p2=>({...p2,depotStocks:p2.depotStocks.filter(x=>x.id!==d.id)}));
+                    } else {
+                      if(!window.confirm("Réinitialiser les ventes/retours de cette ligne ?")) return;
+                      setSt(p2=>({...p2,depotStocks:p2.depotStocks.map(x=>x.id===d.id?{...x,qteVendue:0,qteRetournee:0}:x)}));
+                    }
+                  }} style={{background:"#FEE2E2",border:"none",borderRadius:8,padding:"7px 10px",cursor:"pointer",display:"flex"}}>
+                    <Ic n="trash" s={13}/>
+                  </button>
                 </div>
               </div>
             );
@@ -2845,6 +2872,7 @@ if(remote) { const next = hydrateData(remote); setSt(next); try { localStorage.s
 }, 30000);
 return ()=>clearInterval(iv);
 },[]);
+
 
 const pages = {
 dashboard:<Dashboard st={st}/>,
