@@ -1093,10 +1093,15 @@ if(!vendus.length){ alert("Aucune vente à facturer."); return; }
 const num = "FAC-"+new Date().getFullYear()+"-"+String((st.factures||[]).length+1).padStart(3,"0");
 const lignes = vendus.map(d=>({produitId:d.produitId,qte:d.qteVendue}));
 const newFac = {id:uid(),numero:num,date:today(),partenaireId:pv.id,typeClient:"revendeur",lignes,statut:"en attente",datePaiement:"",notes:"Inventaire dépôt-vente"};
-// Reset ventes
-const newDepots = (st.depotStocks||[]).map(d=>d.partenaireId===pv.id?{...d,qteVendue:0,dateInventaire:today()}:d);
+// Réduire qteDeposee pour les ventes + retraits, et réinitialiser les compteurs
+// Supprimer les lignes vides, garder celles avec du stock restant
+const newDepots = (st.depotStocks||[]).map(d=>{
+if(d.partenaireId!==pv.id) return d;
+const resteApresOp = d.qteDeposee - d.qteVendue - (d.qteRetournee||0);
+return {...d, qteDeposee: resteApresOp, qteVendue: 0, qteRetournee: 0, dateInventaire: today()};
+}).filter(d=>d.qteDeposee>0); // supprimer les lignes vides après inventaire
 setSt(p=>({...p,factures:[...(p.factures||[]),newFac],depotStocks:newDepots}));
-alert("Facture "+num+" créée !");
+alert("Facture "+num+" créée !\nLe stock a été mis à jour.");
 };
 
 const envoyerBulletin = (contrat) => {
@@ -1753,18 +1758,24 @@ Contrats
 
 // Demande permission notification au démarrage
 const demanderNotifications = async () => {
-if("Notification" in window && Notification.permission === "default") {
+try {
+if(typeof Notification !== "undefined" && Notification.permission === "default") {
 await Notification.requestPermission();
+}
+} catch(e) {
+// Silent fail - notification API not available (ex: Replit preview, some browsers)
+console.log("Notifications non disponibles");
 }
 };
 
 const envoyerNotifRappel = (facture, pv) => {
-if("Notification" in window && Notification.permission === "granted") {
+try {
+if(typeof Notification !== "undefined" && Notification.permission === "granted") {
 new Notification("⚠️ Facture en retard - GoûtStoso", {
-body: `${facture.numero} · ${pv?.nom||"Client"} · CHF ${parseFloat(facture.total||0).toFixed(2)} - 30 jours de retard`,
-icon: "/favicon.ico",
+body: facture.numero+" · "+(pv?.nom||"Client")+" · CHF "+parseFloat(facture.total||0).toFixed(2)+" - 30 jours de retard",
 });
 }
+} catch(e) {}
 };
 
 const calcTotal = (lignes, typeClient, produits) => sum(
@@ -2787,8 +2798,7 @@ acquire();
 const onVisible = () => { if(document.visibilityState === "visible") acquire(); };
 document.addEventListener("visibilitychange", onVisible);
 return () => { document.removeEventListener("visibilitychange", onVisible); if(wakeLock) try { wakeLock.release(); } catch(e){} };
-},[]);
-const [tab,setTab] = useState("dashboard");
+},[]);const [tab,setTab] = useState("dashboard");
 const [showMore,setShowMore] = useState(false);
 const [st,setSt] = useState(INIT);
 
@@ -2883,6 +2893,7 @@ if(remote) { const next = hydrateData(remote); setSt(next); try { localStorage.s
 }, 30000);
 return ()=>clearInterval(iv);
 },[]);
+
 
 
 
