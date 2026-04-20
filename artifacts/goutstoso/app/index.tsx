@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import * as React from "react";
+import { useKeepAwake } from "expo-keep-awake";
 
 const STYLE = `@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Jost:wght@300;400;500;600&display=swap'); *{box-sizing:border-box;margin:0;padding:0;} :root{ --ink:#111111; --cream:#FDFBF5; --lemon:#F2C94C; --lemon2:#D4A017; --lemon-pale:#FEF9E7; --white:#FFFFFF; --gray:#9CA3AF; --gray-light:#F5F5F0; --gray-mid:#E5E5E0; --green:#166534; --green-bg:#DCFCE7; --red:#991B1B; --red-bg:#FEE2E2; --orange:#92400E; --blue:#1E3A5F; --blue-bg:#DBEAFE; --shadow:0 2px 12px rgba(0,0,0,.06); --shadow-lg:0 8px 32px rgba(0,0,0,.14); --r:14px; --r-sm:10px; } html,body,#root{font-family:'Jost',sans-serif;background:#FDFBF5 !important;color:#111;min-height:100vh;-webkit-text-size-adjust:100%;overflow-x:hidden;max-width:100vw;} h1,h2,h3{font-family:'Cormorant Garamond',serif;} input,select,textarea{font-family:'Jost',sans-serif;font-size:16px;border:1.5px solid #E5E5E0;border-radius:10px;padding:11px 14px;width:100%;background:#fff;color:#111;outline:none;transition:border-color .18s;-webkit-appearance:none;} input:focus,select:focus,textarea:focus{border-color:#F2C94C;box-shadow:0 0 0 3px #F2C94C25;} select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%239CA3AF' stroke-width='1.5' fill='none'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:36px;} button{cursor:pointer;font-family:'Jost',sans-serif;-webkit-tap-highlight-color:transparent;} *{max-width:100%;word-break:break-word;} ::-webkit-scrollbar{width:0;height:0;} .fade{animation:fadeUp .2s ease both;} @keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}} @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}`;
 
@@ -2780,6 +2781,7 @@ const IcMore = ({s=22}) => (
 );
 
 export default function App() {
+useKeepAwake();
 const [tab,setTab] = useState("dashboard");
 const [showMore,setShowMore] = useState(false);
 const [st,setSt] = useState(INIT);
