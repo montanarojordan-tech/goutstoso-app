@@ -766,6 +766,257 @@ onTouchStart={start} onTouchMove={draw} onTouchEnd={stop}/>
 );
 };
 
+const genererBulletinPDF = async (c, pv, st) => {
+try {
+await new Promise((res,rej)=>{
+if(window.jspdf){res();return;}
+const s=document.createElement("script");
+s.src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";
+s.onload=res;s.onerror=rej;document.head.appendChild(s);
+});
+const {jsPDF}=window.jspdf;
+const doc=new jsPDF("p","mm","a4");
+const W=210,mg=18;
+const typeLabel = c.type==="depot-vente"?"BON DE DÉPÔT-VENTE":"BON DE LIVRAISON";
+
+// Bande jaune
+doc.setFillColor(242,201,76);doc.rect(0,0,W,6,"F");
+
+// Header
+doc.setFontSize(20);doc.setFont("helvetica","bold");doc.setTextColor(17,17,17);
+doc.text("GoûtStoso",mg,20);
+doc.setFontSize(8);doc.setFont("helvetica","normal");doc.setTextColor(150,150,150);
+doc.text("Liqueurs artisanales · Suisse",mg,26);
+doc.setFontSize(20);doc.setFont("helvetica","bold");doc.setTextColor(17,17,17);
+doc.text(typeLabel,W-mg,20,{align:"right"});
+doc.setFontSize(11);doc.setTextColor(212,160,23);
+doc.text(c.numero,W-mg,28,{align:"right"});
+doc.setFontSize(9);doc.setTextColor(120,120,120);doc.setFont("helvetica","normal");
+doc.text("Date : "+fmt(c.dateDebut),W-mg,34,{align:"right"});
+
+// Sépar
+doc.setDrawColor(230,230,228);doc.setLineWidth(0.3);doc.line(mg,42,W-mg,42);
+
+// Parties
+let y=50;
+doc.setFontSize(8);doc.setFont("helvetica","bold");doc.setTextColor(156,163,175);
+doc.text("FOURNISSEUR",mg,y);doc.text("CLIENT",W/2+2,y);
+doc.setDrawColor(242,201,76);doc.setLineWidth(0.5);
+doc.line(mg,y+1,mg+22,y+1);doc.line(W/2+2,y+1,W/2+18,y+1);
+y+=7;
+doc.setFontSize(11);doc.setFont("helvetica","bold");doc.setTextColor(17,17,17);
+doc.text("Goûtstoso",mg,y);doc.text(pv?.nom||"",W/2+2,y);
+doc.setFontSize(9);doc.setFont("helvetica","normal");doc.setTextColor(107,114,128);
+["Jordan Montanaro","Rue des Sources 19","2613 Villeret","admin@goutstoso.ch"].forEach((l,i)=>doc.text(l,mg,y+5+i*4.5));
+(pv?.adresse||"").split(", ").forEach((l,i)=>doc.text(l,W/2+2,y+5+i*4.5));
+if(pv?.contact) doc.text(pv.contact,W/2+2,y+5+3*4.5);
+
+// Tableau produits
+y+=32;
+doc.setFillColor(17,17,17);doc.rect(mg,y,W-mg*2,9,"F");
+doc.setFontSize(8);doc.setFont("helvetica","bold");doc.setTextColor(242,201,76);
+doc.text("DÉSIGNATION",mg+3,y+6);
+doc.setTextColor(180,180,180);
+doc.text("LOT",120,y+6,{align:"center"});
+doc.text("QUANTITÉ",W-mg-2,y+6,{align:"right"});
+y+=9;
+
+(c.lignes||[]).forEach((l,i)=>{
+  const p=st.produits.find(x=>x.id===l.produitId);
+  doc.setFillColor(i%2===0?250:255,i%2===0?250:255,i%2===0?248:255);
+  doc.rect(mg,y,W-mg*2,12,"F");
+  doc.setDrawColor(240,240,238);doc.setLineWidth(0.2);doc.rect(mg,y,W-mg*2,12,"S");
+  doc.setFontSize(10);doc.setFont("helvetica","bold");doc.setTextColor(17,17,17);
+  doc.text((p?.nom||"")+" "+(p?.variante||""),mg+3,y+5);
+  doc.setFontSize(8);doc.setFont("helvetica","normal");doc.setTextColor(150,150,150);
+  doc.text((p?.format||"")+" · 30% vol.",mg+3,y+10);
+  doc.setFontSize(9);doc.setTextColor(107,114,128);
+  doc.text(l.lot||genLot(c.dateDebut),120,y+7,{align:"center"});
+  doc.setFont("helvetica","bold");doc.setFontSize(13);doc.setTextColor(17,17,17);
+  doc.text(String(l.qte),W-mg-2,y+7,{align:"right"});
+  y+=12;
+});
+y+=8;
+
+// Notes
+if(c.notes) {
+  doc.setFillColor(254,249,231);doc.roundedRect(mg,y,W-mg*2,16,3,3,"F");
+  doc.setFontSize(8);doc.setFont("helvetica","bold");doc.setTextColor(146,64,14);
+  doc.text("NOTES",mg+4,y+5);
+  doc.setFont("helvetica","normal");doc.setFontSize(9);doc.setTextColor(120,80,30);
+  doc.text(c.notes,mg+4,y+11,{maxWidth:W-mg*2-8});
+  y+=20;
+}
+
+// Conditions selon type
+doc.setFillColor(245,245,242);doc.roundedRect(mg,y,W-mg*2,22,3,3,"F");
+doc.setFontSize(8);doc.setFont("helvetica","bold");doc.setTextColor(80,80,80);
+doc.text("CONDITIONS",mg+4,y+5);
+doc.setFont("helvetica","normal");doc.setFontSize(8.5);doc.setTextColor(107,114,128);
+if(c.type==="depot-vente") {
+  doc.text("Marchandise déposée en dépôt-vente. Propriété de Goûtstoso jusqu'au paiement.",mg+4,y+11);
+  doc.text("Facturation au prix professionnel après inventaire des ventes.",mg+4,y+16);
+} else {
+  doc.text("Marchandise livrée fermement. Facturation au prix professionnel.",mg+4,y+11);
+  doc.text("Paiement à 30 jours - IBAN : CH23 0900 0000 1565 1485 8",mg+4,y+16);
+}
+y+=28;
+
+// Signatures
+doc.setFontSize(8);doc.setFont("helvetica","bold");doc.setTextColor(80,80,80);
+doc.text("SIGNATURES",mg,y);y+=4;
+const sigW = (W-mg*2-10)/2;
+// Box fournisseur
+doc.setDrawColor(200,200,200);doc.setLineWidth(0.3);
+doc.roundedRect(mg,y,sigW,32,2,2,"S");
+doc.setFontSize(7);doc.setFont("helvetica","bold");doc.setTextColor(150,150,150);
+doc.text("Goûtstoso (Fournisseur)",mg+3,y+5);
+// Box client
+doc.roundedRect(mg+sigW+10,y,sigW,32,2,2,"S");
+doc.text(pv?.nom||"Client",mg+sigW+13,y+5);
+// Insert signature client si présente
+if(c.signClient) {
+  try { doc.addImage(c.signClient,"PNG",mg+sigW+13,y+8,sigW-6,20); } catch(e){}
+}
+
+// Pied de page
+doc.setDrawColor(230,230,228);doc.setLineWidth(0.3);doc.line(mg,277,W-mg,277);
+doc.setFontSize(7.5);doc.setFont("helvetica","normal");doc.setTextColor(150,150,150);
+doc.text("Goûtstoso · Jordan Montanaro · Rue des Sources 19 · 2613 Villeret · admin@goutstoso.ch · www.goutstoso.ch",W/2,282,{align:"center"});
+doc.setFillColor(242,201,76);doc.rect(0,292,W,5,"F");
+
+doc.save(c.numero+".pdf");
+
+} catch(e){alert("Erreur PDF : "+e.message);}
+};
+
+const genererContratPDF = async (c, pv, st) => {
+try {
+await new Promise((res,rej)=>{
+if(window.jspdf){res();return;}
+const s=document.createElement("script");
+s.src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";
+s.onload=res;s.onerror=rej;document.head.appendChild(s);
+});
+const {jsPDF}=window.jspdf;
+const doc=new jsPDF("p","mm","a4");
+const W=210,mg=18;
+const typeLabel = c.type==="depot-vente"?"CONTRAT DE DÉPÔT-VENTE":c.type==="partenariat"?"CONTRAT DE PARTENARIAT":"CONTRAT";
+
+doc.setFillColor(242,201,76);doc.rect(0,0,W,6,"F");
+doc.setFontSize(20);doc.setFont("helvetica","bold");doc.setTextColor(17,17,17);
+doc.text("GoûtStoso",mg,20);
+doc.setFontSize(8);doc.setFont("helvetica","normal");doc.setTextColor(150,150,150);
+doc.text("Liqueurs artisanales · Suisse",mg,26);
+doc.setFontSize(16);doc.setFont("helvetica","bold");doc.setTextColor(17,17,17);
+doc.text(typeLabel,W-mg,20,{align:"right"});
+doc.setFontSize(11);doc.setTextColor(212,160,23);
+doc.text(c.numero,W-mg,28,{align:"right"});
+doc.setFontSize(9);doc.setTextColor(120,120,120);doc.setFont("helvetica","normal");
+doc.text("Du "+fmt(c.dateDebut)+(c.dateFin?" au "+fmt(c.dateFin):" - Indéterminée"),W-mg,34,{align:"right"});
+
+doc.setDrawColor(230,230,228);doc.setLineWidth(0.3);doc.line(mg,42,W-mg,42);
+
+let y=50;
+doc.setFontSize(8);doc.setFont("helvetica","bold");doc.setTextColor(156,163,175);
+doc.text("ENTRE",mg,y);doc.text("ET",W/2+2,y);
+doc.setDrawColor(242,201,76);doc.setLineWidth(0.5);
+doc.line(mg,y+1,mg+10,y+1);doc.line(W/2+2,y+1,W/2+8,y+1);
+y+=7;
+doc.setFontSize(11);doc.setFont("helvetica","bold");doc.setTextColor(17,17,17);
+doc.text("Goûtstoso",mg,y);doc.text(pv?.nom||"",W/2+2,y);
+doc.setFontSize(9);doc.setFont("helvetica","normal");doc.setTextColor(107,114,128);
+["Jordan Montanaro","Rue des Sources 19","2613 Villeret","admin@goutstoso.ch"].forEach((l,i)=>doc.text(l,mg,y+5+i*4.5));
+(pv?.adresse||"").split(", ").forEach((l,i)=>doc.text(l,W/2+2,y+5+i*4.5));
+
+y+=32;
+if(c.commission>0) {
+  doc.setFillColor(254,249,231);doc.roundedRect(mg,y,W-mg*2,10,2,2,"F");
+  doc.setFontSize(10);doc.setFont("helvetica","bold");doc.setTextColor(146,64,14);
+  doc.text("Commission partenaire : "+c.commission+"%",mg+4,y+7);
+  y+=14;
+}
+
+// Produits
+if((c.lignes||[]).filter(l=>l.produitId).length>0) {
+  doc.setFontSize(9);doc.setFont("helvetica","bold");doc.setTextColor(80,80,80);
+  doc.text("PRODUITS CONCERNÉS",mg,y);y+=5;
+  doc.setFillColor(17,17,17);doc.rect(mg,y,W-mg*2,8,"F");
+  doc.setFontSize(7.5);doc.setFont("helvetica","bold");doc.setTextColor(242,201,76);
+  doc.text("DÉSIGNATION",mg+3,y+5.5);
+  doc.setTextColor(180,180,180);
+  doc.text("QTÉ",130,y+5.5,{align:"center"});
+  doc.text("PRIX U.",155,y+5.5,{align:"right"});
+  doc.text("TOTAL",W-mg-2,y+5.5,{align:"right"});
+  y+=8;
+  let total=0;
+  (c.lignes||[]).filter(l=>l.produitId).forEach((l,i)=>{
+    const p=st.produits.find(x=>x.id===l.produitId);
+    const pu=l.prixUnitaire||(p?.prixRevendeur||0);
+    const t=(l.qte||0)*pu; total+=t;
+    doc.setFillColor(i%2===0?250:255,i%2===0?250:255,i%2===0?248:255);
+    doc.rect(mg,y,W-mg*2,10,"F");
+    doc.setFontSize(9);doc.setFont("helvetica","bold");doc.setTextColor(17,17,17);
+    doc.text((p?.nom||"")+" "+(p?.variante||"")+" "+(p?.format||""),mg+3,y+6);
+    doc.setFont("helvetica","normal");doc.setTextColor(107,114,128);
+    doc.text(String(l.qte||0),130,y+6,{align:"center"});
+    doc.text("CHF "+pu.toFixed(2),155,y+6,{align:"right"});
+    doc.setFont("helvetica","bold");doc.setTextColor(17,17,17);
+    doc.text("CHF "+t.toFixed(2),W-mg-2,y+6,{align:"right"});
+    y+=10;
+  });
+  if(total>0) {
+    y+=2;
+    doc.setFillColor(254,249,231);doc.roundedRect(W/2+10,y,W/2-mg-10,10,2,2,"F");
+    doc.setFontSize(11);doc.setFont("helvetica","bold");doc.setTextColor(17,17,17);
+    doc.text("TOTAL : CHF "+total.toFixed(2),W-mg-3,y+7,{align:"right"});
+    y+=14;
+  }
+}
+
+if(c.notes) {
+  y+=4;
+  doc.setFontSize(9);doc.setFont("helvetica","bold");doc.setTextColor(80,80,80);
+  doc.text("CONDITIONS PARTICULIÈRES",mg,y);y+=5;
+  doc.setFillColor(245,245,242);doc.roundedRect(mg,y,W-mg*2,16,2,2,"F");
+  doc.setFontSize(9);doc.setFont("helvetica","normal");doc.setTextColor(80,80,80);
+  doc.text(c.notes,mg+4,y+7,{maxWidth:W-mg*2-8});
+  y+=20;
+}
+
+// Signatures
+y+=4;
+doc.setFontSize(8);doc.setFont("helvetica","bold");doc.setTextColor(80,80,80);
+doc.text("SIGNATURES",mg,y);y+=4;
+const sigW = (W-mg*2-10)/2;
+doc.setDrawColor(200,200,200);doc.setLineWidth(0.3);
+doc.roundedRect(mg,y,sigW,32,2,2,"S");
+doc.setFontSize(7);doc.setFont("helvetica","bold");doc.setTextColor(150,150,150);
+doc.text("Goûtstoso (Fournisseur)",mg+3,y+5);
+if(c.signFournisseur) {
+  try { doc.addImage(c.signFournisseur,"PNG",mg+3,y+8,sigW-6,20); } catch(e){}
+}
+doc.roundedRect(mg+sigW+10,y,sigW,32,2,2,"S");
+doc.text(pv?.nom||"Client",mg+sigW+13,y+5);
+if(c.signClient) {
+  try { doc.addImage(c.signClient,"PNG",mg+sigW+13,y+8,sigW-6,20); } catch(e){}
+}
+if(c.dateSignature) {
+  y+=36;
+  doc.setFontSize(8);doc.setFont("helvetica","normal");doc.setTextColor(150,150,150);
+  doc.text("Signé le "+fmt(c.dateSignature)+" à "+(c.lieuSignature||"Villeret"),W/2,y,{align:"center"});
+}
+
+doc.setDrawColor(230,230,228);doc.setLineWidth(0.3);doc.line(mg,277,W-mg,277);
+doc.setFontSize(7.5);doc.setFont("helvetica","normal");doc.setTextColor(150,150,150);
+doc.text("Goûtstoso · Jordan Montanaro · Rue des Sources 19 · 2613 Villeret · admin@goutstoso.ch · www.goutstoso.ch",W/2,282,{align:"center"});
+doc.setFillColor(242,201,76);doc.rect(0,292,W,5,"F");
+
+doc.save(c.numero+".pdf");
+
+} catch(e){alert("Erreur PDF : "+e.message);}
+};
+
 const Partenaires = ({st,setSt}) => {
 const [modal,setModal] = useState(null);
 const [selected,setSelected] = useState(null);
@@ -919,18 +1170,51 @@ return (
       ? <p style={{fontSize:12,color:"#9CA3AF",textAlign:"center",padding:"20px 0"}}>Aucun bulletin</p>
       : docs.slice().reverse().map(c=>(
           <Card key={c.id} style={{marginBottom:8,padding:"12px 14px"}}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
-              <div>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
+              <div style={{flex:1}}>
                 <p style={{fontWeight:700,fontSize:13}}>{c.numero}</p>
                 <p style={{fontSize:11,color:"#9CA3AF"}}>{c.type==="depot-vente"?"Dépôt-vente":"Livraison ferme"} · {fmt(c.dateDebut)}</p>
                 <p style={{fontSize:11,color:"#6B7280",marginTop:2}}>{(c.lignes||[]).length} produit(s)</p>
               </div>
-              <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:6}}>
-                <Badge c={c.statut==="signé"?"green":"yellow"}>{c.statut}</Badge>
-                <button onClick={()=>envoyerBulletin(c)} style={{background:"#F5F5F0",border:"none",borderRadius:8,padding:"5px 10px",fontSize:11,fontWeight:600,cursor:"pointer"}}>
-                  ✉️ Envoyer
-                </button>
-              </div>
+              <Badge c={c.statut==="signé"?"green":"yellow"}>{c.statut}</Badge>
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 40px",gap:6}}>
+              <button onClick={()=>genererBulletinPDF(c,pv,st)} style={{background:"#111",color:"#F2C94C",border:"none",borderRadius:8,padding:"7px",fontSize:11,fontWeight:700,cursor:"pointer"}}>📄 PDF</button>
+              <button onClick={()=>envoyerBulletin(c)} style={{background:"#F5F5F0",border:"none",borderRadius:8,padding:"7px",fontSize:11,fontWeight:600,cursor:"pointer"}}>✉️ Envoyer</button>
+              <button onClick={()=>{
+                if(window.confirm("Modifier ce bulletin ? La signature sera perdue.")) {
+                  // Reload livraison form with this data
+                  setLivForm({type:c.type,date:c.dateDebut,lignes:c.lignes||[{produitId:"",qte:1}],notes:c.notes||""});
+                  setSt(p=>({...p,contrats:p.contrats.filter(x=>x.id!==c.id)}));
+                  // Restore stock that was deposited
+                  const newDepots = [...(st.depotStocks||[])];
+                  (c.lignes||[]).forEach(l=>{
+                    const ex = newDepots.find(d=>d.partenaireId===c.partenaireId&&d.produitId===l.produitId);
+                    if(ex) ex.qteDeposee = Math.max(0, ex.qteDeposee - (+l.qte));
+                  });
+                  setSt(p=>({...p,depotStocks:newDepots}));
+                  setSelected(pv);
+                  setModal("livraison");
+                  setView(null);
+                }
+              }} style={{background:"#F5F5F0",border:"none",borderRadius:8,padding:"7px",fontSize:11,fontWeight:600,cursor:"pointer"}}>✏️ Modifier</button>
+              <button onClick={()=>{
+                if(window.confirm("Supprimer définitivement ce bulletin ? Le stock déposé sera retiré.")) {
+                  // Restore stock
+                  const newDepots = (st.depotStocks||[]).map(d=>{
+                    if(d.partenaireId!==c.partenaireId) return d;
+                    const ligne = (c.lignes||[]).find(l=>l.produitId===d.produitId);
+                    if(!ligne) return d;
+                    return {...d, qteDeposee: Math.max(0, d.qteDeposee - (+ligne.qte))};
+                  }).filter(d=>d.qteDeposee>0||d.qteVendue>0);
+                  setSt(p=>({...p,
+                    contrats:p.contrats.filter(x=>x.id!==c.id),
+                    depotStocks:newDepots,
+                  }));
+                }
+              }} style={{background:"#FEE2E2",border:"none",borderRadius:8,padding:"7px",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>
+                <Ic n="trash" s={13}/>
+              </button>
             </div>
           </Card>
         ))
@@ -1084,87 +1368,106 @@ Points de vente
 };
 
 // ══════════════════════════════════════════════════════════════
-// PAGE: CONTRATS
+// PAGE: CONTRATS - Version simplifiée et robuste
 // ══════════════════════════════════════════════════════════════
 const Contrats = ({st,setSt}) => {
 const [modal,setModal] = useState(null);
-const [view,setView] = useState(null);
-const [sigMode,setSigMode] = useState(false);
-const [sigTarget,setSigTarget] = useState(null); // "fournisseur" | "client"
+const [viewId,setViewId] = useState(null);
+const [sigMode,setSigMode] = useState(null); // "fournisseur" | "client" | null
+const [form,setForm] = useState(null);
 
-const emptyC = {
-numero:"",type:"depot-vente",partenaireId:"",
-dateDebut:today(),dateFin:"",commission:0,
+// Toujours récupérer le contrat frais depuis le state
+const view = viewId ? (st.contrats||[]).find(c=>c.id===viewId) : null;
+
+const emptyC = () => ({
+id:null,
+numero:"",
+type:"depot-vente",
+partenaireId:st.partenaires[0]?.id||"",
+dateDebut:today(),
+dateFin:"",
+commission:0,
 lignes:[{produitId:"",qte:0,prixUnitaire:0}],
-notes:"",statut:"brouillon",
-signFournisseur:null,signClient:null,lieuSignature:"Villeret",
-};
-const [form,setForm] = useState(emptyC);
+notes:"",
+statut:"brouillon",
+signFournisseur:null,
+signClient:null,
+lieuSignature:"Villeret",
+});
 
 const genNumero = (type) => {
 const prefix = type==="depot-vente"?"DPV":type==="partenariat"?"PAR":"CTR";
-const count = (st.contrats||[]).filter(c=>c.type===type).length+1;
-return `${prefix}-${new Date().getFullYear()}-${String(count).padStart(3,"0")}`;
+const existingNums = (st.contrats||[]).filter(c=>c.type===type&&!c.livraison).map(c=>c.numero);
+let n = 1;
+while(existingNums.includes(`${prefix}-${new Date().getFullYear()}-${String(n).padStart(3,"0")}`)) n++;
+return `${prefix}-${new Date().getFullYear()}-${String(n).padStart(3,"0")}`;
 };
 
 const save = () => {
-if(!form.partenaireId) return;
+if(!form.partenaireId) { alert("Sélectionne un partenaire"); return; }
 const numero = form.numero || genNumero(form.type);
+const cleanForm = {...form, numero};
 if(form.id) {
-setSt(p=>({...p,contrats:p.contrats.map(c=>c.id===form.id?{...form,numero}:c)}));
+setSt(p=>({...p,contrats:(p.contrats||[]).map(c=>c.id===form.id?cleanForm:c)}));
 } else {
-setSt(p=>({...p,contrats:[...(p.contrats||[]),{...form,id:uid(),numero}]}));
+cleanForm.id = uid();
+setSt(p=>({...p,contrats:[...(p.contrats||[]),cleanForm]}));
 }
 setModal(null);
+setForm(null);
 };
 
-const del = id => setSt(p=>({...p,contrats:p.contrats.filter(c=>c.id!==id)}));
-
-const addLigne = () => setForm(p=>({...p,lignes:[...p.lignes,{produitId:"",qte:0,prixUnitaire:0}]}));
-const updLigne = (i,k,v) => setForm(p=>({...p,lignes:p.lignes.map((l,j)=>j===i?{...l,[k]:v}:l)}));
+const supprimer = (id) => {
+if(!window.confirm("Supprimer définitivement ce contrat ?")) return;
+setSt(p=>({...p,contrats:(p.contrats||[]).filter(c=>c.id!==id)}));
+setViewId(null);
+};
 
 const signer = (sig) => {
-setSt(p=>({...p,contrats:p.contrats.map(c=>c.id===view.id?{
-...c,
-signFournisseur: sigTarget==="fournisseur"?sig:c.signFournisseur,
-signClient: sigTarget==="client"?sig:c.signClient,
+if(!view) return;
+const updated = {
+...view,
+signFournisseur: sigMode==="fournisseur"?sig:view.signFournisseur,
+signClient: sigMode==="client"?sig:view.signClient,
 dateSignature: today(),
-statut: sigTarget==="client"&&c.signFournisseur?"signé":sigTarget==="fournisseur"&&c.signClient?"signé":"en attente signature",
-}:c)}));
-const updated = {...view,
-signFournisseur: sigTarget==="fournisseur"?sig:view.signFournisseur,
-signClient: sigTarget==="client"?sig:view.signClient,
-statut: "signé",
 };
-setView(updated);
-setSigMode(false);
+if(updated.signFournisseur && updated.signClient) updated.statut = "signé";
+else if(updated.signFournisseur || updated.signClient) updated.statut = "en attente signature";
+setSt(p=>({...p,contrats:(p.contrats||[]).map(c=>c.id===view.id?updated:c)}));
+setSigMode(null);
 };
+
+const effacerSignature = (target) => {
+if(!view) return;
+if(!window.confirm("Effacer cette signature ?")) return;
+const updated = {
+...view,
+signFournisseur: target==="fournisseur"?null:view.signFournisseur,
+signClient: target==="client"?null:view.signClient,
+};
+updated.statut = (updated.signFournisseur&&updated.signClient)?"signé":(updated.signFournisseur||updated.signClient)?"en attente signature":"brouillon";
+setSt(p=>({...p,contrats:(p.contrats||[]).map(c=>c.id===view.id?updated:c)}));
+};
+
+const addLigne = () => setForm(p=>({...p,lignes:[...(p.lignes||[]),{produitId:"",qte:0,prixUnitaire:0}]}));
+const updLigne = (i,k,v) => setForm(p=>({...p,lignes:p.lignes.map((l,j)=>j===i?{...l,[k]:v}:l)}));
+const delLigne = (i) => setForm(p=>({...p,lignes:p.lignes.filter((_,j)=>j!==i)}));
 
 const envoyerContrat = (c) => {
 const pv = st.partenaires.find(p=>p.id===c.partenaireId);
-const lignesTxt = (c.lignes||[]).filter(l=>l.produitId).map(l=>{
-const p = st.produits.find(x=>x.id===l.produitId);
-return "• "+p?.nom+" "+p?.variante+" "+p?.format+(l.qte>0?" x"+l.qte:"");
-}).join("\n");
-const typeLabel = ({"depot-vente":"Contrat de dépôt-vente","partenariat":"Contrat de partenariat","autre":"Contrat"})[c.type]||"Contrat";
-const subj = encodeURIComponent(typeLabel+" "+c.numero+" - GoûtStoso");
+const typeL = c.type==="depot-vente"?"Contrat de dépôt-vente":c.type==="partenariat"?"Contrat de partenariat":"Contrat";
+const subj = encodeURIComponent(typeL+" "+c.numero+" - GoûtStoso");
 const body = encodeURIComponent(
-"Bonjour "+pv?.contact+",\n\n"+
-"Veuillez trouver ci-joint le "+typeLabel+" N° "+c.numero+".\n\n"+
-"Durée : du "+fmt(c.dateDebut)+(c.dateFin?" au "+fmt(c.dateFin):"")+"\n"+
-(c.commission>0?"Commission : "+c.commission+"%\n":"")+
-"\nProduits concernés :\n"+lignesTxt+"\n\n"+
-(c.notes?"Notes : "+c.notes+"\n\n":"")+
-"Ce contrat est soumis à nos Conditions Générales de Vente.\n\n"+
-"Pour toute question, n'hésitez pas à nous contacter.\n\n"+
-"Cordialement,\nJordan Montanaro - GoûtStoso\nadmin@goutstoso.ch\nwww.goutstoso.ch"
+"Bonjour "+(pv?.contact||"")+",\n\n"+
+"Veuillez trouver ci-joint le "+typeL+" N° "+c.numero+".\n\n"+
+"Cordialement,\nJordan Montanaro - GoûtStoso\nadmin@goutstoso.ch"
 );
 window.location.href = "mailto:"+(pv?.email||"")+"?subject="+subj+"&body="+body;
 };
 
 const totalContrat = (c) => {
 try {
-return sum((c.lignes||[]).filter(l=>l&&l.produitId).map(l=>{
+return sum((c?.lignes||[]).filter(l=>l&&l.produitId).map(l=>{
 const p = st.produits.find(x=>x.id===l.produitId);
 const pu = parseFloat(l.prixUnitaire||0) || parseFloat(p?.prixRevendeur||0);
 return parseFloat(l.qte||0)*pu;
@@ -1174,81 +1477,92 @@ return parseFloat(l.qte||0)*pu;
 
 const badgeC = (s) => s==="signé"?"green":s==="brouillon"?"gray":s==="actif"?"blue":"yellow";
 
-// Vue détail contrat
+// Vue signature
+if(view && sigMode) return (
+<div className="fade">
+<button onClick={()=>setSigMode(null)} style={{display:"flex",alignItems:"center",gap:6,background:"none",border:"none",color:"#9CA3AF",fontSize:13,marginBottom:16,padding:0,cursor:"pointer"}}>← Retour</button>
+<div style={{background:"#FEF9E7",borderRadius:12,padding:"12px 14px",marginBottom:16,border:"1.5px solid #F2C94C"}}>
+<p style={{fontWeight:700,fontSize:13}}>Signature - {sigMode==="fournisseur"?"GoûtStoso (Fournisseur)":"Client"}</p>
+<p style={{fontSize:11,color:"#92400E",marginTop:4}}>{view.numero}</p>
+</div>
+<SignaturePad onSave={signer} onCancel={()=>setSigMode(null)}/>
+</div>
+);
+
+// Vue détail
 if(view) {
 const pv = st.partenaires.find(p=>p.id===view.partenaireId);
 const total = totalContrat(view);
-const typeLabel = view.type==="depot-vente"?"Dépôt-vente":view.type==="partenariat"?"Partenariat":"Contrat";
-
-if(sigMode) return (
-  <div className="fade">
-    <button onClick={()=>setSigMode(false)} style={{display:"flex",alignItems:"center",gap:6,background:"none",border:"none",color:"#9CA3AF",fontSize:13,marginBottom:16,padding:0,cursor:"pointer"}}>← Retour</button>
-    <div style={{background:"#FEF9E7",borderRadius:12,padding:"12px 14px",marginBottom:16}}>
-      <p style={{fontWeight:700,fontSize:13}}>Signature - {sigTarget==="fournisseur"?"GoûtStoso (Fournisseur)":"Client : "+pv?.nom}</p>
-      <p style={{fontSize:11,color:"#92400E",marginTop:2}}>{view.numero} · {fmt(today())}</p>
-    </div>
-    <SignaturePad onSave={signer} onCancel={()=>setSigMode(false)}/>
-  </div>
-);
+const typeL = view.type==="depot-vente"?"Dépôt-vente":view.type==="partenariat"?"Partenariat":"Contrat";
 
 return (
   <div className="fade">
-    <button onClick={()=>setView(null)} style={{display:"flex",alignItems:"center",gap:6,background:"none",border:"none",color:"#9CA3AF",fontSize:13,marginBottom:16,padding:0,cursor:"pointer"}}>← Retour</button>
+    <button onClick={()=>setViewId(null)} style={{display:"flex",alignItems:"center",gap:6,background:"none",border:"none",color:"#9CA3AF",fontSize:13,marginBottom:12,padding:0,cursor:"pointer"}}>← Retour aux contrats</button>
 
-    {/* Header contrat */}
-    <div style={{background:"#111",borderRadius:14,padding:"16px",marginBottom:16}}>
+    {/* Header */}
+    <div style={{background:"#111",borderRadius:14,padding:"14px 16px",marginBottom:12}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
         <div>
-          <p style={{fontSize:10,color:"#F2C94C",fontWeight:700,textTransform:"uppercase",letterSpacing:".08em"}}>{typeLabel}</p>
+          <p style={{fontSize:10,color:"#F2C94C",fontWeight:700,textTransform:"uppercase",letterSpacing:".08em"}}>{typeL}</p>
           <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:22,fontWeight:700,color:"#fff",marginTop:2}}>{view.numero}</p>
         </div>
         <Badge c={badgeC(view.statut)}>{view.statut}</Badge>
       </div>
-      <div style={{marginTop:10,display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
-        <div style={{background:"#ffffff15",borderRadius:8,padding:"8px 10px"}}>
-          <p style={{fontSize:9,color:"#aaa",textTransform:"uppercase"}}>Début</p>
-          <p style={{fontSize:13,color:"#fff",fontWeight:500,marginTop:2}}>{fmt(view.dateDebut)}</p>
-        </div>
-        <div style={{background:"#ffffff15",borderRadius:8,padding:"8px 10px"}}>
-          <p style={{fontSize:9,color:"#aaa",textTransform:"uppercase"}}>Fin</p>
-          <p style={{fontSize:13,color:"#fff",fontWeight:500,marginTop:2}}>{view.dateFin?fmt(view.dateFin):"Indéterminée"}</p>
-        </div>
-      </div>
     </div>
 
-    {/* Parties */}
-    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:14}}>
-      <Card style={{padding:"12px"}}>
-        <p style={{fontSize:9,color:"#9CA3AF",fontWeight:700,textTransform:"uppercase",marginBottom:4}}>Fournisseur</p>
-        <p style={{fontWeight:700,fontSize:12}}>GoûtStoso</p>
-        <p style={{fontSize:11,color:"#6B7280",lineHeight:1.6,marginTop:2}}>Jordan Montanaro{"\n"}Villeret</p>
-      </Card>
-      <Card style={{padding:"12px"}}>
-        <p style={{fontSize:9,color:"#9CA3AF",fontWeight:700,textTransform:"uppercase",marginBottom:4}}>Client</p>
-        <p style={{fontWeight:700,fontSize:12}}>{pv?.nom}</p>
-        <p style={{fontSize:11,color:"#6B7280",lineHeight:1.6,marginTop:2}}>{pv?.adresse}</p>
-      </Card>
+    {/* Actions principales */}
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6,marginBottom:8}}>
+      <button onClick={()=>genererContratPDF(view,pv,st)} style={{background:"#111",color:"#F2C94C",border:"none",borderRadius:10,padding:"11px 4px",fontWeight:700,fontSize:11,cursor:"pointer"}}>📄 PDF</button>
+      <button onClick={()=>envoyerContrat(view)} style={{background:"#FEF9E7",color:"#92400E",border:"1.5px solid #F2C94C",borderRadius:10,padding:"11px 4px",fontWeight:700,fontSize:11,cursor:"pointer"}}>✉️ Email</button>
+      <button onClick={()=>{setForm({...view});setModal("form");setViewId(null);}} style={{background:"#F5F5F0",border:"none",borderRadius:10,padding:"11px 4px",fontWeight:600,fontSize:11,cursor:"pointer"}}>✏️ Modifier</button>
     </div>
+    <button onClick={()=>supprimer(view.id)} style={{width:"100%",background:"#FEE2E2",color:"#991B1B",border:"none",borderRadius:10,padding:"10px",fontWeight:600,fontSize:12,cursor:"pointer",marginBottom:14,display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+      <Ic n="trash" s={14}/> Supprimer ce contrat
+    </button>
+
+    {/* Infos */}
+    <Card style={{marginBottom:12,padding:"12px 14px"}}>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
+        <div>
+          <p style={{fontSize:9,color:"#9CA3AF",fontWeight:700,textTransform:"uppercase"}}>Début</p>
+          <p style={{fontSize:12,fontWeight:600,marginTop:2}}>{fmt(view.dateDebut)}</p>
+        </div>
+        <div>
+          <p style={{fontSize:9,color:"#9CA3AF",fontWeight:700,textTransform:"uppercase"}}>Fin</p>
+          <p style={{fontSize:12,fontWeight:600,marginTop:2}}>{view.dateFin?fmt(view.dateFin):"Indéterminée"}</p>
+        </div>
+      </div>
+      <div style={{borderTop:"1px solid #F5F5F0",paddingTop:10}}>
+        <p style={{fontSize:9,color:"#9CA3AF",fontWeight:700,textTransform:"uppercase",marginBottom:4}}>Partenaire</p>
+        <p style={{fontSize:13,fontWeight:700}}>{pv?.nom||"-"}</p>
+        {pv?.adresse&&<p style={{fontSize:11,color:"#6B7280"}}>{pv.adresse}</p>}
+      </div>
+      {view.commission>0&&(
+        <div style={{marginTop:8,padding:"6px 10px",background:"#FEF9E7",borderRadius:8}}>
+          <p style={{fontSize:11,color:"#92400E"}}>Commission : <strong>{view.commission}%</strong></p>
+        </div>
+      )}
+    </Card>
 
     {/* Produits */}
     {(view.lignes||[]).filter(l=>l.produitId).length>0&&(
-      <Card style={{marginBottom:14}}>
+      <Card style={{marginBottom:12,padding:"12px 14px"}}>
         <p style={{fontSize:11,fontWeight:700,color:"#9CA3AF",textTransform:"uppercase",marginBottom:8}}>Produits</p>
         {(view.lignes||[]).filter(l=>l.produitId).map((l,i)=>{
           const p = st.produits.find(x=>x.id===l.produitId);
           const pu = l.prixUnitaire||(p?.prixRevendeur||0);
           return (
-            <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"7px 0",borderBottom:"1px solid #F5F5F0"}}>
+            <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 0",borderBottom:"1px solid #F5F5F0"}}>
               <div>
-                <p style={{fontSize:13,fontWeight:600}}>{p?.nom} {p?.variante} {p?.format}</p>
-                {l.qte>0&&<p style={{fontSize:11,color:"#9CA3AF"}}>Qté: {l.qte} · {chf(pu)}/u</p>}
+                <p style={{fontSize:12,fontWeight:600}}>{p?.nom} {p?.variante}</p>
+                <p style={{fontSize:10,color:"#9CA3AF"}}>{p?.format} · Qté {l.qte||0}</p>
               </div>
-              {l.qte>0&&<span style={{fontWeight:700,fontSize:13}}>{chf(pu*l.qte)}</span>}
+              <span style={{fontWeight:700,fontSize:12}}>{chf(pu*(l.qte||0))}</span>
             </div>
           );
         })}
         {total>0&&(
-          <div style={{display:"flex",justifyContent:"space-between",paddingTop:8,marginTop:4}}>
+          <div style={{display:"flex",justifyContent:"space-between",paddingTop:8,marginTop:4,borderTop:"2px solid #F2C94C"}}>
             <span style={{fontWeight:700}}>Total</span>
             <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:18,fontWeight:700,color:"#D4A017"}}>{chf(total)}</span>
           </div>
@@ -1256,20 +1570,16 @@ return (
       </Card>
     )}
 
-    {view.commission>0&&(
-      <Card style={{marginBottom:14,padding:"10px 14px",background:"#FEF9E7"}}>
-        <p style={{fontSize:12,color:"#92400E"}}>Commission partenaire : <strong>{view.commission}%</strong></p>
-      </Card>
-    )}
-
+    {/* Notes */}
     {view.notes&&(
-      <Card style={{marginBottom:14,padding:"10px 14px"}}>
-        <p style={{fontSize:11,color:"#6B7280",fontStyle:"italic"}}>{view.notes}</p>
+      <Card style={{marginBottom:12,padding:"10px 14px",background:"#F5F5F0"}}>
+        <p style={{fontSize:10,color:"#9CA3AF",fontWeight:700,textTransform:"uppercase",marginBottom:4}}>Notes</p>
+        <p style={{fontSize:12,color:"#374151"}}>{view.notes}</p>
       </Card>
     )}
 
     {/* Signatures */}
-    <Card style={{marginBottom:14}}>
+    <Card style={{marginBottom:14,padding:"12px 14px"}}>
       <p style={{fontSize:11,fontWeight:700,color:"#9CA3AF",textTransform:"uppercase",marginBottom:10}}>Signatures</p>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
         {[
@@ -1277,35 +1587,27 @@ return (
           {label:pv?.nom||"Client",sig:view.signClient,target:"client"},
         ].map(({label,sig,target})=>(
           <div key={target} style={{border:"1.5px solid #E5E5E0",borderRadius:10,overflow:"hidden"}}>
-            <p style={{fontSize:10,fontWeight:600,color:"#9CA3AF",textTransform:"uppercase",padding:"6px 8px",borderBottom:"1px solid #F5F5F0",background:"#F5F5F0"}}>{label}</p>
-            {sig
-              ? <img src={sig} style={{width:"100%",height:60,objectFit:"contain",padding:4}}/>
-              : <div style={{height:60,display:"flex",alignItems:"center",justifyContent:"center"}}>
-                  <button onClick={()=>{setSigTarget(target);setSigMode(true);}} style={{background:"none",border:"none",color:"#9CA3AF",fontSize:12,cursor:"pointer"}}>
-                    ✍️ Signer
-                  </button>
-                </div>
-            }
+            <p style={{fontSize:9,fontWeight:700,color:"#9CA3AF",textTransform:"uppercase",padding:"5px 8px",borderBottom:"1px solid #F5F5F0",background:"#F5F5F0"}}>{label}</p>
+            {sig ? (
+              <div>
+                <img src={sig} style={{width:"100%",height:55,objectFit:"contain",padding:4}}/>
+                <button onClick={()=>effacerSignature(target)} style={{width:"100%",background:"#FEE2E2",color:"#991B1B",border:"none",borderTop:"1px solid #FCA5A5",padding:"5px",fontSize:10,fontWeight:600,cursor:"pointer"}}>Effacer</button>
+              </div>
+            ) : (
+              <button onClick={()=>setSigMode(target)} style={{width:"100%",height:75,background:"none",border:"none",color:"#9CA3AF",fontSize:12,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>
+                ✍️ Signer
+              </button>
+            )}
           </div>
         ))}
       </div>
-      {view.dateSignature&&<p style={{fontSize:10,color:"#9CA3AF",textAlign:"center",marginTop:8}}>Signé le {fmt(view.dateSignature)} · {view.lieuSignature}</p>}
+      {view.dateSignature&&<p style={{fontSize:10,color:"#9CA3AF",textAlign:"center",marginTop:8}}>Signé le {fmt(view.dateSignature)} · {view.lieuSignature||"Villeret"}</p>}
     </Card>
 
-    {/* Actions */}
-    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:14}}>
-      <button onClick={()=>envoyerContrat(view)} style={{background:"#111",color:"#F2C94C",border:"none",borderRadius:12,padding:"12px",fontWeight:700,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
-        ✉️ Envoyer
-      </button>
-      <button onClick={()=>{setForm({...view});setModal("form");setView(null);}} style={{background:"#F5F5F0",border:"none",borderRadius:12,padding:"12px",fontWeight:600,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
-        <Ic n="edit" s={14}/> Modifier
-      </button>
-    </div>
-
     {/* CGV */}
-    <details style={{background:"#F5F5F0",borderRadius:10,padding:"12px 14px",fontSize:11,color:"#6B7280"}}>
-      <summary style={{fontWeight:700,fontSize:13,color:"#111",cursor:"pointer",display:"flex",justifyContent:"space-between",listStyle:"none"}}>CGV - Annexe <span>▼</span></summary>
-      <div style={{marginTop:10,lineHeight:1.7,whiteSpace:"pre-wrap",fontSize:10}}>{CGV}</div>
+    <details style={{background:"#F5F5F0",borderRadius:10,padding:"10px 14px",fontSize:11,color:"#6B7280"}}>
+      <summary style={{fontWeight:700,fontSize:12,color:"#111",cursor:"pointer"}}>CGV - Annexe</summary>
+      <div style={{marginTop:8,lineHeight:1.6,whiteSpace:"pre-wrap",fontSize:10}}>{CGV}</div>
     </details>
   </div>
 );
@@ -1313,54 +1615,58 @@ return (
 }
 
 // Vue liste
+const contratsListe = (st.contrats||[]).filter(c=>!c.livraison);
+
 return (
 <div className="fade">
-<SectionTitle action={<Btn icon="plus" onClick={()=>{setForm({...emptyC,id:null});setModal("form");}}>Nouveau</Btn>}>
+<SectionTitle action={<Btn icon="plus" onClick={()=>{setForm(emptyC());setModal("form");}}>Nouveau</Btn>}>
 Contrats
 </SectionTitle>
 
-  {(!st.contrats||st.contrats.filter(c=>!c.livraison).length===0)
-    ? <div style={{textAlign:"center",padding:"40px 20px",color:"#9CA3AF"}}>
-        <p style={{fontSize:40,marginBottom:12}}>📄</p>
-        <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:20,fontWeight:600,color:"#374151"}}>Aucun contrat</p>
-        <p style={{fontSize:13,marginTop:6}}>Crée ton premier contrat de dépôt-vente ou partenariat.</p>
-        <button onClick={()=>{setForm({...emptyC,id:null});setModal("form");}} style={{marginTop:16,background:"#F2C94C",border:"none",borderRadius:12,padding:"12px 24px",fontWeight:700,fontSize:14,cursor:"pointer"}}>
-          + Nouveau contrat
-        </button>
-      </div>
-    : (st.contrats||[]).filter(c=>!c.livraison).slice().reverse().map(c=>{
-        const pv = st.partenaires.find(p=>p.id===c.partenaireId);
-        const typeLabel = c.type==="depot-vente"?"Dépôt-vente":c.type==="partenariat"?"Partenariat":"Contrat";
-        return (
-          <Card key={c.id} style={{marginBottom:10,cursor:"pointer"}} onClick={()=>{setView(c);setSigMode(false);}}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
-              <div>
-                <p style={{fontWeight:700,fontSize:13}}>{c.numero}</p>
-                <p style={{fontSize:12,color:"#6B7280",marginTop:2}}>{pv?.nom}</p>
-                <p style={{fontSize:11,color:"#9CA3AF",marginTop:1}}>{typeLabel} · {fmt(c.dateDebut)}</p>
-              </div>
-              <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:6}}>
-                <Badge c={badgeC(c.statut)}>{c.statut}</Badge>
-                <div style={{display:"flex",gap:4}}>
-                  <div style={{width:10,height:10,borderRadius:"50%",background:c.signFournisseur?"#166534":"#D1D5DB"}} title="GoûtStoso"/>
-                  <div style={{width:10,height:10,borderRadius:"50%",background:c.signClient?"#166534":"#D1D5DB"}} title="Client"/>
-                </div>
+  {contratsListe.length===0 ? (
+    <div style={{textAlign:"center",padding:"40px 20px",color:"#9CA3AF"}}>
+      <p style={{fontSize:40,marginBottom:12}}>📄</p>
+      <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:20,fontWeight:600,color:"#374151"}}>Aucun contrat</p>
+      <p style={{fontSize:13,marginTop:6}}>Crée ton premier contrat</p>
+      <button onClick={()=>{setForm(emptyC());setModal("form");}} style={{marginTop:16,background:"#F2C94C",border:"none",borderRadius:12,padding:"12px 24px",fontWeight:700,fontSize:14,cursor:"pointer"}}>
+        + Nouveau contrat
+      </button>
+    </div>
+  ) : contratsListe.slice().reverse().map(c=>{
+    const pv = st.partenaires.find(p=>p.id===c.partenaireId);
+    const typeL = c.type==="depot-vente"?"Dépôt-vente":c.type==="partenariat"?"Partenariat":"Contrat";
+    return (
+      <Card key={c.id} style={{marginBottom:10,padding:"12px 14px"}}>
+        <div onClick={()=>setViewId(c.id)} style={{cursor:"pointer",marginBottom:8}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+            <div style={{flex:1,minWidth:0}}>
+              <p style={{fontWeight:700,fontSize:13}}>{c.numero}</p>
+              <p style={{fontSize:12,color:"#6B7280",marginTop:2}}>{pv?.nom||"-"}</p>
+              <p style={{fontSize:11,color:"#9CA3AF",marginTop:1}}>{typeL} · {fmt(c.dateDebut)}</p>
+            </div>
+            <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:6}}>
+              <Badge c={badgeC(c.statut)}>{c.statut}</Badge>
+              <div style={{display:"flex",gap:4}}>
+                <div style={{width:10,height:10,borderRadius:"50%",background:c.signFournisseur?"#166534":"#D1D5DB"}} title="GoûtStoso"/>
+                <div style={{width:10,height:10,borderRadius:"50%",background:c.signClient?"#166534":"#D1D5DB"}} title="Client"/>
               </div>
             </div>
-            <div style={{display:"flex",gap:8}}>
-              <button onClick={e=>{e.stopPropagation();envoyerContrat(c);}} style={{flex:1,background:"#F5F5F0",border:"none",borderRadius:8,padding:"7px",fontSize:12,fontWeight:600,cursor:"pointer"}}>✉️ Envoyer</button>
-              <button onClick={e=>{e.stopPropagation();if(window.confirm("Supprimer ce contrat ?"))del(c.id);}} style={{background:"#FEE2E2",border:"none",borderRadius:8,padding:"7px 10px",cursor:"pointer",display:"flex"}}><Ic n="trash" s={14}/></button>
-            </div>
-          </Card>
-        );
-      })
-  }
+          </div>
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 40px",gap:6}}>
+          <button onClick={()=>setViewId(c.id)} style={{background:"#F5F5F0",border:"none",borderRadius:8,padding:"8px",fontSize:12,fontWeight:600,cursor:"pointer"}}>👁 Ouvrir</button>
+          <button onClick={()=>envoyerContrat(c)} style={{background:"#FEF9E7",color:"#92400E",border:"none",borderRadius:8,padding:"8px",fontSize:12,fontWeight:600,cursor:"pointer"}}>✉️ Email</button>
+          <button onClick={()=>supprimer(c.id)} style={{background:"#FEE2E2",border:"none",borderRadius:8,padding:"8px",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}><Ic n="trash" s={14}/></button>
+        </div>
+      </Card>
+    );
+  })}
 
   {/* Modal création/édition */}
-  {modal==="form"&&(
-    <Modal title={form.id?"Modifier contrat":"Nouveau contrat"} onClose={()=>setModal(null)}>
+  {modal==="form"&&form&&(
+    <Modal title={form.id?"Modifier contrat":"Nouveau contrat"} onClose={()=>{setModal(null);setForm(null);}}>
       <div style={{display:"grid",gap:14}}>
-        <Sel label="Type de contrat" value={form.type} onChange={v=>setForm(p=>({...p,type:v}))}
+        <Sel label="Type" value={form.type} onChange={v=>setForm(p=>({...p,type:v}))}
           options={[{v:"depot-vente",l:"📋 Dépôt-vente"},{v:"partenariat",l:"🤝 Partenariat"},{v:"autre",l:"📄 Autre"}]}/>
         <Sel label="Partenaire" value={form.partenaireId} onChange={v=>setForm(p=>({...p,partenaireId:v}))} required
           options={[{v:"",l:"- Sélectionner -"},...st.partenaires.map(p=>({v:p.id,l:p.nom}))]}/>
@@ -1370,24 +1676,23 @@ Contrats
         </div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
           <F label="Commission (%)" type="number" value={form.commission||0} onChange={v=>setForm(p=>({...p,commission:+v}))}/>
-          <F label="Lieu de signature" value={form.lieuSignature||"Villeret"} onChange={v=>setForm(p=>({...p,lieuSignature:v}))}/>
+          <F label="Lieu signature" value={form.lieuSignature||"Villeret"} onChange={v=>setForm(p=>({...p,lieuSignature:v}))}/>
         </div>
 
-        {/* Produits */}
         <div>
-          <label style={{fontSize:11,fontWeight:600,color:"#9CA3AF",textTransform:"uppercase",letterSpacing:".06em",display:"block",marginBottom:8}}>Produits concernés</label>
+          <label style={{fontSize:11,fontWeight:600,color:"#9CA3AF",textTransform:"uppercase",display:"block",marginBottom:8}}>Produits (optionnel)</label>
           {(form.lignes||[]).map((l,i)=>(
-            <div key={i} style={{display:"grid",gridTemplateColumns:"1fr 60px 60px auto",gap:6,marginBottom:8,alignItems:"flex-end"}}>
+            <div key={i} style={{display:"grid",gridTemplateColumns:"1fr 55px 55px 36px",gap:6,marginBottom:8,alignItems:"flex-end"}}>
               <Sel label="" value={l.produitId} onChange={v=>{
                 const p=st.produits.find(x=>x.id===v);
                 updLigne(i,"produitId",v);
                 if(p) updLigne(i,"prixUnitaire",p.prixRevendeur);
               }} options={[{v:"",l:"- Produit -"},...st.produits.filter(p=>p.actif).map(p=>({v:p.id,l:`${p.nom} ${p.variante} ${p.format}`}))]}/>
               <input type="number" value={l.qte||0} placeholder="Qté" onChange={e=>updLigne(i,"qte",+e.target.value)}
-                style={{padding:"11px 6px",fontSize:14,border:"1.5px solid #E5E5E0",borderRadius:10,textAlign:"center",width:60}}/>
+                style={{padding:"11px 4px",fontSize:13,border:"1.5px solid #E5E5E0",borderRadius:10,textAlign:"center",width:55}}/>
               <input type="number" value={l.prixUnitaire||0} placeholder="CHF" onChange={e=>updLigne(i,"prixUnitaire",+e.target.value)}
-                style={{padding:"11px 6px",fontSize:14,border:"1.5px solid #E5E5E0",borderRadius:10,textAlign:"center",width:60}}/>
-              <button onClick={()=>setForm(p=>({...p,lignes:p.lignes.filter((_,j)=>j!==i)}))} style={{background:"#FEE2E2",border:"none",borderRadius:8,padding:"10px 8px",cursor:"pointer",display:"flex"}}>
+                style={{padding:"11px 4px",fontSize:12,border:"1.5px solid #E5E5E0",borderRadius:10,textAlign:"center",width:55}}/>
+              <button onClick={()=>delLigne(i)} style={{background:"#FEE2E2",border:"none",borderRadius:8,padding:"10px 6px",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>
                 <Ic n="trash" s={13}/>
               </button>
             </div>
@@ -1397,13 +1702,13 @@ Contrats
           </button>
         </div>
 
-        <F label="Notes / Conditions particulières" value={form.notes||""} onChange={v=>setForm(p=>({...p,notes:v}))} placeholder="Conditions spéciales, modalités..."/>
+        <F label="Notes / Conditions" value={form.notes||""} onChange={v=>setForm(p=>({...p,notes:v}))} placeholder="Conditions particulières..."/>
         <Sel label="Statut" value={form.statut} onChange={v=>setForm(p=>({...p,statut:v}))}
           options={[{v:"brouillon",l:"Brouillon"},{v:"en attente signature",l:"En attente signature"},{v:"signé",l:"Signé"},{v:"actif",l:"Actif"},{v:"terminé",l:"Terminé"}]}/>
       </div>
       <div style={{display:"flex",gap:10,marginTop:20}}>
         <Btn onClick={save} full icon="check">Enregistrer</Btn>
-        <Btn onClick={()=>setModal(null)} variant="ghost" full>Annuler</Btn>
+        <Btn onClick={()=>{setModal(null);setForm(null);}} variant="ghost" full>Annuler</Btn>
       </div>
     </Modal>
   )}
