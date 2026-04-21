@@ -3532,6 +3532,12 @@ const onVisible = () => { if(document.visibilityState === "visible") acquire(); 
 document.addEventListener("visibilitychange", onVisible);
 return () => { document.removeEventListener("visibilitychange", onVisible); if(wakeLock) try { wakeLock.release(); } catch(e){} };
 },[]);
+React.useEffect(()=>{
+const ping = () => { try { fetch("/api/healthz",{method:"HEAD",cache:"no-store"}).catch(()=>{}); } catch(e){} };
+ping();
+const iv = setInterval(ping, 2*60*1000);
+return () => clearInterval(iv);
+},[]);
 const [tab,setTab] = useState("dashboard");
 const [showMore,setShowMore] = useState(false);
 const [st,setSt] = useState(INIT);
