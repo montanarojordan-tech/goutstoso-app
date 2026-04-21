@@ -278,9 +278,9 @@ return (
 };
 
 // ── CARD ───────────────────────────────────────────────────────
-const Card = ({children,style}) => (
+const Card = ({children,style,onClick}) => (
 
-  <div style={Object.assign({background:"#fff",borderRadius:12,border:"1px solid #EAE7E0",padding:"16px"},style||{})}>{children}</div>
+  <div onClick={onClick} style={Object.assign({background:"#fff",borderRadius:12,border:"1px solid #EAE7E0",padding:"16px"},style||{})}>{children}</div>
 );
 
 // ── SECTION TITLE ──────────────────────────────────────────────
@@ -4173,16 +4173,19 @@ const [editTitre,setEditTitre] = useState("");
 
 // Initialiser les documents par défaut si pas présents
 React.useEffect(()=>{
-if(!st.documents || Object.keys(st.documents).length===0) {
+try {
+if(!st.documents || Object.keys(st.documents||{}).length===0) {
 setSt(p=>({...p,documents:{...DOCS_DEFAUT}}));
 }
+} catch(e) { console.log("Docs init error",e); }
 },[]);
 
-const docs = st.documents || DOCS_DEFAUT;
+const docs = (st.documents && Object.keys(st.documents).length>0) ? st.documents : DOCS_DEFAUT;
 const view = viewId ? docs[viewId] : null;
 
 const save = () => {
-setSt(p=>({...p,documents:{...p.documents,[viewId]:{...p.documents[viewId],titre:editTitre,contenu:editContent,modifieLe:today()}}}));
+const currentDocs = st.documents || DOCS_DEFAUT;
+setSt(p=>({...p,documents:{...currentDocs,[viewId]:{...currentDocs[viewId],titre:editTitre,contenu:editContent,modifieLe:today()}}}));
 setEditing(false);
 };
 
@@ -4469,6 +4472,7 @@ if(remote) { const next = hydrateData(remote); setSt(next); try { localStorage.s
 }, 30000);
 return ()=>clearInterval(iv);
 },[]);
+
 
 
 
