@@ -2648,8 +2648,13 @@ return (
                 <p style={{fontSize:11,color:"#9CA3AF",marginTop:2}}>{fmt(t.date)} · <span style={{background:"#F5F5F0",borderRadius:4,padding:"1px 5px",fontFamily:"monospace",fontSize:10}}>{t.compte}</span> · {t.categorie}</p>
               </div>
               <p style={{fontSize:14,fontWeight:700,color:t.type==="recette"?"#166534":"#991B1B",whiteSpace:"nowrap"}}>{t.type==="recette"?"+":"-"}CHF {parseFloat(t.montant).toFixed(2)}</p>
-              {!t.factureId&&<button onClick={()=>{if(window.confirm("Supprimer ?"))del(t.id);}} style={{background:"#FEE2E2",border:"none",borderRadius:8,padding:"7px",cursor:"pointer",display:"flex",flexShrink:0}}><Ic n="trash" s={13}/></button>}
-              {t.factureId&&<span style={{fontSize:9,color:"#9CA3AF",background:"#F5F5F0",borderRadius:4,padding:"3px 6px",flexShrink:0}}>AUTO</span>}
+              {!t.factureId&&!t.commandeId&&(
+                <div style={{display:"flex",gap:4,flexShrink:0}}>
+                  <button onClick={()=>{setForm({...t,montant:String(t.montant)});setModal("form");}} style={{background:"#F5F5F0",border:"none",borderRadius:8,padding:"7px",cursor:"pointer",display:"flex"}}><Ic n="edit" s={13}/></button>
+                  <button onClick={()=>{if(window.confirm("Supprimer ?"))del(t.id);}} style={{background:"#FEE2E2",border:"none",borderRadius:8,padding:"7px",cursor:"pointer",display:"flex"}}><Ic n="trash" s={13}/></button>
+                </div>
+              )}
+              {(t.factureId||t.commandeId)&&<span style={{fontSize:9,color:"#9CA3AF",background:"#F5F5F0",borderRadius:4,padding:"3px 6px",flexShrink:0}}>AUTO</span>}
             </div>
           ))
       }
@@ -2767,7 +2772,7 @@ return (
 
   {/* Modal nouvelle écriture */}
   {modal==="form"&&(
-    <Modal title="Nouvelle écriture" onClose={()=>setModal(null)}>
+    <Modal title={form.id?"Modifier écriture":"Nouvelle écriture"} onClose={()=>setModal(null)}>
       <div style={{display:"grid",gap:14}}>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
           <Sel label="Type" value={form.type} onChange={v=>{
@@ -3571,15 +3576,15 @@ const IcMore = ({s=22}) => (
 
 export default function App() {
 React.useEffect(()=>{
-let wakeLock: any = null;
-const acquire = async () => { try { if(typeof navigator !== "undefined" && (navigator as any).wakeLock) { wakeLock = await (navigator as any).wakeLock.request("screen"); } } catch(e){} };
+let wakeLock = null;
+const acquire = async () => { try { if(typeof navigator !== 'undefined' && navigator.wakeLock) { wakeLock = await navigator.wakeLock.request('screen'); } } catch(e){} };
 acquire();
-const onVisible = () => { if(document.visibilityState === "visible") acquire(); };
-document.addEventListener("visibilitychange", onVisible);
-return () => { document.removeEventListener("visibilitychange", onVisible); if(wakeLock) try { wakeLock.release(); } catch(e){} };
+const onVisible = () => { if(document.visibilityState === 'visible') acquire(); };
+document.addEventListener('visibilitychange', onVisible);
+return () => { document.removeEventListener('visibilitychange', onVisible); if(wakeLock) try { wakeLock.release(); } catch(e){} };
 },[]);
 React.useEffect(()=>{
-const ping = () => { try { fetch("/api/healthz",{method:"HEAD",cache:"no-store"}).catch(()=>{}); } catch(e){} };
+const ping = () => { try { fetch('/api/healthz',{method:'HEAD',cache:'no-store'}).catch(()=>{}); } catch(e){} };
 ping();
 const iv = setInterval(ping, 2*60*1000);
 return () => clearInterval(iv);
@@ -3679,6 +3684,7 @@ if(remote) { const next = hydrateData(remote); setSt(next); try { localStorage.s
 }, 30000);
 return ()=>clearInterval(iv);
 },[]);
+
 
 
 
