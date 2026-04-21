@@ -2349,7 +2349,7 @@ const Comptabilite = ({st,setSt}) => {
 const [modal,setModal] = useState(null);
 const [onglet,setOnglet] = useState("dashboard");
 const [periode,setPeriode] = useState(new Date().getFullYear()+"");
-const emptyT = {date:today(),type:"recette",compte:"3001",libelle:"",categorie:"Vente Limonta",montant:"",description:""};
+const emptyT = {date:today(),type:"recette",compte:"3001",libelle:"",categorie:"Vente Limonta",montant:"",description:"",postfinance:true};
 const [form,setForm] = useState(emptyT);
 const [soldeModal,setSoldeModal] = useState(false);
 const [nouveauSolde,setNouveauSolde] = useState(st.soldeBancaire||0);
@@ -2384,6 +2384,7 @@ type:"recette",
 categorie,
 montant:total,
 description:`Facture ${f.numero} - ${pv?.nom||""}`,
+postfinance:true,
 });
 });
 if(nouvelles.length) {
@@ -2393,16 +2394,46 @@ setSt(p=>({...p,transactions:[...(p.transactions||[]),...nouvelles]}));
 
 const save = () => {
 if(!form.montant) return;
+const montant = parseFloat(String(form.montant).replace(",","."))||0;
+const cleaned = {...form, montant};
 if(form.id) {
-setSt(p=>({...p,transactions:p.transactions.map(t=>t.id===form.id?{...form,montant:+form.montant}:t)}));
+// Modification - recalculer l'impact sur le solde
+const ancienne = (st.transactions||[]).find(t=>t.id===form.id);
+let diff = 0;
+if(ancienne?.postfinance) {
+diff -= ancienne.type==="recette"?(+ancienne.montant):-(+ancienne.montant);
+}
+if(cleaned.postfinance) {
+diff += cleaned.type==="recette"?montant:-montant;
+}
+setSt(p=>({...p,
+transactions:p.transactions.map(t=>t.id===form.id?cleaned:t),
+soldeBancaire: parseFloat((parseFloat(p.soldeBancaire||0)+diff).toFixed(2)),
+}));
 } else {
-setSt(p=>({...p,transactions:[...(p.transactions||[]),{...form,id:uid(),montant:+form.montant}]}));
+// Nouvelle - ajouter l'impact
+cleaned.id = uid();
+const diff = cleaned.postfinance ? (cleaned.type==="recette"?montant:-montant) : 0;
+setSt(p=>({...p,
+transactions:[...(p.transactions||[]),cleaned],
+soldeBancaire: parseFloat((parseFloat(p.soldeBancaire||0)+diff).toFixed(2)),
+}));
 }
 setModal(null);
 setForm(emptyT);
 };
 
-const del = id => setSt(p=>({...p,transactions:p.transactions.filter(t=>t.id!==id)}));
+const del = id => {
+const t = (st.transactions||[]).find(x=>x.id===id);
+setSt(p=>{
+const newState = {...p, transactions: p.transactions.filter(x=>x.id!==id)};
+if(t?.postfinance) {
+const diff = t.type==="recette"?-(+t.montant):(+t.montant);
+newState.soldeBancaire = parseFloat((parseFloat(p.soldeBancaire||0)+diff).toFixed(2));
+}
+return newState;
+});
+};
 
 // Filtrer par période
 const transByPeriode = (st.transactions||[]).filter(t=>{
@@ -2751,6 +2782,17 @@ return (
         <Sel label="Compte comptable" value={form.compte} onChange={v=>setForm(p=>({...p,compte:v,libelle:PLAN_COMPTABLE[v]||""}))}
           options={Object.entries(PLAN_COMPTABLE).filter(([k])=>form.type==="recette"?k.startsWith("3"):!k.startsWith("3")).map(([k,v])=>({v:k,l:k+" - "+v}))}/>
         <F label="Description" value={form.description} onChange={v=>setForm(p=>({...p,description:v}))} placeholder="Précisions (optionnel)"/>
+        <label style={{display:"flex",alignItems:"center",gap:10,padding:"12px",background:form.postfinance?"#DCFCE7":"#F5F5F0",borderRadius:10,cursor:"pointer",border:form.postfinance?"1.5px solid #86EFAC":"1.5px solid #E5E5E0"}}>
+          <input type="checkbox" checked={form.postfinance||false} onChange={e=>setForm(p=>({...p,postfinance:e.target.checked}))} style={{width:18,height:18}}/>
+          <div>
+            <p style={{fontSize:12,fontWeight:600,color:form.postfinance?"#166534":"#374151"}}>💳 Impact sur le solde PostFinance</p>
+            <p style={{fontSize:10,color:"#6B7280",marginTop:2}}>
+              {form.postfinance 
+                ? (form.type==="recette"?"✓ Le solde sera augmenté":"✓ Le solde sera diminué")
+                : "Cochez si cette opération passe par PostFinance"}
+            </p>
+          </div>
+        </label>
       </div>
       <div style={{display:"flex",gap:10,marginTop:20}}>
         <Btn onClick={save} full icon="check">Enregistrer</Btn>
@@ -2868,6 +2910,7 @@ const dateOp = c.date || today();
     categorie:cat,
     montant,
     description:"Shopify "+c.numero+" - "+p.nom+" "+p.variante+" x"+l.qte,
+    postfinance:true,
   });
 });
 
@@ -2883,6 +2926,7 @@ if(parseFloat(c.fraisPort)>0) {
     categorie:"Frais expédition facturés",
     montant:parseFloat(c.fraisPort),
     description:"Shopify "+c.numero+" - Port facturé",
+    postfinance:true,
   });
 }
 
@@ -2898,6 +2942,7 @@ if(parseFloat(c.commissionShopify)>0) {
     categorie:"Commissions",
     montant:parseFloat(c.commissionShopify),
     description:"Shopify "+c.numero+" - Commission",
+    postfinance:true,
   });
 }
 
@@ -2913,6 +2958,7 @@ if(parseFloat(c.rabais)>0) {
     categorie:"Autres",
     montant:parseFloat(c.rabais),
     description:"Shopify "+c.numero+" - Rabais",
+    postfinance:false,
   });
 }
 
@@ -3633,6 +3679,7 @@ if(remote) { const next = hydrateData(remote); setSt(next); try { localStorage.s
 }, 30000);
 return ()=>clearInterval(iv);
 },[]);
+
 
 
 
