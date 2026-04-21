@@ -23,11 +23,14 @@ app.listen(port, (err) => {
 
   logger.info({ port }, "Server listening");
 
-  // Self-ping every 2 min to prevent autoscale sleep
-  const selfPingUrl = "https://goutstoso.replit.app/api/healthz";
+  // Self-ping every 60s to prevent autoscale sleep
+  const URLS = [
+    "https://goutstoso.replit.app/api/healthz",
+    "https://goutstoso.replit.app/goutstoso/",
+  ];
   const selfPing = () => {
-    fetch(selfPingUrl, { method: "HEAD" }).catch(() => {});
+    URLS.forEach(u => fetch(u, { method: "HEAD" }).catch(() => {}));
   };
-  setInterval(selfPing, 2 * 60 * 1000);
+  setInterval(selfPing, 60 * 1000);
   selfPing();
 });
