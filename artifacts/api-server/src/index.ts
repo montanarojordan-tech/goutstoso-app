@@ -22,4 +22,12 @@ app.listen(port, (err) => {
   }
 
   logger.info({ port }, "Server listening");
+
+  // Self-ping every 2 min to prevent autoscale sleep
+  const selfPingUrl = "https://goutstoso.replit.app/api/healthz";
+  const selfPing = () => {
+    fetch(selfPingUrl, { method: "HEAD" }).catch(() => {});
+  };
+  setInterval(selfPing, 2 * 60 * 1000);
+  selfPing();
 });
