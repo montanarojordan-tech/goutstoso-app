@@ -221,7 +221,19 @@ const F = ({label,type="text",value,onChange,placeholder,required,small}) => (
 
   <div style={{display:"flex",flexDirection:"column",gap:4}}>
     {label && <label style={{fontSize:11,fontWeight:600,color:"#9CA3AF",textTransform:"uppercase",letterSpacing:".06em"}}>{label}{required&&" *"}</label>}
-    <input type={type} value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder} style={small?{padding:"7px 10px",fontSize:13}:{}}/>
+    <input 
+      type={type==="number"?"text":type} 
+      inputMode={type==="number"?"decimal":undefined}
+      value={value} 
+      onChange={e=>{
+        if(type==="number") {
+          const v = e.target.value.replace(",",".");
+          if(v===""||/^-?\d*\.?\d*$/.test(v)) onChange(v);
+        } else {
+          onChange(e.target.value);
+        }
+      }} 
+      placeholder={placeholder} style={small?{padding:"7px 10px",fontSize:13}:{}}/>
   </div>
 );
 
@@ -1324,7 +1336,7 @@ Points de vente
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
           <Sel label="Type" value={form.type} onChange={v=>setForm(p=>({...p,type:v}))}
             options={[{v:"depot-vente",l:"Dépôt-vente"},{v:"livraison",l:"Livraison ferme"}]}/>
-          <F label="Commission (%)" type="number" value={form.commission||0} onChange={v=>setForm(p=>({...p,commission:+v}))}/>
+          <F label="Commission (%)" type="number" value={form.commission||""} onChange={v=>setForm(p=>({...p,commission:v}))}/>
         </div>
         <Sel label="Statut" value={form.statut} onChange={v=>setForm(p=>({...p,statut:v}))}
           options={[{v:"actif",l:"Actif"},{v:"inactif",l:"Inactif"}]}/>
@@ -1710,7 +1722,7 @@ Contrats
           <F label="Date fin" type="date" value={form.dateFin||""} onChange={v=>setForm(p=>({...p,dateFin:v}))}/>
         </div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-          <F label="Commission (%)" type="number" value={form.commission||0} onChange={v=>setForm(p=>({...p,commission:+v}))}/>
+          <F label="Commission (%)" type="number" value={form.commission||""} onChange={v=>setForm(p=>({...p,commission:v}))}/>
           <F label="Lieu signature" value={form.lieuSignature||"Villeret"} onChange={v=>setForm(p=>({...p,lieuSignature:v}))}/>
         </div>
 
@@ -2733,7 +2745,7 @@ return (
           }} options={[{v:"recette",l:"Recette (+)"},{v:"depense",l:"Dépense (-)"}]}/>
           <F label="Date" type="date" value={form.date} onChange={v=>setForm(p=>({...p,date:v}))}/>
         </div>
-        <F label="Montant (CHF)" type="number" value={form.montant} onChange={v=>setForm(p=>({...p,montant:v}))} required/>
+        <F label="Montant (CHF)" type="number" value={form.montant||""} onChange={v=>setForm(p=>({...p,montant:v}))} required/>
         <Sel label="Catégorie" value={form.categorie} onChange={v=>setForm(p=>({...p,categorie:v}))}
           options={(form.type==="recette"?CATEGORIES_RECETTE:CATEGORIES_DEPENSE).map(c=>({v:c,l:c}))}/>
         <Sel label="Compte comptable" value={form.compte} onChange={v=>setForm(p=>({...p,compte:v,libelle:PLAN_COMPTABLE[v]||""}))}
@@ -2751,7 +2763,7 @@ return (
   {soldeModal&&(
     <Modal title="Solde PostFinance" onClose={()=>setSoldeModal(false)}>
       <div style={{display:"grid",gap:14}}>
-        <F label="Nouveau solde (CHF)" type="number" value={nouveauSolde} onChange={v=>setNouveauSolde(v)}/>
+        <F label="Nouveau solde (CHF)" type="number" value={nouveauSolde||""} onChange={v=>setNouveauSolde(v)}/>
         <p style={{fontSize:11,color:"#9CA3AF"}}>Saisis le solde actuel de ton compte PostFinance pour synchroniser avec la comptabilité.</p>
       </div>
       <div style={{display:"flex",gap:10,marginTop:20}}>
@@ -3201,9 +3213,9 @@ Commandes
         </div>
 
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10}}>
-          <F label="Rabais (CHF)" type="number" value={form.rabais||0} onChange={v=>setForm(p=>({...p,rabais:+v}))}/>
-          <F label="Frais port (CHF)" type="number" value={form.fraisPort||0} onChange={v=>setForm(p=>({...p,fraisPort:+v}))}/>
-          <F label="Commission Shopify" type="number" value={form.commissionShopify||0} onChange={v=>setForm(p=>({...p,commissionShopify:+v}))}/>
+          <F label="Rabais (CHF)" type="number" value={form.rabais||""} onChange={v=>setForm(p=>({...p,rabais:v}))}/>
+          <F label="Frais port (CHF)" type="number" value={form.fraisPort||""} onChange={v=>setForm(p=>({...p,fraisPort:v}))}/>
+          <F label="Commission Shopify" type="number" value={form.commissionShopify||""} onChange={v=>setForm(p=>({...p,commissionShopify:v}))}/>
         </div>
 
         <Sel label="Statut" value={form.statut} onChange={v=>setForm(p=>({...p,statut:v}))}
@@ -3615,6 +3627,7 @@ if(remote) { const next = hydrateData(remote); setSt(next); try { localStorage.s
 }, 30000);
 return ()=>clearInterval(iv);
 },[]);
+
 
 
 
