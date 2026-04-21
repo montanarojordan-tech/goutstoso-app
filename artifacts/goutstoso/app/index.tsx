@@ -47,43 +47,59 @@ banque: "PostFinance",
 };
 
 // ── CGV COMPLÈTES ──────────────────────────────────────────────
-const CGV = `1. Objet
-Le présent document régit les relations commerciales entre Goûtstoso (ci-après « le Fournisseur ») et ses clients professionnels ou partenaires (ci-après « le Client » ou « le Dépositaire »), dans le cadre de la vente et/ou de la mise en dépôt-vente de liqueurs artisanales. Toute commande ou mise en dépôt implique l'acceptation sans réserve des présentes conditions.
+const CGV = `CONDITIONS GÉNÉRALES DE VENTE & DE DÉPÔT-VENTE
 
-1. Produits
-   Les produits concernés sont des liqueurs artisanales fournies par le Fournisseur, telles que spécifiées dans les offres, bons de commande ou accords de dépôt-vente.
-1. Offres et prix
-   Les prix sont exprimés en francs suisses (CHF), hors TVA sauf mention contraire. Les tarifs professionnels sont réservés aux partenaires revendeurs. Le Fournisseur se réserve le droit de modifier ses prix à tout moment. Les prix applicables sont ceux en vigueur à la date de confirmation de commande. Sauf mention contraire, les offres sont valables pendant 30 jours à compter de leur émission.
-1. Commandes
-   Les commandes doivent être effectuées par écrit (email ou autre moyen validé). Elles deviennent fermes après confirmation par le Fournisseur. Le Fournisseur se réserve le droit de refuser une commande en cas de litige antérieur ou de non-paiement.
-1. Dépôt-vente
-   Le Fournisseur peut mettre à disposition ses produits en dépôt-vente auprès du Dépositaire. Le contrat de dépôt-vente est conclu pour une durée de 2 mois à compter de sa signature.
-1. Modalités de paiement
-   Sauf accord contraire, les factures sont payables à 30 jours net à compter de la date de facturation. Dans le cadre du dépôt-vente : après 1 mois, un premier bilan est effectué et le Dépositaire règle les produits vendus ; après 2 mois, un second bilan est réalisé et le solde des ventes est réglé.
-1. Retard de paiement
-   En cas de retard, des frais de rappel sont appliqués : 1er rappel gratuit, 2ème rappel CHF 15.-, 3ème rappel CHF 25.-. Après le troisième rappel, le Fournisseur peut engager une procédure de recouvrement. Les frais en résultant sont à la charge du Client.
-1. Produits invendus (dépôt-vente)
-   À l'issue de la période de dépôt, les produits invendus sont restitués au Fournisseur ou font l'objet d'un nouvel accord entre les parties.
-1. Livraison
-   Les délais de livraison sont indicatifs et non contraignants. Le Fournisseur ne peut être tenu responsable des retards indépendants de sa volonté. Les modalités et frais de livraison sont définis lors de la commande.
-1. Transfert des risques
-   Les risques sont transférés au Client dès la remise des marchandises au transporteur ou au Client. Dans le cadre du dépôt-vente, le Dépositaire est responsable des produits pendant toute la durée du dépôt (perte, vol, détérioration).
-1. Réserve de propriété
-   Les marchandises restent la propriété du Fournisseur jusqu'au paiement intégral des sommes dues.
-1. Réclamations et retours
-   Toute réclamation doit être formulée dans un délai de 5 jours suivant la réception des produits. Aucun retour ne sera accepté sans accord préalable du Fournisseur.
-1. Responsabilité
-   Le Fournisseur garantit la conformité des produits aux normes en vigueur. Sa responsabilité est limitée au remplacement ou au remboursement des produits défectueux. Toute responsabilité pour dommages indirects ou perte de chiffre d'affaires est exclue.
-1. Produits alcoolisés
-   Les produits vendus sont des boissons alcoolisées. Le Client s'engage à respecter la législation en vigueur, notamment l'interdiction de vente aux mineurs.
-1. Protection des données
-   Les données personnelles sont utilisées uniquement dans le cadre de la relation commerciale et ne sont pas transmises à des tiers sans consentement.
-1. Résiliation
-   Dans le cadre du dépôt-vente, chaque partie peut mettre fin au contrat à tout moment d'un commun accord.
-1. Droit applicable et for juridique
-   Les présentes conditions sont soumises au droit suisse. Le for juridique est fixé au siège du Fournisseur.
-1. Acceptation
-   Toute commande ou accord de dépôt-vente, quel que soit le moyen utilisé, vaut acceptation pleine et entière des présentes conditions, sans nécessité de signature.`;
+1. OBJET
+   Les présentes conditions générales régissent les relations commerciales entre Goûtstoso, Jordan Montanaro, Rue des Sources 19, 2613 Villeret (ci-après « le Fournisseur ») et ses clients professionnels ou partenaires (ci-après « le Client » ou « le Dépositaire »), dans le cadre de la vente et/ou de la mise en dépôt-vente de liqueurs artisanales. Toute commande, mise en dépôt ou signature d'un bon de livraison implique l'acceptation sans réserve des présentes conditions.
+1. PRODUITS
+   Les produits concernés sont des liqueurs artisanales à 30% vol. fabriquées et/ou distribuées par le Fournisseur, telles que spécifiées dans les offres, bons de commande, contrats ou accords de dépôt-vente. Les caractéristiques, ingrédients et origines sont indiqués sur les étiquettes conformément à la législation suisse en vigueur.
+1. OFFRES ET PRIX
+   Les prix sont exprimés en francs suisses (CHF). Le Fournisseur n'est actuellement pas assujetti à la TVA. Les tarifs professionnels sont réservés aux partenaires revendeurs et dépositaires. Le Fournisseur se réserve le droit de modifier ses prix à tout moment. Les prix applicables sont ceux en vigueur à la date de confirmation de commande. Sauf mention contraire, les offres sont valables pendant 30 jours à compter de leur émission.
+1. COMMANDES
+   Les commandes doivent être effectuées par écrit (email, bon de commande ou tout moyen validé par le Fournisseur). Elles deviennent fermes après confirmation par le Fournisseur. Le Fournisseur se réserve le droit de refuser une commande en cas de litige antérieur, de non-paiement ou d'indisponibilité des produits.
+1. DÉPÔT-VENTE
+   Le Fournisseur peut mettre à disposition ses produits en dépôt-vente auprès du Dépositaire, selon les modalités définies dans un contrat ou bon de dépôt-vente signé par les deux parties. Le contrat de dépôt-vente est conclu pour une durée de 2 mois renouvelable par accord écrit. Les produits restent la propriété du Fournisseur jusqu'à leur paiement effectif.
+1. MODALITÉS DE PAIEMENT
+   Sauf accord contraire, les factures sont payables à 30 jours nets à compter de la date de facturation, par virement bancaire sur le compte PostFinance IBAN CH23 0900 0000 1565 1485 8, titulaire Goûtstoso / Jordan Montanaro. Dans le cadre du dépôt-vente, un inventaire est effectué périodiquement et le Dépositaire règle les produits effectivement vendus dans les 30 jours suivant l'émission de la facture.
+1. RETARD DE PAIEMENT
+   En cas de retard de paiement, le Fournisseur se réserve le droit de facturer des frais de rappel. Le premier rappel est gratuit, le deuxième rappel est facturé CHF 15.-, le troisième rappel CHF 25.-. Après le troisième rappel resté sans effet, le Fournisseur peut engager une procédure de recouvrement et/ou suspendre toute livraison en cours. Les frais de recouvrement et intérêts de retard légaux sont à la charge du Client.
+1. PRODUITS INVENDUS (DÉPÔT-VENTE)
+   À l'issue de la période de dépôt, les produits invendus sont restitués au Fournisseur en parfait état (emballage d'origine, étiquette intacte, date de conservation respectée) ou font l'objet d'un renouvellement par accord écrit entre les parties. Les produits endommagés, périmés ou manquants sont facturés au Dépositaire au prix professionnel.
+1. LIVRAISON ET EXPÉDITION
+   Les délais de livraison sont indicatifs et non contraignants. Le Fournisseur ne peut être tenu responsable des retards indépendants de sa volonté (transport, force majeure, etc.). Les modalités et frais de livraison sont définis lors de la commande. Pour les ventes en ligne, les frais d'expédition sont à la charge du Client sauf indication contraire.
+1. TRANSFERT DES RISQUES
+   Les risques sont transférés au Client dès la remise des marchandises au transporteur ou au Client lui-même. Dans le cadre du dépôt-vente, le Dépositaire assume l'entière responsabilité des produits pendant toute la durée du dépôt (perte, vol, détérioration, conditions de stockage inadéquates, etc.).
+1. RÉSERVE DE PROPRIÉTÉ
+   Les marchandises livrées restent la propriété exclusive du Fournisseur jusqu'au paiement intégral de toutes les sommes dues, y compris frais, intérêts et accessoires.
+1. RÉCLAMATIONS ET RETOURS
+   Toute réclamation relative à la qualité, la quantité ou la conformité des produits livrés doit être formulée par écrit dans un délai de 5 jours suivant la réception. Aucun retour ne sera accepté sans accord préalable écrit du Fournisseur. Les produits doivent être retournés dans leur emballage d'origine, non ouverts.
+1. GARANTIE ET RESPONSABILITÉ
+   Le Fournisseur garantit la conformité de ses produits aux normes suisses en vigueur, notamment en matière d'étiquetage et d'hygiène alimentaire. Sa responsabilité est strictement limitée au remplacement ou au remboursement des produits reconnus défectueux. Toute responsabilité pour dommages indirects, perte de chiffre d'affaires, préjudice d'image ou autres est expressément exclue dans les limites autorisées par la loi.
+1. PRODUITS ALCOOLISÉS ET RÉGLEMENTATION
+   Les produits vendus sont des boissons alcoolisées (30% vol.). Le Client s'engage à respecter strictement la législation suisse en vigueur, notamment :
+
+- l'interdiction de vente aux personnes de moins de 18 ans ;
+- les règles relatives à la publicité pour les boissons alcoolisées ;
+- les obligations d'affichage et de contrôle de l'âge en point de vente.
+  Le Fournisseur décline toute responsabilité en cas de non-respect de ces obligations par le Client.
+
+1. PROPRIÉTÉ INTELLECTUELLE
+   Les marques, logos, visuels, photographies et tout support promotionnel fournis par le Fournisseur restent sa propriété exclusive. Le Client est autorisé à les utiliser uniquement pour la promotion et la vente des produits, dans le respect de l'image de la marque. Toute autre utilisation est soumise à autorisation écrite préalable.
+1. PROTECTION DES DONNÉES
+   Les données personnelles collectées (nom, adresse, email, téléphone, informations de paiement) sont utilisées exclusivement dans le cadre de la relation commerciale et de l'exécution des commandes. Elles sont conservées selon les durées légales et ne sont transmises à des tiers qu'en cas de nécessité (transporteur, autorités). Conformément à la LPD suisse, le Client dispose d'un droit d'accès, de rectification et de suppression en écrivant à admin@goutstoso.ch.
+1. FORCE MAJEURE
+   Aucune des parties ne pourra être tenue responsable de l'inexécution de ses obligations en cas de force majeure (catastrophe naturelle, épidémie, grève, défaillance d'un fournisseur essentiel, etc.). Les délais seront suspendus pendant la durée de l'événement.
+1. RÉSILIATION
+   Dans le cadre du dépôt-vente, chaque partie peut mettre fin au contrat à tout moment d'un commun accord écrit, ou unilatéralement moyennant un préavis de 30 jours. En cas de manquement grave de l'une des parties, la résiliation peut être immédiate.
+1. MODIFICATION DES CONDITIONS
+   Le Fournisseur se réserve le droit de modifier les présentes conditions générales à tout moment. Les conditions applicables sont celles en vigueur à la date de la commande ou de la signature du contrat.
+1. DROIT APPLICABLE ET FOR JURIDIQUE
+   Les présentes conditions sont soumises exclusivement au droit suisse. Tout litige relatif à leur interprétation ou à leur exécution sera soumis à la juridiction compétente du canton de Berne, for juridique étant fixé au siège du Fournisseur à Villeret.
+1. ACCEPTATION
+   Toute commande, toute signature d'un bon de livraison, d'un contrat de dépôt-vente ou toute réception de marchandises vaut acceptation pleine et entière des présentes conditions générales, sans nécessité de signature distincte.
+
+Document établi à Villeret, valable dès sa publication.
+Goûtstoso · Jordan Montanaro · admin@goutstoso.ch · www.goutstoso.ch`;
 
 const INIT = {
 produits:[
@@ -404,13 +420,22 @@ const COULEURS = {
 const Produits = ({st,setSt}) => {
 const [modal,setModal] = useState(null);
 const [selected,setSelected] = useState(null);
-const empty = {nom:"",variante:"",format:"",description:"",alcool:"30% vol.",ingredients:"",prixClient:0,prixRevendeur:0,coutRevient:0,actif:true};
+const empty = {nom:"",variante:"",format:"",description:"",alcool:"30% vol.",ingredients:"",prixClient:0,prixRevendeur:0,coutRevient:0,actif:true,
+coutDetail:{bouteille:"",bouchon:"",etiquette:"",alcool:"",fruits:"",sucre:"",emballage:"",mainOeuvre:"",autres:""}};
 const [form,setForm] = useState(empty);
 
 const save = () => {
 if(!form.nom) return;
-if(form.id) setSt(p=>({...p,produits:p.produits.map(x=>x.id===form.id?form:x)}));
-else setSt(p=>({...p,produits:[...p.produits,{...form,id:uid()}]}));
+// Calculate total cost from detail if provided
+let totalCout = parseFloat(form.coutRevient)||0;
+if(form.coutDetail) {
+const detail = form.coutDetail;
+const sumDetail = (parseFloat(detail.bouteille)||0)+(parseFloat(detail.bouchon)||0)+(parseFloat(detail.etiquette)||0)+(parseFloat(detail.alcool)||0)+(parseFloat(detail.fruits)||0)+(parseFloat(detail.sucre)||0)+(parseFloat(detail.emballage)||0)+(parseFloat(detail.mainOeuvre)||0)+(parseFloat(detail.autres)||0);
+if(sumDetail>0) totalCout = sumDetail;
+}
+const cleaned = {...form, coutRevient: totalCout};
+if(form.id) setSt(p=>({...p,produits:p.produits.map(x=>x.id===form.id?cleaned:x)}));
+else setSt(p=>({...p,produits:[...p.produits,{...cleaned,id:uid()}]}));
 setModal(null);
 };
 const del = id => setSt(p=>({...p,produits:p.produits.filter(x=>x.id!==id)}));
@@ -459,7 +484,7 @@ return (
     </div>
 
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-      <button onClick={()=>{setForm(p);setModal("form");setSelected(null);}} style={{background:"#F5F5F0",border:"none",borderRadius:12,padding:"12px",fontWeight:600,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+      <button onClick={()=>{setForm({...p,coutDetail:p.coutDetail||{bouteille:"",bouchon:"",etiquette:"",alcool:"",fruits:"",sucre:"",emballage:"",mainOeuvre:"",autres:""}});setModal("form");setSelected(null);}} style={{background:"#F5F5F0",border:"none",borderRadius:12,padding:"12px",fontWeight:600,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
         <Ic n="edit" s={15}/> Modifier
       </button>
       <button onClick={()=>{del(p.id);setSelected(null);}} style={{background:"#FEE2E2",border:"none",borderRadius:12,padding:"12px",fontWeight:600,fontSize:13,color:"#991B1B",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
@@ -545,10 +570,52 @@ Catalogue
           <F label="Degré alcool" value={form.alcool||"30% vol."} onChange={v=>setForm(p=>({...p,alcool:v}))}/>
           <F label="Ingrédients" value={form.ingredients||""} onChange={v=>setForm(p=>({...p,ingredients:v}))}/>
         </div>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10}}>
-          <F label="Prix public (CHF)" type="number" value={form.prixClient} onChange={v=>setForm(p=>({...p,prixClient:+v}))} required/>
-          <F label="Prix pro (CHF)" type="number" value={form.prixRevendeur} onChange={v=>setForm(p=>({...p,prixRevendeur:+v}))} required/>
-          <F label="Coût revient" type="number" value={form.coutRevient||0} onChange={v=>setForm(p=>({...p,coutRevient:+v}))}/>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+          <F label="Prix public (CHF)" type="number" value={form.prixClient||""} onChange={v=>setForm(p=>({...p,prixClient:parseFloat(String(v).replace(",","."))||0}))} required/>
+          <F label="Prix pro (CHF)" type="number" value={form.prixRevendeur||""} onChange={v=>setForm(p=>({...p,prixRevendeur:parseFloat(String(v).replace(",","."))||0}))} required/>
+        </div>
+
+        {/* Détail du coût de revient */}
+        <div style={{background:"#F4F4F2",borderRadius:12,padding:"14px 14px 10px",border:"1px solid #EAE7E0"}}>
+          <p style={{fontSize:11,fontWeight:600,color:"#525252",textTransform:"uppercase",letterSpacing:"-0.005em",marginBottom:10}}>💰 Détail du coût de revient</p>
+          <p style={{fontSize:10,color:"#737373",marginBottom:12}}>Remplis ce qui s'applique, le total sera calculé automatiquement</p>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+            <F label="Bouteille vide" type="number" value={form.coutDetail?.bouteille||""} onChange={v=>setForm(p=>({...p,coutDetail:{...(p.coutDetail||{}),bouteille:v}}))}/>
+            <F label="Bouchon" type="number" value={form.coutDetail?.bouchon||""} onChange={v=>setForm(p=>({...p,coutDetail:{...(p.coutDetail||{}),bouchon:v}}))}/>
+            <F label="Étiquette" type="number" value={form.coutDetail?.etiquette||""} onChange={v=>setForm(p=>({...p,coutDetail:{...(p.coutDetail||{}),etiquette:v}}))}/>
+            <F label="Alcool" type="number" value={form.coutDetail?.alcool||""} onChange={v=>setForm(p=>({...p,coutDetail:{...(p.coutDetail||{}),alcool:v}}))}/>
+            <F label="Fruits / arômes" type="number" value={form.coutDetail?.fruits||""} onChange={v=>setForm(p=>({...p,coutDetail:{...(p.coutDetail||{}),fruits:v}}))}/>
+            <F label="Sucre" type="number" value={form.coutDetail?.sucre||""} onChange={v=>setForm(p=>({...p,coutDetail:{...(p.coutDetail||{}),sucre:v}}))}/>
+            <F label="Emballage" type="number" value={form.coutDetail?.emballage||""} onChange={v=>setForm(p=>({...p,coutDetail:{...(p.coutDetail||{}),emballage:v}}))}/>
+            <F label="Main d'œuvre" type="number" value={form.coutDetail?.mainOeuvre||""} onChange={v=>setForm(p=>({...p,coutDetail:{...(p.coutDetail||{}),mainOeuvre:v}}))}/>
+            <F label="Autres" type="number" value={form.coutDetail?.autres||""} onChange={v=>setForm(p=>({...p,coutDetail:{...(p.coutDetail||{}),autres:v}}))}/>
+          </div>
+          {/* Récap live */}
+          {(() => {
+            const d = form.coutDetail||{};
+            const total = (parseFloat(d.bouteille)||0)+(parseFloat(d.bouchon)||0)+(parseFloat(d.etiquette)||0)+(parseFloat(d.alcool)||0)+(parseFloat(d.fruits)||0)+(parseFloat(d.sucre)||0)+(parseFloat(d.emballage)||0)+(parseFloat(d.mainOeuvre)||0)+(parseFloat(d.autres)||0);
+            if(total===0) return null;
+            const margeP = form.prixClient?((form.prixClient-total)/form.prixClient*100).toFixed(1):0;
+            const margePro = form.prixRevendeur?((form.prixRevendeur-total)/form.prixRevendeur*100).toFixed(1):0;
+            return (
+              <div style={{marginTop:12,padding:"10px 12px",background:"#fff",borderRadius:8,border:"1px solid #EAE7E0"}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:6}}>
+                  <span style={{fontSize:12,fontWeight:600}}>Coût total</span>
+                  <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:20,fontWeight:700,color:"#0A0A0A"}}>CHF {total.toFixed(2)}</span>
+                </div>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,fontSize:11,paddingTop:6,borderTop:"1px solid #EAE7E0"}}>
+                  <div>
+                    <p style={{color:"#737373"}}>Marge public</p>
+                    <p style={{fontWeight:700,color:margeP>30?"#15803D":margeP>15?"#9A3412":"#B91C1C"}}>{margeP}% · CHF {(form.prixClient-total).toFixed(2)}</p>
+                  </div>
+                  <div>
+                    <p style={{color:"#737373"}}>Marge pro</p>
+                    <p style={{fontWeight:700,color:margePro>30?"#15803D":margePro>15?"#9A3412":"#B91C1C"}}>{margePro}% · CHF {(form.prixRevendeur-total).toFixed(2)}</p>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
         </div>
       </div>
       <div style={{display:"flex",gap:10,marginTop:20}}>
@@ -902,6 +969,10 @@ doc.setFontSize(7.5);doc.setFont("helvetica","normal");doc.setTextColor(150,150,
 doc.text("Goûtstoso · Jordan Montanaro · Rue des Sources 19 · 2613 Villeret · admin@goutstoso.ch · www.goutstoso.ch",W/2,282,{align:"center"});
 doc.setFillColor(242,201,76);doc.rect(0,292,W,5,"F");
 
+// Annexes pour bon de livraison
+ajouterDocAnnexe(doc, "consommation_responsable", st);
+ajouterDocAnnexe(doc, "cgv", st);
+
 doc.save(c.numero+".pdf");
 
 } catch(e){alert("Erreur PDF : "+e.message);}
@@ -1028,6 +1099,9 @@ doc.setDrawColor(230,230,228);doc.setLineWidth(0.3);doc.line(mg,277,W-mg,277);
 doc.setFontSize(7.5);doc.setFont("helvetica","normal");doc.setTextColor(150,150,150);
 doc.text("Goûtstoso · Jordan Montanaro · Rue des Sources 19 · 2613 Villeret · admin@goutstoso.ch · www.goutstoso.ch",W/2,282,{align:"center"});
 doc.setFillColor(242,201,76);doc.rect(0,292,W,5,"F");
+
+// Annexe: CGV
+ajouterDocAnnexe(doc, "cgv", st);
 
 doc.save(c.numero+".pdf");
 
@@ -1894,6 +1968,54 @@ lignesTxt+"\n\nTOTAL : CHF "+total.toFixed(2)+"\n\n"+
 window.location.href = "mailto:"+(pv?.email||"")+"?subject="+subj+"&body="+body;
 };
 
+// Helper: ajoute un document légal en annexe à un PDF
+const ajouterDocAnnexe = (doc, docId, st) => {
+const d = (st.documents||DOCS_DEFAUT)[docId];
+if(!d || !d.contenu) return;
+const W=210, mg=18;
+doc.addPage();
+// Bande jaune
+doc.setFillColor(232,182,76);doc.rect(0,0,W,6,"F");
+// Header
+doc.setFontSize(14);doc.setFont("helvetica","bold");doc.setTextColor(17,17,17);
+doc.text("Goûtstoso",mg,18);
+doc.setFontSize(7);doc.setFont("helvetica","normal");doc.setTextColor(150,150,150);
+doc.text("Annexe",mg,23);
+// Titre
+doc.setFontSize(12);doc.setFont("helvetica","bold");doc.setTextColor(17,17,17);
+const titleLines = doc.splitTextToSize(d.titre,W-mg*2);
+doc.text(titleLines,mg,35);
+doc.setDrawColor(230,230,228);doc.setLineWidth(0.3);doc.line(mg,42,W-mg,42);
+// Contenu
+doc.setFontSize(8);doc.setFont("helvetica","normal");doc.setTextColor(60,60,60);
+const contentLines = doc.splitTextToSize(d.contenu||"", W-mg*2);
+let y=48;
+contentLines.forEach(line=>{
+if(y>275) {
+// Pied de page
+doc.setDrawColor(230,230,228);doc.line(mg,280,W-mg,280);
+doc.setFontSize(6);doc.setTextColor(150,150,150);
+doc.text("Goûtstoso · admin@goutstoso.ch",W/2,285,{align:"center"});
+doc.setFillColor(232,182,76);doc.rect(0,292,W,5,"F");
+doc.addPage();
+// Nouvelle page header
+doc.setFillColor(232,182,76);doc.rect(0,0,W,6,"F");
+doc.setFontSize(8);doc.setFont("helvetica","normal");doc.setTextColor(150,150,150);
+doc.text(d.titre+" - suite",mg,15);
+doc.setDrawColor(230,230,228);doc.line(mg,19,W-mg,19);
+doc.setFontSize(8);doc.setTextColor(60,60,60);
+y=26;
+}
+doc.text(line,mg,y);
+y+=4;
+});
+// Pied de page
+doc.setDrawColor(230,230,228);doc.line(mg,280,W-mg,280);
+doc.setFontSize(6);doc.setTextColor(150,150,150);
+doc.text("Goûtstoso · admin@goutstoso.ch",W/2,285,{align:"center"});
+doc.setFillColor(232,182,76);doc.rect(0,292,W,5,"F");
+};
+
 const genererPDF = async (f) => {
 try {
 await new Promise((res,rej)=>{
@@ -2018,6 +2140,9 @@ const echeance=new Date(new Date(f.date).getTime()+30*86400000).toISOString().sl
   doc.setFontSize(7.5);doc.setFont("helvetica","normal");doc.setTextColor(150,150,150);
   doc.text("Goûtstoso · Jordan Montanaro · Rue des Sources 19 · 2613 Villeret · admin@goutstoso.ch · www.goutstoso.ch",W/2,282,{align:"center"});
   doc.setFillColor(242,201,76);doc.rect(0,292,W,5,"F");
+
+  // Annexe: CGV
+  ajouterDocAnnexe(doc, "cgv", st);
 
   doc.save(f.numero+(retard?"-RAPPEL":"")+".pdf");
 } catch(e){alert("Erreur PDF : "+e.message);}
@@ -2555,6 +2680,7 @@ return (
   <div style={{display:"flex",gap:6,marginBottom:14,overflowX:"auto",paddingBottom:2}}>
     {[
       {id:"dashboard",l:"📊 Aperçu"},
+      {id:"rentabilite",l:"💎 Rentabilité"},
       {id:"journal",l:"📓 Journal"},
       {id:"resultat",l:"📈 Résultat"},
       {id:"bilan",l:"⚖️ Bilan"},
@@ -2715,6 +2841,136 @@ return (
           <span style={{fontSize:14,fontWeight:700,color:resultat>=0?"#166534":"#991B1B"}}>RÉSULTAT NET</span>
           <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:26,fontWeight:700,color:resultat>=0?"#166534":"#991B1B"}}>{resultat>=0?"+":""}{chf(resultat)}</span>
         </div>
+      </Card>
+    </div>
+  )}
+
+  {/* RENTABILITÉ */}
+  {onglet==="rentabilite"&&(
+    <div>
+      <Card style={{marginBottom:12}}>
+        <h3 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:19,marginBottom:6,letterSpacing:"-0.015em"}}>Marges par produit</h3>
+        <p style={{fontSize:11,color:"#737373",marginBottom:14}}>Basé sur les coûts de revient saisis dans chaque produit</p>
+        {st.produits.filter(p=>p.actif&&!p.nom.includes("Coffret")).map(p=>{
+          const cout = p.coutRevient||0;
+          const margeP = p.prixClient-cout;
+          const margePPct = p.prixClient?((margeP/p.prixClient)*100).toFixed(0):0;
+          const margePro = p.prixRevendeur-cout;
+          const margeProPct = p.prixRevendeur?((margePro/p.prixRevendeur)*100).toFixed(0):0;
+          const c = COULEURS[p.variante]||{accent:"#737373"};
+          return (
+            <div key={p.id} style={{padding:"10px 0",borderBottom:"1px solid #EAE7E0"}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:6}}>
+                <p style={{fontSize:13,fontWeight:600}}>{p.nom} <span style={{color:c.accent,fontWeight:400,fontSize:12}}>{p.variante}</span> {p.format}</p>
+                <p style={{fontSize:11,color:"#737373"}}>Coût: <strong>{chf(cout)}</strong></p>
+              </div>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,fontSize:11}}>
+                <div style={{background:"#F4F4F2",borderRadius:6,padding:"6px 8px"}}>
+                  <p style={{color:"#737373",fontSize:10,fontWeight:500}}>PUBLIC {chf(p.prixClient)}</p>
+                  <p style={{fontWeight:700,color:margePPct>30?"#15803D":margePPct>15?"#9A3412":"#B91C1C",marginTop:2}}>
+                    {margePPct}% <span style={{fontSize:10,fontWeight:400}}>· {chf(margeP)}</span>
+                  </p>
+                </div>
+                <div style={{background:"#F4F4F2",borderRadius:6,padding:"6px 8px"}}>
+                  <p style={{color:"#737373",fontSize:10,fontWeight:500}}>PRO {chf(p.prixRevendeur)}</p>
+                  <p style={{fontWeight:700,color:margeProPct>30?"#15803D":margeProPct>15?"#9A3412":"#B91C1C",marginTop:2}}>
+                    {margeProPct}% <span style={{fontSize:10,fontWeight:400}}>· {chf(margePro)}</span>
+                  </p>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </Card>
+
+      {/* Top 5 ventes */}
+      <Card style={{marginBottom:12}}>
+        <h3 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:19,marginBottom:14,letterSpacing:"-0.015em"}}>Top produits (CA {periode==="tout"?"global":periode})</h3>
+        {(() => {
+          const ventesParProd = {};
+          transByPeriode.filter(t=>t.type==="recette").forEach(t=>{
+            const cat = t.categorie||"Autres";
+            if(!ventesParProd[cat]) ventesParProd[cat] = 0;
+            ventesParProd[cat] += +t.montant;
+          });
+          const total = sum(Object.values(ventesParProd));
+          const sorted = Object.entries(ventesParProd).filter(([k])=>k.startsWith("Vente")).sort((a,b)=>b[1]-a[1]);
+          if(sorted.length===0) return <p style={{fontSize:12,color:"#737373",textAlign:"center",padding:"10px 0"}}>Aucune vente sur cette période</p>;
+          return sorted.map(([cat,val])=>{
+            const pct = total?((val/total)*100).toFixed(0):0;
+            return (
+              <div key={cat} style={{marginBottom:10}}>
+                <div style={{display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:4}}>
+                  <span style={{fontWeight:500}}>{cat}</span>
+                  <span style={{fontWeight:700}}>{chf(val)} <span style={{color:"#737373",fontSize:10,fontWeight:400}}>({pct}%)</span></span>
+                </div>
+                <div style={{background:"#F4F4F2",borderRadius:4,height:6,overflow:"hidden"}}>
+                  <div style={{background:"#0A0A0A",height:"100%",width:pct+"%"}}/>
+                </div>
+              </div>
+            );
+          });
+        })()}
+      </Card>
+
+      {/* Point mort */}
+      <Card style={{marginBottom:12,background:"#FDF6E3",border:"1px solid #FCD34D"}}>
+        <h3 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:19,marginBottom:8,letterSpacing:"-0.015em",color:"#9A3412"}}>⚡ Point mort mensuel</h3>
+        {(() => {
+          const chargesFixes = (() => {
+            const categoriesFixes = ["Services","Salaires","Frais bancaires","Assurances","Locaux","Téléphone","Internet"];
+            return sum(transByPeriode.filter(t=>t.type==="depense"&&categoriesFixes.includes(t.categorie)).map(t=>+t.montant));
+          })();
+          const moisPeriode = periode==="tout"?12:periode.length===4?12:1;
+          const chargesMensuelles = chargesFixes/moisPeriode;
+          const margeMoyenne = st.produits.filter(p=>p.actif&&!p.nom.includes("Coffret"))
+            .reduce((acc,p)=>{
+              const m = p.prixClient-(p.coutRevient||0);
+              return acc+m;
+            },0) / Math.max(1, st.produits.filter(p=>p.actif&&!p.nom.includes("Coffret")).length);
+          const bouteillesNecessaires = margeMoyenne>0?Math.ceil(chargesMensuelles/margeMoyenne):0;
+          return (
+            <div>
+              <p style={{fontSize:12,color:"#9A3412",marginBottom:8}}>Pour couvrir tes charges fixes mensuelles :</p>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:6}}>
+                <span style={{fontSize:11,color:"#737373"}}>Charges fixes / mois</span>
+                <span style={{fontWeight:600}}>{chf(chargesMensuelles)}</span>
+              </div>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:10}}>
+                <span style={{fontSize:11,color:"#737373"}}>Marge moyenne / bouteille</span>
+                <span style={{fontWeight:600}}>{chf(margeMoyenne)}</span>
+              </div>
+              <div style={{background:"#fff",borderRadius:8,padding:"12px",textAlign:"center"}}>
+                <p style={{fontSize:10,color:"#737373",fontWeight:500,textTransform:"uppercase"}}>Tu dois vendre</p>
+                <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:32,fontWeight:700,color:"#9A3412",lineHeight:1,margin:"4px 0"}}>
+                  {bouteillesNecessaires}
+                </p>
+                <p style={{fontSize:11,color:"#737373"}}>bouteilles par mois pour être rentable</p>
+              </div>
+            </div>
+          );
+        })()}
+      </Card>
+
+      {/* Analyse coûts */}
+      <Card>
+        <h3 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:19,marginBottom:12,letterSpacing:"-0.015em"}}>Répartition des dépenses</h3>
+        {catDepenses.length===0?<p style={{fontSize:12,color:"#737373",textAlign:"center",padding:"10px 0"}}>Aucune dépense</p>:
+          catDepenses.slice(0,8).map(c=>{
+            const pct = depenses?((c.total/depenses)*100).toFixed(0):0;
+            return (
+              <div key={c.cat} style={{marginBottom:8}}>
+                <div style={{display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:3}}>
+                  <span>{c.cat}</span>
+                  <span style={{fontWeight:600}}>{chf(c.total)} <span style={{color:"#737373",fontSize:10,fontWeight:400}}>({pct}%)</span></span>
+                </div>
+                <div style={{background:"#F4F4F2",borderRadius:4,height:5,overflow:"hidden"}}>
+                  <div style={{background:"#B91C1C",height:"100%",width:pct+"%",opacity:.7}}/>
+                </div>
+              </div>
+            );
+          })
+        }
       </Card>
     </div>
   )}
@@ -3550,6 +3806,532 @@ Clients
 };
 
 // ══════════════════════════════════════════════════════════════
+// PAGE: DOCUMENTS LÉGAUX
+// ══════════════════════════════════════════════════════════════
+
+// Templates de documents par défaut
+const DOCS_DEFAUT = {
+cgv: {
+titre:"CGV - Conditions Générales de Vente",
+description:"Règles commerciales applicables à toutes les ventes et dépôts-vente",
+contenu: CGV,
+categorie:"Vente",
+},
+contrat_depot: {
+titre:"Contrat de dépôt-vente - Type",
+description:"Modèle de contrat de dépôt-vente réutilisable",
+categorie:"Contrat",
+contenu: `CONTRAT DE DÉPÔT-VENTE
+
+Entre les soussignés :
+
+LE FOURNISSEUR
+Goûtstoso
+Jordan Montanaro
+Rue des Sources 19
+2613 Villeret
+admin@goutstoso.ch
+
+ET
+
+LE DÉPOSITAIRE
+[Nom / Raison sociale]
+[Adresse complète]
+[Email / Téléphone]
+
+Il a été convenu ce qui suit :
+
+ARTICLE 1 - OBJET
+Le Fournisseur met en dépôt-vente chez le Dépositaire les liqueurs artisanales de sa gamme, en vue de leur commercialisation auprès de la clientèle finale.
+
+ARTICLE 2 - DURÉE
+Le présent contrat est conclu pour une durée initiale de 2 mois à compter de la date de signature, renouvelable par tacite reconduction sauf dénonciation écrite avec préavis de 30 jours.
+
+ARTICLE 3 - PRODUITS DÉPOSÉS
+La nature, la quantité et les prix des produits déposés sont précisés dans le bon de livraison annexé au présent contrat. Tout nouveau dépôt fera l'objet d'un nouveau bon de livraison signé par les deux parties.
+
+ARTICLE 4 - PROPRIÉTÉ
+Les produits déposés restent la propriété exclusive du Fournisseur jusqu'à leur vente effective à la clientèle finale ou leur paiement intégral par le Dépositaire.
+
+ARTICLE 5 - PRIX DE VENTE ET COMMISSION
+Les produits sont facturés au Dépositaire au prix professionnel indiqué dans le bon de livraison. Le Dépositaire est libre de définir son prix de vente au public. [Ou : Une commission de X% est accordée au Dépositaire sur chaque vente réalisée.]
+
+ARTICLE 6 - INVENTAIRE ET FACTURATION
+Un inventaire est effectué périodiquement (minimum tous les 2 mois). Le Dépositaire règle les produits effectivement vendus dans les 30 jours suivant l'émission de la facture, par virement sur le compte IBAN CH23 0900 0000 1565 1485 8 (PostFinance).
+
+ARTICLE 7 - RESPONSABILITÉ DU DÉPOSITAIRE
+Le Dépositaire assume l'entière responsabilité des produits pendant toute la durée du dépôt : conditions de stockage (température, lumière, humidité), perte, vol, casse, détérioration. Tout produit endommagé ou manquant sera facturé au prix professionnel.
+
+ARTICLE 8 - OBLIGATIONS LÉGALES
+Le Dépositaire s'engage à respecter la législation suisse en vigueur concernant la vente de boissons alcoolisées, notamment :
+
+- l'interdiction formelle de vente aux mineurs ;
+- les règles relatives à la publicité ;
+- l'affichage obligatoire en point de vente.
+
+ARTICLE 9 - RESTITUTION
+À la fin du contrat, les produits invendus sont restitués au Fournisseur en parfait état (emballage d'origine, étiquette intacte, date de conservation respectée).
+
+ARTICLE 10 - RÉSILIATION
+Le contrat peut être résilié à tout moment d'un commun accord écrit. En cas de manquement grave (non-paiement, non-respect des obligations légales, détérioration répétée des produits), le Fournisseur peut résilier immédiatement.
+
+ARTICLE 11 - CONDITIONS GÉNÉRALES
+Les Conditions Générales de Vente du Fournisseur (annexées) font partie intégrante du présent contrat.
+
+ARTICLE 12 - DROIT APPLICABLE
+Le présent contrat est soumis au droit suisse. Tout litige sera soumis aux juridictions du canton de Berne.
+
+Fait à ................................., le ........................
+
+En deux exemplaires originaux.
+
+LE FOURNISSEUR                                    LE DÉPOSITAIRE
+Goûtstoso - Jordan Montanaro                       .........................
+
+Signature :                                        Signature :`, }, contrat_partenariat: { titre:"Contrat de partenariat commercial", description:"Pour distributeurs et revendeurs réguliers", categorie:"Contrat", contenu: `CONTRAT DE PARTENARIAT COMMERCIAL
+
+Entre :
+
+LE FOURNISSEUR
+Goûtstoso, Jordan Montanaro
+Rue des Sources 19, 2613 Villeret
+admin@goutstoso.ch
+
+ET
+
+LE PARTENAIRE
+[Nom / Raison sociale]
+[Adresse]
+[Contact]
+
+ARTICLE 1 - OBJET
+Le Fournisseur accorde au Partenaire le droit de commercialiser ses liqueurs artisanales dans les conditions définies ci-après.
+
+ARTICLE 2 - TERRITOIRE ET EXCLUSIVITÉ
+Le Partenaire est autorisé à commercialiser les produits [sur tout le territoire suisse / dans la région de ..... / exclusivement dans son point de vente]. [Exclusivité : oui / non]
+
+ARTICLE 3 - DURÉE
+Contrat conclu pour une durée de ...... mois/années à compter du ............. .
+
+ARTICLE 4 - CONDITIONS COMMERCIALES
+
+- Prix professionnel selon grille tarifaire en vigueur
+- Commande minimale : ...... unités
+- Modalités de paiement : 30 jours nets
+- Commission ou remise éventuelle : ......%
+
+ARTICLE 5 - OBLIGATIONS DU PARTENAIRE
+Le Partenaire s'engage à :
+
+- Promouvoir activement les produits du Fournisseur
+- Respecter l'image de marque et les valeurs de Goûtstoso
+- Ne pas dénigrer les produits ou la marque
+- Respecter la législation en matière de vente d'alcool (interdiction aux mineurs, publicité)
+- Assurer des conditions de stockage adéquates
+
+ARTICLE 6 - OBLIGATIONS DU FOURNISSEUR
+Le Fournisseur s'engage à :
+
+- Livrer des produits conformes aux normes en vigueur
+- Fournir les supports marketing nécessaires
+- Informer le Partenaire des nouveautés et promotions
+- Respecter les délais de livraison convenus
+
+ARTICLE 7 - MARQUE ET IDENTITÉ VISUELLE
+Le Partenaire est autorisé à utiliser le logo et les visuels de Goûtstoso exclusivement pour la promotion et la vente des produits. Toute autre utilisation est soumise à autorisation écrite préalable.
+
+ARTICLE 8 - CONFIDENTIALITÉ
+Les parties s'engagent à garder confidentielles les informations commerciales échangées.
+
+ARTICLE 9 - RÉSILIATION
+Résiliation possible avec préavis de 60 jours par lettre recommandée. Résiliation immédiate en cas de manquement grave.
+
+ARTICLE 10 - CONDITIONS GÉNÉRALES ET DROIT APPLICABLE
+Les CGV de Goûtstoso font partie intégrante du présent contrat. Droit suisse applicable, juridictions du canton de Berne compétentes.
+
+Fait à ................................., le ........................
+
+LE FOURNISSEUR                                    LE PARTENAIRE
+Goûtstoso - Jordan Montanaro                       .........................
+
+Signature :                                        Signature :`, }, bon_livraison: { titre:"Bon de livraison - Type", description:"Modèle de bon de livraison standard", categorie:"Livraison", contenu: `BON DE LIVRAISON N° ......................
+
+Date de livraison : .............................
+
+FOURNISSEUR
+Goûtstoso
+Jordan Montanaro
+Rue des Sources 19, 2613 Villeret
+admin@goutstoso.ch
+
+DESTINATAIRE
+[Nom / Raison sociale]
+[Adresse complète]
+[Contact]
+
+TYPE DE LIVRAISON
+☐ Livraison ferme (facturation immédiate)
+☐ Dépôt-vente (facturation après inventaire)
+
+DÉTAIL DES PRODUITS LIVRÉS
+
+┌─────────────────────────────────────┬──────┬─────────────┬───────────┐
+│ Désignation                          │ Qté  │ Lot         │ Prix u.   │
+├─────────────────────────────────────┼──────┼─────────────┼───────────┤
+│ Limonta Citron jaune 25cl            │      │             │           │
+│ Limonta Citron jaune 50cl            │      │             │           │
+│ Limelo Citron vert 25cl              │      │             │           │
+│ Limelo Citron vert 50cl              │      │             │           │
+│ Clementino Clémentine 25cl           │      │             │           │
+│ Clementino Clémentine 50cl           │      │             │           │
+│ Coffret 3 saveurs 25cl (+verres)     │      │             │           │
+│ Coffret 3 saveurs 50cl (+verres)     │      │             │           │
+└─────────────────────────────────────┴──────┴─────────────┴───────────┘
+
+TOTAL : CHF ...............
+
+CONDITIONS
+
+- Paiement à 30 jours par virement PostFinance IBAN CH23 0900 0000 1565 1485 8
+- En cas de dépôt-vente : facturation après inventaire, produits propriété de Goûtstoso jusqu'au paiement
+- Les marchandises voyagent aux risques et périls du destinataire
+- Toute réclamation doit être formulée dans les 5 jours
+
+SIGNATURES
+
+Livré par (Fournisseur) :                Reçu par (Destinataire) :
+
+Nom : ...........................         Nom : ...........................
+Date : ..........................         Date : ..........................
+Signature :                                Signature :`, }, bon_retour: { titre:"Bon de retour", description:"Pour la reprise des produits invendus", categorie:"Livraison", contenu: `BON DE RETOUR N° ......................
+
+Date : .............................
+
+DÉPOSITAIRE / CLIENT
+[Nom / Raison sociale]
+[Adresse]
+[Contact]
+
+FOURNISSEUR (destinataire du retour)
+Goûtstoso
+Jordan Montanaro
+Rue des Sources 19, 2613 Villeret
+
+MOTIF DU RETOUR
+☐ Fin de contrat de dépôt-vente
+☐ Produits invendus
+☐ Produits non conformes
+☐ Erreur de livraison
+☐ Autre : .................................................
+
+PRODUITS RETOURNÉS
+
+┌─────────────────────────────────────┬──────┬─────────────┬───────────┐
+│ Désignation                          │ Qté  │ Lot         │ État      │
+├─────────────────────────────────────┼──────┼─────────────┼───────────┤
+│                                      │      │             │           │
+│                                      │      │             │           │
+│                                      │      │             │           │
+└─────────────────────────────────────┴──────┴─────────────┴───────────┘
+
+État : (A) Parfait état, (B) Acceptable, (C) Endommagé
+
+CONDITIONS DE REPRISE
+
+- Les produits doivent être retournés dans leur emballage d'origine
+- Étiquettes intactes et lisibles
+- Date limite de consommation respectée
+- Les produits endommagés ou manquants peuvent être facturés au prix pro
+
+VÉRIFICATION ET ACCEPTATION
+
+Retour remis par (Dépositaire) :          Retour reçu par (Fournisseur) :
+
+Nom : ...........................          Nom : ...........................
+Date : ..........................          Date : ..........................
+Signature :                                 Signature :
+
+Observations : ..........................................................
+.............................................................................`, }, nda: { titre:"Accord de confidentialité (NDA)", description:"Pour partenaires et fournisseurs stratégiques", categorie:"Confidentialité", contenu: `ACCORD DE CONFIDENTIALITÉ (NON-DISCLOSURE AGREEMENT)
+
+Entre :
+
+Goûtstoso, Jordan Montanaro, Rue des Sources 19, 2613 Villeret (ci-après "la Partie Divulgatrice")
+
+ET
+
+[Nom / Raison sociale]
+[Adresse]
+(ci-après "la Partie Réceptrice")
+
+ARTICLE 1 - OBJET
+Le présent accord a pour objet de protéger les informations confidentielles échangées entre les parties dans le cadre de leurs relations commerciales (discussions, collaboration, partenariat, fourniture, etc.).
+
+ARTICLE 2 - INFORMATIONS CONFIDENTIELLES
+Sont considérées comme confidentielles toutes les informations communiquées, quel qu'en soit le support, concernant notamment :
+
+- Les recettes, procédés de fabrication et savoir-faire
+- La stratégie commerciale, marketing et financière
+- Les données clients et fournisseurs
+- Les tarifs et conditions commerciales
+- Les projets en cours et à venir
+
+ARTICLE 3 - ENGAGEMENTS DE LA PARTIE RÉCEPTRICE
+La Partie Réceptrice s'engage à :
+a) Garder strictement confidentielles toutes les informations reçues
+b) N'utiliser ces informations que pour l'objet défini avec Goûtstoso
+c) Ne pas les divulguer à des tiers sans autorisation écrite préalable
+d) Les protéger avec le même soin qu'elle apporte à ses propres informations confidentielles
+e) Limiter l'accès aux seules personnes de son équipe ayant un besoin réel
+
+ARTICLE 4 - EXCLUSIONS
+Ne sont pas couvertes les informations :
+
+- Déjà publiques au moment de leur communication
+- Obtenues légalement d'un tiers sans obligation de confidentialité
+- Développées indépendamment sans utilisation des informations confidentielles
+
+ARTICLE 5 - DURÉE
+Le présent accord est conclu pour une durée de 3 ans à compter de sa signature. L'obligation de confidentialité perdure 2 ans après la fin de la relation commerciale.
+
+ARTICLE 6 - RESTITUTION
+À la fin de la relation commerciale ou sur simple demande, la Partie Réceptrice s'engage à restituer ou détruire tous les documents et supports contenant des informations confidentielles.
+
+ARTICLE 7 - SANCTIONS
+Toute violation du présent accord pourra donner lieu à des poursuites judiciaires et à des dommages-intérêts correspondant au préjudice subi.
+
+ARTICLE 8 - DROIT APPLICABLE
+Droit suisse applicable. Juridiction compétente : tribunaux du canton de Berne.
+
+Fait à .........................., le ..........................
+
+LA PARTIE DIVULGATRICE                           LA PARTIE RÉCEPTRICE
+Goûtstoso - Jordan Montanaro                     ........................
+
+Signature :                                       Signature :`, }, consommation_responsable: { titre:"Charte de consommation responsable", description:"Obligations légales liées à la vente d'alcool", categorie:"Légal", contenu: `CHARTE DE CONSOMMATION RESPONSABLE
+
+En tant que producteur et distributeur de boissons alcoolisées (liqueurs artisanales à 30% vol.), Goûtstoso s'engage à promouvoir une consommation responsable et à respecter la législation suisse en vigueur.
+
+1. PROTECTION DES MINEURS
+   Goûtstoso rappelle et s'engage à faire respecter par ses partenaires :
+
+- L'interdiction formelle de vente d'alcool aux personnes de moins de 18 ans (Loi fédérale sur l'alcool)
+- L'obligation de contrôler l'âge en cas de doute
+- L'interdiction d'offrir de l'alcool à titre gratuit à des mineurs
+
+1. PROMOTION DE LA MODÉRATION
+   Nous invitons nos clients et partenaires à :
+
+- Consommer nos produits avec modération
+- Ne pas conduire après consommation d'alcool
+- Respecter les taux d'alcoolémie légaux (0,5‰ en Suisse)
+- Éviter la consommation d'alcool en cas de grossesse
+
+1. OBLIGATIONS DE NOS PARTENAIRES
+   Nos dépositaires et revendeurs s'engagent à :
+
+- Afficher les interdictions légales en point de vente
+- Former leur personnel à la vérification de l'âge
+- Ne pas vendre d'alcool à des personnes manifestement en état d'ivresse
+- Respecter les horaires légaux de vente selon leur canton
+
+1. PUBLICITÉ RESPONSABLE
+   Goûtstoso s'engage à ce que ses communications :
+
+- Ne ciblent pas les mineurs
+- N'incitent pas à une consommation excessive
+- Ne présentent pas l'alcool comme ayant des vertus thérapeutiques
+- Ne soient pas diffusées dans des lieux fréquentés majoritairement par des mineurs
+
+1. ÉTIQUETAGE
+   Nos produits comportent obligatoirement :
+
+- Le taux d'alcool volumétrique (30% vol.)
+- La contenance
+- La liste des ingrédients
+- Les mentions légales (interdiction aux mineurs)
+- La date limite de consommation optimale
+
+1. RESSOURCES ET AIDE
+   En cas de problème de consommation, contactez :
+
+- Addiction Suisse : www.addictionsuisse.ch
+- Ligne d'aide : 147 (jeunes) / 143 (La Main Tendue)
+
+Goûtstoso s'engage pleinement dans une démarche de consommation responsable et saine.
+
+Goûtstoso - Jordan Montanaro
+admin@goutstoso.ch · www.goutstoso.ch`,
+},
+};
+
+const Documents = ({st,setSt}) => {
+const [viewId,setViewId] = useState(null);
+const [editing,setEditing] = useState(false);
+const [editContent,setEditContent] = useState("");
+const [editTitre,setEditTitre] = useState("");
+
+// Initialiser les documents par défaut si pas présents
+React.useEffect(()=>{
+if(!st.documents || Object.keys(st.documents).length===0) {
+setSt(p=>({...p,documents:{...DOCS_DEFAUT}}));
+}
+},[]);
+
+const docs = st.documents || DOCS_DEFAUT;
+const view = viewId ? docs[viewId] : null;
+
+const save = () => {
+setSt(p=>({...p,documents:{...p.documents,[viewId]:{...p.documents[viewId],titre:editTitre,contenu:editContent,modifieLe:today()}}}));
+setEditing(false);
+};
+
+const resetDoc = () => {
+if(!window.confirm("Restaurer la version par défaut de ce document ? Tes modifications seront perdues.")) return;
+setSt(p=>({...p,documents:{...p.documents,[viewId]:{...DOCS_DEFAUT[viewId]}}}));
+setEditing(false);
+};
+
+const exporterPDF = async (docId) => {
+const d = docs[docId];
+try {
+await new Promise((res,rej)=>{
+if(window.jspdf){res();return;}
+const s=document.createElement("script");
+s.src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";
+s.onload=res;s.onerror=rej;document.head.appendChild(s);
+});
+const {jsPDF}=window.jspdf;
+const doc=new jsPDF("p","mm","a4");
+const W=210,mg=18;
+
+  // Bande jaune
+  doc.setFillColor(232,182,76);doc.rect(0,0,W,6,"F");
+  // Header
+  doc.setFontSize(16);doc.setFont("helvetica","bold");doc.setTextColor(17,17,17);
+  doc.text("Goûtstoso",mg,20);
+  doc.setFontSize(8);doc.setFont("helvetica","normal");doc.setTextColor(150,150,150);
+  doc.text("Liqueurs artisanales · Suisse",mg,26);
+
+  // Titre
+  doc.setFontSize(14);doc.setFont("helvetica","bold");doc.setTextColor(17,17,17);
+  const lines = doc.splitTextToSize(d.titre,W-mg*2);
+  doc.text(lines,mg,40);
+
+  doc.setDrawColor(230,230,228);doc.setLineWidth(0.3);doc.line(mg,50,W-mg,50);
+
+  // Contenu
+  doc.setFontSize(9);doc.setFont("helvetica","normal");doc.setTextColor(60,60,60);
+  const contentLines = doc.splitTextToSize(d.contenu||"",W-mg*2);
+  let y=58;
+  contentLines.forEach(line=>{
+    if(y>275){doc.addPage();y=20;}
+    doc.text(line,mg,y);
+    y+=4.5;
+  });
+
+  // Pied
+  doc.setDrawColor(230,230,228);doc.line(mg,280,W-mg,280);
+  doc.setFontSize(7);doc.setTextColor(150,150,150);
+  doc.text("Goûtstoso · Jordan Montanaro · Rue des Sources 19 · 2613 Villeret · admin@goutstoso.ch",W/2,285,{align:"center"});
+  doc.setFillColor(232,182,76);doc.rect(0,292,W,5,"F");
+
+  doc.save((d.titre||"document").replace(/[^a-z0-9]/gi,"_")+".pdf");
+} catch(e){ alert("Erreur PDF : "+e.message); }
+
+};
+
+const copier = (docId) => {
+const d = docs[docId];
+navigator.clipboard?.writeText((d.titre||"")+"\n\n"+(d.contenu||""))
+.then(()=>alert("Texte copié !"))
+.catch(()=>alert("Impossible de copier"));
+};
+
+// Vue document
+if(view) {
+return (
+<div className="fade">
+<button onClick={()=>{setViewId(null);setEditing(false);}} style={{display:"flex",alignItems:"center",gap:6,background:"none",border:"none",color:"#737373",fontSize:13,marginBottom:12,padding:0,cursor:"pointer"}}>← Retour</button>
+
+    <div style={{background:"#0A0A0A",borderRadius:12,padding:"14px 16px",marginBottom:12}}>
+      <p style={{fontSize:10,color:"#E8B64C",fontWeight:600,textTransform:"uppercase",letterSpacing:"-0.005em"}}>{view.categorie}</p>
+      <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:20,fontWeight:600,color:"#fff",marginTop:4,letterSpacing:"-0.02em"}}>{view.titre}</p>
+      {view.modifieLe && <p style={{fontSize:10,color:"#A3A3A3",marginTop:4}}>Modifié le {fmt(view.modifieLe)}</p>}
+    </div>
+
+    {editing ? (
+      <div>
+        <F label="Titre" value={editTitre} onChange={setEditTitre}/>
+        <div style={{marginTop:14}}>
+          <label style={{fontSize:11,fontWeight:600,color:"#737373",textTransform:"uppercase",display:"block",marginBottom:6}}>Contenu</label>
+          <textarea value={editContent} onChange={e=>setEditContent(e.target.value)} style={{width:"100%",minHeight:400,padding:"12px",fontSize:12,fontFamily:"'Inter',monospace",border:"1px solid #EAE7E0",borderRadius:10,resize:"vertical",lineHeight:1.6}}/>
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginTop:14}}>
+          <Btn onClick={save} full icon="check">Enregistrer</Btn>
+          <Btn onClick={()=>setEditing(false)} variant="ghost" full>Annuler</Btn>
+        </div>
+        {DOCS_DEFAUT[viewId] && (
+          <button onClick={resetDoc} style={{width:"100%",background:"#FEF2F2",color:"#B91C1C",border:"none",borderRadius:10,padding:"10px",fontWeight:500,fontSize:12,cursor:"pointer",marginTop:10}}>
+            ↻ Restaurer la version par défaut
+          </button>
+        )}
+      </div>
+    ) : (
+      <>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6,marginBottom:12}}>
+          <button onClick={()=>{setEditing(true);setEditContent(view.contenu||"");setEditTitre(view.titre||"");}} style={{background:"#0A0A0A",color:"#FAFAF7",border:"none",borderRadius:10,padding:"11px 4px",fontWeight:500,fontSize:12,cursor:"pointer"}}>✏️ Modifier</button>
+          <button onClick={()=>exporterPDF(viewId)} style={{background:"#FDF6E3",color:"#9A3412",border:"1px solid #FCD34D",borderRadius:10,padding:"11px 4px",fontWeight:500,fontSize:12,cursor:"pointer"}}>📄 PDF</button>
+          <button onClick={()=>copier(viewId)} style={{background:"#F4F4F2",border:"none",borderRadius:10,padding:"11px 4px",fontWeight:500,fontSize:12,cursor:"pointer"}}>📋 Copier</button>
+        </div>
+
+        <Card style={{padding:"16px"}}>
+          <p style={{fontSize:11,color:"#737373",marginBottom:12,fontStyle:"italic"}}>{view.description}</p>
+          <div style={{whiteSpace:"pre-wrap",fontSize:12,lineHeight:1.7,color:"#262626",fontFamily:"'Inter',sans-serif"}}>{view.contenu}</div>
+        </Card>
+      </>
+    )}
+  </div>
+);
+
+}
+
+// Vue liste
+const docsEntries = Object.entries(docs);
+const categories = [...new Set(docsEntries.map(([,d])=>d.categorie))].sort();
+
+return (
+<div className="fade">
+<SectionTitle>Documents légaux</SectionTitle>
+
+  <Card style={{marginBottom:14,padding:"12px 14px",background:"#FDF6E3",border:"1px solid #FCD34D"}}>
+    <p style={{fontSize:12,color:"#9A3412",fontWeight:500}}>📜 Tes documents légaux</p>
+    <p style={{fontSize:11,color:"#9A3412",marginTop:3,opacity:.85}}>Modèles prêts à l'emploi et personnalisables. Export PDF disponible pour chaque document.</p>
+  </Card>
+
+  {categories.map(cat=>(
+    <div key={cat} style={{marginBottom:18}}>
+      <p style={{fontSize:10,fontWeight:600,color:"#737373",textTransform:"uppercase",marginBottom:8,letterSpacing:"0.04em"}}>{cat}</p>
+      {docsEntries.filter(([,d])=>d.categorie===cat).map(([id,d])=>(
+        <Card key={id} style={{marginBottom:8,padding:"12px 14px",cursor:"pointer"}} onClick={()=>setViewId(id)}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+            <div style={{flex:1,minWidth:0}}>
+              <p style={{fontWeight:600,fontSize:13}}>{d.titre}</p>
+              <p style={{fontSize:11,color:"#737373",marginTop:3,lineHeight:1.4}}>{d.description}</p>
+              {d.modifieLe && <p style={{fontSize:10,color:"#A3A3A3",marginTop:4}}>Modifié le {fmt(d.modifieLe)}</p>}
+            </div>
+            <div style={{color:"#A3A3A3",marginLeft:10,fontSize:18}}>›</div>
+          </div>
+        </Card>
+      ))}
+    </div>
+  ))}
+</div>
+
+);
+};
+
+// ══════════════════════════════════════════════════════════════
 // APP SHELL - Navigation mobile en bas
 // ══════════════════════════════════════════════════════════════
 
@@ -3567,6 +4349,7 @@ const NAV_MORE = [
 {id:"produits",label:"Produits",icon:"prod"},
 {id:"stocks",label:"Stocks",icon:"stock"},
 {id:"contrats",label:"Contrats",icon:"contrat"},
+{id:"documents",label:"Documents",icon:"contrat"},
 ];
 
 // Icône "more" (hamburger)
@@ -3696,6 +4479,7 @@ return ()=>clearInterval(iv);
 
 
 
+
 const pages = {
 dashboard:<Dashboard st={st}/>,
 produits:<Produits st={st} setSt={setSt}/>,
@@ -3705,6 +4489,7 @@ contrats:<Contrats st={st} setSt={setSt}/>,
 factures:<Factures st={st} setSt={setSt}/>,
 commandes:<Commandes st={st} setSt={setSt}/>,
 clients:<Clients st={st} setSt={setSt}/>,
+documents:<Documents st={st} setSt={setSt}/>,
 compta:<Comptabilite st={st} setSt={setSt}/>,
 };
 
