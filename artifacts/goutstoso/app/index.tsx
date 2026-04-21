@@ -2650,13 +2650,13 @@ return (
   </Card>
 
   {/* Filtre période */}
-  <div style={{display:"flex",gap:6,marginBottom:14,overflowX:"auto",paddingBottom:4}}>
-    <button onClick={()=>setPeriode("tout")} style={{background:periode==="tout"?"#111":"#F5F5F0",color:periode==="tout"?"#F2C94C":"#6B7280",border:"none",borderRadius:20,padding:"6px 14px",fontSize:12,fontWeight:periode==="tout"?700:400,cursor:"pointer",whiteSpace:"nowrap",flexShrink:0}}>Tout</button>
+  <div style={{display:"flex",gap:5,marginBottom:12,overflowX:"auto",paddingBottom:2}}>
+    <button onClick={()=>setPeriode("tout")} style={{background:periode==="tout"?"#0A0A0A":"transparent",color:periode==="tout"?"#FAFAF7":"#525252",border:periode==="tout"?"none":"1px solid #EAE7E0",borderRadius:16,padding:"4px 10px",fontSize:11,fontWeight:periode==="tout"?600:500,cursor:"pointer",whiteSpace:"nowrap",flexShrink:0}}>Tout</button>
     {annees.map(a=>(
-      <button key={a} onClick={()=>setPeriode(a)} style={{background:periode===a?"#111":"#F5F5F0",color:periode===a?"#F2C94C":"#6B7280",border:"none",borderRadius:20,padding:"6px 14px",fontSize:12,fontWeight:periode===a?700:400,cursor:"pointer",whiteSpace:"nowrap",flexShrink:0}}>{a}</button>
+      <button key={a} onClick={()=>setPeriode(a)} style={{background:periode===a?"#0A0A0A":"transparent",color:periode===a?"#FAFAF7":"#525252",border:periode===a?"none":"1px solid #EAE7E0",borderRadius:16,padding:"4px 10px",fontSize:11,fontWeight:periode===a?600:500,cursor:"pointer",whiteSpace:"nowrap",flexShrink:0}}>{a}</button>
     ))}
     {mois.slice(0,6).map(m=>(
-      <button key={m} onClick={()=>setPeriode(m)} style={{background:periode===m?"#111":"#F5F5F0",color:periode===m?"#F2C94C":"#6B7280",border:"none",borderRadius:20,padding:"6px 14px",fontSize:12,fontWeight:periode===m?700:400,cursor:"pointer",whiteSpace:"nowrap",flexShrink:0}}>{new Date(m+"-01").toLocaleDateString("fr-CH",{month:"short",year:"2-digit"})}</button>
+      <button key={m} onClick={()=>setPeriode(m)} style={{background:periode===m?"#0A0A0A":"transparent",color:periode===m?"#FAFAF7":"#525252",border:periode===m?"none":"1px solid #EAE7E0",borderRadius:16,padding:"4px 10px",fontSize:11,fontWeight:periode===m?600:500,cursor:"pointer",whiteSpace:"nowrap",flexShrink:0}}>{new Date(m+"-01").toLocaleDateString("fr-CH",{month:"short",year:"2-digit"})}</button>
     ))}
   </div>
 
@@ -2679,13 +2679,13 @@ return (
   {/* Onglets */}
   <div style={{display:"flex",gap:6,marginBottom:14,overflowX:"auto",paddingBottom:2}}>
     {[
-      {id:"dashboard",l:"📊 Aperçu"},
-      {id:"rentabilite",l:"💎 Rentabilité"},
-      {id:"journal",l:"📓 Journal"},
-      {id:"resultat",l:"📈 Résultat"},
-      {id:"bilan",l:"⚖️ Bilan"},
+      {id:"dashboard",l:"Aperçu"},
+      {id:"rentabilite",l:"Rentabilité"},
+      {id:"journal",l:"Journal"},
+      {id:"resultat",l:"Résultat"},
+      {id:"bilan",l:"Bilan"},
     ].map(o=>(
-      <button key={o.id} onClick={()=>setOnglet(o.id)} style={{background:onglet===o.id?"#F2C94C":"#F5F5F0",color:onglet===o.id?"#111":"#6B7280",border:"none",borderRadius:10,padding:"8px 14px",fontSize:12,fontWeight:onglet===o.id?700:500,cursor:"pointer",whiteSpace:"nowrap",flexShrink:0}}>
+      <button key={o.id} onClick={()=>setOnglet(o.id)} style={{background:onglet===o.id?"#0A0A0A":"transparent",color:onglet===o.id?"#FAFAF7":"#525252",border:onglet===o.id?"none":"1px solid #EAE7E0",borderRadius:8,padding:"7px 11px",fontSize:11,fontWeight:onglet===o.id?600:500,cursor:"pointer",whiteSpace:"nowrap",flexShrink:0,letterSpacing:"-0.005em"}}>
         {o.l}
       </button>
     ))}
@@ -4472,6 +4472,7 @@ if(remote) { const next = hydrateData(remote); setSt(next); try { localStorage.s
 }, 30000);
 return ()=>clearInterval(iv);
 },[]);
+
 
 
 
