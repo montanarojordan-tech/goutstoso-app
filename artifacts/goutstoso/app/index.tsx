@@ -2766,6 +2766,725 @@ return (
 };
 
 // ══════════════════════════════════════════════════════════════
+// PAGE: COMMANDES (ventes en ligne Shopify)
+// ══════════════════════════════════════════════════════════════
+const Commandes = ({st,setSt}) => {
+const [modal,setModal] = useState(null);
+const [viewId,setViewId] = useState(null);
+const [filtre,setFiltre] = useState("toutes");
+
+const view = viewId ? (st.commandes||[]).find(c=>c.id===viewId) : null;
+
+const emptyC = () => ({
+id:null,
+numero:"",
+date:today(),
+clientId:"",
+client:"",
+email:"",
+telephone:"",
+adresse:"",
+npa:"",
+ville:"",
+lignes:[{produitId:"",qte:1}],
+rabais:0,
+fraisPort:0,
+commissionShopify:0,
+statut:"en attente",
+envoyeeCompta:false,
+notes:"",
+});
+const [form,setForm] = useState(emptyC());
+
+const genNumero = () => {
+const y = new Date().getFullYear();
+const existing = (st.commandes||[]).map(c=>c.numero);
+let n=1;
+while(existing.includes("CMD-"+y+"-"+String(n).padStart(3,"0"))) n++;
+return "CMD-"+y+"-"+String(n).padStart(3,"0");
+};
+
+const calcCommande = (c) => {
+const produitsTotal = sum((c.lignes||[]).filter(l=>l.produitId).map(l=>{
+const p = st.produits.find(x=>x.id===l.produitId);
+return (p?.prixClient||0)*(l.qte||0);
+}));
+const sousTotal = produitsTotal - (parseFloat(c.rabais)||0);
+const totalClient = sousTotal + (parseFloat(c.fraisPort)||0);
+const commission = parseFloat(c.commissionShopify)||0;
+const netRecu = totalClient - commission;
+return {produitsTotal,sousTotal,totalClient,commission,netRecu};
+};
+
+const save = () => {
+if(!form.client) { alert("Indique le nom du client"); return; }
+const lignesOk = (form.lignes||[]).filter(l=>l.produitId&&l.qte>0);
+if(!lignesOk.length) { alert("Ajoute au moins un produit"); return; }
+const numero = form.numero || genNumero();
+const cleaned = {...form, numero, lignes:lignesOk};
+if(form.id) {
+setSt(p=>({...p,commandes:(p.commandes||[]).map(c=>c.id===form.id?cleaned:c)}));
+} else {
+cleaned.id = uid();
+setSt(p=>({...p,commandes:[...(p.commandes||[]),cleaned]}));
+}
+setModal(null);
+};
+
+const envoyerCompta = (c) => {
+if(c.envoyeeCompta) {
+if(!window.confirm("Cette commande a déjà été envoyée en compta. Renvoyer ?")) return;
+}
+const calc = calcCommande(c);
+const newTrans = [];
+const dateOp = c.date || today();
+
+// Recettes par produit
+(c.lignes||[]).forEach(l=>{
+  const p = st.produits.find(x=>x.id===l.produitId);
+  if(!p) return;
+  const montant = (p.prixClient||0)*(l.qte||0);
+  const compte = p.nom==="Limonta"?"3001":p.nom==="Limelo"?"3002":p.nom==="Clementino"?"3003":p.nom.includes("Coffret")?"3004":"3001";
+  const cat = p.nom==="Limonta"?"Vente Limonta":p.nom==="Limelo"?"Vente Limelo":p.nom==="Clementino"?"Vente Clementino":p.nom.includes("Coffret")?"Vente Coffrets":"Vente Limonta";
+  newTrans.push({
+    id:uid(),
+    commandeId:c.id,
+    date:dateOp,
+    compte,
+    libelle:"Vente "+p.nom+" "+p.variante,
+    type:"recette",
+    categorie:cat,
+    montant,
+    description:"Shopify "+c.numero+" - "+p.nom+" "+p.variante+" x"+l.qte,
+  });
+});
+
+// Recette : frais de port facturés (3600)
+if(parseFloat(c.fraisPort)>0) {
+  newTrans.push({
+    id:uid(),
+    commandeId:c.id,
+    date:dateOp,
+    compte:"3600",
+    libelle:"Frais expédition clients",
+    type:"recette",
+    categorie:"Frais expédition facturés",
+    montant:parseFloat(c.fraisPort),
+    description:"Shopify "+c.numero+" - Port facturé",
+  });
+}
+
+// Dépense : commission Shopify (6700)
+if(parseFloat(c.commissionShopify)>0) {
+  newTrans.push({
+    id:uid(),
+    commandeId:c.id,
+    date:dateOp,
+    compte:"6700",
+    libelle:"Commission Shopify",
+    type:"depense",
+    categorie:"Commissions",
+    montant:parseFloat(c.commissionShopify),
+    description:"Shopify "+c.numero+" - Commission",
+  });
+}
+
+// Dépense : rabais accordé (optionnel, compte 3900 ou noter)
+if(parseFloat(c.rabais)>0) {
+  newTrans.push({
+    id:uid(),
+    commandeId:c.id,
+    date:dateOp,
+    compte:"3800",
+    libelle:"Rabais accordé",
+    type:"depense",
+    categorie:"Autres",
+    montant:parseFloat(c.rabais),
+    description:"Shopify "+c.numero+" - Rabais",
+  });
+}
+
+// Nettoyer anciennes transactions de cette commande
+const oldTrans = (st.transactions||[]).filter(t=>t.commandeId!==c.id);
+
+setSt(p=>({...p,
+  transactions:[...oldTrans,...newTrans],
+  commandes:p.commandes.map(x=>x.id===c.id?{...x,envoyeeCompta:true}:x),
+}));
+alert(newTrans.length+" écriture(s) créée(s) en compta !");
+
+};
+
+const supprimer = (id) => {
+if(!window.confirm("Supprimer cette commande ? Les écritures compta liées seront aussi supprimées.")) return;
+setSt(p=>({...p,
+commandes:p.commandes.filter(c=>c.id!==id),
+transactions:(p.transactions||[]).filter(t=>t.commandeId!==id),
+}));
+setViewId(null);
+};
+
+const toggleStatut = (c) => {
+const cycle = ["en attente","en attente retrait","expédiée","livrée","retirée"];
+const idx = cycle.indexOf(c.statut);
+const newStatut = cycle[(idx+1)%cycle.length] || "en attente";
+setSt(p=>({...p,commandes:p.commandes.map(x=>x.id===c.id?{...x,statut:newStatut}:x)}));
+};
+
+const addLigne = () => setForm(p=>({...p,lignes:[...p.lignes,{produitId:"",qte:1}]}));
+const updLigne = (i,k,v) => setForm(p=>({...p,lignes:p.lignes.map((l,j)=>j===i?{...l,[k]:v}:l)}));
+const delLigne = (i) => setForm(p=>({...p,lignes:p.lignes.filter((_,j)=>j!==i)}));
+
+const commandes = (st.commandes||[]).slice().reverse();
+const filtrees = commandes.filter(c=>{
+if(filtre==="toutes") return true;
+if(filtre==="non-envoyees") return !c.envoyeeCompta;
+if(filtre==="envoyees") return c.envoyeeCompta;
+return true;
+});
+const nbNonEnvoyees = commandes.filter(c=>!c.envoyeeCompta).length;
+
+const badgeStatut = (s) => s==="en attente"?"yellow":s==="en attente retrait"?"yellow":s==="expédiée"?"blue":s==="livrée"?"green":s==="retirée"?"green":"gray";
+
+// Vue détail
+if(view) {
+const calc = calcCommande(view);
+return (
+<div className="fade">
+<button onClick={()=>setViewId(null)} style={{display:"flex",alignItems:"center",gap:6,background:"none",border:"none",color:"#9CA3AF",fontSize:13,marginBottom:12,padding:0,cursor:"pointer"}}>← Retour</button>
+
+    <div style={{background:"#111",borderRadius:14,padding:"14px 16px",marginBottom:12}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+        <div>
+          <p style={{fontSize:10,color:"#F2C94C",fontWeight:700,textTransform:"uppercase",letterSpacing:".08em"}}>Commande Shopify</p>
+          <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:22,fontWeight:700,color:"#fff",marginTop:2}}>{view.numero}</p>
+          <p style={{fontSize:11,color:"#aaa",marginTop:4}}>{fmt(view.date)}</p>
+        </div>
+        <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:6}}>
+          <Badge c={badgeStatut(view.statut)}>{view.statut}</Badge>
+          {view.envoyeeCompta && <span style={{fontSize:9,color:"#F2C94C",background:"#ffffff15",borderRadius:6,padding:"3px 7px",fontWeight:700}}>✓ En compta</span>}
+        </div>
+      </div>
+    </div>
+
+    {/* Actions */}
+    <div style={{display:"grid",gridTemplateColumns:view.envoyeeCompta?"1fr 1fr":"1fr",gap:6,marginBottom:8}}>
+      <button onClick={()=>envoyerCompta(view)} style={{background:view.envoyeeCompta?"#F5F5F0":"#166534",color:view.envoyeeCompta?"#6B7280":"#fff",border:"none",borderRadius:10,padding:"11px",fontWeight:700,fontSize:12,cursor:"pointer"}}>
+        {view.envoyeeCompta?"↻ Renvoyer en compta":"📊 Envoyer en compta"}
+      </button>
+      {view.envoyeeCompta && <button onClick={()=>toggleStatut(view)} style={{background:"#F5F5F0",border:"none",borderRadius:10,padding:"11px",fontWeight:600,fontSize:12,cursor:"pointer"}}>
+        Statut: {view.statut}
+      </button>}
+    </div>
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginBottom:12}}>
+      <button onClick={()=>{setForm({...view});setModal("form");setViewId(null);}} style={{background:"#F5F5F0",border:"none",borderRadius:10,padding:"10px",fontWeight:600,fontSize:12,cursor:"pointer"}}>✏️ Modifier</button>
+      <button onClick={()=>supprimer(view.id)} style={{background:"#FEE2E2",color:"#991B1B",border:"none",borderRadius:10,padding:"10px",fontWeight:600,fontSize:12,cursor:"pointer"}}>🗑 Supprimer</button>
+    </div>
+
+    {/* Client */}
+    <Card style={{marginBottom:12,padding:"12px 14px"}}>
+      <p style={{fontSize:10,color:"#9CA3AF",fontWeight:700,textTransform:"uppercase",marginBottom:4}}>Client</p>
+      <p style={{fontSize:13,fontWeight:700}}>{view.client}</p>
+      {view.email && <p style={{fontSize:11,color:"#6B7280",marginTop:2}}>✉️ {view.email}</p>}
+      {view.telephone && <p style={{fontSize:11,color:"#6B7280",marginTop:1}}>📞 {view.telephone}</p>}
+      {(view.adresse || view.npa || view.ville) && (
+        <p style={{fontSize:11,color:"#6B7280",marginTop:2,lineHeight:1.5}}>
+          📍 {view.adresse}{view.adresse && (view.npa||view.ville) ? ", " : ""}{view.npa} {view.ville}
+        </p>
+      )}
+    </Card>
+
+    {/* Produits */}
+    <Card style={{marginBottom:12,padding:"12px 14px"}}>
+      <p style={{fontSize:10,color:"#9CA3AF",fontWeight:700,textTransform:"uppercase",marginBottom:8}}>Produits</p>
+      {(view.lignes||[]).filter(l=>l.produitId).map((l,i)=>{
+        const p = st.produits.find(x=>x.id===l.produitId);
+        return (
+          <div key={i} style={{display:"flex",justifyContent:"space-between",padding:"6px 0",borderBottom:"1px solid #F5F5F0"}}>
+            <div>
+              <p style={{fontSize:12,fontWeight:600}}>{p?.nom} {p?.variante}</p>
+              <p style={{fontSize:10,color:"#9CA3AF"}}>{p?.format} · Qté {l.qte} · {chf(p?.prixClient)}/u</p>
+            </div>
+            <span style={{fontWeight:700,fontSize:12}}>{chf((p?.prixClient||0)*l.qte)}</span>
+          </div>
+        );
+      })}
+    </Card>
+
+    {/* Récap financier */}
+    <Card style={{marginBottom:12,padding:"12px 14px",background:"#FEF9E7"}}>
+      <p style={{fontSize:10,color:"#92400E",fontWeight:700,textTransform:"uppercase",marginBottom:8}}>Récapitulatif</p>
+      <div style={{display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:4}}>
+        <span>Sous-total produits</span><span style={{fontWeight:600}}>{chf(calc.produitsTotal)}</span>
+      </div>
+      {parseFloat(view.rabais)>0 && (
+        <div style={{display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:4,color:"#991B1B"}}>
+          <span>Rabais</span><span style={{fontWeight:600}}>-{chf(view.rabais)}</span>
+        </div>
+      )}
+      {parseFloat(view.fraisPort)>0 && (
+        <div style={{display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:4}}>
+          <span>Frais de port</span><span style={{fontWeight:600}}>+{chf(view.fraisPort)}</span>
+        </div>
+      )}
+      <div style={{display:"flex",justifyContent:"space-between",borderTop:"1px solid #F2C94C",paddingTop:6,marginTop:6}}>
+        <span style={{fontWeight:700}}>Total client</span>
+        <span style={{fontWeight:700,fontFamily:"'Cormorant Garamond',serif",fontSize:18,color:"#D4A017"}}>{chf(calc.totalClient)}</span>
+      </div>
+      {parseFloat(view.commissionShopify)>0 && (
+        <div style={{display:"flex",justifyContent:"space-between",fontSize:11,marginTop:6,color:"#991B1B"}}>
+          <span>Commission Shopify</span><span>-{chf(view.commissionShopify)}</span>
+        </div>
+      )}
+      <div style={{display:"flex",justifyContent:"space-between",borderTop:"2px solid #F2C94C",paddingTop:6,marginTop:6}}>
+        <span style={{fontWeight:700,color:"#166534"}}>Net reçu</span>
+        <span style={{fontWeight:700,fontFamily:"'Cormorant Garamond',serif",fontSize:18,color:"#166534"}}>{chf(calc.netRecu)}</span>
+      </div>
+    </Card>
+
+    {view.notes && (
+      <Card style={{padding:"10px 14px",background:"#F5F5F0"}}>
+        <p style={{fontSize:10,color:"#9CA3AF",fontWeight:700,textTransform:"uppercase",marginBottom:4}}>Notes</p>
+        <p style={{fontSize:12}}>{view.notes}</p>
+      </Card>
+    )}
+  </div>
+);
+
+}
+
+// Vue liste
+return (
+<div className="fade">
+<SectionTitle action={<Btn icon="plus" onClick={()=>{setForm(emptyC());setModal("form");}}>Nouvelle</Btn>}>
+Commandes
+</SectionTitle>
+
+  {nbNonEnvoyees>0 && (
+    <div style={{background:"#FEF9E7",border:"1px solid #F2C94C",borderRadius:12,padding:"10px 14px",marginBottom:14}}>
+      <p style={{fontWeight:700,color:"#92400E",fontSize:12}}>💡 {nbNonEnvoyees} commande{nbNonEnvoyees>1?"s":""} à envoyer en compta</p>
+    </div>
+  )}
+
+  <div style={{display:"flex",gap:6,marginBottom:14,overflowX:"auto"}}>
+    {[
+      {id:"toutes",l:"Toutes"},
+      {id:"non-envoyees",l:`À envoyer${nbNonEnvoyees>0?" ("+nbNonEnvoyees+")":""}`},
+      {id:"envoyees",l:"En compta"},
+    ].map(f=>(
+      <button key={f.id} onClick={()=>setFiltre(f.id)} style={{
+        background:filtre===f.id?"#111":"#F5F5F0",
+        color:filtre===f.id?"#F2C94C":"#6B7280",
+        border:"none",borderRadius:20,padding:"6px 14px",
+        fontSize:12,fontWeight:filtre===f.id?700:400,
+        cursor:"pointer",whiteSpace:"nowrap",flexShrink:0,
+      }}>{f.l}</button>
+    ))}
+  </div>
+
+  {filtrees.length===0 ? (
+    <div style={{textAlign:"center",padding:"40px 20px",color:"#9CA3AF"}}>
+      <p style={{fontSize:40,marginBottom:12}}>🛒</p>
+      <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:20,fontWeight:600,color:"#374151"}}>Aucune commande</p>
+      <p style={{fontSize:13,marginTop:6}}>Saisis ta première commande Shopify</p>
+      <button onClick={()=>{setForm(emptyC());setModal("form");}} style={{marginTop:16,background:"#F2C94C",border:"none",borderRadius:12,padding:"12px 24px",fontWeight:700,fontSize:14,cursor:"pointer"}}>
+        + Nouvelle commande
+      </button>
+    </div>
+  ) : filtrees.map(c=>{
+    const calc = calcCommande(c);
+    return (
+      <Card key={c.id} style={{marginBottom:10,padding:"12px 14px",borderLeft:c.envoyeeCompta?"3px solid #22C55E":"3px solid #F2C94C"}}>
+        <div onClick={()=>setViewId(c.id)} style={{cursor:"pointer"}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:6}}>
+            <div style={{flex:1,minWidth:0}}>
+              <p style={{fontWeight:700,fontSize:13}}>{c.numero}</p>
+              <p style={{fontSize:12,color:"#6B7280",marginTop:1}}>{c.client}</p>
+              <p style={{fontSize:11,color:"#9CA3AF",marginTop:1}}>{fmt(c.date)} · {(c.lignes||[]).length} produit{c.lignes?.length>1?"s":""}</p>
+            </div>
+            <div style={{textAlign:"right"}}>
+              <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:18,fontWeight:700,color:"#D4A017"}}>{chf(calc.totalClient)}</p>
+              <div style={{marginTop:4,display:"flex",flexDirection:"column",alignItems:"flex-end",gap:3}}>
+                <Badge c={badgeStatut(c.statut)}>{c.statut}</Badge>
+                {c.envoyeeCompta && <span style={{fontSize:9,color:"#166534",background:"#DCFCE7",borderRadius:4,padding:"2px 6px",fontWeight:700}}>✓ compta</span>}
+              </div>
+            </div>
+          </div>
+        </div>
+        <div style={{display:"flex",gap:6,marginTop:8}}>
+          {!c.envoyeeCompta && (
+            <button onClick={()=>envoyerCompta(c)} style={{flex:1,background:"#166534",color:"#fff",border:"none",borderRadius:8,padding:"7px",fontSize:11,fontWeight:700,cursor:"pointer"}}>📊 Envoyer en compta</button>
+          )}
+          <button onClick={()=>setViewId(c.id)} style={{flex:1,background:"#F5F5F0",border:"none",borderRadius:8,padding:"7px",fontSize:11,fontWeight:600,cursor:"pointer"}}>👁 Voir</button>
+          <button onClick={()=>supprimer(c.id)} style={{background:"#FEE2E2",border:"none",borderRadius:8,padding:"7px 10px",cursor:"pointer",display:"flex"}}><Ic n="trash" s={13}/></button>
+        </div>
+      </Card>
+    );
+  })}
+
+  {/* Modal */}
+  {modal==="form" && (
+    <Modal title={form.id?"Modifier commande":"Nouvelle commande"} onClose={()=>setModal(null)}>
+      <div style={{display:"grid",gap:14}}>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+          <F label="N° commande" value={form.numero||""} onChange={v=>setForm(p=>({...p,numero:v}))} placeholder="Auto"/>
+          <F label="Date" type="date" value={form.date} onChange={v=>setForm(p=>({...p,date:v}))}/>
+        </div>
+        <div>
+          <label style={{fontSize:11,fontWeight:600,color:"#9CA3AF",textTransform:"uppercase",display:"block",marginBottom:6}}>Client</label>
+          <Sel label="" value={form.clientId||""} onChange={v=>{
+            if(v==="nouveau") {
+              setForm(p=>({...p,clientId:"",client:"",email:"",telephone:"",adresse:"",npa:"",ville:""}));
+            } else if(v) {
+              const c = (st.clients||[]).find(x=>x.id===v);
+              if(c) setForm(p=>({...p,clientId:v,client:c.nom,email:c.email||"",telephone:c.telephone||"",adresse:c.adresse||"",npa:c.npa||"",ville:c.ville||""}));
+            } else {
+              setForm(p=>({...p,clientId:""}));
+            }
+          }}
+          options={[
+            {v:"",l:"- Saisir manuellement -"},
+            {v:"nouveau",l:"+ Nouveau client (à enregistrer)"},
+            ...(st.clients||[]).map(c=>({v:c.id,l:"👤 "+c.nom}))
+          ]}/>
+        </div>
+        <F label="Nom / Raison sociale" value={form.client} onChange={v=>setForm(p=>({...p,client:v,clientId:""}))} required/>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+          <F label="Email" value={form.email||""} onChange={v=>setForm(p=>({...p,email:v,clientId:""}))}/>
+          <F label="Téléphone" value={form.telephone||""} onChange={v=>setForm(p=>({...p,telephone:v,clientId:""}))}/>
+        </div>
+        <F label="Adresse (rue + numéro)" value={form.adresse||""} onChange={v=>setForm(p=>({...p,adresse:v,clientId:""}))}/>
+        <div style={{display:"grid",gridTemplateColumns:"80px 1fr",gap:12}}>
+          <F label="NPA" value={form.npa||""} onChange={v=>setForm(p=>({...p,npa:v,clientId:""}))}/>
+          <F label="Ville" value={form.ville||""} onChange={v=>setForm(p=>({...p,ville:v,clientId:""}))}/>
+        </div>
+        {!form.clientId && form.client && (
+          <button onClick={()=>{
+            const newClient = {
+              id:uid(),
+              nom:form.client,
+              email:form.email||"",
+              telephone:form.telephone||"",
+              adresse:form.adresse||"",
+              npa:form.npa||"",
+              ville:form.ville||"",
+            };
+            setSt(p=>({...p,clients:[...(p.clients||[]),newClient]}));
+            setForm(p=>({...p,clientId:newClient.id}));
+            alert("Client \""+form.client+"\" enregistré !");
+          }} style={{background:"#DCFCE7",color:"#166534",border:"1.5px solid #86EFAC",borderRadius:10,padding:"10px",fontWeight:600,fontSize:12,cursor:"pointer",width:"100%"}}>
+            💾 Enregistrer ce client pour les prochaines commandes
+          </button>
+        )}
+        {form.clientId && (
+          <div style={{background:"#DBEAFE",color:"#1E3A5F",borderRadius:8,padding:"8px 12px",fontSize:11,textAlign:"center"}}>
+            ✓ Client existant sélectionné
+          </div>
+        )}
+
+        <div>
+          <label style={{fontSize:11,fontWeight:600,color:"#9CA3AF",textTransform:"uppercase",display:"block",marginBottom:8}}>Produits</label>
+          {(form.lignes||[]).map((l,i)=>(
+            <div key={i} style={{display:"grid",gridTemplateColumns:"1fr 60px 36px",gap:6,marginBottom:8,alignItems:"flex-end"}}>
+              <Sel label="" value={l.produitId} onChange={v=>updLigne(i,"produitId",v)}
+                options={[{v:"",l:"- Produit -"},...st.produits.filter(p=>p.actif).map(p=>({v:p.id,l:p.nom+" "+p.variante+" "+p.format+" ("+chf(p.prixClient)+")"}))]}/>
+              <input type="number" value={l.qte||1} min={1} onChange={e=>updLigne(i,"qte",+e.target.value)}
+                style={{padding:"11px 6px",fontSize:14,border:"1.5px solid #E5E5E0",borderRadius:10,textAlign:"center",width:60}}/>
+              <button onClick={()=>delLigne(i)} style={{background:"#FEE2E2",border:"none",borderRadius:8,padding:"10px 6px",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>
+                <Ic n="trash" s={13}/>
+              </button>
+            </div>
+          ))}
+          <button onClick={addLigne} style={{background:"none",border:"1.5px dashed #E5E5E0",borderRadius:10,padding:"8px",width:"100%",color:"#9CA3AF",fontSize:13,cursor:"pointer"}}>
+            + Ajouter un produit
+          </button>
+        </div>
+
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10}}>
+          <F label="Rabais (CHF)" type="number" value={form.rabais||0} onChange={v=>setForm(p=>({...p,rabais:+v}))}/>
+          <F label="Frais port (CHF)" type="number" value={form.fraisPort||0} onChange={v=>setForm(p=>({...p,fraisPort:+v}))}/>
+          <F label="Commission Shopify" type="number" value={form.commissionShopify||0} onChange={v=>setForm(p=>({...p,commissionShopify:+v}))}/>
+        </div>
+
+        <Sel label="Statut" value={form.statut} onChange={v=>setForm(p=>({...p,statut:v}))}
+          options={[
+            {v:"en attente",l:"⏳ En attente"},
+            {v:"en attente retrait",l:"📦 En attente de retrait"},
+            {v:"expédiée",l:"🚚 Expédiée"},
+            {v:"livrée",l:"✅ Livrée"},
+            {v:"retirée",l:"✅ Retirée"},
+          ]}/>
+
+        <F label="Notes" value={form.notes||""} onChange={v=>setForm(p=>({...p,notes:v}))}/>
+
+        {/* Récap live */}
+        {(form.lignes||[]).some(l=>l.produitId) && (() => {
+          const c = calcCommande(form);
+          return (
+            <div style={{background:"#FEF9E7",border:"1px solid #F2C94C",borderRadius:10,padding:"10px 14px",fontSize:12}}>
+              <div style={{display:"flex",justifyContent:"space-between",marginBottom:3}}>
+                <span>Sous-total</span><span>{chf(c.produitsTotal)}</span>
+              </div>
+              {parseFloat(form.rabais)>0 && <div style={{display:"flex",justifyContent:"space-between",color:"#991B1B",marginBottom:3}}><span>Rabais</span><span>-{chf(form.rabais)}</span></div>}
+              {parseFloat(form.fraisPort)>0 && <div style={{display:"flex",justifyContent:"space-between",marginBottom:3}}><span>Frais port</span><span>+{chf(form.fraisPort)}</span></div>}
+              <div style={{display:"flex",justifyContent:"space-between",borderTop:"1px solid #F2C94C",paddingTop:5,marginTop:5,fontWeight:700}}>
+                <span>Total client</span>
+                <span style={{color:"#D4A017",fontFamily:"'Cormorant Garamond',serif",fontSize:16}}>{chf(c.totalClient)}</span>
+              </div>
+              {parseFloat(form.commissionShopify)>0 && (
+                <div style={{display:"flex",justifyContent:"space-between",color:"#991B1B",marginTop:3}}><span>-Commission</span><span>-{chf(form.commissionShopify)}</span></div>
+              )}
+              <div style={{display:"flex",justifyContent:"space-between",marginTop:4,fontWeight:700,color:"#166534"}}>
+                <span>Net reçu</span><span>{chf(c.netRecu)}</span>
+              </div>
+            </div>
+          );
+        })()}
+      </div>
+      <div style={{display:"flex",gap:10,marginTop:20}}>
+        <Btn onClick={save} full icon="check">Enregistrer</Btn>
+        <Btn onClick={()=>setModal(null)} variant="ghost" full>Annuler</Btn>
+      </div>
+    </Modal>
+  )}
+</div>
+
+);
+};
+
+// ══════════════════════════════════════════════════════════════
+// PAGE: CLIENTS (base de données clients web)
+// ══════════════════════════════════════════════════════════════
+const Clients = ({st,setSt}) => {
+const [modal,setModal] = useState(null);
+const [viewId,setViewId] = useState(null);
+const [search,setSearch] = useState("");
+
+const view = viewId ? (st.clients||[]).find(c=>c.id===viewId) : null;
+
+const emptyC = () => ({id:null,nom:"",email:"",telephone:"",adresse:"",npa:"",ville:"",notes:""});
+const [form,setForm] = useState(emptyC());
+
+const save = () => {
+if(!form.nom) { alert("Le nom est obligatoire"); return; }
+if(form.id) {
+setSt(p=>({...p,clients:(p.clients||[]).map(c=>c.id===form.id?form:c)}));
+} else {
+const nc = {...form,id:uid()};
+setSt(p=>({...p,clients:[...(p.clients||[]),nc]}));
+}
+setModal(null);
+};
+
+const supprimer = (id) => {
+if(!window.confirm("Supprimer ce client ? Les commandes liées seront conservées.")) return;
+setSt(p=>({...p,clients:(p.clients||[]).filter(c=>c.id!==id)}));
+setViewId(null);
+};
+
+const clients = (st.clients||[]).slice().sort((a,b)=>a.nom.localeCompare(b.nom));
+const filtered = clients.filter(c=>{
+if(!search) return true;
+const s = search.toLowerCase();
+return c.nom?.toLowerCase().includes(s) || c.email?.toLowerCase().includes(s) || c.ville?.toLowerCase().includes(s);
+});
+
+// Stats par client
+const getStats = (clientId) => {
+const commandes = (st.commandes||[]).filter(c=>c.clientId===clientId);
+const ca = sum(commandes.map(c=>{
+const t = sum((c.lignes||[]).filter(l=>l.produitId).map(l=>{
+const p = st.produits.find(x=>x.id===l.produitId);
+return (p?.prixClient||0)*(l.qte||0);
+}));
+return t - (parseFloat(c.rabais)||0) + (parseFloat(c.fraisPort)||0);
+}));
+return {nbCommandes:commandes.length,ca,commandes};
+};
+
+// Vue détail client
+if(view) {
+const stats = getStats(view.id);
+return (
+<div className="fade">
+<button onClick={()=>setViewId(null)} style={{display:"flex",alignItems:"center",gap:6,background:"none",border:"none",color:"#9CA3AF",fontSize:13,marginBottom:12,padding:0,cursor:"pointer"}}>← Retour clients</button>
+
+    <div style={{background:"#111",borderRadius:14,padding:"16px",marginBottom:14}}>
+      <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:24,fontWeight:700,color:"#fff"}}>{view.nom}</p>
+      {view.email && <p style={{fontSize:12,color:"#aaa",marginTop:4}}>✉️ {view.email}</p>}
+      {view.telephone && <p style={{fontSize:12,color:"#aaa",marginTop:2}}>📞 {view.telephone}</p>}
+    </div>
+
+    {/* Actions */}
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:14}}>
+      <button onClick={()=>{setForm({...view});setModal("form");setViewId(null);}} style={{background:"#F5F5F0",border:"none",borderRadius:12,padding:"12px",fontWeight:600,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+        <Ic n="edit" s={14}/> Modifier
+      </button>
+      <button onClick={()=>supprimer(view.id)} style={{background:"#FEE2E2",color:"#991B1B",border:"none",borderRadius:12,padding:"12px",fontWeight:600,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+        <Ic n="trash" s={14}/> Supprimer
+      </button>
+    </div>
+
+    {/* Stats */}
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:14}}>
+      <Card style={{padding:"12px",textAlign:"center",background:"#DBEAFE"}}>
+        <p style={{fontSize:10,color:"#1E3A5F",fontWeight:700,textTransform:"uppercase"}}>Commandes</p>
+        <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:24,fontWeight:700,color:"#1E3A5F",marginTop:2}}>{stats.nbCommandes}</p>
+      </Card>
+      <Card style={{padding:"12px",textAlign:"center",background:"#DCFCE7"}}>
+        <p style={{fontSize:10,color:"#166534",fontWeight:700,textTransform:"uppercase"}}>CA total</p>
+        <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:20,fontWeight:700,color:"#166534",marginTop:2}}>{chf(stats.ca)}</p>
+      </Card>
+    </div>
+
+    {/* Adresse */}
+    <Card style={{marginBottom:14,padding:"12px 14px"}}>
+      <p style={{fontSize:10,color:"#9CA3AF",fontWeight:700,textTransform:"uppercase",marginBottom:6}}>Adresse de livraison</p>
+      {(view.adresse||view.npa||view.ville) ? (
+        <p style={{fontSize:13,lineHeight:1.6}}>
+          {view.adresse && <>{view.adresse}<br/></>}
+          {view.npa} {view.ville}
+        </p>
+      ) : <p style={{fontSize:12,color:"#9CA3AF",fontStyle:"italic"}}>Pas d'adresse enregistrée</p>}
+    </Card>
+
+    {/* Notes */}
+    {view.notes && (
+      <Card style={{marginBottom:14,padding:"10px 14px",background:"#FEF9E7"}}>
+        <p style={{fontSize:10,color:"#92400E",fontWeight:700,textTransform:"uppercase",marginBottom:4}}>Notes</p>
+        <p style={{fontSize:12,color:"#374151"}}>{view.notes}</p>
+      </Card>
+    )}
+
+    {/* Historique commandes */}
+    <Card style={{padding:"12px 14px"}}>
+      <p style={{fontSize:11,fontWeight:700,color:"#9CA3AF",textTransform:"uppercase",marginBottom:10}}>Historique ({stats.nbCommandes})</p>
+      {stats.commandes.length===0
+        ? <p style={{fontSize:12,color:"#9CA3AF",textAlign:"center",padding:"10px 0"}}>Aucune commande</p>
+        : stats.commandes.slice().reverse().map(c=>{
+            const t = sum((c.lignes||[]).filter(l=>l.produitId).map(l=>{
+              const p = st.produits.find(x=>x.id===l.produitId);
+              return (p?.prixClient||0)*(l.qte||0);
+            })) - (parseFloat(c.rabais)||0) + (parseFloat(c.fraisPort)||0);
+            return (
+              <div key={c.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderBottom:"1px solid #F5F5F0"}}>
+                <div>
+                  <p style={{fontSize:12,fontWeight:600}}>{c.numero}</p>
+                  <p style={{fontSize:10,color:"#9CA3AF"}}>{fmt(c.date)} · {(c.lignes||[]).length} produit(s) · {c.statut}</p>
+                </div>
+                <span style={{fontWeight:700,fontSize:13}}>{chf(t)}</span>
+              </div>
+            );
+          })
+      }
+    </Card>
+  </div>
+);
+
+}
+
+// Vue liste
+return (
+<div className="fade">
+<SectionTitle action={<Btn icon="plus" onClick={()=>{setForm(emptyC());setModal("form");}}>Nouveau</Btn>}>
+Clients
+</SectionTitle>
+
+  {/* Recherche */}
+  {clients.length>0 && (
+    <div style={{marginBottom:14}}>
+      <input
+        type="text"
+        placeholder="🔍 Rechercher un client..."
+        value={search}
+        onChange={e=>setSearch(e.target.value)}
+        style={{width:"100%",padding:"11px 14px",fontSize:14,border:"1.5px solid #E5E5E0",borderRadius:12,boxSizing:"border-box"}}
+      />
+    </div>
+  )}
+
+  {/* Stats globales */}
+  {clients.length>0 && (
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:14}}>
+      <Card style={{padding:"10px",textAlign:"center",background:"#DBEAFE"}}>
+        <p style={{fontSize:10,color:"#1E3A5F",fontWeight:700,textTransform:"uppercase"}}>Clients</p>
+        <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:20,fontWeight:700,color:"#1E3A5F",marginTop:2}}>{clients.length}</p>
+      </Card>
+      <Card style={{padding:"10px",textAlign:"center",background:"#DCFCE7"}}>
+        <p style={{fontSize:10,color:"#166534",fontWeight:700,textTransform:"uppercase"}}>CA clients web</p>
+        <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:20,fontWeight:700,color:"#166534",marginTop:2}}>{chf(sum(clients.map(c=>getStats(c.id).ca)))}</p>
+      </Card>
+    </div>
+  )}
+
+  {filtered.length===0 ? (
+    <div style={{textAlign:"center",padding:"40px 20px",color:"#9CA3AF"}}>
+      <p style={{fontSize:40,marginBottom:12}}>👥</p>
+      <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:20,fontWeight:600,color:"#374151"}}>
+        {search?"Aucun résultat":"Aucun client"}
+      </p>
+      {!search && (
+        <>
+          <p style={{fontSize:13,marginTop:6}}>Ajoute ton premier client ou il sera créé automatiquement depuis une commande</p>
+          <button onClick={()=>{setForm(emptyC());setModal("form");}} style={{marginTop:16,background:"#F2C94C",border:"none",borderRadius:12,padding:"12px 24px",fontWeight:700,fontSize:14,cursor:"pointer"}}>
+            + Nouveau client
+          </button>
+        </>
+      )}
+    </div>
+  ) : filtered.map(c=>{
+    const stats = getStats(c.id);
+    return (
+      <Card key={c.id} style={{marginBottom:10,padding:"12px 14px",cursor:"pointer"}} onClick={()=>setViewId(c.id)}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+          <div style={{flex:1,minWidth:0}}>
+            <p style={{fontWeight:700,fontSize:14}}>{c.nom}</p>
+            {c.email && <p style={{fontSize:11,color:"#6B7280",marginTop:2}}>✉️ {c.email}</p>}
+            {(c.npa||c.ville) && <p style={{fontSize:11,color:"#9CA3AF",marginTop:1}}>📍 {c.npa} {c.ville}</p>}
+          </div>
+          <div style={{textAlign:"right",marginLeft:10}}>
+            {stats.nbCommandes>0 ? (
+              <>
+                <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:16,fontWeight:700,color:"#166534"}}>{chf(stats.ca)}</p>
+                <p style={{fontSize:10,color:"#9CA3AF",marginTop:1}}>{stats.nbCommandes} cmd</p>
+              </>
+            ) : (
+              <span style={{fontSize:10,color:"#9CA3AF",fontStyle:"italic"}}>Aucune commande</span>
+            )}
+          </div>
+        </div>
+      </Card>
+    );
+  })}
+
+  {/* Modal */}
+  {modal==="form" && (
+    <Modal title={form.id?"Modifier client":"Nouveau client"} onClose={()=>setModal(null)}>
+      <div style={{display:"grid",gap:14}}>
+        <F label="Nom / Raison sociale" value={form.nom} onChange={v=>setForm(p=>({...p,nom:v}))} required/>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+          <F label="Email" value={form.email||""} onChange={v=>setForm(p=>({...p,email:v}))}/>
+          <F label="Téléphone" value={form.telephone||""} onChange={v=>setForm(p=>({...p,telephone:v}))}/>
+        </div>
+        <F label="Adresse" value={form.adresse||""} onChange={v=>setForm(p=>({...p,adresse:v}))} placeholder="Rue et numéro"/>
+        <div style={{display:"grid",gridTemplateColumns:"80px 1fr",gap:12}}>
+          <F label="NPA" value={form.npa||""} onChange={v=>setForm(p=>({...p,npa:v}))}/>
+          <F label="Ville" value={form.ville||""} onChange={v=>setForm(p=>({...p,ville:v}))}/>
+        </div>
+        <F label="Notes" value={form.notes||""} onChange={v=>setForm(p=>({...p,notes:v}))} placeholder="Préférences, informations..."/>
+      </div>
+      <div style={{display:"flex",gap:10,marginTop:20}}>
+        <Btn onClick={save} full icon="check">Enregistrer</Btn>
+        <Btn onClick={()=>setModal(null)} variant="ghost" full>Annuler</Btn>
+      </div>
+    </Modal>
+  )}
+</div>
+
+);
+};
+
+// ══════════════════════════════════════════════════════════════
 // APP SHELL - Navigation mobile en bas
 // ══════════════════════════════════════════════════════════════
 
@@ -2778,6 +3497,8 @@ const NAV_MAIN = [
 {id:"more",label:"Plus",icon:"more"},
 ];
 const NAV_MORE = [
+{id:"commandes",label:"Commandes",icon:"facture"},
+{id:"clients",label:"Clients",icon:"prod"},
 {id:"produits",label:"Produits",icon:"prod"},
 {id:"stocks",label:"Stocks",icon:"stock"},
 {id:"contrats",label:"Contrats",icon:"contrat"},
@@ -2798,7 +3519,8 @@ acquire();
 const onVisible = () => { if(document.visibilityState === "visible") acquire(); };
 document.addEventListener("visibilitychange", onVisible);
 return () => { document.removeEventListener("visibilitychange", onVisible); if(wakeLock) try { wakeLock.release(); } catch(e){} };
-},[]);const [tab,setTab] = useState("dashboard");
+},[]);
+const [tab,setTab] = useState("dashboard");
 const [showMore,setShowMore] = useState(false);
 const [st,setSt] = useState(INIT);
 
@@ -2897,6 +3619,8 @@ return ()=>clearInterval(iv);
 
 
 
+
+
 const pages = {
 dashboard:<Dashboard st={st}/>,
 produits:<Produits st={st} setSt={setSt}/>,
@@ -2904,6 +3628,8 @@ stocks:<Stocks st={st} setSt={setSt}/>,
 partenaires:<Partenaires st={st} setSt={setSt}/>,
 contrats:<Contrats st={st} setSt={setSt}/>,
 factures:<Factures st={st} setSt={setSt}/>,
+commandes:<Commandes st={st} setSt={setSt}/>,
+clients:<Clients st={st} setSt={setSt}/>,
 compta:<Comptabilite st={st} setSt={setSt}/>,
 };
 
