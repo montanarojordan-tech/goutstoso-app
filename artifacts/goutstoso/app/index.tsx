@@ -687,7 +687,7 @@ const Produits = ({st,setSt}) => {
 // ══════════════════════════════════════════════════════════════
 // PAGE: STOCKS
 // ══════════════════════════════════════════════════════════════
-const envoyerAlerteStock = (st) => {
+const envoyerAlerteStock = async (st) => {
   const bas = st.produits.filter(p=>p.actif&&!p.nom.includes("Coffret")).filter(p=>{
     const t=sum((st.stocks||[]).filter(s=>s.produitId===p.id).map(s=>s.qte));
     return t<=3&&t>0;
@@ -696,9 +696,9 @@ const envoyerAlerteStock = (st) => {
     const t=sum((st.stocks||[]).filter(s=>s.produitId===p.id).map(s=>s.qte));
     return "• "+p.nom+" "+p.variante+" "+p.format+" : "+t+" unités";
   }).join("\n");
-  const subj = encodeURIComponent("⚠️ Alerte stock bas - GoûtStoso");
-  const body = encodeURIComponent("Bonjour,\n\nStock bas (≤ 3 unités) :\n\n"+lignes+"\n\nMerci de prévoir une production.\n\nGoûtStoso");
-  window.location.href = "mailto:admin@goutstoso.ch?subject="+subj+"&body="+body;
+  const subj = "⚠️ Alerte stock bas - GoﯰtStoso";
+  const bodyTxt = "Bonjour,\n\nStock bas (≤ 3 unités) :\n\n"+lignes+"\n\nMerci de prévoir une production.\n\nGoﯰtStoso";
+  await sendEmail({to:"admin@goutstoso.ch",subject:subj,body:bodyTxt});
 };
 
 const Stocks = ({st,setSt}) => {
@@ -749,7 +749,7 @@ const Stocks = ({st,setSt}) => {
               const t=sum((st.stocks||[]).filter(s=>s.produitId===p.id).map(s=>s.qte));
               return `• ${p.nom} ${p.variante} ${p.format} : ${t} unités restantes`;
             }).join("%0A");
-            window.location.href = "mailto:admin@goutstoso.ch?subject="+encodeURIComponent("Alerte stock bas GoûtStoso")+"&body="+encodeURIComponent("Produits bas:\n"+body+"\nMerci de prévoir une production.\nGoûtStoso");
+            sendEmail({to:"admin@goutstoso.ch",subject:"Alerte stock bas GoûtStoso",body:"Produits bas:\n"+body+"\nMerci de prévoir une production.\nGoûtStoso"});
           }} style={{background:"#991B1B",color:"#fff",border:"none",borderRadius:8,padding:"7px 12px",fontSize:12,fontWeight:700,cursor:"pointer",flexShrink:0,marginLeft:8}}>
             ✉️ Alerter
           </button>
@@ -1243,16 +1243,16 @@ const Partenaires = ({st,setSt}) => {
     alert("Facture "+num+" créée !\nLe stock a été mis à jour.");
   };
 
-  const envoyerBulletin = (contrat) => {
+  const envoyerBulletin = async (contrat) => {
     const pv = st.partenaires.find(p=>p.id===contrat.partenaireId);
     const lignesTxt = (contrat.lignes||[]).map(l=>{
       const prod = st.produits.find(p=>p.id===l.produitId);
       return `• ${prod?.nom} ${prod?.variante} ${prod?.format} x${l.qte}`;
     }).join("\n");
     const typeLabel = contrat.type==="depot-vente"?"Bon de dépôt-vente":"Bon de livraison";
-    const subj = encodeURIComponent(`${typeLabel} ${contrat.numero} - GoûtStoso`);
-    const body = encodeURIComponent(`Bonjour,\n\nVeuillez trouver ci-joint le ${typeLabel} N° ${contrat.numero} du ${fmt(contrat.dateDebut)}.\n\nProduits :\n${lignesTxt}\n\nStatut signature : ${contrat.statut}\n\nCordialement,\nJordan Montanaro - GoûtStoso\nadmin@goutstoso.ch`);
-    window.location.href = `mailto:${pv?.email||""}?subject=${subj}&body=${body}`;
+    const subj = `${typeLabel} ${contrat.numero} - GoﯰtStoso`;
+    const bodyTxt = `Bonjour,\n\nVeuillez trouver ci-joint le ${typeLabel} N° ${contrat.numero} du ${fmt(contrat.dateDebut)}.\n\nProduits :\n${lignesTxt}\n\nStatut signature : ${contrat.statut}\n\nCordialement,\nJordan Montanaro - GoﯰtStoso\nadmin@goutstoso.ch`;
+    await sendEmail({to:pv?.email||"",toName:pv?.contact||"",subject:subj,body:bodyTxt});
   };
 
   // Vue liste des bulletins d'un partenaire
@@ -1626,16 +1626,16 @@ const Contrats = ({st,setSt}) => {
   const updLigne = (i,k,v) => setForm(p=>({...p,lignes:p.lignes.map((l,j)=>j===i?{...l,[k]:v}:l)}));
   const delLigne = (i) => setForm(p=>({...p,lignes:p.lignes.filter((_,j)=>j!==i)}));
 
-  const envoyerContrat = (c) => {
+  const envoyerContrat = async (c) => {
     const pv = st.partenaires.find(p=>p.id===c.partenaireId);
     const typeL = c.type==="depot-vente"?"Contrat de dépôt-vente":c.type==="partenariat"?"Contrat de partenariat":"Contrat";
-    const subj = encodeURIComponent(typeL+" "+c.numero+" - GoûtStoso");
-    const body = encodeURIComponent(
-      "Bonjour "+(pv?.contact||"")+",\n\n"+
-      "Veuillez trouver ci-joint le "+typeL+" N° "+c.numero+".\n\n"+
-      "Cordialement,\nJordan Montanaro - GoûtStoso\nadmin@goutstoso.ch"
-    );
-    window.location.href = "mailto:"+(pv?.email||"")+"?subject="+subj+"&body="+body;
+    const subj = typeL+" "+c.numero+" - GoﯰtStoso";
+    const bodyTxt = "Bonjour "+(pv?.contact||"")+",\n\n"+"Veuillez trouver ci-joint le "+typeL+" N° "+c.numero+".\n\n"+"Cordialement,\nJordan Montanaro - GoﯰtStoso\nadmin@goutstoso.ch";
+
+
+
+
+    await sendEmail({to:pv?.email||"",toName:pv?.contact||"",subject:subj,body:bodyTxt});
   };
 
   const totalContrat = (c) => {
@@ -1983,7 +1983,7 @@ const Factures = ({st,setSt}) => {
     };
   };
 
-  const envoyerEmail = (f) => {
+  const envoyerEmail = async (f) => {
     const pv = st.partenaires.find(p=>p.id===f.partenaireId);
     const retard = getInfosRetard(f);
     const lignesTxt = (f.lignes||[]).filter(l=>l.produitId).map(l=>{
@@ -1994,10 +1994,10 @@ const Factures = ({st,setSt}) => {
     const total = calcTotal(f.lignes,f.typeClient,st.produits);
     const totalAvecFrais = total+(retard?.frais||0);
     const subj = retard
-      ? encodeURIComponent("⚠️ Rappel paiement "+f.numero+" - GoûtStoso")
+      ? ("⚠️ Rappel paiement "+f.numero+" - GoûtStoso")
       : encodeURIComponent("Facture "+f.numero+" - GoûtStoso");
-    const body = retard
-      ? encodeURIComponent(
+    const bodyTxt = retard
+      ? (
           "Bonjour "+pv?.contact+",\n\n"+
           "Sauf erreur de notre part, la facture "+f.numero+" du "+fmt(f.date)+" d'un montant de CHF "+total.toFixed(2)+" est toujours impayée.\n\n"+
           "Retard : "+retard.jours+" jours\n"+
@@ -2014,7 +2014,7 @@ const Factures = ({st,setSt}) => {
           "Paiement à 30 jours\nIBAN : CH23 0900 0000 1565 1485 8 - PostFinance\n\n"+
           "Cordialement,\nJordan Montanaro - GoûtStoso\nadmin@goutstoso.ch"
         );
-    window.location.href = "mailto:"+(pv?.email||"")+"?subject="+subj+"&body="+body;
+    await sendEmail({to:pv?.email||"",toName:pv?.contact||"",subject:subj,body:bodyTxt});
   };
 
   // Helper: ajoute un document légal en annexe à un PDF
@@ -4600,6 +4600,16 @@ const [loading, setLoading] = React.useState(true);
 const [syncing, setSyncing] = React.useState(false);
 
 const CLOUD_URL = "https://hc12z9cbqiy.preview.infomaniak.website/api.php";
+const sendEmail = async ({to, subject, body, toName=""}) => {
+  if(!to){alert("Adresse email manquante");return;}
+  const htmlBody = "<div style='font-family:sans-serif;font-size:14px;line-height:1.6;color:#222'>"+body.replace(/\n/g,"<br>")+"</div>";
+  try{
+    const r = await fetch(CLOUD_URL,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({_action:"send_email",to,subject,body:htmlBody,toName})});
+    const j = await r.json();
+    if(j.success) alert("✉️ Email envoyé à "+to);
+    else alert("Erreur envoi : "+(j.error||"inconnue"));
+  }catch(e){alert("Erreur réseau : "+e.message);}
+};
 
 const cloudSave = async (data) => {
 try {
