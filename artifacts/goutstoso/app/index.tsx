@@ -641,8 +641,8 @@ const lignes = bas.map(p=>{
 const t=sum((st.stocks||[]).filter(s=>s.produitId===p.id).map(s=>s.qte));
 return "• "+p.nom+" "+p.variante+" "+p.format+" : "+t+" unités";
 }).join("\n");
-const subj = ("⚠️ Alerte stock bas - GoûtStoso");
-const body = ("Bonjour,\n\nStock bas (≤ 3 unités) :\n\n"+lignes+"\n\nMerci de prévoir une production.\n\nGoûtStoso");
+const subj = encodeURIComponent("⚠️ Alerte stock bas - GoûtStoso");
+const body = encodeURIComponent("Bonjour,\n\nStock bas (≤ 3 unités) :\n\n"+lignes+"\n\nMerci de prévoir une production.\n\nGoûtStoso");
 sendEmail({to:"admin@goutstoso.ch",subject:subj,body:bodyTxt||body||""});
 };
 
@@ -1199,8 +1199,8 @@ const prod = st.produits.find(p=>p.id===l.produitId);
 return `• ${prod?.nom} ${prod?.variante} ${prod?.format} x${l.qte}`;
 }).join("\n");
 const typeLabel = contrat.type==="depot-vente"?"Bon de dépôt-vente":"Bon de livraison";
-const subj = (`${typeLabel} ${contrat.numero} - GoûtStoso`);
-const body = (`Bonjour,\n\nVeuillez trouver ci-joint le ${typeLabel} N° ${contrat.numero} du ${fmt(contrat.dateDebut)}.\n\nProduits :\n${lignesTxt}\n\nStatut signature : ${contrat.statut}\n\nCordialement,\nJordan Montanaro - GoûtStoso\nadmin@goutstoso.ch`);
+const subj = encodeURIComponent(`${typeLabel} ${contrat.numero} - GoûtStoso`);
+const body = encodeURIComponent(`Bonjour,\n\nVeuillez trouver ci-joint le ${typeLabel} N° ${contrat.numero} du ${fmt(contrat.dateDebut)}.\n\nProduits :\n${lignesTxt}\n\nStatut signature : ${contrat.statut}\n\nCordialement,\nJordan Montanaro - GoûtStoso\nadmin@goutstoso.ch`);
 sendEmail({to:pv?.email||"",toName:pv?.contact||"",subject:subj,body:bodyTxt||body||""});
 };
 
@@ -1579,8 +1579,8 @@ const delLigne = (i) => setForm(p=>({...p,lignes:p.lignes.filter((_,j)=>j!==i)})
 const envoyerContrat = (c) => {
 const pv = st.partenaires.find(p=>p.id===c.partenaireId);
 const typeL = c.type==="depot-vente"?"Contrat de dépôt-vente":c.type==="partenariat"?"Contrat de partenariat":"Contrat";
-const subj = (typeL+" "+c.numero+" - GoûtStoso");
-const body = (
+const subj = encodeURIComponent(typeL+" "+c.numero+" - GoûtStoso");
+const body = encodeURIComponent(
 "Bonjour "+(pv?.contact||"")+",\n\n"+
 "Veuillez trouver ci-joint le "+typeL+" N° "+c.numero+".\n\n"+
 "Cordialement,\nJordan Montanaro - GoûtStoso\nadmin@goutstoso.ch"
@@ -3236,14 +3236,13 @@ Auriez-vous quelques minutes pour nous faire part de votre ressenti ? Vos impres
 
 Partagez votre expérience :
 
-- Répondez simplement à cet email
+- Laissez un avis sur notre page Google : https://g.page/r/CXbd92zwMoz_EAE/review
 - Taguez-nous sur Instagram : @goutstoso
-- Laissez un avis sur notre site
+- Répondez simplement à cet email
 
 Avec nos remerciements chaleureux,
 
-Jordan Montanaro
-Fondateur de Goutstoso
+L'équipe Goutstoso
 admin@goutstoso.ch · www.goutstoso.ch
 
 -----
