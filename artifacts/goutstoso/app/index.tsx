@@ -1199,9 +1199,10 @@ const prod = st.produits.find(p=>p.id===l.produitId);
 return `• ${prod?.nom} ${prod?.variante} ${prod?.format} x${l.qte}`;
 }).join("\n");
 const typeLabel = contrat.type==="depot-vente"?"Bon de dépôt-vente":"Bon de livraison";
-const subj = encodeURIComponent(`${typeLabel} ${contrat.numero} - GoûtStoso`);
-const body = encodeURIComponent(`Bonjour,\n\nVeuillez trouver ci-joint le ${typeLabel} N° ${contrat.numero} du ${fmt(contrat.dateDebut)}.\n\nProduits :\n${lignesTxt}\n\nStatut signature : ${contrat.statut}\n\nCordialement,\nJordan Montanaro - GoûtStoso\nadmin@goutstoso.ch`);
-sendEmail({to:pv?.email||"",toName:pv?.contact||"",subject:subj,body:bodyTxt||body||""});
+const subj = encodeURIComponent(`${typeLabel} ${contrat.numero} - Goutstoso`);
+const body = encodeURIComponent(`Bonjour ${pv?.contact||""},\n\nVeuillez trouver ci-joint le ${typeLabel} N° ${contrat.numero} du ${fmt(contrat.dateDebut)}.\n\nProduits :\n${lignesTxt}\n\nStatut signature : ${contrat.statut}\n\nCordialement,\nL'équipe Goutstoso\nadmin@goutstoso.ch`);
+if(!pv?.email) { alert("Aucun email pour ce partenaire"); return; }
+sendEmail({to:pv.email||"",toName:pv?.contact||"",subject:decodeURIComponent(subj),body:decodeURIComponent(body)});
 };
 
 // Vue liste des bulletins d'un partenaire
@@ -1579,13 +1580,14 @@ const delLigne = (i) => setForm(p=>({...p,lignes:p.lignes.filter((_,j)=>j!==i)})
 const envoyerContrat = (c) => {
 const pv = st.partenaires.find(p=>p.id===c.partenaireId);
 const typeL = c.type==="depot-vente"?"Contrat de dépôt-vente":c.type==="partenariat"?"Contrat de partenariat":"Contrat";
-const subj = encodeURIComponent(typeL+" "+c.numero+" - GoûtStoso");
+const subj = encodeURIComponent(typeL+" "+c.numero+" - Goutstoso");
 const body = encodeURIComponent(
 "Bonjour "+(pv?.contact||"")+",\n\n"+
 "Veuillez trouver ci-joint le "+typeL+" N° "+c.numero+".\n\n"+
-"Cordialement,\nJordan Montanaro - GoûtStoso\nadmin@goutstoso.ch"
+"Cordialement,\nL'équipe Goutstoso\nadmin@goutstoso.ch"
 );
-sendEmail({to:pv?.email||"",toName:pv?.contact||"",subject:subj,body:bodyTxt||body||""});
+if(!pv?.email) { alert("Aucun email pour ce partenaire"); return; }
+sendEmail({to:pv.email||"",toName:pv?.contact||"",subject:decodeURIComponent(subj),body:decodeURIComponent(body)});
 };
 
 const totalContrat = (c) => {
@@ -1936,36 +1938,38 @@ niveau: jours>=60?"critique":jours>=30?"rappel2":"rappel1",
 
 const envoyerEmail = (f) => {
 const pv = st.partenaires.find(p=>p.id===f.partenaireId);
+if(!pv?.email) { alert("Aucun email pour ce partenaire"); return; }
 const retard = getInfosRetard(f);
 const lignesTxt = (f.lignes||[]).filter(l=>l.produitId).map(l=>{
 const p = st.produits.find(x=>x.id===l.produitId);
 const pu = p?(f.typeClient==="revendeur"?p.prixRevendeur:p.prixClient):0;
-return "• "+p?.nom+" "+p?.variante+" "+p?.format+" x"+l.qte+" = CHF "+(pu*l.qte).toFixed(2);
+return "- "+(p?.nom||"")+" "+(p?.variante||"")+" "+(p?.format||"")+" x"+l.qte+" = CHF "+(pu*l.qte).toFixed(2);
 }).join("\n");
 const total = calcTotal(f.lignes,f.typeClient,st.produits);
 const totalAvecFrais = total+(retard?.frais||0);
-const subj = retard
-? encodeURIComponent("⚠️ Rappel paiement "+f.numero+" - GoûtStoso")
-: encodeURIComponent("Facture "+f.numero+" - GoûtStoso");
+
+const subject = retard
+  ? "Rappel paiement "+f.numero+" - Goutstoso"
+  : "Facture "+f.numero+" - Goutstoso";
+
 const body = retard
-? encodeURIComponent(
-"Bonjour "+pv?.contact+",\n\n"+
-"Sauf erreur de notre part, la facture "+f.numero+" du "+fmt(f.date)+" d'un montant de CHF "+total.toFixed(2)+" est toujours impayée.\n\n"+
-"Retard : "+retard.jours+" jours\n"+
-(retard.frais>0?"Frais de rappel : CHF "+retard.frais.toFixed(2)+"\n":"")+
-"TOTAL DÛ : CHF "+totalAvecFrais.toFixed(2)+"\n\n"+
-"Nous vous prions de bien vouloir régulariser cette situation dans les plus brefs délais.\n\n"+
-"IBAN : CH23 0900 0000 1565 1485 8 - PostFinance\n\n"+
-"Cordialement,\nJordan Montanaro - GoûtStoso\nadmin@goutstoso.ch"
-)
-: encodeURIComponent(
-"Bonjour "+pv?.contact+",\n\n"+
-"Veuillez trouver ci-dessous votre facture "+f.numero+" du "+fmt(f.date)+".\n\n"+
-lignesTxt+"\n\nTOTAL : CHF "+total.toFixed(2)+"\n\n"+
-"Paiement à 30 jours\nIBAN : CH23 0900 0000 1565 1485 8 - PostFinance\n\n"+
-"Cordialement,\nJordan Montanaro - GoûtStoso\nadmin@goutstoso.ch"
-);
-sendEmail({to:pv?.email||"",toName:pv?.contact||"",subject:subj,body:bodyTxt||body||""});
+  ? "Bonjour "+(pv?.contact||"")+",\n\n"+
+    "Sauf erreur de notre part, la facture "+f.numero+" du "+fmt(f.date)+" d'un montant de CHF "+total.toFixed(2)+" est toujours impayée.\n\n"+
+    "Retard : "+retard.jours+" jours\n"+
+    (retard.frais>0?"Frais de rappel : CHF "+retard.frais.toFixed(2)+"\n":"")+
+    "TOTAL DU : CHF "+totalAvecFrais.toFixed(2)+"\n\n"+
+    "Nous vous prions de bien vouloir régulariser cette situation dans les plus brefs délais.\n\n"+
+    "IBAN : CH23 0900 0000 1565 1485 8 - PostFinance\n\n"+
+    "Cordialement,\nL'équipe Goutstoso\nadmin@goutstoso.ch"
+  : "Bonjour "+(pv?.contact||"")+",\n\n"+
+    "Veuillez trouver ci-dessous votre facture "+f.numero+" du "+fmt(f.date)+".\n\n"+
+    lignesTxt+"\n\nTOTAL : CHF "+total.toFixed(2)+"\n\n"+
+    "Paiement à 30 jours\nIBAN : CH23 0900 0000 1565 1485 8 - PostFinance\n\n"+
+    "Cordialement,\nL'équipe Goutstoso\nadmin@goutstoso.ch";
+
+const mailto = "mailto:"+pv.email+"?subject="+encodeURIComponent(subject)+"&body="+encodeURIComponent(body);
+window.location.href = mailto;
+
 };
 
 // Helper: ajoute un document légal en annexe à un PDF
