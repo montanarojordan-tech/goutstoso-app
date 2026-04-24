@@ -46,7 +46,7 @@ const IMG_COFFRET = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMgAAADICAIAA
 // ── UTILS ──────────────────────────────────────────────────────
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2);
 const chf = v => `CHF ${parseFloat(v||0).toFixed(2)}`;
-const fmt = d => d ? new Date(d).toLocaleDateString("fr-CH") : "-";
+const fmt = d => d ? new Date(d).toLocaleDateString("fr-CH") : "—";
 const today = () => new Date().toISOString().slice(0,10);
 const sum = arr => arr.reduce((a,b)=>a+b,0);
 const genLot = (date) => {
@@ -58,7 +58,7 @@ const genLot = (date) => {
 };
 
 // ── STOCKAGE LOCAL ─────────────────────────────────────────────
-// Sauvegarde dans localStorage - données persistantes sur chaque appareil
+// Sauvegarde dans localStorage — données persistantes sur chaque appareil
 // ══════════════════════════════════════════════════════════════
 // INITIAL DATA
 // ══════════════════════════════════════════════════════════════
@@ -96,7 +96,7 @@ Le Fournisseur peut mettre à disposition ses produits en dépôt-vente auprès 
 Sauf accord contraire, les factures sont payables à 30 jours nets à compter de la date de facturation, par virement bancaire sur le compte PostFinance IBAN CH23 0900 0000 1565 1485 8, titulaire Goûtstoso / Jordan Montanaro. Dans le cadre du dépôt-vente, un inventaire est effectué périodiquement et le Dépositaire règle les produits effectivement vendus dans les 30 jours suivant l'émission de la facture.
 
 7. RETARD DE PAIEMENT
-En cas de retard de paiement, le Fournisseur se réserve le droit de facturer des frais de rappel. Le premier rappel est gratuit, le deuxième rappel est facturé CHF 15.-, le troisième rappel CHF 25.-. Après le troisième rappel resté sans effet, le Fournisseur peut engager une procédure de recouvrement et/ou suspendre toute livraison en cours. Les frais de recouvrement et intérêts de retard légaux sont à la charge du Client.
+En cas de retard de paiement, le Fournisseur se réserve le droit de facturer des frais de rappel. Le premier rappel est gratuit, le deuxième rappel est facturé CHF 15.–, le troisième rappel CHF 25.–. Après le troisième rappel resté sans effet, le Fournisseur peut engager une procédure de recouvrement et/ou suspendre toute livraison en cours. Les frais de recouvrement et intérêts de retard légaux sont à la charge du Client.
 
 8. PRODUITS INVENDUS (DÉPÔT-VENTE)
 À l'issue de la période de dépôt, les produits invendus sont restitués au Fournisseur en parfait état (emballage d'origine, étiquette intacte, date de conservation respectée) ou font l'objet d'un renouvellement par accord écrit entre les parties. Les produits endommagés, périmés ou manquants sont facturés au Dépositaire au prix professionnel.
@@ -177,7 +177,7 @@ const INIT = {
   ],
   factures:[],
   transactions:[
-    // Journal comptable réel - extrait des images
+    // Journal comptable réel — extrait des images
     {id:"t1",date:"2026-04-27",compte:"4200",libelle:"Bouteilles / Bouchons",type:"depense",categorie:"Emballages",montant:289.90,description:"Bouteilles et bouchons"},
     {id:"t2",date:"2026-04-14",compte:"3001",libelle:"Vente Limonta",type:"recette",categorie:"Vente Limonta",montant:29.00,description:"Commande #1004 - Vente"},
     {id:"t3",date:"2026-04-14",compte:"3001",libelle:"Vente Limonta",type:"recette",categorie:"Vente Limonta",montant:32.00,description:"Commande #1004 - Vente"},
@@ -520,7 +520,7 @@ const Dashboard = ({st, setTab}) => {
         </h1>
       </div>
       
-      {/* ALERTES EN HAUT - prioritaires */}
+      {/* ALERTES EN HAUT — prioritaires */}
       {alertes.length > 0 && (
         <div style={{marginBottom:18}}>
           <p style={{fontSize:10,fontWeight:600,color:"#737373",textTransform:"uppercase",letterSpacing:"0.04em",marginBottom:10}}>
@@ -893,9 +893,9 @@ const envoyerAlerteStock = (st) => {
     const t=sum((st.stocks||[]).filter(s=>s.produitId===p.id).map(s=>s.qte));
     return "• "+p.nom+" "+p.variante+" "+p.format+" : "+t+" unités";
   }).join("\n");
-  const subj = encodeURIComponent("⚠️ Alerte stock bas - GoûtStoso");
+  const subj = encodeURIComponent("⚠️ Alerte stock bas — GoûtStoso");
   const body = encodeURIComponent("Bonjour,\n\nStock bas (≤ 3 unités) :\n\n"+lignes+"\n\nMerci de prévoir une production.\n\nGoûtStoso");
-  sendEmail({to:"admin@goutstoso.ch",subject:subj,body:bodyTxt||body||""});
+  window.location.href = "mailto:admin@goutstoso.ch?subject="+subj+"&body="+body;
 };
 
 const Stocks = ({st,setSt}) => {
@@ -946,7 +946,7 @@ const Stocks = ({st,setSt}) => {
               const t=sum((st.stocks||[]).filter(s=>s.produitId===p.id).map(s=>s.qte));
               return `• ${p.nom} ${p.variante} ${p.format} : ${t} unités restantes`;
             }).join("%0A");
-            sendEmail({to:"admin@goutstoso.ch",subject:subj,body:bodyTxt||body||""});
+            window.location.href = "mailto:admin@goutstoso.ch?subject="+encodeURIComponent("Alerte stock bas GoûtStoso")+"&body="+encodeURIComponent("Produits bas:\n"+body+"\nMerci de prévoir une production.\nGoûtStoso");
           }} style={{background:"#991B1B",color:"#fff",border:"none",borderRadius:8,padding:"7px 12px",fontSize:12,fontWeight:700,cursor:"pointer",flexShrink:0,marginLeft:8}}>
             ✉️ Alerter
           </button>
@@ -1045,7 +1045,7 @@ const Stocks = ({st,setSt}) => {
         <Modal title="Nouvelle entrée de stock" onClose={()=>setModal(null)}>
           <div style={{display:"grid",gap:14}}>
             <Sel label="Produit" value={form.produitId} onChange={v=>setForm(p=>({...p,produitId:v}))} required
-              options={[{v:"",l:"- Sélectionner un produit -"},...st.produits.filter(p=>p.actif && !p.nom.includes("Coffret")).map(p=>({v:p.id,l:`${p.nom} ${p.variante} ${p.format}`}))]}/>
+              options={[{v:"",l:"— Sélectionner un produit —"},...st.produits.filter(p=>p.actif && !p.nom.includes("Coffret")).map(p=>({v:p.id,l:`${p.nom} ${p.variante} ${p.format}`}))]}/>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
               <F label="Quantité" type="number" value={form.qte} onChange={v=>setForm(p=>({...p,qte:v}))} required/>
               <F label="N° de lot" value={form.lot} onChange={v=>setForm(p=>({...p,lot:v}))} placeholder="ex: 01-03.2026"/>
@@ -1472,7 +1472,7 @@ const Partenaires = ({st,setSt}) => {
     const subj = encodeURIComponent(`${typeLabel} ${contrat.numero} - Goutstoso`);
     const body = encodeURIComponent(`Bonjour ${pv?.contact||""},\n\nVeuillez trouver ci-joint le ${typeLabel} N° ${contrat.numero} du ${fmt(contrat.dateDebut)}.\n\nProduits :\n${lignesTxt}\n\nStatut signature : ${contrat.statut}\n\nCordialement,\nL'équipe Goutstoso\nadmin@goutstoso.ch`);
     if(!pv?.email) { alert("Aucun email pour ce partenaire"); return; }
-    sendEmail({to:pv?.email||"",toName:pv?.contact||"",subject:decodeURIComponent(subj),body:decodeURIComponent(body)});
+    window.location.href = `mailto:${pv.email}?subject=${subj}&body=${body}`;
   };
 
   // Vue liste des bulletins d'un partenaire
@@ -1696,7 +1696,7 @@ const Partenaires = ({st,setSt}) => {
 
       {/* Modal livraison */}
       {modal==="livraison"&&selected&&(
-        <Modal title={`Livraison - ${selected.nom}`} onClose={()=>{setModal(null);setSigMode(false);}}>
+        <Modal title={`Livraison — ${selected.nom}`} onClose={()=>{setModal(null);setSigMode(false);}}>
           {!sigMode ? (
             <div style={{display:"grid",gap:14}}>
               <Sel label="Type de document" value={livForm.type} onChange={v=>setLivForm(p=>({...p,type:v}))}
@@ -1708,7 +1708,7 @@ const Partenaires = ({st,setSt}) => {
                 {livForm.lignes.map((l,i)=>(
                   <div key={i} style={{display:"grid",gridTemplateColumns:"1fr auto auto",gap:8,marginBottom:8,alignItems:"flex-end"}}>
                     <Sel label="" value={l.produitId} onChange={v=>updLigne(i,"produitId",v)}
-                      options={[{v:"",l:"- Produit -"},...st.produits.filter(p=>p.actif&&!p.nom.includes("Coffret")).map(p=>({v:p.id,l:`${p.nom} ${p.variante} ${p.format}`}))]}/>
+                      options={[{v:"",l:"— Produit —"},...st.produits.filter(p=>p.actif&&!p.nom.includes("Coffret")).map(p=>({v:p.id,l:`${p.nom} ${p.variante} ${p.format}`}))]}/>
                     <div style={{width:60}}>
                       <input type="number" value={l.qte} min={1} onChange={e=>updLigne(i,"qte",+e.target.value)}
                         style={{width:60,padding:"11px 8px",fontSize:16,border:"1.5px solid #E5E5E0",borderRadius:10,textAlign:"center"}}/>
@@ -1871,7 +1871,7 @@ const Contrats = ({st,setSt}) => {
     bodyTxt += "Cordialement,\nL'équipe Goutstoso\nadmin@goutstoso.ch";
     const body = encodeURIComponent(bodyTxt);
     if(!pv?.email) { alert("Aucun email pour ce partenaire"); return; }
-    sendEmail({to:pv?.email||"",toName:pv?.contact||"",subject:decodeURIComponent(subj),body:decodeURIComponent(body)});
+    window.location.href = "mailto:"+pv.email+"?subject="+subj+"&body="+body;
   };
 
   const totalContrat = (c) => {
@@ -1891,7 +1891,7 @@ const Contrats = ({st,setSt}) => {
     <div className="fade">
       <button onClick={()=>setSigMode(null)} style={{display:"flex",alignItems:"center",gap:6,background:"none",border:"none",color:"#9CA3AF",fontSize:13,marginBottom:16,padding:0,cursor:"pointer"}}>← Retour</button>
       <div style={{background:"#FEF9E7",borderRadius:12,padding:"12px 14px",marginBottom:16,border:"1.5px solid #F2C94C"}}>
-        <p style={{fontWeight:700,fontSize:13}}>Signature - {sigMode==="fournisseur"?"GoûtStoso (Fournisseur)":"Client"}</p>
+        <p style={{fontWeight:700,fontSize:13}}>Signature — {sigMode==="fournisseur"?"GoûtStoso (Fournisseur)":"Client"}</p>
         <p style={{fontSize:11,color:"#92400E",marginTop:4}}>{view.numero}</p>
       </div>
       <SignaturePad onSave={signer} onCancel={()=>setSigMode(null)}/>
@@ -2013,7 +2013,7 @@ const Contrats = ({st,setSt}) => {
           </div>
           <div style={{borderTop:"1px solid #F5F5F0",paddingTop:10}}>
             <p style={{fontSize:9,color:"#9CA3AF",fontWeight:700,textTransform:"uppercase",marginBottom:4}}>Partenaire</p>
-            <p style={{fontSize:13,fontWeight:700}}>{pv?.nom||"-"}</p>
+            <p style={{fontSize:13,fontWeight:700}}>{pv?.nom||"—"}</p>
             {pv?.adresse&&<p style={{fontSize:11,color:"#6B7280"}}>{pv.adresse}</p>}
           </div>
           {view.commission>0&&(
@@ -2085,7 +2085,7 @@ const Contrats = ({st,setSt}) => {
 
         {/* CGV */}
         <details style={{background:"#F5F5F0",borderRadius:10,padding:"10px 14px",fontSize:11,color:"#6B7280"}}>
-          <summary style={{fontWeight:700,fontSize:12,color:"#111",cursor:"pointer"}}>CGV - Annexe</summary>
+          <summary style={{fontWeight:700,fontSize:12,color:"#111",cursor:"pointer"}}>CGV — Annexe</summary>
           <div style={{marginTop:8,lineHeight:1.6,whiteSpace:"pre-wrap",fontSize:10}}>{CGV}</div>
         </details>
       </div>
@@ -2119,7 +2119,7 @@ const Contrats = ({st,setSt}) => {
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
                 <div style={{flex:1,minWidth:0}}>
                   <p style={{fontWeight:700,fontSize:13}}>{c.numero}</p>
-                  <p style={{fontSize:12,color:"#6B7280",marginTop:2}}>{pv?.nom||"-"}</p>
+                  <p style={{fontSize:12,color:"#6B7280",marginTop:2}}>{pv?.nom||"—"}</p>
                   <p style={{fontSize:11,color:"#9CA3AF",marginTop:1}}>{typeL} · {fmt(c.dateDebut)}</p>
                 </div>
                 <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:6}}>
@@ -2157,7 +2157,7 @@ const Contrats = ({st,setSt}) => {
               </>
             )}
             <Sel label="Partenaire" value={form.partenaireId} onChange={v=>setForm(p=>({...p,partenaireId:v}))} required
-              options={[{v:"",l:"- Sélectionner -"},...st.partenaires.map(p=>({v:p.id,l:p.nom}))]}/>
+              options={[{v:"",l:"— Sélectionner —"},...st.partenaires.map(p=>({v:p.id,l:p.nom}))]}/>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
               <F label="Date début" type="date" value={form.dateDebut} onChange={v=>setForm(p=>({...p,dateDebut:v}))}/>
               <F label="Date fin" type="date" value={form.dateFin||""} onChange={v=>setForm(p=>({...p,dateFin:v}))}/>
@@ -2175,7 +2175,7 @@ const Contrats = ({st,setSt}) => {
                     const p=st.produits.find(x=>x.id===v);
                     updLigne(i,"produitId",v);
                     if(p) updLigne(i,"prixUnitaire",p.prixRevendeur);
-                  }} options={[{v:"",l:"- Produit -"},...st.produits.filter(p=>p.actif).map(p=>({v:p.id,l:`${p.nom} ${p.variante} ${p.format}`}))]}/>
+                  }} options={[{v:"",l:"— Produit —"},...st.produits.filter(p=>p.actif).map(p=>({v:p.id,l:`${p.nom} ${p.variante} ${p.format}`}))]}/>
                   <input type="number" value={l.qte||0} placeholder="Qté" onChange={e=>updLigne(i,"qte",+e.target.value)}
                     style={{padding:"11px 4px",fontSize:13,border:"1.5px solid #E5E5E0",borderRadius:10,textAlign:"center",width:55}}/>
                   <input type="number" value={l.prixUnitaire||0} placeholder="CHF" onChange={e=>updLigne(i,"prixUnitaire",+e.target.value)}
@@ -2224,8 +2224,8 @@ const demanderNotifications = async () => {
 const envoyerNotifRappel = (facture, pv) => {
   try {
     if(typeof Notification !== "undefined" && Notification.permission === "granted") {
-      new Notification("⚠️ Facture en retard - GoûtStoso", {
-        body: facture.numero+" · "+(pv?.nom||"Client")+" · CHF "+parseFloat(facture.total||0).toFixed(2)+" - 30 jours de retard",
+      new Notification("⚠️ Facture en retard — GoûtStoso", {
+        body: facture.numero+" · "+(pv?.nom||"Client")+" · CHF "+parseFloat(facture.total||0).toFixed(2)+" — 30 jours de retard",
       });
     }
   } catch(e) {}
@@ -2367,7 +2367,7 @@ const ajouterDocAnnexe = (doc, docId, st) => {
       // Nouvelle page header
       doc.setFillColor(232,182,76);doc.rect(0,0,W,6,"F");
       doc.setFontSize(8);doc.setFont("helvetica","normal");doc.setTextColor(150,150,150);
-      doc.text(d.titre+" - suite",mg,15);
+      doc.text(d.titre+" — suite",mg,15);
       doc.setDrawColor(230,230,228);doc.line(mg,19,W-mg,19);
       doc.setFontSize(8);doc.setTextColor(60,60,60);
       y=26;
@@ -2420,7 +2420,7 @@ const genererPDF = async (f) => {
         doc.setFillColor(254,226,226);doc.setDrawColor(252,165,165);
         doc.roundedRect(mg,44,W-mg*2,10,2,2,"FD");
         doc.setFontSize(8);doc.setFont("helvetica","bold");doc.setTextColor(153,27,27);
-        doc.text("⚠ PAIEMENT EN RETARD : "+retard.jours+" jours"+(retard.frais>0?" - Frais de rappel : CHF "+retard.frais.toFixed(2):""),W/2,51,{align:"center"});
+        doc.text("⚠ PAIEMENT EN RETARD : "+retard.jours+" jours"+(retard.frais>0?" — Frais de rappel : CHF "+retard.frais.toFixed(2):""),W/2,51,{align:"center"});
       }
 
       // Sépar
@@ -2645,7 +2645,7 @@ const genererPDF = async (f) => {
           <div style={{background:"#F2C94C",height:4}}/>
         </div>
         <details style={{background:"#F5F5F0",borderRadius:10,padding:"12px 14px",marginTop:14,fontSize:10,color:"#6B7280"}}>
-          <summary style={{fontWeight:700,fontSize:13,color:"#111",cursor:"pointer",display:"flex",justifyContent:"space-between",listStyle:"none"}}>CGV - Annexe <span>▼</span></summary>
+          <summary style={{fontWeight:700,fontSize:13,color:"#111",cursor:"pointer",display:"flex",justifyContent:"space-between",listStyle:"none"}}>CGV — Annexe <span>▼</span></summary>
           <div style={{marginTop:10,lineHeight:1.7,whiteSpace:"pre-wrap"}}>{CGV}</div>
         </details>
       </div>
@@ -2748,7 +2748,7 @@ const genererPDF = async (f) => {
           <div style={{display:"grid",gap:14}}>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
               <Sel label="Client" value={form.partenaireId} onChange={v=>setForm(p=>({...p,partenaireId:v}))} required
-                options={[{v:"",l:"- Client -"},...st.partenaires.map(p=>({v:p.id,l:p.nom}))]}/>
+                options={[{v:"",l:"— Client —"},...st.partenaires.map(p=>({v:p.id,l:p.nom}))]}/>
               <Sel label="Prix" value={form.typeClient} onChange={v=>setForm(p=>({...p,typeClient:v}))}
                 options={[{v:"revendeur",l:"Prix pro"},{v:"client",l:"Prix public"}]}/>
             </div>
@@ -2758,7 +2758,7 @@ const genererPDF = async (f) => {
               {(form.lignes||[]).map((l,i)=>(
                 <div key={i} style={{display:"grid",gridTemplateColumns:"1fr 60px auto",gap:8,marginBottom:8,alignItems:"flex-end"}}>
                   <Sel label="" value={l.produitId} onChange={v=>updLigne(i,"produitId",v)}
-                    options={[{v:"",l:"- Produit -"},...st.produits.filter(p=>p.actif).map(p=>({v:p.id,l:`${p.nom} ${p.variante} ${p.format}`}))]}/>
+                    options={[{v:"",l:"— Produit —"},...st.produits.filter(p=>p.actif).map(p=>({v:p.id,l:`${p.nom} ${p.variante} ${p.format}`}))]}/>
                   <input type="number" value={l.qte} min={1} onChange={e=>updLigne(i,"qte",+e.target.value)}
                     style={{padding:"11px 8px",fontSize:16,border:"1.5px solid #E5E5E0",borderRadius:10,textAlign:"center",width:60}}/>
                   <button onClick={()=>setForm(p=>({...p,lignes:p.lignes.filter((_,j)=>j!==i)}))} style={{background:"#FEE2E2",border:"none",borderRadius:8,padding:"10px 8px",cursor:"pointer",display:"flex"}}>
@@ -2793,7 +2793,7 @@ const genererPDF = async (f) => {
 
 
 // ══════════════════════════════════════════════════════════════
-// PAGE: COMPTABILITÉ - Plan comptable suisse PME simplifié
+// PAGE: COMPTABILITÉ — Plan comptable suisse PME simplifié
 // ══════════════════════════════════════════════════════════════
 
 const PLAN_COMPTABLE = {
@@ -3056,7 +3056,7 @@ const Comptabilite = ({st,setSt}) => {
         ))}
       </div>
 
-      {/* DASHBOARD - Graphique évolution */}
+      {/* DASHBOARD — Graphique évolution */}
       {onglet==="dashboard"&&(
         <div>
           <Card style={{marginBottom:14}}>
@@ -3380,7 +3380,7 @@ const Comptabilite = ({st,setSt}) => {
               const cout = p.coutRevient||0;
               if(cout===0) return (
                 <div key={p.id} style={{padding:"10px 12px",background:"#F4F4F2",borderRadius:8,marginBottom:8,fontSize:11,color:"#737373"}}>
-                  <strong>{p.nom} {p.variante} {p.format}</strong> - Saisis d'abord le coût de revient dans la fiche produit
+                  <strong>{p.nom} {p.variante} {p.format}</strong> — Saisis d'abord le coût de revient dans la fiche produit
                 </div>
               );
 
@@ -3403,7 +3403,7 @@ const Comptabilite = ({st,setSt}) => {
               // Verdict
               const dansFourchette = p.prixClient>=fourchette.min && p.prixClient<=fourchette.max;
               let verdict = {color:"#15803D",bg:"#F0FDF4",border:"#BBF7D0",icon:"✅",msg:"Prix bien positionné"};
-              if(margePublicPct<40) verdict = {color:"#B91C1C",bg:"#FEF2F2",border:"#FECACA",icon:"🔴",msg:"Marge trop faible - Augmente le prix"};
+              if(margePublicPct<40) verdict = {color:"#B91C1C",bg:"#FEF2F2",border:"#FECACA",icon:"🔴",msg:"Marge trop faible — Augmente le prix"};
               else if(margePublicPct>75 && !dansFourchette && p.prixClient>fourchette.max) verdict = {color:"#9A3412",bg:"#FDF6E3",border:"#FCD34D",icon:"⚠️",msg:"Prix au-dessus du marché"};
               else if(margePublicPct<55) verdict = {color:"#9A3412",bg:"#FDF6E3",border:"#FCD34D",icon:"⚠️",msg:"Marge un peu juste"};
 
@@ -3453,7 +3453,7 @@ const Comptabilite = ({st,setSt}) => {
 
                   {/* Fourchette marché */}
                   <div style={{background:"#F4F4F2",borderRadius:6,padding:"6px 10px",fontSize:10,color:"#525252"}}>
-                    📊 Marché suisse liqueurs artisanales {p.format} : <strong>{chf(fourchette.min)} - {chf(fourchette.max)}</strong>
+                    📊 Marché suisse liqueurs artisanales {p.format} : <strong>{chf(fourchette.min)} — {chf(fourchette.max)}</strong>
                     {dansFourchette?" ✓ Ton prix est dans la fourchette":" ⚠ Ton prix est hors fourchette"}
                   </div>
                 </div>
@@ -3631,7 +3631,7 @@ const Comptabilite = ({st,setSt}) => {
             <Sel label="Catégorie" value={form.categorie} onChange={v=>setForm(p=>({...p,categorie:v}))}
               options={(form.type==="recette"?CATEGORIES_RECETTE:CATEGORIES_DEPENSE).map(c=>({v:c,l:c}))}/>
             <Sel label="Compte comptable" value={form.compte} onChange={v=>setForm(p=>({...p,compte:v,libelle:PLAN_COMPTABLE[v]||""}))}
-              options={Object.entries(PLAN_COMPTABLE).filter(([k])=>form.type==="recette"?k.startsWith("3"):!k.startsWith("3")).map(([k,v])=>({v:k,l:k+" - "+v}))}/>
+              options={Object.entries(PLAN_COMPTABLE).filter(([k])=>form.type==="recette"?k.startsWith("3"):!k.startsWith("3")).map(([k,v])=>({v:k,l:k+" — "+v}))}/>
             <F label="Description" value={form.description} onChange={v=>setForm(p=>({...p,description:v}))} placeholder="Précisions (optionnel)"/>
             <label style={{display:"flex",alignItems:"center",gap:10,padding:"12px",background:form.postfinance?"#DCFCE7":"#F5F5F0",borderRadius:10,cursor:"pointer",border:form.postfinance?"1.5px solid #86EFAC":"1.5px solid #E5E5E0"}}>
               <input type="checkbox" checked={form.postfinance||false} onChange={e=>setForm(p=>({...p,postfinance:e.target.checked}))} style={{width:18,height:18}}/>
@@ -4089,7 +4089,7 @@ A consommer avec modération. L'abus d'alcool est dangereux pour la santé.`;
                 }
               }}
               options={[
-                {v:"",l:"- Saisir manuellement -"},
+                {v:"",l:"— Saisir manuellement —"},
                 {v:"nouveau",l:"+ Nouveau client (à enregistrer)"},
                 ...(st.clients||[]).map(c=>({v:c.id,l:"👤 "+c.nom}))
               ]}/>
@@ -4133,7 +4133,7 @@ A consommer avec modération. L'abus d'alcool est dangereux pour la santé.`;
               {(form.lignes||[]).map((l,i)=>(
                 <div key={i} style={{display:"grid",gridTemplateColumns:"1fr 60px 36px",gap:6,marginBottom:8,alignItems:"flex-end"}}>
                   <Sel label="" value={l.produitId} onChange={v=>updLigne(i,"produitId",v)}
-                    options={[{v:"",l:"- Produit -"},...st.produits.filter(p=>p.actif).map(p=>({v:p.id,l:p.nom+" "+p.variante+" "+p.format+" ("+chf(p.prixClient)+")"}))]}/>
+                    options={[{v:"",l:"— Produit —"},...st.produits.filter(p=>p.actif).map(p=>({v:p.id,l:p.nom+" "+p.variante+" "+p.format+" ("+chf(p.prixClient)+")"}))]}/>
                   <input type="number" value={l.qte||1} min={1} onChange={e=>updLigne(i,"qte",+e.target.value)}
                     style={{padding:"11px 6px",fontSize:14,border:"1.5px solid #E5E5E0",borderRadius:10,textAlign:"center",width:60}}/>
                   <button onClick={()=>delLigne(i)} style={{background:"#FEE2E2",border:"none",borderRadius:8,padding:"10px 6px",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>
@@ -4436,13 +4436,13 @@ const Clients = ({st,setSt}) => {
 // Templates de documents par défaut
 const DOCS_DEFAUT = {
   cgv: {
-    titre:"CGV - Conditions Générales de Vente",
+    titre:"CGV — Conditions Générales de Vente",
     description:"Règles commerciales applicables à toutes les ventes et dépôts-vente",
     contenu: CGV,
     categorie:"Vente",
   },
   contrat_depot: {
-    titre:"Contrat de dépôt-vente - Type",
+    titre:"Contrat de dépôt-vente — Type",
     description:"Modèle de contrat de dépôt-vente réutilisable",
     categorie:"Contrat",
     contenu: `CONTRAT DE DÉPÔT-VENTE
@@ -4465,43 +4465,43 @@ LE DÉPOSITAIRE
 
 Il a été convenu ce qui suit :
 
-ARTICLE 1 - OBJET
+ARTICLE 1 — OBJET
 Le Fournisseur met en dépôt-vente chez le Dépositaire les liqueurs artisanales de sa gamme, en vue de leur commercialisation auprès de la clientèle finale.
 
-ARTICLE 2 - DURÉE
+ARTICLE 2 — DURÉE
 Le présent contrat est conclu pour une durée initiale de 2 mois à compter de la date de signature, renouvelable par tacite reconduction sauf dénonciation écrite avec préavis de 30 jours.
 
-ARTICLE 3 - PRODUITS DÉPOSÉS
+ARTICLE 3 — PRODUITS DÉPOSÉS
 La nature, la quantité et les prix des produits déposés sont précisés dans le bon de livraison annexé au présent contrat. Tout nouveau dépôt fera l'objet d'un nouveau bon de livraison signé par les deux parties.
 
-ARTICLE 4 - PROPRIÉTÉ
+ARTICLE 4 — PROPRIÉTÉ
 Les produits déposés restent la propriété exclusive du Fournisseur jusqu'à leur vente effective à la clientèle finale ou leur paiement intégral par le Dépositaire.
 
-ARTICLE 5 - PRIX DE VENTE ET COMMISSION
+ARTICLE 5 — PRIX DE VENTE ET COMMISSION
 Les produits sont facturés au Dépositaire au prix professionnel indiqué dans le bon de livraison. Le Dépositaire est libre de définir son prix de vente au public. [Ou : Une commission de X% est accordée au Dépositaire sur chaque vente réalisée.]
 
-ARTICLE 6 - INVENTAIRE ET FACTURATION
+ARTICLE 6 — INVENTAIRE ET FACTURATION
 Un inventaire est effectué périodiquement (minimum tous les 2 mois). Le Dépositaire règle les produits effectivement vendus dans les 30 jours suivant l'émission de la facture, par virement sur le compte IBAN CH23 0900 0000 1565 1485 8 (PostFinance).
 
-ARTICLE 7 - RESPONSABILITÉ DU DÉPOSITAIRE
+ARTICLE 7 — RESPONSABILITÉ DU DÉPOSITAIRE
 Le Dépositaire assume l'entière responsabilité des produits pendant toute la durée du dépôt : conditions de stockage (température, lumière, humidité), perte, vol, casse, détérioration. Tout produit endommagé ou manquant sera facturé au prix professionnel.
 
-ARTICLE 8 - OBLIGATIONS LÉGALES
+ARTICLE 8 — OBLIGATIONS LÉGALES
 Le Dépositaire s'engage à respecter la législation suisse en vigueur concernant la vente de boissons alcoolisées, notamment :
 - l'interdiction formelle de vente aux mineurs ;
 - les règles relatives à la publicité ;
 - l'affichage obligatoire en point de vente.
 
-ARTICLE 9 - RESTITUTION
+ARTICLE 9 — RESTITUTION
 À la fin du contrat, les produits invendus sont restitués au Fournisseur en parfait état (emballage d'origine, étiquette intacte, date de conservation respectée).
 
-ARTICLE 10 - RÉSILIATION
+ARTICLE 10 — RÉSILIATION
 Le contrat peut être résilié à tout moment d'un commun accord écrit. En cas de manquement grave (non-paiement, non-respect des obligations légales, détérioration répétée des produits), le Fournisseur peut résilier immédiatement.
 
-ARTICLE 11 - CONDITIONS GÉNÉRALES
+ARTICLE 11 — CONDITIONS GÉNÉRALES
 Les Conditions Générales de Vente du Fournisseur (annexées) font partie intégrante du présent contrat.
 
-ARTICLE 12 - DROIT APPLICABLE
+ARTICLE 12 — DROIT APPLICABLE
 Le présent contrat est soumis au droit suisse. Tout litige sera soumis aux juridictions du canton de Berne.
 
 Fait à ................................., le ........................
@@ -4533,22 +4533,22 @@ LE PARTENAIRE
 [Adresse]
 [Contact]
 
-ARTICLE 1 - OBJET
+ARTICLE 1 — OBJET
 Le Fournisseur accorde au Partenaire le droit de commercialiser ses liqueurs artisanales dans les conditions définies ci-après.
 
-ARTICLE 2 - TERRITOIRE ET EXCLUSIVITÉ
+ARTICLE 2 — TERRITOIRE ET EXCLUSIVITÉ
 Le Partenaire est autorisé à commercialiser les produits [sur tout le territoire suisse / dans la région de ..... / exclusivement dans son point de vente]. [Exclusivité : oui / non]
 
-ARTICLE 3 - DURÉE
+ARTICLE 3 — DURÉE
 Contrat conclu pour une durée de ...... mois/années à compter du ............. .
 
-ARTICLE 4 - CONDITIONS COMMERCIALES
+ARTICLE 4 — CONDITIONS COMMERCIALES
 - Prix professionnel selon grille tarifaire en vigueur
 - Commande minimale : ...... unités
 - Modalités de paiement : 30 jours nets
 - Commission ou remise éventuelle : ......%
 
-ARTICLE 5 - OBLIGATIONS DU PARTENAIRE
+ARTICLE 5 — OBLIGATIONS DU PARTENAIRE
 Le Partenaire s'engage à :
 - Promouvoir activement les produits du Fournisseur
 - Respecter l'image de marque et les valeurs de Goûtstoso
@@ -4556,23 +4556,23 @@ Le Partenaire s'engage à :
 - Respecter la législation en matière de vente d'alcool (interdiction aux mineurs, publicité)
 - Assurer des conditions de stockage adéquates
 
-ARTICLE 6 - OBLIGATIONS DU FOURNISSEUR
+ARTICLE 6 — OBLIGATIONS DU FOURNISSEUR
 Le Fournisseur s'engage à :
 - Livrer des produits conformes aux normes en vigueur
 - Fournir les supports marketing nécessaires
 - Informer le Partenaire des nouveautés et promotions
 - Respecter les délais de livraison convenus
 
-ARTICLE 7 - MARQUE ET IDENTITÉ VISUELLE
+ARTICLE 7 — MARQUE ET IDENTITÉ VISUELLE
 Le Partenaire est autorisé à utiliser le logo et les visuels de Goûtstoso exclusivement pour la promotion et la vente des produits. Toute autre utilisation est soumise à autorisation écrite préalable.
 
-ARTICLE 8 - CONFIDENTIALITÉ
+ARTICLE 8 — CONFIDENTIALITÉ
 Les parties s'engagent à garder confidentielles les informations commerciales échangées.
 
-ARTICLE 9 - RÉSILIATION
+ARTICLE 9 — RÉSILIATION
 Résiliation possible avec préavis de 60 jours par lettre recommandée. Résiliation immédiate en cas de manquement grave.
 
-ARTICLE 10 - CONDITIONS GÉNÉRALES ET DROIT APPLICABLE
+ARTICLE 10 — CONDITIONS GÉNÉRALES ET DROIT APPLICABLE
 Les CGV de Goûtstoso font partie intégrante du présent contrat. Droit suisse applicable, juridictions du canton de Berne compétentes.
 
 Fait à ................................., le ........................
@@ -4583,7 +4583,7 @@ Goûtstoso - Jordan Montanaro                       .........................
 Signature :                                        Signature :`,
   },
   bon_livraison: {
-    titre:"Bon de livraison - Type",
+    titre:"Bon de livraison — Type",
     description:"Modèle de bon de livraison standard",
     categorie:"Livraison",
     contenu: `BON DE LIVRAISON N° ......................
@@ -4706,10 +4706,10 @@ ET
 [Adresse]
 (ci-après "la Partie Réceptrice")
 
-ARTICLE 1 - OBJET
+ARTICLE 1 — OBJET
 Le présent accord a pour objet de protéger les informations confidentielles échangées entre les parties dans le cadre de leurs relations commerciales (discussions, collaboration, partenariat, fourniture, etc.).
 
-ARTICLE 2 - INFORMATIONS CONFIDENTIELLES
+ARTICLE 2 — INFORMATIONS CONFIDENTIELLES
 Sont considérées comme confidentielles toutes les informations communiquées, quel qu'en soit le support, concernant notamment :
 - Les recettes, procédés de fabrication et savoir-faire
 - La stratégie commerciale, marketing et financière
@@ -4717,7 +4717,7 @@ Sont considérées comme confidentielles toutes les informations communiquées, 
 - Les tarifs et conditions commerciales
 - Les projets en cours et à venir
 
-ARTICLE 3 - ENGAGEMENTS DE LA PARTIE RÉCEPTRICE
+ARTICLE 3 — ENGAGEMENTS DE LA PARTIE RÉCEPTRICE
 La Partie Réceptrice s'engage à :
 a) Garder strictement confidentielles toutes les informations reçues
 b) N'utiliser ces informations que pour l'objet défini avec Goûtstoso
@@ -4725,22 +4725,22 @@ c) Ne pas les divulguer à des tiers sans autorisation écrite préalable
 d) Les protéger avec le même soin qu'elle apporte à ses propres informations confidentielles
 e) Limiter l'accès aux seules personnes de son équipe ayant un besoin réel
 
-ARTICLE 4 - EXCLUSIONS
+ARTICLE 4 — EXCLUSIONS
 Ne sont pas couvertes les informations :
 - Déjà publiques au moment de leur communication
 - Obtenues légalement d'un tiers sans obligation de confidentialité
 - Développées indépendamment sans utilisation des informations confidentielles
 
-ARTICLE 5 - DURÉE
+ARTICLE 5 — DURÉE
 Le présent accord est conclu pour une durée de 3 ans à compter de sa signature. L'obligation de confidentialité perdure 2 ans après la fin de la relation commerciale.
 
-ARTICLE 6 - RESTITUTION
+ARTICLE 6 — RESTITUTION
 À la fin de la relation commerciale ou sur simple demande, la Partie Réceptrice s'engage à restituer ou détruire tous les documents et supports contenant des informations confidentielles.
 
-ARTICLE 7 - SANCTIONS
+ARTICLE 7 — SANCTIONS
 Toute violation du présent accord pourra donner lieu à des poursuites judiciaires et à des dommages-intérêts correspondant au préjudice subi.
 
-ARTICLE 8 - DROIT APPLICABLE
+ARTICLE 8 — DROIT APPLICABLE
 Droit suisse applicable. Juridiction compétente : tribunaux du canton de Berne.
 
 Fait à .........................., le ..........................
@@ -4800,7 +4800,7 @@ En cas de problème de consommation, contactez :
 
 Goûtstoso s'engage pleinement dans une démarche de consommation responsable et saine.
 
-Goûtstoso - Jordan Montanaro
+Goûtstoso — Jordan Montanaro
 admin@goutstoso.ch · www.goutstoso.ch`,
   },
 };
@@ -5311,10 +5311,10 @@ const Fournisseurs = ({st, setSt}) => {
 
 
 // ══════════════════════════════════════════════════════════════
-// APP SHELL - Navigation mobile en bas
+// APP SHELL — Navigation mobile en bas
 // ══════════════════════════════════════════════════════════════
 
-// Groupes de navigation - 5 max en bas, reste dans "Plus"
+// Groupes de navigation — 5 max en bas, reste dans "Plus"
 const NAV_MAIN = [
   {id:"dashboard",label:"Accueil",icon:"dash"},
   {id:"factures",label:"Factures",icon:"facture"},
@@ -5340,137 +5340,84 @@ const IcMore = ({s=22}) => (
 );
 
 export default function App() {
-  React.useEffect(()=>{
-    let wakeLock = null;
-    const acquire = async () => { try { if(typeof navigator !== 'undefined' && navigator.wakeLock) { wakeLock = await navigator.wakeLock.request('screen'); } } catch(e){} };
-    acquire();
-    const onVisible = () => { if(document.visibilityState === 'visible') acquire(); };
-    document.addEventListener('visibilitychange', onVisible);
-    return () => { document.removeEventListener('visibilitychange', onVisible); if(wakeLock) try { wakeLock.release(); } catch(e){} };
-  },[]);
-  React.useEffect(()=>{
-    const ping = () => { try { fetch('/api/healthz',{method:'HEAD',cache:'no-store'}).catch(()=>{}); } catch(e){} };
-    ping();
-    const iv = setInterval(ping, 2*60*1000);
-    return () => clearInterval(iv);
-  },[]);
   const [tab,setTab] = useState("dashboard");
   const [showMore,setShowMore] = useState(false);
-const [st,setSt] = useState(INIT);
+  const [st,setSt] = useState(INIT);
 
-const [loading, setLoading] = React.useState(true);
-const [syncing, setSyncing] = React.useState(false);
+  const [loading, setLoading] = React.useState(true);
+  const [syncing, setSyncing] = React.useState(false);
 
-const CLOUD_URL = "https://hc12z9cbqiy.preview.infomaniak.website/api.php";
-const sendEmail = async ({to, subject, body, toName=""}) => {
-  if(!to){alert("Adresse email manquante");return;}
-  const htmlBody = "<div style='font-family:sans-serif;font-size:14px;line-height:1.6;color:#222'>"+body.replace(/\n/g,"<br>")+"</div>";
-  try{
-    const r = await fetch(CLOUD_URL,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({_action:"send_email",to,subject,body:htmlBody,toName})});
-    const j = await r.json();
-    if(j.success) alert("✉️ Email envoyé à "+to);
-    else alert("Erreur envoi : "+(j.error||"inconnue"));
-  }catch(e){alert("Erreur réseau : "+e.message);}
-};
+  // URL de l'API Infomaniak
+  const API_URL = "https://hc12z9cbqiy.preview.infomaniak.website/api.php";
 
-const cloudSave = async (data) => {
-try {
-const r = await fetch(CLOUD_URL, {
-method:"POST",
-headers:{"Content-Type":"application/json","Accept":"application/json"},
-body: JSON.stringify(data)
-});
-return r.ok;
-} catch(e){}
-return false;
-};
+  // Charger depuis le cloud en priorité
+  React.useEffect(()=>{
+    (async()=>{
+      try {
+        const r = await fetch(API_URL);
+        if(r.ok) {
+          const txt = await r.text();
+          if(txt && txt !== "null") {
+            const parsed = JSON.parse(txt);
+            if(parsed?.produits?.length > 0) {
+              setSt(parsed);
+              try { localStorage.setItem("goutstoso_v2", JSON.stringify(parsed)); } catch(e){}
+              setLoading(false);
+              return;
+            }
+          }
+        }
+      } catch(e){ console.log("Cloud indisponible"); }
+      // Fallback localStorage
+      try {
+        const saved = localStorage.getItem("goutstoso_v2");
+        if(saved) {
+          const p = JSON.parse(saved);
+          if(p?.produits?.length > 0) setSt(p);
+        }
+      } catch(e){}
+      setLoading(false);
+    })();
+  },[]);
 
-const cloudLoad = async () => {
-try {
-const r = await fetch(CLOUD_URL, {headers:{"Accept":"application/json"}});
-if(!r.ok) return null;
-const j = await r.json();
-if(j?.produits?.length > 0) return j;
-} catch(e){}
-return null;
-};
+  // Sauvegarder partout
+  const saveTimer = React.useRef(null);
+  React.useEffect(()=>{
+    if(loading) return;
+    try { localStorage.setItem("goutstoso_v2", JSON.stringify(st)); } catch(e){}
+    if(saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(async()=>{
+      setSyncing(true);
+      try {
+        await fetch(API_URL, {
+          method:"POST",
+          headers:{"Content-Type":"application/json"},
+          body: JSON.stringify(st),
+        });
+      } catch(e){}
+      setSyncing(false);
+    }, 2000);
+  },[st, loading]);
 
-const hydrateData = (data) => {
-if(!data) return data;
-const defaults = {
-produits: INIT.produits.reduce((acc,p)=>({...acc,[p.id]:p}),{}),
-partenaires: INIT.partenaires.reduce((acc,p)=>({...acc,[p.id]:p}),{}),
-};
-return {
-...INIT,
-...data,
-produits: (data.produits||INIT.produits).map(p=>({...defaults.produits[p.id],...p})),
-partenaires: (data.partenaires||INIT.partenaires).map(p=>({...defaults.partenaires[p.id],...p})),
-stocks: data.stocks||INIT.stocks,
-depotStocks: data.depotStocks||INIT.depotStocks,
-contrats: data.contrats||INIT.contrats,
-factures: data.factures||INIT.factures,
-transactions: data.transactions||INIT.transactions,
-soldeBancaire: data.soldeBancaire ?? INIT.soldeBancaire,
-};
-};
-
-// Charger au démarrage
-React.useEffect(()=>{
-(async()=>{
-setLoading(true);
-const remote = await cloudLoad();
-if(remote) {
-const next = hydrateData(remote);
-setSt(next);
-try { localStorage.setItem("goutstoso_v2", JSON.stringify(next)); } catch(e){}
-} else {
-try {
-const saved = localStorage.getItem("goutstoso_v2");
-if(saved) {
-const p = JSON.parse(saved);
-if(p?.produits?.length > 0) { const next = hydrateData(p); setSt(next); cloudSave(next); }
-else { const next = hydrateData(INIT); setSt(next); cloudSave(next); }
-} else {
-const next = hydrateData(INIT);
-setSt(next);
-cloudSave(next);
-}
-} catch(e){}
-}
-setLoading(false);
-})();
-},[]);
-
-// Sauvegarder à chaque changement
-const saveTimer = React.useRef(null);
-React.useEffect(()=>{
-if(loading) return;
-try { localStorage.setItem("goutstoso_v2", JSON.stringify(st)); } catch(e){}
-if(saveTimer.current) clearTimeout(saveTimer.current);
-saveTimer.current = setTimeout(async()=>{ setSyncing(true); await cloudSave(st); setSyncing(false); }, 2000);
-},[st, loading]);
-
-// Rafraîchir toutes les 30s
-React.useEffect(()=>{
-const iv = setInterval(async()=>{
-const remote = await cloudLoad();
-if(remote) { const next = hydrateData(remote); setSt(next); try { localStorage.setItem("goutstoso_v2", JSON.stringify(next)); } catch(e){} }
-}, 30000);
-return ()=>clearInterval(iv);
-},[]);
-
-
-
-
-
-
-
-
-
-
-
-
+  // Rafraîchir toutes les 30s
+  React.useEffect(()=>{
+    const iv = setInterval(async()=>{
+      try {
+        const r = await fetch(API_URL);
+        if(r.ok) {
+          const txt = await r.text();
+          if(txt && txt !== "null") {
+            const parsed = JSON.parse(txt);
+            if(parsed?.produits?.length > 0) {
+              setSt(parsed);
+              try { localStorage.setItem("goutstoso_v2", JSON.stringify(parsed)); } catch(e){}
+            }
+          }
+        }
+      } catch(e){}
+    }, 30000);
+    return ()=>clearInterval(iv);
+  },[]);
 
   const pages = {
     dashboard:<Dashboard st={st} setTab={setTab}/>,
