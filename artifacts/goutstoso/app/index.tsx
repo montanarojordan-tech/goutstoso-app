@@ -5639,7 +5639,6 @@ return ()=>clearInterval(iv);
 
 
   const isDesktop = useIsDesktop();
-  const isDesktop = useIsDesktop();
   const pages = {
     dashboard:<Dashboard st={st} setTab={setTab}/>,
     produits:<Produits st={st} setSt={setSt}/>,
