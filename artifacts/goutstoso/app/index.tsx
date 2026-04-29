@@ -2383,8 +2383,7 @@ const body = retard
     "Paiement à 30 jours\nIBAN : CH23 0900 0000 1565 1485 8 - PostFinance\n\n"+
     "Cordialement,\nL'équipe Goutstoso\nadmin@goutstoso.ch";
 
-const mailto = "mailto:"+pv.email+"?subject="+encodeURIComponent(subject)+"&body="+encodeURIComponent(body);
-window.location.href = mailto;
+sendEmail({to:pv.email||"",toName:pv?.contact||"",subject,body});
 
 };
 
@@ -3951,8 +3950,7 @@ admin@goutstoso.ch · www.goutstoso.ch
 
 A consommer avec modération. L'abus d'alcool est dangereux pour la santé.`;
 
-const mailto = `mailto:${c.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-window.location.href = mailto;
+sendEmail({to:c.email||"",toName:c?.contact||"",subject,body});
 
 // Marquer comme envoyé
 setSt(p=>({...p,commandes:p.commandes.map(x=>x.id===c.id?{...x,emailSatisfactionEnvoye:today()}:x)}));
