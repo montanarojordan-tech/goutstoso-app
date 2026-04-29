@@ -473,7 +473,7 @@ return (
 {new Date().toLocaleDateString("fr-CH",{weekday:"long",day:"numeric",month:"long"})}
 </p>
 <h1 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:30,fontWeight:600,letterSpacing:"-0.025em",marginTop:2}}>
-Bonjour Jordan
+Bonjour {authUser.display_name||authUser.username}
 </h1>
 </div>
 
