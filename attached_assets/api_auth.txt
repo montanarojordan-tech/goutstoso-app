@@ -15,6 +15,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
   exit(0); 
 }
 
+
 $host = "hc12z9.myd.infomaniak.com";
 $dbname = "hc12z9_goutstoso";
 $user = "hc12z9_jordan";
