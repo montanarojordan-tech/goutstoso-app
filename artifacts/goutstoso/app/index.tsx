@@ -5632,7 +5632,7 @@ const CLOUD_URL = "https://hc12z9cbqiy.preview.infomaniak.website/api.php";
 const sendEmail = ({to, subject, body, toName=""}) => {
   if(!to){alert("Adresse email manquante");return;}
   const mailto = `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-  if(typeof window !== "undefined") window.open(mailto, "_self");
+  if(typeof window !== "undefined") window.location.href = mailto;
 };
 
 // Hook pour détecter taille écran (responsive)
