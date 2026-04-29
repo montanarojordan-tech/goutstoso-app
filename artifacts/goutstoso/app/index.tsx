@@ -5663,14 +5663,16 @@ function LoginScreen({onLogin}: {onLogin:(user:any,token:string)=>void}) {
         headers:{"Content-Type":"application/json"},
         body: JSON.stringify({_action:"login", username:username.trim(), password})
       });
-      const j = await r.json();
+      const text = await r.text();
+      let j:any = null;
+      try { j = JSON.parse(text); } catch(pe) { setError("Réponse serveur invalide: " + text.slice(0,200)); setLoading(false); return; }
       if(j.success) {
         setToken(j.token);
         onLogin(j.user, j.token);
       } else {
         setError(j.error||"Identifiants invalides.");
       }
-    } catch(e){ setError("Erreur de connexion. Vérifiez votre réseau."); }
+    } catch(e:any){ setError("Réseau inaccessible: " + (e?.message||"")); }
     setLoading(false);
   };
 
