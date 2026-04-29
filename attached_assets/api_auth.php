@@ -18,7 +18,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 $host = "hc12z9.myd.infomaniak.com";
 $dbname = "hc12z9_goutstoso";
 $user = "hc12z9_jordan";
-$pass = "Goutstoso_2026$";
+$pass = 'GoutstosoDb2026$';
 
 $smtp_host = "mail.infomaniak.com";
 $smtp_port = 465;
