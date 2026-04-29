@@ -6103,7 +6103,7 @@ return (
       <div style={{width:260,background:"#fff",borderRight:"1px solid #EAE7E0",padding:"20px 16px",display:"flex",flexDirection:"column",position:"fixed",height:"100vh",overflowY:"auto"}}>
         <div style={{padding:"4px 8px 20px",borderBottom:"1px solid #EAE7E0",marginBottom:16}}>
           <img src={LOGO_B64} alt="GoûtStoso" style={{width:120,height:"auto",objectFit:"contain",display:"block",marginBottom:4}}/>
-          <p style={{fontSize:10,color:"#737373",marginTop:2}}>Jordan Montanaro</p>
+          <p style={{fontSize:10,color:"#737373",marginTop:2}}>{authUser.display_name||authUser.username}</p>
         </div>
         
         {/* Solde bancaire en haut */}
