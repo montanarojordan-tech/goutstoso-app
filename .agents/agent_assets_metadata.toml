@@ -23,3 +23,9 @@ id = "KTwAKsPhal-9Q4G1S6R1T"
 uri = "file://goutstoso-infomaniak.tar.gz"
 type = "unspecified"
 title = "Goutstoso — fichiers production Infomaniak"
+
+[[outputs]]
+id = "9ND9dj1oTknz47nHl_4wW"
+uri = "file://attached_assets/api_auth.txt"
+type = "text"
+title = "Nouveau api.php — copier tout le contenu dans votre fichier api.php sur Infomaniak"
