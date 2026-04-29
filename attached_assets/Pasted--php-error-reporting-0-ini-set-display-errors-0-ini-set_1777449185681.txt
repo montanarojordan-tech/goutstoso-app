@@ -1,0 +1,116 @@
+<?php
+error_reporting(0);
+ini_set('display_errors', '0');
+ini_set('html_errors', '0');
+
+ob_start();
+
+header("Content-Type: application/json; charset=utf-8");
+header("Access-Control-Allow-Origin: *");
+header("Access-Control-Allow-Methods: GET, POST, OPTIONS");
+header("Access-Control-Allow-Headers: Content-Type");
+
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') { 
+  ob_end_flush();
+  exit(0); 
+}
+
+$host = "hc12z9.myd.infomaniak.com";
+$dbname = "hc12z9_goutstoso";
+$user = "hc12z9_jordan";
+$pass = "Goutstoso_2026$";
+
+// SMTP Infomaniak avec mot de passe d'application
+$smtp_host = "mail.infomaniak.com";
+$smtp_port = 465;
+$smtp_user = "admin@goutstoso.ch";
+$smtp_password = "Goutstoso_2026$"
+
+function envoyerEmailSMTP($to, $subject, $body, $toName = "") {
+  global $smtp_host, $smtp_port, $smtp_user, $smtp_pass;
+  $log = [];
+  $context = stream_context_create(['ssl' => ['verify_peer' => false, 'verify_peer_name' => false, 'allow_self_signed' => true]]);
+  $socket = @stream_socket_client("ssl://$smtp_host:$smtp_port", $errno, $errstr, 15, STREAM_CLIENT_CONNECT, $context);
+  if (!$socket) return ["success" => false, "error" => "Connexion: $errstr ($errno)"];
+  stream_set_timeout($socket, 15);
+  $read = function() use ($socket, &$log) {
+    $data = "";
+    while (!feof($socket)) {
+      $line = fgets($socket, 515);
+      if ($line === false) break;
+      $data .= $line;
+      $log[] = "< " . trim($line);
+      if (strlen($line) >= 4 && substr($line, 3, 1) == " ") break;
+    }
+    return $data;
+  };
+  $send = function($cmd) use ($socket, $read, &$log) {
+    $log[] = "> " . $cmd;
+    fputs($socket, $cmd . "\r\n");
+    return $read();
+  };
+  $greeting = $read();
+  if (strpos($greeting, "220") === false) { fclose($socket); return ["success" => false, "error" => "Pas de greeting", "log" => $log]; }
+  $resp = $send("EHLO goutstoso.ch");
+  if (strpos($resp, "250") === false) { fclose($socket); return ["success" => false, "error" => "EHLO failed", "log" => $log]; }
+  $send("AUTH LOGIN");
+  $send(base64_encode($smtp_user));
+  $resp = $send(base64_encode($smtp_pass));
+  if (strpos($resp, "235") === false) { fclose($socket); return ["success" => false, "error" => "Auth: " . trim($resp), "log" => $log]; }
+  $resp = $send("MAIL FROM:<$smtp_user>");
+  if (strpos($resp, "250") === false) { fclose($socket); return ["success" => false, "error" => "MAIL FROM: " . trim($resp), "log" => $log]; }
+  $resp = $send("RCPT TO:<$to>");
+  if (strpos($resp, "250") === false) { fclose($socket); return ["success" => false, "error" => "RCPT TO: " . trim($resp), "log" => $log]; }
+  $resp = $send("DATA");
+  if (strpos($resp, "354") === false) { fclose($socket); return ["success" => false, "error" => "DATA: " . trim($resp), "log" => $log]; }
+  $headers  = "From: =?UTF-8?B?" . base64_encode("Goutstoso") . "?= <$smtp_user>\r\n";
+  $headers .= "To: " . ($toName ? "=?UTF-8?B?" . base64_encode($toName) . "?= <$to>" : $to) . "\r\n";
+  $headers .= "Subject: =?UTF-8?B?" . base64_encode($subject) . "?=\r\n";
+  $headers .= "MIME-Version: 1.0\r\n";
+  $headers .= "Content-Type: text/html; charset=UTF-8\r\n";
+  $headers .= "Content-Transfer-Encoding: 8bit\r\n";
+  $headers .= "Date: " . date('r') . "\r\n";
+  $headers .= "Message-ID: <" . uniqid() . "@goutstoso.ch>\r\n";
+  fputs($socket, $headers . "\r\n" . $body . "\r\n.\r\n");
+  $resp = $read();
+  $send("QUIT");
+  fclose($socket);
+  if (strpos($resp, "250") !== false) return ["success" => true];
+  return ["success" => false, "error" => "Envoi: " . trim($resp), "log" => $log];
+}
+
+$method = $_SERVER['REQUEST_METHOD'];
+
+if ($method === 'POST') {
+  $raw = file_get_contents('php://input');
+  $data = json_decode($raw, true);
+  if ($data && isset($data['_action']) && $data['_action'] === 'send_email') {
+    ob_end_clean(); ob_start();
+    header("Content-Type: application/json; charset=utf-8");
+    $result = envoyerEmailSMTP($data['to'] ?? '', $data['subject'] ?? '', $data['body'] ?? '', $data['toName'] ?? '');
+    ob_end_clean();
+    echo json_encode($result);
+    exit;
+  }
+}
+
+try {
+  $pdo = new PDO("mysql:host=$host;dbname=$dbname;charset=utf8mb4", $user, $pass);
+  $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+} catch (PDOException $e) {
+  ob_end_clean(); http_response_code(500);
+  echo json_encode(["error" => "db"]); exit;
+}
+
+if ($method === 'GET') {
+  $stmt = $pdo->query("SELECT data FROM gs_data WHERE id = 'main' LIMIT 1");
+  $row = $stmt->fetch(PDO::FETCH_ASSOC);
+  ob_end_clean();
+  if ($row) { echo $row['data']; } else { echo "null"; }
+} elseif ($method === 'POST') {
+  $input = file_get_contents('php://input');
+  $stmt = $pdo->prepare("INSERT INTO gs_data (id, data) VALUES ('main', :d) ON DUPLICATE KEY UPDATE data = :d2");
+  $stmt->execute([':d' => $input, ':d2' => $input]);
+  ob_end_clean();
+  echo json_encode(["success" => true]);
+}
