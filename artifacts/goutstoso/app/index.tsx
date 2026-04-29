@@ -5635,6 +5635,245 @@ const sendEmail = ({to, subject, body, toName=""}) => {
   if(typeof window !== "undefined") window.location.href = mailto;
 };
 
+// ── AUTH HELPERS ────────────────────────────────────────────────
+const getToken = () => { try { return localStorage.getItem("gs_auth_token")||""; } catch(e){ return ""; } };
+const setToken = (t) => { try { localStorage.setItem("gs_auth_token", t); } catch(e){} };
+const clearToken = () => { try { localStorage.removeItem("gs_auth_token"); } catch(e){} };
+const authFetch = (url, opts:any={}) => {
+  const token = getToken();
+  const headers = {...(opts.headers||{}), ...(token?{"X-Auth-Token":token}:{})};
+  return fetch(url, {...opts, headers});
+};
+
+// ── ÉCRAN DE CONNEXION ──────────────────────────────────────────
+function LoginScreen({onLogin}: {onLogin:(user:any,token:string)=>void}) {
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [showPwd, setShowPwd] = useState(false);
+
+  const handleLogin = async (e) => {
+    e?.preventDefault();
+    if(!username||!password){setError("Veuillez remplir tous les champs.");return;}
+    setLoading(true); setError("");
+    try {
+      const r = await fetch(CLOUD_URL, {
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({_action:"login", username:username.trim(), password})
+      });
+      const j = await r.json();
+      if(j.success) {
+        setToken(j.token);
+        onLogin(j.user, j.token);
+      } else {
+        setError(j.error||"Identifiants invalides.");
+      }
+    } catch(e){ setError("Erreur de connexion. Vérifiez votre réseau."); }
+    setLoading(false);
+  };
+
+  return (
+    <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"#FAFAF7",padding:24}}>
+      <div style={{width:"100%",maxWidth:380}}>
+        <div style={{textAlign:"center",marginBottom:32}}>
+          <img src={LOGO_B64} alt="GoûtStoso" style={{width:140,height:"auto",objectFit:"contain",marginBottom:12}}/>
+          <p style={{fontSize:13,color:"#737373"}}>Connexion à votre espace de gestion</p>
+        </div>
+        <form onSubmit={handleLogin} style={{background:"#fff",borderRadius:16,padding:28,boxShadow:"0 4px 24px rgba(0,0,0,.08)",border:"1px solid #EAE7E0"}}>
+          <div style={{marginBottom:16}}>
+            <label style={{fontSize:12,fontWeight:600,color:"#525252",display:"block",marginBottom:6}}>Nom d'utilisateur</label>
+            <input value={username} onChange={e=>setUsername(e.target.value)} placeholder="Votre identifiant" autoComplete="username" disabled={loading}/>
+          </div>
+          <div style={{marginBottom:20,position:"relative"}}>
+            <label style={{fontSize:12,fontWeight:600,color:"#525252",display:"block",marginBottom:6}}>Mot de passe</label>
+            <input type={showPwd?"text":"password"} value={password} onChange={e=>setPassword(e.target.value)} placeholder="••••••••" autoComplete="current-password" disabled={loading} style={{paddingRight:44}}/>
+            <button type="button" onClick={()=>setShowPwd(v=>!v)} style={{position:"absolute",right:12,top:34,background:"none",border:"none",color:"#737373",padding:4,fontSize:16}}>{showPwd?"🙈":"👁"}</button>
+          </div>
+          {error && <div style={{background:"#FEF2F2",border:"1px solid #FECACA",borderRadius:8,padding:"10px 14px",marginBottom:16}}><p style={{fontSize:13,color:"#B91C1C"}}>{error}</p></div>}
+          <button type="submit" disabled={loading} style={{width:"100%",background:"#0A0A0A",color:"#fff",border:"none",borderRadius:10,padding:"13px 0",fontSize:14,fontWeight:600,cursor:loading?"not-allowed":"pointer",opacity:loading?.6:1}}>
+            {loading?"Connexion...":"Se connecter"}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// ── PANNEAU ADMIN UTILISATEURS ──────────────────────────────────
+function AdminPanel({currentUser, onClose}: {currentUser:any, onClose:()=>void}) {
+  const [users, setUsers] = useState<any[]>([]);
+  const [activity, setActivity] = useState<any[]>([]);
+  const [activeTab, setActiveTab] = useState<"users"|"activity">("users");
+  const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState({username:"",password:"",display_name:"",role:"user"});
+  const [editUser, setEditUser] = useState<any>(null);
+  const [editForm, setEditForm] = useState<any>({});
+  const [msg, setMsg] = useState("");
+
+  const apiCall = async (action, extra={}) => {
+    const r = await authFetch(CLOUD_URL, {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({_action:action,...extra})});
+    return r.json();
+  };
+
+  const load = async () => {
+    setLoading(true);
+    const [u, a] = await Promise.all([apiCall("list_users"), apiCall("get_activity",{limit:100})]);
+    if(u.users) setUsers(u.users);
+    if(a.activity) setActivity(a.activity);
+    setLoading(false);
+  };
+
+  React.useEffect(()=>{ load(); },[]);
+
+  const createUser = async () => {
+    if(!form.username||!form.password){setMsg("Identifiant et mot de passe requis.");return;}
+    const r = await apiCall("create_user", form);
+    if(r.success){setMsg("Utilisateur créé."); setForm({username:"",password:"",display_name:"",role:"user"}); setShowForm(false); load();}
+    else setMsg(r.error||"Erreur");
+  };
+
+  const toggleActive = async (u) => {
+    await apiCall("update_user", {id:u.id, active:u.active?0:1});
+    load();
+  };
+
+  const saveEdit = async () => {
+    await apiCall("update_user", {id:editUser.id, ...editForm});
+    setEditUser(null); load(); setMsg("Modifié.");
+  };
+
+  const deleteUser = async (u) => {
+    if(!confirm(`Supprimer l'utilisateur "${u.username}" ?`)) return;
+    await apiCall("delete_user", {id:u.id});
+    load();
+  };
+
+  const actionLabels = {login:"Connexion",logout:"Déconnexion",create_user:"Création utilisateur",update_user:"Modification utilisateur",delete_user:"Suppression utilisateur",sync:"Synchronisation données"};
+  const fmtDt = (s) => { const d=new Date(s); return d.toLocaleDateString("fr-CH")+' '+d.toLocaleTimeString("fr-CH",{hour:"2-digit",minute:"2-digit"}); };
+
+  return (
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.5)",zIndex:1000,display:"flex",alignItems:"flex-start",justifyContent:"center",padding:20,overflowY:"auto"}}>
+      <div style={{background:"#fff",borderRadius:16,width:"100%",maxWidth:760,boxShadow:"0 8px 40px rgba(0,0,0,.2)"}}>
+        {/* Header */}
+        <div style={{padding:"20px 24px",borderBottom:"1px solid #EAE7E0",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+          <div>
+            <h2 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:22,fontWeight:700}}>Administration</h2>
+            <p style={{fontSize:12,color:"#737373",marginTop:2}}>Gérez les accès à GoûtStoso</p>
+          </div>
+          <button onClick={onClose} style={{background:"#F4F4F2",border:"none",borderRadius:8,padding:"8px 12px",fontSize:13,fontWeight:500,cursor:"pointer"}}>Fermer</button>
+        </div>
+
+        {/* Tabs */}
+        <div style={{display:"flex",gap:0,borderBottom:"1px solid #EAE7E0"}}>
+          {([["users","Utilisateurs"],["activity","Journal d'activité"]] as const).map(([id,label])=>(
+            <button key={id} onClick={()=>setActiveTab(id)} style={{flex:1,padding:"12px 0",border:"none",borderBottom:activeTab===id?"2px solid #0A0A0A":"2px solid transparent",background:"none",fontSize:13,fontWeight:activeTab===id?600:400,color:activeTab===id?"#0A0A0A":"#737373",cursor:"pointer"}}>{label}</button>
+          ))}
+        </div>
+
+        <div style={{padding:24}}>
+          {msg && <div style={{background:"#F0FDF4",border:"1px solid #86EFAC",borderRadius:8,padding:"10px 14px",marginBottom:16,fontSize:13,color:"#15803D"}}>{msg}<button onClick={()=>setMsg("")} style={{float:"right",background:"none",border:"none",cursor:"pointer",color:"#15803D"}}>✕</button></div>}
+
+          {/* ONGLET UTILISATEURS */}
+          {activeTab==="users" && (
+            <div>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+                <p style={{fontSize:13,color:"#737373"}}>{users.length} utilisateur(s)</p>
+                <button onClick={()=>setShowForm(v=>!v)} style={{background:"#0A0A0A",color:"#fff",border:"none",borderRadius:8,padding:"8px 16px",fontSize:13,fontWeight:500,cursor:"pointer"}}>+ Ajouter</button>
+              </div>
+
+              {showForm && (
+                <div style={{background:"#FAFAF7",borderRadius:12,padding:20,marginBottom:20,border:"1px solid #EAE7E0"}}>
+                  <p style={{fontWeight:600,fontSize:14,marginBottom:14}}>Nouvel utilisateur</p>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}}>
+                    <div><label style={{fontSize:11,fontWeight:600,color:"#525252",display:"block",marginBottom:4}}>Identifiant *</label><input value={form.username} onChange={e=>setForm(f=>({...f,username:e.target.value}))} placeholder="prenom.nom"/></div>
+                    <div><label style={{fontSize:11,fontWeight:600,color:"#525252",display:"block",marginBottom:4}}>Mot de passe *</label><input type="password" value={form.password} onChange={e=>setForm(f=>({...f,password:e.target.value}))} placeholder="••••••••"/></div>
+                    <div><label style={{fontSize:11,fontWeight:600,color:"#525252",display:"block",marginBottom:4}}>Nom affiché</label><input value={form.display_name} onChange={e=>setForm(f=>({...f,display_name:e.target.value}))} placeholder="Prénom Nom"/></div>
+                    <div><label style={{fontSize:11,fontWeight:600,color:"#525252",display:"block",marginBottom:4}}>Rôle</label><select value={form.role} onChange={e=>setForm(f=>({...f,role:e.target.value}))}><option value="user">Utilisateur</option><option value="admin">Administrateur</option></select></div>
+                  </div>
+                  <div style={{display:"flex",gap:8}}>
+                    <button onClick={createUser} style={{background:"#0A0A0A",color:"#fff",border:"none",borderRadius:8,padding:"8px 20px",fontSize:13,fontWeight:500,cursor:"pointer"}}>Créer</button>
+                    <button onClick={()=>setShowForm(false)} style={{background:"none",border:"1px solid #EAE7E0",borderRadius:8,padding:"8px 20px",fontSize:13,cursor:"pointer"}}>Annuler</button>
+                  </div>
+                </div>
+              )}
+
+              {loading ? <p style={{color:"#737373",fontSize:13,textAlign:"center",padding:20}}>Chargement...</p> : (
+                <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                  {users.map(u=>(
+                    <div key={u.id} style={{border:"1px solid #EAE7E0",borderRadius:10,padding:"14px 16px",background:u.active?"#fff":"#FAFAF7",opacity:u.active?1:.7}}>
+                      {editUser?.id===u.id ? (
+                        <div>
+                          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
+                            <div><label style={{fontSize:11,fontWeight:600,color:"#525252",display:"block",marginBottom:4}}>Nom affiché</label><input value={editForm.display_name??u.display_name} onChange={e=>setEditForm(f=>({...f,display_name:e.target.value}))}/></div>
+                            <div><label style={{fontSize:11,fontWeight:600,color:"#525252",display:"block",marginBottom:4}}>Rôle</label><select value={editForm.role??u.role} onChange={e=>setEditForm(f=>({...f,role:e.target.value}))}><option value="user">Utilisateur</option><option value="admin">Administrateur</option></select></div>
+                            <div><label style={{fontSize:11,fontWeight:600,color:"#525252",display:"block",marginBottom:4}}>Nouveau mot de passe</label><input type="password" value={editForm.password??""} onChange={e=>setEditForm(f=>({...f,password:e.target.value}))} placeholder="Laisser vide = inchangé"/></div>
+                          </div>
+                          <div style={{display:"flex",gap:8}}>
+                            <button onClick={saveEdit} style={{background:"#0A0A0A",color:"#fff",border:"none",borderRadius:7,padding:"7px 16px",fontSize:12,fontWeight:500,cursor:"pointer"}}>Enregistrer</button>
+                            <button onClick={()=>setEditUser(null)} style={{background:"none",border:"1px solid #EAE7E0",borderRadius:7,padding:"7px 14px",fontSize:12,cursor:"pointer"}}>Annuler</button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:8}}>
+                          <div>
+                            <div style={{display:"flex",alignItems:"center",gap:8}}>
+                              <p style={{fontSize:14,fontWeight:600}}>{u.display_name||u.username}</p>
+                              <span style={{fontSize:10,background:u.role==="admin"?"#FDF6E3":"#F4F4F2",color:u.role==="admin"?"#BC8F1C":"#525252",border:`1px solid ${u.role==="admin"?"#E8B64C":"#EAE7E0"}`,borderRadius:6,padding:"2px 8px",fontWeight:600}}>{u.role==="admin"?"Admin":"Utilisateur"}</span>
+                              {!u.active && <span style={{fontSize:10,background:"#FEF2F2",color:"#B91C1C",border:"1px solid #FECACA",borderRadius:6,padding:"2px 8px",fontWeight:600}}>Désactivé</span>}
+                            </div>
+                            <p style={{fontSize:11,color:"#737373",marginTop:2}}>@{u.username} · Créé le {u.created_at?.slice(0,10)} {u.last_login?`· Dernière connexion: ${fmtDt(u.last_login)}`:""}</p>
+                          </div>
+                          <div style={{display:"flex",gap:6}}>
+                            <button onClick={()=>{setEditUser(u);setEditForm({});}} style={{background:"#F4F4F2",border:"none",borderRadius:7,padding:"6px 12px",fontSize:12,cursor:"pointer"}}>Modifier</button>
+                            <button onClick={()=>toggleActive(u)} style={{background:u.active?"#FEF2F2":"#F0FDF4",border:`1px solid ${u.active?"#FECACA":"#86EFAC"}`,borderRadius:7,padding:"6px 12px",fontSize:12,color:u.active?"#B91C1C":"#15803D",cursor:"pointer"}}>{u.active?"Désactiver":"Activer"}</button>
+                            {u.username!==currentUser.username && <button onClick={()=>deleteUser(u)} style={{background:"#FEF2F2",border:"1px solid #FECACA",borderRadius:7,padding:"6px 12px",fontSize:12,color:"#B91C1C",cursor:"pointer"}}>Supprimer</button>}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ONGLET JOURNAL */}
+          {activeTab==="activity" && (
+            <div>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+                <p style={{fontSize:13,color:"#737373"}}>{activity.length} actions récentes</p>
+                <button onClick={load} style={{background:"#F4F4F2",border:"none",borderRadius:8,padding:"7px 14px",fontSize:12,cursor:"pointer"}}>Rafraîchir</button>
+              </div>
+              {loading ? <p style={{color:"#737373",fontSize:13,textAlign:"center",padding:20}}>Chargement...</p> : (
+                <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                  {activity.map(a=>(
+                    <div key={a.id} style={{display:"flex",alignItems:"flex-start",gap:12,padding:"10px 12px",background:"#FAFAF7",borderRadius:8,border:"1px solid #EAE7E0"}}>
+                      <div style={{minWidth:32,height:32,background:"#0A0A0A",borderRadius:8,display:"flex",alignItems:"center",justifyContent:"center"}}>
+                        <span style={{fontSize:14}}>{a.action==="login"?"🔑":a.action==="logout"?"🚪":a.action.includes("user")?"👤":"💾"}</span>
+                      </div>
+                      <div style={{flex:1}}>
+                        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8}}>
+                          <p style={{fontSize:13,fontWeight:600}}>{actionLabels[a.action]||a.action}</p>
+                          <p style={{fontSize:11,color:"#737373",whiteSpace:"nowrap"}}>{fmtDt(a.created_at)}</p>
+                        </div>
+                        <p style={{fontSize:12,color:"#525252",marginTop:2}}>par <strong>{a.username}</strong>{a.detail?` — ${a.detail}`:""}</p>
+                      </div>
+                    </div>
+                  ))}
+                  {activity.length===0 && <p style={{color:"#737373",fontSize:13,textAlign:"center",padding:20}}>Aucune activité enregistrée.</p>}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // Hook pour détecter taille écran (responsive)
 function useIsDesktop() {
 const [isDesktop, setIsDesktop] = useState(
@@ -5649,6 +5888,49 @@ return isDesktop;
 }
 
 export default function App() {
+  // ── AUTHENTIFICATION ──────────────────────────────────────────
+  const [authUser, setAuthUser] = useState<any>(null);
+  const [authChecked, setAuthChecked] = useState(false);
+  const [showAdmin, setShowAdmin] = useState(false);
+
+  React.useEffect(()=>{
+    // Vérifier si un token valide existe déjà
+    const token = getToken();
+    if(!token){ setAuthChecked(true); return; }
+    fetch(CLOUD_URL, {
+      method:"POST",
+      headers:{"Content-Type":"application/json","X-Auth-Token":token},
+      body: JSON.stringify({_action:"check_token"})
+    }).then(r=>r.json()).then(j=>{
+      if(j.success) setAuthUser(j.user);
+      else clearToken();
+      setAuthChecked(true);
+    }).catch(()=>{ setAuthChecked(true); });
+  },[]);
+
+  const handleLogin = (user, token) => { setAuthUser(user); };
+  const handleLogout = async () => {
+    try { await authFetch(CLOUD_URL, {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({_action:"logout"})}); } catch(e){}
+    clearToken(); setAuthUser(null);
+  };
+
+  // Écran de chargement initial
+  if(!authChecked) return (
+    <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"#FAFAF7"}}>
+      <div style={{textAlign:"center"}}>
+        <img src={LOGO_B64} alt="GoûtStoso" style={{width:120,height:"auto",objectFit:"contain",marginBottom:16}}/>
+        <p style={{fontSize:13,color:"#737373"}}>Chargement...</p>
+      </div>
+    </div>
+  );
+
+  // Écran de connexion
+  if(!authUser) return <LoginScreen onLogin={handleLogin}/>;
+
+  return <AppInner authUser={authUser} handleLogout={handleLogout} showAdmin={showAdmin} setShowAdmin={setShowAdmin}/>;
+}
+
+function AppInner({authUser, handleLogout, showAdmin, setShowAdmin}: {authUser:any, handleLogout:()=>void, showAdmin:boolean, setShowAdmin:(v:boolean)=>void}) {
   React.useEffect(()=>{
     let wakeLock = null;
     const acquire = async () => { try { if(typeof navigator !== 'undefined' && navigator.wakeLock) { wakeLock = await navigator.wakeLock.request('screen'); } } catch(e){} };
@@ -5672,7 +5954,7 @@ const [syncing, setSyncing] = React.useState(false);
 
 const cloudSave = async (data) => {
 try {
-const r = await fetch(CLOUD_URL, {
+const r = await authFetch(CLOUD_URL, {
 method:"POST",
 headers:{"Content-Type":"application/json","Accept":"application/json"},
 body: JSON.stringify(data)
@@ -5684,9 +5966,10 @@ return false;
 
 const cloudLoad = async () => {
 try {
-const r = await fetch(CLOUD_URL, {headers:{"Accept":"application/json"}});
+const r = await authFetch(CLOUD_URL, {headers:{"Accept":"application/json"}});
 if(!r.ok) return null;
 const j = await r.json();
+if(j?._auth_required) return null;
 if(j?.produits?.length > 0) return j;
 } catch(e){}
 return null;
@@ -5830,8 +6113,28 @@ return (
         })}
         
         <div style={{marginTop:"auto",paddingTop:16,borderTop:"1px solid #EAE7E0"}}>
-          {syncing && <p style={{fontSize:10,color:"#737373",textAlign:"center"}}>☁ Synchronisation...</p>}
-          {!syncing && <p style={{fontSize:10,color:"#15803D",textAlign:"center"}}>✓ Synchronisé</p>}
+          {/* Info utilisateur connecté */}
+          <div style={{display:"flex",alignItems:"center",gap:8,padding:"8px 10px",background:"#FAFAF7",borderRadius:8,marginBottom:8}}>
+            <div style={{width:28,height:28,background:"#0A0A0A",borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+              <span style={{fontSize:12,color:"#fff",fontWeight:700}}>{(authUser.display_name||authUser.username).charAt(0).toUpperCase()}</span>
+            </div>
+            <div style={{flex:1,minWidth:0}}>
+              <p style={{fontSize:11,fontWeight:600,color:"#0A0A0A",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{authUser.display_name||authUser.username}</p>
+              <p style={{fontSize:9,color:"#737373"}}>{authUser.role==="admin"?"Administrateur":"Utilisateur"}</p>
+            </div>
+          </div>
+          {/* Bouton admin (seulement pour admin) */}
+          {authUser.role==="admin" && (
+            <button onClick={()=>setShowAdmin(true)} style={{width:"100%",display:"flex",alignItems:"center",gap:8,padding:"7px 10px",background:"none",border:"1px solid #EAE7E0",borderRadius:8,cursor:"pointer",marginBottom:6,fontSize:12,color:"#525252"}}>
+              <Ic n="settings" s={14}/> Administration
+            </button>
+          )}
+          {/* Déconnexion */}
+          <button onClick={handleLogout} style={{width:"100%",display:"flex",alignItems:"center",gap:8,padding:"7px 10px",background:"none",border:"1px solid #EAE7E0",borderRadius:8,cursor:"pointer",marginBottom:6,fontSize:12,color:"#B91C1C"}}>
+            <Ic n="log-out" s={14}/> Déconnexion
+          </button>
+          {syncing && <p style={{fontSize:10,color:"#737373",textAlign:"center",marginTop:4}}>☁ Synchronisation...</p>}
+          {!syncing && <p style={{fontSize:10,color:"#15803D",textAlign:"center",marginTop:4}}>✓ Synchronisé</p>}
         </div>
       </div>
       
@@ -5840,6 +6143,7 @@ return (
         {pages[tab]||pages.dashboard}
       </div>
     </div>
+    {showAdmin && <AdminPanel currentUser={authUser} onClose={()=>setShowAdmin(false)}/>}
   </>
 );
 
@@ -5866,12 +6170,20 @@ return (
         </div>
       </div>
       <div style={{display:"flex",alignItems:"center",gap:6}}>
-
-<div style={{background:"var(--lemon-pale)",border:"1px solid var(--lemon)",borderRadius:8,padding:"4px 10px"}}>
-              <p style={{fontSize:10,color:"var(--orange)",fontWeight:600}}>CHF {parseFloat(st.soldeBancaire||0).toFixed(2)}</p>
-            </div>
-          </div>
+        <div style={{background:"var(--lemon-pale)",border:"1px solid var(--lemon)",borderRadius:8,padding:"4px 10px"}}>
+          <p style={{fontSize:10,color:"var(--orange)",fontWeight:600}}>CHF {parseFloat(st.soldeBancaire||0).toFixed(2)}</p>
         </div>
+        {authUser?.role==="admin" && (
+          <button onClick={()=>setShowAdmin(true)} style={{background:"#F4F4F2",border:"none",borderRadius:8,padding:"6px 8px",cursor:"pointer"}} title="Administration">
+            <Ic n="settings" s={14}/>
+          </button>
+        )}
+        <button onClick={handleLogout} style={{background:"#FEF2F2",border:"none",borderRadius:8,padding:"6px 8px",cursor:"pointer",color:"#B91C1C"}} title="Déconnexion">
+          <Ic n="log-out" s={14}/>
+        </button>
+      </div>
+    </div>
+    {showAdmin && <AdminPanel currentUser={authUser} onClose={()=>setShowAdmin(false)}/>}
 
     {/* CONTENU PRINCIPAL */}
     <div style={{flex:1,padding:"72px 16px 90px",overflowY:"auto",background:"var(--cream)",minHeight:"100vh"}}>
