@@ -3907,6 +3907,7 @@ lignes:[{produitId:"",qte:1}],
 rabais:0,
 fraisPort:0,
 commissionShopify:0,
+source:"shopify",
 statut:"en attente",
 envoyeeCompta:false,
 notes:"",
@@ -4119,7 +4120,7 @@ return (
     <div style={{background:"#111",borderRadius:14,padding:"14px 16px",marginBottom:12}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
         <div>
-          <p style={{fontSize:10,color:"#F2C94C",fontWeight:700,textTransform:"uppercase",letterSpacing:".08em"}}>Commande Shopify</p>
+          <p style={{fontSize:10,color:"#F2C94C",fontWeight:700,textTransform:"uppercase",letterSpacing:".08em"}}>{view.source==="direct"?"🤝 Commande directe":"🛒 Shopify"}</p>
           <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:22,fontWeight:700,color:"#fff",marginTop:2}}>{view.numero}</p>
           <p style={{fontSize:11,color:"#aaa",marginTop:4}}>{fmt(view.date)}</p>
         </div>
@@ -4266,7 +4267,10 @@ Commandes
         <div onClick={()=>setViewId(c.id)} style={{cursor:"pointer"}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:6}}>
             <div style={{flex:1,minWidth:0}}>
-              <p style={{fontWeight:700,fontSize:13}}>{c.numero}</p>
+              <div style={{display:"flex",alignItems:"center",gap:6}}>
+                <p style={{fontWeight:700,fontSize:13}}>{c.numero}</p>
+                <span style={{fontSize:9,fontWeight:700,padding:"2px 6px",borderRadius:4,background:c.source==="direct"?"#EFF6FF":"#FFF7ED",color:c.source==="direct"?"#1D4ED8":"#9A3412"}}>{c.source==="direct"?"DIRECT":"SHOPIFY"}</span>
+              </div>
               <p style={{fontSize:12,color:"#6B7280",marginTop:1}}>{c.client}</p>
               <p style={{fontSize:11,color:"#9CA3AF",marginTop:1}}>{fmt(c.date)} · {(c.lignes||[]).length} produit{c.lignes?.length>1?"s":""}</p>
             </div>
@@ -4295,6 +4299,8 @@ Commandes
     <Modal title={form.id?"Modifier commande":"Nouvelle commande"} onClose={()=>setModal(null)}>
       <div style={{display:"grid",gap:14}}>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+          <Sel label="Source" value={form.source||"shopify"} onChange={v=>setForm(p=>({...p,source:v}))}
+            options={[{value:"shopify",label:"🛒 Shopify"},{value:"direct",label:"🤝 Commande directe"}]}/>
           <F label="N° commande" value={form.numero||""} onChange={v=>setForm(p=>({...p,numero:v}))} placeholder="Auto"/>
           <F label="Date" type="date" value={form.date} onChange={v=>setForm(p=>({...p,date:v}))}/>
         </div>
@@ -4371,7 +4377,9 @@ Commandes
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10}}>
           <F label="Rabais (CHF)" type="number" value={form.rabais||""} onChange={v=>setForm(p=>({...p,rabais:v}))}/>
           <F label="Frais port (CHF)" type="number" value={form.fraisPort||""} onChange={v=>setForm(p=>({...p,fraisPort:v}))}/>
-          <F label="Commission Shopify" type="number" value={form.commissionShopify||""} onChange={v=>setForm(p=>({...p,commissionShopify:v}))}/>
+          {(form.source||"shopify")==="shopify" && (
+            <F label="Commission Shopify" type="number" value={form.commissionShopify||""} onChange={v=>setForm(p=>({...p,commissionShopify:v}))}/>
+          )}
         </div>
 
         <Sel label="Statut" value={form.statut} onChange={v=>setForm(p=>({...p,statut:v}))}
