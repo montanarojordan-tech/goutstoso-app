@@ -4300,7 +4300,7 @@ Commandes
       <div style={{display:"grid",gap:14}}>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
           <Sel label="Source" value={form.source||"shopify"} onChange={v=>setForm(p=>({...p,source:v}))}
-            options={[{value:"shopify",label:"🛒 Shopify"},{value:"direct",label:"🤝 Commande directe"}]}/>
+            options={[{v:"shopify",l:"🛒 Shopify"},{v:"direct",l:"🤝 Commande directe"}]}/>
           <F label="N° commande" value={form.numero||""} onChange={v=>setForm(p=>({...p,numero:v}))} placeholder="Auto"/>
           <F label="Date" type="date" value={form.date} onChange={v=>setForm(p=>({...p,date:v}))}/>
         </div>
