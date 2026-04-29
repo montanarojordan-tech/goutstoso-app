@@ -84,52 +84,62 @@ try {
   $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 } catch (PDOException $e) {
   ob_end_clean(); http_response_code(500);
-  echo json_encode(["error" => "db"]); exit;
+  echo json_encode(["error" => $e->getMessage()]); exit;
 }
 
 // ── CRÉATION DES TABLES SI NÉCESSAIRES ──────────────────────────
-$pdo->exec("CREATE TABLE IF NOT EXISTS gs_data (
-  id VARCHAR(50) PRIMARY KEY,
-  data LONGTEXT NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+try {
+  $pdo->exec("CREATE TABLE IF NOT EXISTS gs_data (
+    id VARCHAR(50) PRIMARY KEY,
+    data LONGTEXT NOT NULL
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
-$pdo->exec("CREATE TABLE IF NOT EXISTS gs_users (
-  id INT AUTO_INCREMENT PRIMARY KEY,
-  username VARCHAR(100) UNIQUE NOT NULL,
-  password_hash VARCHAR(255) NOT NULL,
-  display_name VARCHAR(100) NOT NULL,
-  role ENUM('admin','user') NOT NULL DEFAULT 'user',
-  active TINYINT(1) NOT NULL DEFAULT 1,
-  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  last_login DATETIME NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+  $pdo->exec("CREATE TABLE IF NOT EXISTS gs_users (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    username VARCHAR(100) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    display_name VARCHAR(100) NOT NULL,
+    role ENUM('admin','user') NOT NULL DEFAULT 'user',
+    active TINYINT(1) NOT NULL DEFAULT 1,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    last_login DATETIME NULL
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
-$pdo->exec("CREATE TABLE IF NOT EXISTS gs_sessions (
-  token VARCHAR(64) PRIMARY KEY,
-  user_id INT NOT NULL,
-  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  expires_at DATETIME NOT NULL,
-  INDEX (user_id),
-  INDEX (expires_at)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+  $pdo->exec("CREATE TABLE IF NOT EXISTS gs_sessions (
+    token VARCHAR(64) PRIMARY KEY,
+    user_id INT NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    expires_at DATETIME NOT NULL,
+    INDEX (user_id),
+    INDEX (expires_at)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
-$pdo->exec("CREATE TABLE IF NOT EXISTS gs_activity (
-  id INT AUTO_INCREMENT PRIMARY KEY,
-  user_id INT NOT NULL,
-  username VARCHAR(100) NOT NULL,
-  action VARCHAR(100) NOT NULL,
-  detail TEXT NULL,
-  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  INDEX (user_id),
-  INDEX (created_at)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+  $pdo->exec("CREATE TABLE IF NOT EXISTS gs_activity (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    username VARCHAR(100) NOT NULL,
+    action VARCHAR(100) NOT NULL,
+    detail TEXT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    INDEX (user_id),
+    INDEX (created_at)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+} catch (PDOException $e) {
+  ob_end_clean(); http_response_code(500);
+  echo json_encode(["error" => "tables: " . $e->getMessage()]); exit;
+}
 
 // ── CRÉER L'ADMIN PAR DÉFAUT SI AUCUN UTILISATEUR ───────────────
-$count = $pdo->query("SELECT COUNT(*) FROM gs_users")->fetchColumn();
-if ($count == 0) {
-  $hash = password_hash("Goutstoso2026!", PASSWORD_DEFAULT);
-  $pdo->prepare("INSERT INTO gs_users (username, password_hash, display_name, role) VALUES (?, ?, ?, 'admin')")
-      ->execute(["jordan", $hash, "Jordan Montanaro"]);
+try {
+  $count = $pdo->query("SELECT COUNT(*) FROM gs_users")->fetchColumn();
+  if ($count == 0) {
+    $hash = password_hash("Goutstoso2026!", PASSWORD_DEFAULT);
+    $pdo->prepare("INSERT INTO gs_users (username, password_hash, display_name, role) VALUES (?, ?, ?, 'admin')")
+        ->execute(["jordan", $hash, "Jordan Montanaro"]);
+  }
+} catch (PDOException $e) {
+  ob_end_clean(); http_response_code(500);
+  echo json_encode(["error" => "init: " . $e->getMessage()]); exit;
 }
 
 // ── HELPER: récupérer session depuis token ───────────────────────
