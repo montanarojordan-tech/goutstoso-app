@@ -5716,7 +5716,8 @@ function AdminPanel({currentUser, onClose}: {currentUser:any, onClose:()=>void})
   const [msg, setMsg] = useState("");
 
   const apiCall = async (action, extra={}) => {
-    const r = await authFetch(CLOUD_URL, {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({_action:action,...extra})});
+    const token = getToken();
+    const r = await fetch(CLOUD_URL, {method:"POST",headers:{"Content-Type":"application/json","X-Auth-Token":token},body:JSON.stringify({_action:action,_token:token,...extra})});
     return r.json();
   };
 
@@ -5902,7 +5903,7 @@ export default function App() {
     fetch(CLOUD_URL, {
       method:"POST",
       headers:{"Content-Type":"application/json","X-Auth-Token":token},
-      body: JSON.stringify({_action:"check_token"})
+      body: JSON.stringify({_action:"check_token",_token:token})
     }).then(r=>r.json()).then(j=>{
       if(j.success) setAuthUser(j.user);
       else clearToken();
@@ -5912,7 +5913,8 @@ export default function App() {
 
   const handleLogin = (user, token) => { setAuthUser(user); };
   const handleLogout = async () => {
-    try { await authFetch(CLOUD_URL, {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({_action:"logout"})}); } catch(e){}
+    const token = getToken();
+    try { await fetch(CLOUD_URL, {method:"POST",headers:{"Content-Type":"application/json","X-Auth-Token":token},body:JSON.stringify({_action:"logout",_token:token})}); } catch(e){}
     clearToken(); setAuthUser(null);
   };
 
@@ -5956,10 +5958,11 @@ const [syncing, setSyncing] = React.useState(false);
 
 const cloudSave = async (data) => {
 try {
-const r = await authFetch(CLOUD_URL, {
+const token = getToken();
+const r = await fetch(CLOUD_URL, {
 method:"POST",
-headers:{"Content-Type":"application/json","Accept":"application/json"},
-body: JSON.stringify(data)
+headers:{"Content-Type":"application/json","Accept":"application/json","X-Auth-Token":token},
+body: JSON.stringify({...data, _token:token})
 });
 return r.ok;
 } catch(e){}
@@ -5968,7 +5971,12 @@ return false;
 
 const cloudLoad = async () => {
 try {
-const r = await authFetch(CLOUD_URL, {headers:{"Accept":"application/json"}});
+const token = getToken();
+const r = await fetch(CLOUD_URL, {
+  method:"POST",
+  headers:{"Content-Type":"application/json","Accept":"application/json","X-Auth-Token":token},
+  body: JSON.stringify({_action:"load_data",_token:token})
+});
 if(!r.ok) return null;
 const j = await r.json();
 if(j?._auth_required) return null;

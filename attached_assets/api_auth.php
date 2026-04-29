@@ -143,8 +143,12 @@ try {
 }
 
 // ── HELPER: récupérer session depuis token ───────────────────────
-function getSessionUser($pdo) {
+function getSessionUser($pdo, $bodyData = null) {
+  // Accepter le token depuis l'en-tête OU depuis le corps JSON (_token)
   $token = $_SERVER['HTTP_X_AUTH_TOKEN'] ?? '';
+  if (!$token && is_array($bodyData)) {
+    $token = $bodyData['_token'] ?? '';
+  }
   if (!$token) return null;
   $stmt = $pdo->prepare("SELECT s.user_id, u.username, u.display_name, u.role 
                           FROM gs_sessions s JOIN gs_users u ON u.id = s.user_id
@@ -212,9 +216,9 @@ if ($method === 'POST' && $action === 'login') {
 
 // ── LOGOUT ───────────────────────────────────────────────────────
 if ($method === 'POST' && $action === 'logout') {
-  $token = $_SERVER['HTTP_X_AUTH_TOKEN'] ?? '';
+  $token = $_SERVER['HTTP_X_AUTH_TOKEN'] ?? ($data['_token'] ?? '');
   if ($token) {
-    $u = getSessionUser($pdo);
+    $u = getSessionUser($pdo, $data);
     if ($u) logActivity($pdo, $u['user_id'], $u['username'], 'logout', 'Déconnexion');
     $pdo->prepare("DELETE FROM gs_sessions WHERE token = ?")->execute([$token]);
   }
@@ -225,7 +229,7 @@ if ($method === 'POST' && $action === 'logout') {
 
 // ── VÉRIFIER TOKEN ───────────────────────────────────────────────
 if ($method === 'POST' && $action === 'check_token') {
-  $u = getSessionUser($pdo);
+  $u = getSessionUser($pdo, $data);
   ob_end_clean();
   if ($u) {
     echo json_encode(["success" => true, "user" => ["username" => $u['username'], "display_name" => $u['display_name'], "role" => $u['role']]]);
@@ -237,7 +241,7 @@ if ($method === 'POST' && $action === 'check_token') {
 
 // ── LISTE DES UTILISATEURS (admin seulement) ─────────────────────
 if ($method === 'POST' && $action === 'list_users') {
-  $u = getSessionUser($pdo);
+  $u = getSessionUser($pdo, $data);
   if (!$u || $u['role'] !== 'admin') { ob_end_clean(); echo json_encode(["error" => "Non autorisé"]); exit; }
   
   $rows = $pdo->query("SELECT id, username, display_name, role, active, created_at, last_login FROM gs_users ORDER BY created_at")->fetchAll(PDO::FETCH_ASSOC);
@@ -248,7 +252,7 @@ if ($method === 'POST' && $action === 'list_users') {
 
 // ── CRÉER UN UTILISATEUR (admin seulement) ──────────────────────
 if ($method === 'POST' && $action === 'create_user') {
-  $u = getSessionUser($pdo);
+  $u = getSessionUser($pdo, $data);
   if (!$u || $u['role'] !== 'admin') { ob_end_clean(); echo json_encode(["error" => "Non autorisé"]); exit; }
   
   $newUsername = trim($data['username'] ?? '');
@@ -274,7 +278,7 @@ if ($method === 'POST' && $action === 'create_user') {
 
 // ── MODIFIER UN UTILISATEUR (admin seulement) ───────────────────
 if ($method === 'POST' && $action === 'update_user') {
-  $u = getSessionUser($pdo);
+  $u = getSessionUser($pdo, $data);
   if (!$u || $u['role'] !== 'admin') { ob_end_clean(); echo json_encode(["error" => "Non autorisé"]); exit; }
   
   $uid = (int)($data['id'] ?? 0);
@@ -298,7 +302,7 @@ if ($method === 'POST' && $action === 'update_user') {
 
 // ── SUPPRIMER UN UTILISATEUR (admin seulement) ──────────────────
 if ($method === 'POST' && $action === 'delete_user') {
-  $u = getSessionUser($pdo);
+  $u = getSessionUser($pdo, $data);
   if (!$u || $u['role'] !== 'admin') { ob_end_clean(); echo json_encode(["error" => "Non autorisé"]); exit; }
   
   $uid = (int)($data['id'] ?? 0);
@@ -317,7 +321,7 @@ if ($method === 'POST' && $action === 'delete_user') {
 
 // ── JOURNAL D'ACTIVITÉ (admin seulement) ────────────────────────
 if ($method === 'POST' && $action === 'get_activity') {
-  $u = getSessionUser($pdo);
+  $u = getSessionUser($pdo, $data);
   if (!$u || $u['role'] !== 'admin') { ob_end_clean(); echo json_encode(["error" => "Non autorisé"]); exit; }
   
   $limit = min((int)($data['limit'] ?? 50), 200);
@@ -330,7 +334,7 @@ if ($method === 'POST' && $action === 'get_activity') {
 
 // ── LOGGER UNE ACTIVITÉ ─────────────────────────────────────────
 if ($method === 'POST' && $action === 'log_activity') {
-  $u = getSessionUser($pdo);
+  $u = getSessionUser($pdo, $data);
   if (!$u) { ob_end_clean(); echo json_encode(["error" => "Non autorisé"]); exit; }
   
   $actAction = $data['activity_action'] ?? 'action';
@@ -342,11 +346,19 @@ if ($method === 'POST' && $action === 'log_activity') {
 }
 
 // ── SYNC DATA (lecture/écriture) ─────────────────────────────────
-// Pour GET, pas d'authentification requise (rétrocompatibilité)
-// Pour POST de données, l'authentification est requise
+if ($method === 'POST' && $action === 'load_data') {
+  $u = getSessionUser($pdo, $data);
+  if (!$u) { ob_end_clean(); echo json_encode(["_auth_required" => true]); exit; }
+  $stmt = $pdo->query("SELECT data FROM gs_data WHERE id = 'main' LIMIT 1");
+  $row = $stmt->fetch(PDO::FETCH_ASSOC);
+  ob_end_clean();
+  if ($row) { echo $row['data']; } else { echo "null"; }
+  exit;
+}
+
+// Compatibilité GET (rétrocompatibilité)
 if ($method === 'GET') {
-  $u = getSessionUser($pdo);
-  // GET sans token: retourner null (forcer login)
+  $u = getSessionUser($pdo, $data);
   if (!$u) {
     ob_end_clean();
     echo json_encode(["_auth_required" => true]);
@@ -359,10 +371,13 @@ if ($method === 'GET') {
 
 } elseif ($method === 'POST' && !$action) {
   // Sync data
-  $u = getSessionUser($pdo);
+  $u = getSessionUser($pdo, $data);
   if (!$u) { ob_end_clean(); echo json_encode(["error" => "Non autorisé"]); exit; }
   
-  $input = $raw;
+  // Retirer les champs internes avant sauvegarde
+  $saveData = $data;
+  unset($saveData['_token']);
+  $input = json_encode($saveData, JSON_UNESCAPED_UNICODE);
   $stmt = $pdo->prepare("INSERT INTO gs_data (id, data) VALUES ('main', :d) ON DUPLICATE KEY UPDATE data = :d2");
   $stmt->execute([':d' => $input, ':d2' => $input]);
   
