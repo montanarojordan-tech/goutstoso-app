@@ -5726,11 +5726,11 @@ function AdminPanel({currentUser, onClose}: {currentUser:any, onClose:()=>void})
     setLoading(true);
     try {
       const [u, a] = await Promise.all([apiCall("list_users"), apiCall("get_activity",{limit:100})]);
-      if(u._parseError) { setMsg("Erreur serveur (list_users): " + (u._raw||"").slice(0,200)); setLoading(false); return; }
-      if(a._parseError) { setMsg("Erreur serveur (get_activity): " + (a._raw||"").slice(0,200)); setLoading(false); return; }
-      if(u.error) { setMsg("Accès refusé: " + u.error); setLoading(false); return; }
-      if(u.users) setUsers(u.users);
-      if(a.activity) setActivity(a.activity);
+      if(u._parseError) { setMsg("Erreur serveur (list_users): " + (u._raw||"").slice(0,300)); }
+      else if(u.error) { setMsg("Accès refusé: " + u.error); }
+      else if(u.users) setUsers(u.users);
+      if(a._parseError) { /* activité non bloquante — ignorer */ }
+      else if(a.activity) setActivity(a.activity);
     } catch(e) {
       setMsg("Erreur réseau: " + String(e));
     }

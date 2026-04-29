@@ -325,10 +325,9 @@ if ($method === 'POST' && $action === 'get_activity') {
   if (!$u || $u['role'] !== 'admin') { ob_end_clean(); echo json_encode(["error" => "Non autorisé"]); exit; }
   
   $limit = min((int)($data['limit'] ?? 50), 200);
-  $rows = $pdo->prepare("SELECT id, username, action, detail, created_at FROM gs_activity ORDER BY created_at DESC LIMIT ?");
-  $rows->execute([$limit]);
+  $stmt = $pdo->query("SELECT id, username, action, detail, created_at FROM gs_activity ORDER BY created_at DESC LIMIT $limit");
   ob_end_clean();
-  echo json_encode(["success" => true, "activity" => $rows->fetchAll(PDO::FETCH_ASSOC)]);
+  echo json_encode(["success" => true, "activity" => $stmt->fetchAll(PDO::FETCH_ASSOC)]);
   exit;
 }
 
