@@ -5629,15 +5629,10 @@ const IcMore = ({s=22}) => (
 );
 
 const CLOUD_URL = "https://hc12z9cbqiy.preview.infomaniak.website/api.php";
-const sendEmail = async ({to, subject, body, toName=""}) => {
+const sendEmail = ({to, subject, body, toName=""}) => {
   if(!to){alert("Adresse email manquante");return;}
-  const htmlBody = "<div style='font-family:sans-serif;font-size:14px;line-height:1.6;color:#222'>"+body.replace(/\n/g,"<br>")+"</div>";
-  try{
-    const r = await fetch(CLOUD_URL,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({_action:"send_email",to,subject,body:htmlBody,toName})});
-    const j = await r.json();
-    if(j.success) alert("✉️ Email envoyé à "+to);
-    else alert("Erreur envoi : "+(j.error||"inconnue"));
-  }catch(e){alert("Erreur réseau : "+e.message);}
+  const mailto = `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  if(typeof window !== "undefined") window.open(mailto, "_self");
 };
 
 // Hook pour détecter taille écran (responsive)
