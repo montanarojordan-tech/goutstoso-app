@@ -1,7 +1,7 @@
 {
-  "buildCommand": "pnpm exec expo export --platform web --output-dir dist",
+  "buildCommand": "npx expo export --platform web --output-dir dist",
   "outputDirectory": "dist",
-  "installCommand": "pnpm install",
+  "installCommand": "pnpm install --no-frozen-lockfile",
   "rewrites": [
     { "source": "/(.*)", "destination": "/index.html" }
   ]
