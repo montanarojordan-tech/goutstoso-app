@@ -5718,14 +5718,22 @@ function AdminPanel({currentUser, onClose}: {currentUser:any, onClose:()=>void})
   const apiCall = async (action, extra={}) => {
     const token = getToken();
     const r = await fetch(CLOUD_URL, {method:"POST",headers:{"Content-Type":"application/json","X-Auth-Token":token},body:JSON.stringify({_action:action,_token:token,...extra})});
-    return r.json();
+    const text = await r.text();
+    try { return JSON.parse(text); } catch(e) { return {_raw: text, _parseError: String(e)}; }
   };
 
   const load = async () => {
     setLoading(true);
-    const [u, a] = await Promise.all([apiCall("list_users"), apiCall("get_activity",{limit:100})]);
-    if(u.users) setUsers(u.users);
-    if(a.activity) setActivity(a.activity);
+    try {
+      const [u, a] = await Promise.all([apiCall("list_users"), apiCall("get_activity",{limit:100})]);
+      if(u._parseError) { setMsg("Erreur serveur (list_users): " + (u._raw||"").slice(0,200)); setLoading(false); return; }
+      if(a._parseError) { setMsg("Erreur serveur (get_activity): " + (a._raw||"").slice(0,200)); setLoading(false); return; }
+      if(u.error) { setMsg("Accès refusé: " + u.error); setLoading(false); return; }
+      if(u.users) setUsers(u.users);
+      if(a.activity) setActivity(a.activity);
+    } catch(e) {
+      setMsg("Erreur réseau: " + String(e));
+    }
     setLoading(false);
   };
 
