@@ -295,7 +295,7 @@ const SectionTitle = ({children,action}) => (
 // ══════════════════════════════════════════════════════════════
 // PAGE: TABLEAU DE BORD
 // ══════════════════════════════════════════════════════════════
-const Dashboard = ({st, setTab}) => {
+const Dashboard = ({st, setTab, authUser}) => {
 const now = new Date();
 const today_str = today();
 
@@ -6072,7 +6072,7 @@ return ()=>clearInterval(iv);
 
   const isDesktop = useIsDesktop();
 const pages = {
-dashboard:<Dashboard st={st} setTab={setTab}/>,
+dashboard:<Dashboard st={st} setTab={setTab} authUser={authUser}/>,
 produits:<Produits st={st} setSt={setSt}/>,
 stocks:<Stocks st={st} setSt={setSt}/>,
 partenaires:<Partenaires st={st} setSt={setSt}/>,
