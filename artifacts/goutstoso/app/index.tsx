@@ -5619,6 +5619,7 @@ const NAV_MORE = [
 {id:"stocks",label:"Stocks",icon:"stock"},
 {id:"contrats",label:"Contrats",icon:"contrat"},
 {id:"documents",label:"Documents",icon:"contrat"},
+{id:"sauvegardes",label:"Sauvegardes",icon:"stock"},
 ];
 
 // Icône "more" (hamburger)
@@ -5898,6 +5899,139 @@ return () => window.removeEventListener("resize", handler);
 return isDesktop;
 }
 
+// ══════════════════════════════════════════════════════════════
+// PAGE: SAUVEGARDES
+// ══════════════════════════════════════════════════════════════
+function Sauvegardes({authUser}:{authUser:any}) {
+  const [backups, setBackups] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [msg, setMsg] = useState("");
+  const [downloading, setDownloading] = useState<number|null>(null);
+
+  const token = getToken();
+  const apiPost = (action:string, extra:any={}) =>
+    fetch(CLOUD_URL,{method:"POST",headers:{"Content-Type":"application/json","X-Auth-Token":token},body:JSON.stringify({_action:action,_token:token,...extra})});
+
+  const loadBackups = async () => {
+    try {
+      const r = await apiPost("list_backups");
+      const j = await r.json();
+      if(j.success) setBackups(j.backups||[]);
+    } catch(e){}
+    setLoading(false);
+  };
+
+  useEffect(()=>{ loadBackups(); },[]);
+
+  const doBackup = async (type:"manual"|"auto"="manual") => {
+    setSaving(true); setMsg("");
+    const now = new Date();
+    const label = `${String(now.getDate()).padStart(2,"0")}/${String(now.getMonth()+1).padStart(2,"0")}/${now.getFullYear()} ${String(now.getHours()).padStart(2,"0")}:${String(now.getMinutes()).padStart(2,"0")}`;
+    try {
+      const r = await apiPost("save_backup",{label, type});
+      const j = await r.json();
+      if(j.success){
+        setMsg("✓ Sauvegarde créée avec succès");
+        await loadBackups();
+      } else { setMsg("Erreur : "+( j.error||"inconnue")); }
+    } catch(e){ setMsg("Erreur réseau"); }
+    setSaving(false);
+    setTimeout(()=>setMsg(""),4000);
+  };
+
+  const downloadBackup = async (b:any) => {
+    setDownloading(b.id);
+    try {
+      const r = await apiPost("get_backup",{backup_id:b.id});
+      const j = await r.json();
+      if(j.success && j.data){
+        const content = JSON.stringify({_meta:{label:b.label,created_at:b.created_at,created_by:b.created_by,type:b.type},...j.data},null,2);
+        const blob = new Blob([content],{type:"application/json"});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `goutstoso-backup-${b.label.replace(/[^a-zA-Z0-9]/g,"-")}.json`;
+        document.body.appendChild(a); a.click();
+        document.body.removeChild(a); URL.revokeObjectURL(url);
+      }
+    } catch(e){}
+    setDownloading(null);
+  };
+
+  const fmtDate = (s:string) => {
+    if(!s) return "-";
+    const d = new Date(s);
+    return d.toLocaleDateString("fr-CH",{day:"2-digit",month:"2-digit",year:"numeric"})+" "+d.toLocaleTimeString("fr-CH",{hour:"2-digit",minute:"2-digit"});
+  };
+
+  return (
+  <div className="fade">
+    {/* EN-TÊTE */}
+    <div style={{marginBottom:20}}>
+      <h1 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:26,fontWeight:600,letterSpacing:"-0.025em"}}>Sauvegardes</h1>
+      <p style={{fontSize:13,color:"#737373",marginTop:4}}>Historique et téléchargement de vos données</p>
+    </div>
+
+    {/* INFO AUTO-BACKUP */}
+    <div style={{background:"var(--blue-bg)",border:"1px solid #BFDBFE",borderRadius:12,padding:"14px 16px",marginBottom:20,display:"flex",gap:12,alignItems:"flex-start"}}>
+      <span style={{fontSize:20}}>🔄</span>
+      <div>
+        <p style={{fontSize:13,fontWeight:600,color:"var(--blue)"}}>Sauvegarde automatique mensuelle</p>
+        <p style={{fontSize:12,color:"#374151",marginTop:2}}>Une sauvegarde est créée automatiquement au démarrage de l'app chaque nouveau mois. Les 36 dernières sauvegardes sont conservées.</p>
+      </div>
+    </div>
+
+    {/* BOUTON MANUEL */}
+    <button
+      onClick={()=>doBackup("manual")}
+      disabled={saving}
+      style={{width:"100%",padding:"14px 20px",background:"var(--ink)",color:"var(--white)",border:"none",borderRadius:12,fontWeight:600,fontSize:15,marginBottom:12,opacity:saving?0.6:1}}
+    >
+      {saving ? "Sauvegarde en cours…" : "💾  Créer une sauvegarde maintenant"}
+    </button>
+
+    {msg && (
+      <div style={{background:msg.startsWith("✓")?"var(--green-bg)":"var(--red-bg)",border:`1px solid ${msg.startsWith("✓")?"#BBF7D0":"#FECACA"}`,borderRadius:10,padding:"10px 14px",marginBottom:16,fontSize:13,color:msg.startsWith("✓")?"var(--green)":"var(--red)"}}>
+        {msg}
+      </div>
+    )}
+
+    {/* LISTE */}
+    <div style={{background:"var(--white)",borderRadius:14,border:"1px solid var(--border)",overflow:"hidden"}}>
+      <div style={{padding:"12px 16px",borderBottom:"1px solid var(--border)",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+        <p style={{fontSize:12,fontWeight:600,color:"var(--gray)",textTransform:"uppercase",letterSpacing:".06em"}}>Historique</p>
+        <p style={{fontSize:12,color:"var(--gray)"}}>{backups.length} sauvegarde{backups.length!==1?"s":""}</p>
+      </div>
+      {loading ? (
+        <div style={{padding:32,textAlign:"center",color:"var(--gray)",fontSize:13}}>Chargement…</div>
+      ) : backups.length===0 ? (
+        <div style={{padding:32,textAlign:"center",color:"var(--gray)",fontSize:13}}>Aucune sauvegarde pour l'instant</div>
+      ) : (
+        backups.map((b,i)=>(
+          <div key={b.id} style={{padding:"14px 16px",borderBottom:i<backups.length-1?"1px solid var(--border)":"none",display:"flex",alignItems:"center",gap:12}}>
+            <div style={{width:36,height:36,borderRadius:10,background:b.type==="auto"?"var(--blue-bg)":"var(--lemon-pale)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,flexShrink:0}}>
+              {b.type==="auto"?"🔄":"💾"}
+            </div>
+            <div style={{flex:1,minWidth:0}}>
+              <p style={{fontSize:13,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{b.label}</p>
+              <p style={{fontSize:11,color:"var(--gray)",marginTop:2}}>{fmtDate(b.created_at)} · {b.type==="auto"?"Auto":"Manuel"} · {b.created_by}</p>
+            </div>
+            <button
+              onClick={()=>downloadBackup(b)}
+              disabled={downloading===b.id}
+              style={{padding:"7px 14px",background:"var(--gray-light)",border:"none",borderRadius:8,fontSize:12,fontWeight:600,color:"var(--ink)",flexShrink:0,opacity:downloading===b.id?0.5:1}}
+            >
+              {downloading===b.id?"…":"⬇ JSON"}
+            </button>
+          </div>
+        ))
+      )}
+    </div>
+  </div>
+  );
+}
+
 export default function App() {
   // ── AUTHENTIFICATION ──────────────────────────────────────────
   const [authUser, setAuthUser] = useState<any>(null);
@@ -5957,6 +6091,27 @@ function AppInner({authUser, handleLogout, showAdmin, setShowAdmin}: {authUser:a
     const iv = setInterval(ping, 2*60*1000);
     return () => clearInterval(iv);
   },[]);
+// ── AUTO-BACKUP MENSUEL ──────────────────────────────────────────
+React.useEffect(()=>{
+  const currentMonth = new Date().toISOString().slice(0,7); // "YYYY-MM"
+  const lastBackupMonth = (() => { try { return localStorage.getItem("gs_last_backup_month")||""; } catch(e){ return ""; } })();
+  if(lastBackupMonth === currentMonth) return; // déjà fait ce mois
+  // Déclencher après 5s (laisser l'app se charger d'abord)
+  const t = setTimeout(async()=>{
+    try {
+      const token = getToken();
+      const now = new Date();
+      const label = `Auto ${String(now.getDate()).padStart(2,"0")}/${String(now.getMonth()+1).padStart(2,"0")}/${now.getFullYear()}`;
+      const r = await fetch(CLOUD_URL,{method:"POST",headers:{"Content-Type":"application/json","X-Auth-Token":token},body:JSON.stringify({_action:"save_backup",_token:token,label,type:"auto"})});
+      const j = await r.json();
+      if(j.success) {
+        try { localStorage.setItem("gs_last_backup_month", currentMonth); } catch(e){}
+      }
+    } catch(e){}
+  }, 5000);
+  return () => clearTimeout(t);
+},[]);
+
 const [tab,setTab] = useState("dashboard");
 const [showMore,setShowMore] = useState(false);
 const [st,setSt] = useState(INIT);
@@ -6082,6 +6237,7 @@ commandes:<Commandes st={st} setSt={setSt}/>,
 fournisseurs:<Fournisseurs st={st} setSt={setSt}/>,
 clients:<Clients st={st} setSt={setSt}/>,
 documents:<Documents st={st} setSt={setSt}/>,
+sauvegardes:<Sauvegardes authUser={authUser}/>,
 compta:<Comptabilite st={st} setSt={setSt}/>,
 };
 

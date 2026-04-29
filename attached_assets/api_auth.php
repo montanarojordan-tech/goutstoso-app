@@ -124,6 +124,16 @@ try {
     INDEX (user_id),
     INDEX (created_at)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+  $pdo->exec("CREATE TABLE IF NOT EXISTS gs_backups (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    label VARCHAR(100) NOT NULL,
+    created_by VARCHAR(100) NOT NULL,
+    type ENUM('auto','manual') NOT NULL DEFAULT 'manual',
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    data LONGTEXT NOT NULL,
+    INDEX (created_at)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 } catch (PDOException $e) {
   ob_end_clean(); http_response_code(500);
   echo json_encode(["error" => "tables: " . $e->getMessage()]); exit;
@@ -341,6 +351,58 @@ if ($method === 'POST' && $action === 'log_activity') {
   logActivity($pdo, $u['user_id'], $u['username'], $actAction, $actDetail);
   ob_end_clean();
   echo json_encode(["success" => true]);
+  exit;
+}
+
+// ── SAUVEGARDER UN BACKUP ───────────────────────────────────────
+if ($method === 'POST' && $action === 'save_backup') {
+  $u = getSessionUser($pdo, $data);
+  if (!$u) { ob_end_clean(); echo json_encode(["error" => "Non autorisé"]); exit; }
+
+  $row = $pdo->query("SELECT data FROM gs_data WHERE id = 'main' LIMIT 1")->fetch(PDO::FETCH_ASSOC);
+  $currentData = $row ? $row['data'] : 'null';
+
+  $label = trim($data['label'] ?? date('Y-m'));
+  $type  = ($data['type'] === 'auto') ? 'auto' : 'manual';
+
+  $pdo->prepare("INSERT INTO gs_backups (label, created_by, type, data) VALUES (?, ?, ?, ?)")
+      ->execute([$label, $u['username'], $type, $currentData]);
+
+  // Garder uniquement les 36 dernières sauvegardes
+  $pdo->exec("DELETE FROM gs_backups WHERE id NOT IN (SELECT id FROM (SELECT id FROM gs_backups ORDER BY created_at DESC LIMIT 36) AS tmp)");
+
+  logActivity($pdo, $u['user_id'], $u['username'], 'backup_save', "Sauvegarde $type: $label");
+  ob_end_clean();
+  echo json_encode(["success" => true, "label" => $label]);
+  exit;
+}
+
+// ── LISTE DES BACKUPS ────────────────────────────────────────────
+if ($method === 'POST' && $action === 'list_backups') {
+  $u = getSessionUser($pdo, $data);
+  if (!$u) { ob_end_clean(); echo json_encode(["error" => "Non autorisé"]); exit; }
+
+  $rows = $pdo->query("SELECT id, label, created_by, type, created_at FROM gs_backups ORDER BY created_at DESC LIMIT 36")->fetchAll(PDO::FETCH_ASSOC);
+  ob_end_clean();
+  echo json_encode(["success" => true, "backups" => $rows]);
+  exit;
+}
+
+// ── TÉLÉCHARGER UN BACKUP ────────────────────────────────────────
+if ($method === 'POST' && $action === 'get_backup') {
+  $u = getSessionUser($pdo, $data);
+  if (!$u) { ob_end_clean(); echo json_encode(["error" => "Non autorisé"]); exit; }
+
+  $bid = (int)($data['backup_id'] ?? 0);
+  if (!$bid) { ob_end_clean(); echo json_encode(["error" => "ID invalide"]); exit; }
+
+  $stmt = $pdo->prepare("SELECT label, created_at, type, data FROM gs_backups WHERE id = ?");
+  $stmt->execute([$bid]);
+  $row = $stmt->fetch(PDO::FETCH_ASSOC);
+  if (!$row) { ob_end_clean(); echo json_encode(["error" => "Sauvegarde introuvable"]); exit; }
+
+  ob_end_clean();
+  echo json_encode(["success" => true, "label" => $row['label'], "created_at" => $row['created_at'], "type" => $row['type'], "data" => json_decode($row['data'], true)]);
   exit;
 }
 
