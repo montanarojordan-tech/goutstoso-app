@@ -1,0 +1,8 @@
+{
+  "buildCommand": "pnpm exec expo export --platform web --output-dir dist",
+  "outputDirectory": "dist",
+  "installCommand": "pnpm install",
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}
