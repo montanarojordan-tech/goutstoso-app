@@ -6308,7 +6308,19 @@ categorie: "Matières premières",
 description: "",
 statut: "à payer",
 datePaiement: "",
+pdfFacture: null as string|null,
+pdfFactureNom: "" as string,
+pdfBonLivraison: null as string|null,
+pdfBonLivraisonNom: "" as string,
 });
+
+const readFileAsBase64 = (file: File): Promise<string> =>
+  new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = () => res(r.result as string);
+    r.onerror = rej;
+    r.readAsDataURL(file);
+  });
 
 const [form, setForm] = useState(empty());
 
@@ -6593,6 +6605,37 @@ return (
       </Card>
     )}
 
+    {/* ── Pièces jointes ── */}
+    {(view.pdfFacture || view.pdfBonLivraison) && (
+      <Card style={{marginBottom:12,padding:"12px 14px"}}>
+        <p style={{fontSize:10,color:"#525252",fontWeight:600,textTransform:"uppercase",letterSpacing:"0.04em",marginBottom:10}}>Pièces jointes</p>
+        <div style={{display:"grid",gap:8}}>
+          {view.pdfFacture && (
+            <a href={view.pdfFacture} download={view.pdfFactureNom||"facture-fournisseur.pdf"}
+              style={{display:"flex",alignItems:"center",gap:10,background:"#FEF9E7",border:"1px solid #FDE68A",borderRadius:10,padding:"10px 12px",textDecoration:"none",color:"#92400E"}}>
+              <span style={{fontSize:20,flexShrink:0}}>📄</span>
+              <div style={{flex:1,minWidth:0}}>
+                <p style={{fontSize:12,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{view.pdfFactureNom||"facture-fournisseur.pdf"}</p>
+                <p style={{fontSize:10,color:"#9A3412",marginTop:1}}>Facture originale · Télécharger</p>
+              </div>
+              <span style={{fontSize:14,flexShrink:0}}>⬇️</span>
+            </a>
+          )}
+          {view.pdfBonLivraison && (
+            <a href={view.pdfBonLivraison} download={view.pdfBonLivraisonNom||"bon-livraison.pdf"}
+              style={{display:"flex",alignItems:"center",gap:10,background:"#F0FDF4",border:"1px solid #BBF7D0",borderRadius:10,padding:"10px 12px",textDecoration:"none",color:"#14532D"}}>
+              <span style={{fontSize:20,flexShrink:0}}>📦</span>
+              <div style={{flex:1,minWidth:0}}>
+                <p style={{fontSize:12,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{view.pdfBonLivraisonNom||"bon-livraison.pdf"}</p>
+                <p style={{fontSize:10,color:"#166534",marginTop:1}}>Bon de livraison · Télécharger</p>
+              </div>
+              <span style={{fontSize:14,flexShrink:0}}>⬇️</span>
+            </a>
+          )}
+        </div>
+      </Card>
+    )}
+
     <button onClick={()=>supprimer(view.id)} style={{width:"100%",background:"#FEE2E2",color:"#991B1B",border:"none",borderRadius:10,padding:"10px",fontWeight:600,fontSize:12,cursor:"pointer"}}>
       🗑 Supprimer
     </button>
@@ -6758,6 +6801,73 @@ return (
         <Sel label="Catégorie" value={form.categorie} onChange={v=>setForm(p=>({...p,categorie:v}))}
           options={CATEGORIES_FOURNISSEURS.map(c=>({v:c,l:c}))}/>
         <F label="Notes" value={form.description||""} onChange={v=>setForm(p=>({...p,description:v}))} placeholder="Précisions (optionnel)"/>
+
+        {/* ── Pièces jointes PDF ── */}
+        <div>
+          <p style={{fontSize:11,color:"#525252",fontWeight:600,textTransform:"uppercase",letterSpacing:"0.04em",marginBottom:6}}>Pièces jointes</p>
+          <div style={{display:"grid",gap:8}}>
+
+            {/* Facture originale */}
+            <div style={{background:"#F8F8F6",border:"1px dashed #D1D5DB",borderRadius:10,padding:"10px 12px"}}>
+              <p style={{fontSize:11,color:"#374151",fontWeight:600,marginBottom:6}}>📄 Facture originale (PDF)</p>
+              {form.pdfFacture ? (
+                <div style={{display:"flex",alignItems:"center",gap:8}}>
+                  <span style={{fontSize:11,color:"#15803D",flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>✓ {form.pdfFactureNom||"facture.pdf"}</span>
+                  <button type="button" onClick={()=>setForm(p=>({...p,pdfFacture:null,pdfFactureNom:""}))}
+                    style={{background:"#FEE2E2",color:"#991B1B",border:"none",borderRadius:6,padding:"3px 8px",fontSize:10,fontWeight:600,cursor:"pointer",flexShrink:0}}>
+                    Supprimer
+                  </button>
+                </div>
+              ) : (
+                <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer"}}>
+                  <span style={{background:"#E8B64C",color:"#111",border:"none",borderRadius:7,padding:"5px 10px",fontSize:11,fontWeight:600,cursor:"pointer",flexShrink:0}}>
+                    Choisir PDF
+                  </span>
+                  <span style={{fontSize:11,color:"#9CA3AF"}}>Aucun fichier</span>
+                  <input type="file" accept="application/pdf" style={{display:"none"}}
+                    onChange={async e=>{
+                      const file = e.target.files?.[0];
+                      if(!file) return;
+                      if(file.size > 5*1024*1024){alert("Fichier trop volumineux (max 5 Mo)");return;}
+                      const b64 = await readFileAsBase64(file);
+                      setForm(p=>({...p,pdfFacture:b64,pdfFactureNom:file.name}));
+                    }}/>
+                </label>
+              )}
+            </div>
+
+            {/* Bon de livraison */}
+            <div style={{background:"#F8F8F6",border:"1px dashed #D1D5DB",borderRadius:10,padding:"10px 12px"}}>
+              <p style={{fontSize:11,color:"#374151",fontWeight:600,marginBottom:6}}>📦 Bon de livraison (PDF, optionnel)</p>
+              {form.pdfBonLivraison ? (
+                <div style={{display:"flex",alignItems:"center",gap:8}}>
+                  <span style={{fontSize:11,color:"#15803D",flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>✓ {form.pdfBonLivraisonNom||"bon-livraison.pdf"}</span>
+                  <button type="button" onClick={()=>setForm(p=>({...p,pdfBonLivraison:null,pdfBonLivraisonNom:""}))}
+                    style={{background:"#FEE2E2",color:"#991B1B",border:"none",borderRadius:6,padding:"3px 8px",fontSize:10,fontWeight:600,cursor:"pointer",flexShrink:0}}>
+                    Supprimer
+                  </button>
+                </div>
+              ) : (
+                <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer"}}>
+                  <span style={{background:"#F5F5F0",color:"#374151",border:"1px solid #D1D5DB",borderRadius:7,padding:"5px 10px",fontSize:11,fontWeight:600,cursor:"pointer",flexShrink:0}}>
+                    Choisir PDF
+                  </span>
+                  <span style={{fontSize:11,color:"#9CA3AF"}}>Aucun fichier</span>
+                  <input type="file" accept="application/pdf" style={{display:"none"}}
+                    onChange={async e=>{
+                      const file = e.target.files?.[0];
+                      if(!file) return;
+                      if(file.size > 5*1024*1024){alert("Fichier trop volumineux (max 5 Mo)");return;}
+                      const b64 = await readFileAsBase64(file);
+                      setForm(p=>({...p,pdfBonLivraison:b64,pdfBonLivraisonNom:file.name}));
+                    }}/>
+                </label>
+              )}
+            </div>
+
+          </div>
+        </div>
+
       </div>
       <div style={{display:"flex",gap:10,marginTop:20}}>
         <Btn onClick={save} full icon="check">Enregistrer</Btn>
