@@ -6319,12 +6319,24 @@ admin@goutstoso.ch · www.goutstoso.ch`,
 },
 };
 
+const MODELES_TEMPLATES = [
+  {id:"_blank", titre:"Document vierge", icone:"📄", description:"Commencer de zéro", contenu:"", categorie:"Mes documents"},
+  {id:"cgv", titre:"Conditions Générales de Vente", icone:"📜", description:"Basé sur vos CGV Goûtstoso", categorie:"Légal"},
+  {id:"contrat_partenariat", titre:"Contrat de partenariat", icone:"🤝", description:"Accord commercial avec un partenaire", categorie:"Légal"},
+  {id:"nda", titre:"Accord de confidentialité (NDA)", icone:"🔒", description:"Pour partenaires ou fournisseurs stratégiques", categorie:"Légal"},
+  {id:"lettre_resiliation", titre:"Lettre de résiliation", icone:"🚫", description:"Pour mettre fin à un accord", categorie:"Courriers"},
+  {id:"lettre_relance_partenaire", titre:"Lettre de relance", icone:"💌", description:"Relance commerciale ou partenaire", categorie:"Courriers"},
+];
+
 const Documents = ({st,setSt}) => {
 const [viewId,setViewId] = useState(null);
 const [editing,setEditing] = useState(false);
 const [editContent,setEditContent] = useState("");
 const [editTitre,setEditTitre] = useState("");
 const [uploadingPJ,setUploadingPJ] = useState(false);
+const [showCreateModal,setShowCreateModal] = useState(false);
+const [createStep,setCreateStep] = useState<"choose"|"edit">("choose");
+const [newDoc,setNewDoc] = useState({titre:"",description:"",contenu:"",categorie:"Mes documents",icone:"📄"});
 
 // Fusionner DOCS_DEFAUT avec les documents sauvegardés
 // → garantit que nouveaux docs apparaissent, et que catégorie/icône sont toujours à jour
@@ -6403,6 +6415,47 @@ const supprimerPJ = () => {
     ...(p.documents||DOCS_DEFAUT),
     [viewId]:{...(p.documents||DOCS_DEFAUT)[viewId],pieceJointe:null,pieceJointeNom:null,pieceJointeDate:null}
   }}));
+};
+
+const supprimerDocument = (id) => {
+  if(!window.confirm("Supprimer définitivement ce document personnalisé ?")) return;
+  setSt(p=>{
+    const newDocs = {...(p.documents||{})};
+    delete newDocs[id];
+    return {...p, documents:newDocs};
+  });
+  setViewId(null);
+};
+
+const choisirModele = (tpl) => {
+  const contenuBase = tpl.id==="_blank" ? "" : (docs[tpl.id]?.contenu || DOCS_DEFAUT[tpl.id]?.contenu || "");
+  setNewDoc({
+    titre: tpl.id==="_blank" ? "" : "Copie — "+tpl.titre,
+    description: tpl.description||"",
+    contenu: contenuBase,
+    categorie: tpl.categorie||"Mes documents",
+    icone: tpl.icone||"📄",
+  });
+  setCreateStep("edit");
+};
+
+const enregistrerNouveauDoc = () => {
+  if(!newDoc.titre.trim()){alert("Donne un titre au document");return;}
+  const id = "custom_"+Date.now();
+  setSt(p=>({...p,documents:{
+    ...(p.documents||DOCS_DEFAUT),
+    [id]:{
+      titre:newDoc.titre.trim(),
+      description:newDoc.description.trim(),
+      contenu:newDoc.contenu,
+      categorie:newDoc.categorie,
+      icone:newDoc.icone||"📄",
+      modifieLe:today(),
+      custom:true,
+    }
+  }}));
+  setShowCreateModal(false);
+  setCreateStep("choose");
 };
 
 const exporterPDF = async (docId) => {
@@ -6511,6 +6564,12 @@ return (
           📋 Copier
         </button>
       </div>
+      {view.custom && (
+        <button onClick={()=>supprimerDocument(viewId)}
+          style={{width:"100%",background:"#FEF2F2",color:"#B91C1C",border:"none",borderRadius:10,padding:"10px",fontWeight:600,fontSize:12,cursor:"pointer",marginBottom:14}}>
+          🗑 Supprimer ce document personnalisé
+        </button>
+      )}
 
       <Card style={{padding:"18px"}}>
         <div style={{whiteSpace:"pre-wrap",fontSize:12,lineHeight:1.8,color:"#1a1a1a",fontFamily:"'Courier New',monospace"}}>
@@ -6569,29 +6628,90 @@ return (
 }
 
 // Vue liste — nouvelle structure par catégories
-const ORDRE_CATEGORIES = ["Courriers","Légal"];
+const ORDRE_CATEGORIES = ["Mes documents","Légal","Courriers"];
 const docsEntries = Object.entries(docs).filter(([,d])=>d.categorie!=="_old"&&d.titre&&d.titre!=="_old"&&d.titre!=="_old2");
 const categories = ORDRE_CATEGORIES.filter(cat=>docsEntries.some(([,d])=>d.categorie===cat));
 
 const catConfig = {
+  "Mes documents": {icon:"🗂️", color:"#F5F3FF", border:"#C4B5FD", txt:"#5B21B6", desc:"Vos documents personnalisés"},
   "Courriers": {icon:"✉️", color:"#F0FDF4", border:"#86EFAC", txt:"#166534", desc:"Lettres types pour vos communications"},
   "Légal": {icon:"📜", color:"#FEF9E7", border:"#F2C94C", txt:"#92400E", desc:"Documents légaux et réglementaires"},
 };
 
+// Modal de création
+const ModalCreation = () => (
+  <Modal title={createStep==="choose" ? "Choisir un modèle" : "Nouveau document"} onClose={()=>{setShowCreateModal(false);setCreateStep("choose");}}>
+    {createStep==="choose" ? (
+      <div>
+        <p style={{fontSize:12,color:"#6B7280",marginBottom:14}}>Sélectionne un modèle de départ pour ton nouveau document :</p>
+        <div style={{display:"grid",gap:10}}>
+          {MODELES_TEMPLATES.map(tpl=>(
+            <button key={tpl.id} onClick={()=>choisirModele(tpl)}
+              style={{background:"#F9F9F6",border:"1.5px solid #E5E5E0",borderRadius:12,padding:"12px 14px",cursor:"pointer",textAlign:"left",display:"flex",alignItems:"center",gap:12,transition:"border-color .2s"}}>
+              <span style={{fontSize:24,flexShrink:0}}>{tpl.icone}</span>
+              <div>
+                <p style={{fontWeight:700,fontSize:13,color:"#111",marginBottom:2}}>{tpl.titre}</p>
+                <p style={{fontSize:11,color:"#9CA3AF"}}>{tpl.description}</p>
+              </div>
+            </button>
+          ))}
+        </div>
+      </div>
+    ) : (
+      <div style={{display:"flex",flexDirection:"column",gap:14}}>
+        <F label="Titre du document *" value={newDoc.titre} onChange={v=>setNewDoc(p=>({...p,titre:v}))} placeholder="Ex: Contrat Jordan — Épicerie du Lac"/>
+        <F label="Description courte" value={newDoc.description} onChange={v=>setNewDoc(p=>({...p,description:v}))} placeholder="Résumé rapide de ce document"/>
+        <div>
+          <p style={{fontSize:11,fontWeight:600,color:"#374151",marginBottom:6}}>Catégorie</p>
+          <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+            {["Mes documents","Légal","Courriers"].map(c=>(
+              <button key={c} onClick={()=>setNewDoc(p=>({...p,categorie:c}))}
+                style={{padding:"6px 14px",borderRadius:20,fontSize:11,fontWeight:700,cursor:"pointer",
+                  background:newDoc.categorie===c?"#111":"#F3F4F6",
+                  color:newDoc.categorie===c?"#F2C94C":"#374151",
+                  border:newDoc.categorie===c?"2px solid #111":"2px solid #E5E7EB"}}>
+                {c}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div>
+          <p style={{fontSize:11,fontWeight:600,color:"#374151",marginBottom:6}}>Contenu</p>
+          <textarea value={newDoc.contenu} onChange={e=>setNewDoc(p=>({...p,contenu:e.target.value}))}
+            placeholder="Rédige ton document ici…"
+            style={{width:"100%",minHeight:200,padding:"10px 12px",fontSize:12,fontFamily:"monospace",lineHeight:1.6,
+              border:"1.5px solid #D1D5DB",borderRadius:10,resize:"vertical",background:"#FAFAF8",boxSizing:"border-box"}}/>
+        </div>
+        <div style={{display:"flex",gap:8}}>
+          <button onClick={()=>setCreateStep("choose")}
+            style={{flex:1,padding:"10px",borderRadius:10,border:"2px solid #E5E7EB",background:"#fff",fontSize:13,fontWeight:600,cursor:"pointer",color:"#374151"}}>
+            ← Retour
+          </button>
+          <button onClick={enregistrerNouveauDoc}
+            style={{flex:2,padding:"10px",borderRadius:10,border:"none",background:"#111",color:"#F2C94C",fontSize:13,fontWeight:700,cursor:"pointer"}}>
+            ✓ Créer le document
+          </button>
+        </div>
+      </div>
+    )}
+  </Modal>
+);
+
 return (
 <div className="fade">
-<SectionTitle>Documents</SectionTitle>
+{showCreateModal && <ModalCreation/>}
+<SectionTitle action={<Btn icon="plus" onClick={()=>{setShowCreateModal(true);setCreateStep("choose");setNewDoc({titre:"",description:"",contenu:"",categorie:"Mes documents",icone:"📄"});}}>Nouveau</Btn>}>Documents</SectionTitle>
 
   {/* Stats */}
-  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:18}}>
+  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:18}}>
     {ORDRE_CATEGORIES.map(cat=>{
       const cfg = catConfig[cat];
       const nb = docsEntries.filter(([,d])=>d.categorie===cat).length;
       return (
-        <div key={cat} style={{background:cfg.color,border:"1px solid "+cfg.border,borderRadius:12,padding:"12px 10px",textAlign:"center"}}>
-          <p style={{fontSize:22}}>{cfg.icon}</p>
+        <div key={cat} style={{background:cfg.color,border:"1px solid "+cfg.border,borderRadius:12,padding:"12px 8px",textAlign:"center"}}>
+          <p style={{fontSize:18}}>{cfg.icon}</p>
           <p style={{fontSize:18,fontWeight:700,fontFamily:"'Cormorant Garamond',serif",color:cfg.txt,lineHeight:1}}>{nb}</p>
-          <p style={{fontSize:9,color:cfg.txt,opacity:.8,marginTop:2,fontWeight:600,textTransform:"uppercase"}}>{cat}</p>
+          <p style={{fontSize:9,color:cfg.txt,opacity:.8,marginTop:2,fontWeight:600,textTransform:"uppercase",lineHeight:1.2}}>{cat}</p>
         </div>
       );
     })}
