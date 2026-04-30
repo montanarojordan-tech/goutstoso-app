@@ -6324,6 +6324,7 @@ const [viewId,setViewId] = useState(null);
 const [editing,setEditing] = useState(false);
 const [editContent,setEditContent] = useState("");
 const [editTitre,setEditTitre] = useState("");
+const [uploadingPJ,setUploadingPJ] = useState(false);
 
 // Initialiser les documents par défaut si pas présents
 React.useEffect(()=>{
@@ -6347,6 +6348,47 @@ const resetDoc = () => {
 if(!window.confirm("Restaurer la version par défaut de ce document ? Tes modifications seront perdues.")) return;
 setSt(p=>({...p,documents:{...p.documents,[viewId]:{...DOCS_DEFAUT[viewId]}}}));
 setEditing(false);
+};
+
+const handlePJUpload = (e) => {
+  const file = e.target.files?.[0];
+  if(!file) return;
+  if(file.size > 10*1024*1024){alert("Fichier trop volumineux (max 10 Mo)");return;}
+  setUploadingPJ(true);
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    const b64 = ev.target.result as string;
+    setSt(p=>({...p,documents:{
+      ...(p.documents||DOCS_DEFAUT),
+      [viewId]:{
+        ...(p.documents||DOCS_DEFAUT)[viewId],
+        pieceJointe:b64,
+        pieceJointeNom:file.name,
+        pieceJointeDate:today(),
+      }
+    }}));
+    setUploadingPJ(false);
+  };
+  reader.onerror = () => { alert("Erreur lors de la lecture du fichier"); setUploadingPJ(false); };
+  reader.readAsDataURL(file);
+  e.target.value="";
+};
+
+const telechargerPJ = () => {
+  const d = docs[viewId];
+  if(!d?.pieceJointe) return;
+  const a = document.createElement("a");
+  a.href = d.pieceJointe;
+  a.download = d.pieceJointeNom||"document.pdf";
+  a.click();
+};
+
+const supprimerPJ = () => {
+  if(!window.confirm("Supprimer la pièce jointe ?")) return;
+  setSt(p=>({...p,documents:{
+    ...(p.documents||DOCS_DEFAUT),
+    [viewId]:{...(p.documents||DOCS_DEFAUT)[viewId],pieceJointe:null,pieceJointeNom:null,pieceJointeDate:null}
+  }}));
 };
 
 const exporterPDF = async (docId) => {
@@ -6461,6 +6503,51 @@ return (
           {view.contenu}
         </div>
       </Card>
+
+      {/* ── PIÈCE JOINTE ─────────────────────────────── */}
+      <div style={{marginTop:14,background:"#FAFAF7",border:"1px solid #EAE7E0",borderRadius:12,padding:"14px"}}>
+        <p style={{fontSize:11,fontWeight:700,color:"#525252",textTransform:"uppercase",letterSpacing:".06em",marginBottom:10}}>📎 Pièce jointe officielle</p>
+
+        {view.pieceJointe ? (
+          <div>
+            {/* Fichier existant */}
+            <div style={{background:"#fff",border:"1px solid #E5E5E0",borderRadius:8,padding:"10px 12px",marginBottom:10,display:"flex",alignItems:"center",gap:10}}>
+              <span style={{fontSize:22,flexShrink:0}}>📄</span>
+              <div style={{flex:1,minWidth:0}}>
+                <p style={{fontSize:12,fontWeight:600,color:"#111",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{view.pieceJointeNom||"document.pdf"}</p>
+                {view.pieceJointeDate && <p style={{fontSize:10,color:"#9CA3AF",marginTop:2}}>Déposé le {fmt(view.pieceJointeDate)}</p>}
+              </div>
+              <button onClick={telechargerPJ} style={{background:"#0A0A0A",color:"#F2C94C",border:"none",borderRadius:7,padding:"7px 12px",fontSize:11,fontWeight:700,cursor:"pointer",flexShrink:0}}>
+                ⬇ Télécharger
+              </button>
+            </div>
+            {/* Actions mise à jour / suppression */}
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+              <label style={{background:"#EFF6FF",border:"1px solid #BFDBFE",borderRadius:8,padding:"9px",fontSize:11,fontWeight:700,color:"#1D4ED8",cursor:"pointer",textAlign:"center",display:"block"}}>
+                {uploadingPJ?"⏳ Chargement...":"🔄 Mettre à jour le fichier"}
+                <input type="file" accept=".pdf,.doc,.docx,.png,.jpg" style={{display:"none"}} onChange={handlePJUpload} disabled={uploadingPJ}/>
+              </label>
+              <button onClick={supprimerPJ} style={{background:"#FEF2F2",border:"1px solid #FECACA",borderRadius:8,padding:"9px",fontSize:11,fontWeight:600,color:"#B91C1C",cursor:"pointer"}}>
+                🗑 Retirer la pièce jointe
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div>
+            <p style={{fontSize:11,color:"#9CA3AF",marginBottom:10}}>Aucune pièce jointe — tu peux attacher la version officielle signée ou le fichier PDF original.</p>
+            <label style={{
+              display:"flex",alignItems:"center",justifyContent:"center",gap:8,
+              background:"#111",color:"#F2C94C",border:"none",
+              borderRadius:9,padding:"11px",fontSize:12,fontWeight:700,
+              cursor:"pointer",
+            }}>
+              {uploadingPJ ? "⏳ Chargement..." : "📎 Attacher un document"}
+              <input type="file" accept=".pdf,.doc,.docx,.png,.jpg" style={{display:"none"}} onChange={handlePJUpload} disabled={uploadingPJ}/>
+            </label>
+            <p style={{fontSize:9,color:"#B5B2AB",textAlign:"center",marginTop:6}}>PDF, Word, image · max 10 Mo</p>
+          </div>
+        )}
+      </div>
     </>
   )}
 </div>
@@ -6519,7 +6606,10 @@ return (
                   <span style={{fontSize:20}}>{d.icone||cfg.icon}</span>
                 </div>
                 <div style={{flex:1,minWidth:0}}>
-                  <p style={{fontWeight:700,fontSize:13,color:"#111"}}>{d.titre}</p>
+                  <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
+                    <p style={{fontWeight:700,fontSize:13,color:"#111"}}>{d.titre}</p>
+                    {d.pieceJointe && <span style={{background:"#DBEAFE",color:"#1D4ED8",fontSize:9,fontWeight:700,borderRadius:4,padding:"2px 6px"}}>📎 JOINT</span>}
+                  </div>
                   <p style={{fontSize:11,color:"#6B7280",marginTop:2,lineHeight:1.4}}>{d.description}</p>
                   {d.modifieLe&&<p style={{fontSize:10,color:"#A3A3A3",marginTop:3}}>Modifié le {fmt(d.modifieLe)}</p>}
                 </div>
