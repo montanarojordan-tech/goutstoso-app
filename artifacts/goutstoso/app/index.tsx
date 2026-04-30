@@ -7865,23 +7865,55 @@ return (
           <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:22,fontWeight:700,color:"#fff",marginTop:2}}>{chf(st.soldeBancaire||0)}</p>
         </div>
         
-        {/* Menu */}
-        {allMenus.map(t=>{
-          const active = tab===t.id;
-          return (
-            <button key={t.id} onClick={()=>setTab(t.id)} style={{
-              display:"flex",alignItems:"center",gap:10,
-              padding:"10px 12px",marginBottom:2,
-              border:"none",background:active?"#F4F4F2":"transparent",
-              borderRadius:8,cursor:"pointer",textAlign:"left",
-              color:active?"#0A0A0A":"#525252",
-              fontSize:13,fontWeight:active?600:500,
-            }}>
-              <Ic n={t.icon} s={16}/>
-              {t.label}
-            </button>
-          );
-        })}
+        {/* Menu par catégories */}
+        {[
+          {groupe:null, items:[
+            {id:"dashboard",label:"Accueil",emoji:"🏠"},
+          ]},
+          {groupe:"Ventes", items:[
+            {id:"partenaires",label:"Dépôts",emoji:"🤝"},
+            {id:"clients",label:"Clients",emoji:"👥"},
+            {id:"commandes",label:"Commandes",emoji:"📦"},
+            {id:"factures",label:"Factures",emoji:"🧾"},
+          ]},
+          {groupe:"Stock & Produits", items:[
+            {id:"produits",label:"Produits",emoji:"🍋"},
+            {id:"stocks",label:"Stocks",emoji:"📊"},
+          ]},
+          {groupe:"Gestion", items:[
+            {id:"contrats",label:"Contrats",emoji:"📋"},
+            {id:"fournisseurs",label:"Fournisseurs",emoji:"🏭"},
+            {id:"compta",label:"Comptabilité",emoji:"💰"},
+            {id:"documents",label:"Documents",emoji:"📁"},
+            {id:"sauvegardes",label:"Sauvegardes",emoji:"💾"},
+          ]},
+        ].map((section,si)=>(
+          <div key={si} style={{marginBottom:4}}>
+            {section.groupe && (
+              <p style={{fontSize:9,fontWeight:700,color:"#B5B2AB",textTransform:"uppercase",letterSpacing:".07em",padding:"10px 10px 4px"}}>{section.groupe}</p>
+            )}
+            {section.items.map(t=>{
+              const active = tab===t.id;
+              return (
+                <button key={t.id} onClick={()=>setTab(t.id)} style={{
+                  width:"100%",display:"flex",alignItems:"center",gap:9,
+                  padding:"8px 10px",marginBottom:1,
+                  border:"none",
+                  background:active?"#FFFBEB":"transparent",
+                  borderRadius:8,cursor:"pointer",textAlign:"left",
+                  color:active?"#0A0A0A":"#525252",
+                  fontSize:12.5,fontWeight:active?700:500,
+                  borderLeft:active?"3px solid #F2C94C":"3px solid transparent",
+                  transition:"background .12s",
+                }}>
+                  <span style={{fontSize:14,width:20,textAlign:"center",flexShrink:0}}>{t.emoji}</span>
+                  {t.label}
+                  {active && <span style={{marginLeft:"auto",width:5,height:5,borderRadius:"50%",background:"#F2C94C",flexShrink:0}}/>}
+                </button>
+              );
+            })}
+          </div>
+        ))}
         
         <div style={{marginTop:"auto",paddingTop:16,borderTop:"1px solid #EAE7E0"}}>
           {/* Info utilisateur connecté */}
