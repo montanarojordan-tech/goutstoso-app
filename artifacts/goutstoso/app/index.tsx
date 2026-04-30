@@ -3043,25 +3043,107 @@ return {Numero:f.numero,Date:f.date,Client:pv?.nom,Total:total,Statut:f.statut};
   )}
 
   {/* Filtres */}
-  <div style={{display:"flex",gap:6,marginBottom:14,overflowX:"auto",paddingBottom:2}}>
-    {[
-      {id:"toutes",l:"Toutes"},
-      {id:"attente",l:"En attente"},
-      {id:"echues",l:`Échues${nbEchues>0?" ("+nbEchues+")":""}`},
-      {id:"payees",l:"Payées"},
-    ].map(f=>(
-      <button key={f.id} onClick={()=>setFiltre(f.id)} style={{
-        background:filtre===f.id?"#111":"#F5F5F0",
-        color:filtre===f.id?"#F2C94C":"#6B7280",
-        border:"none",borderRadius:20,padding:"6px 14px",
-        fontSize:12,fontWeight:filtre===f.id?700:400,
-        cursor:"pointer",whiteSpace:"nowrap",flexShrink:0,
-      }}>{f.l}</button>
-    ))}
-  </div>
+  {(()=>{
+    const nbRappels = (st.factures||[]).reduce((acc,f)=>acc+(f.rappels||[]).length,0);
+    return (
+      <div style={{display:"flex",gap:6,marginBottom:14,overflowX:"auto",paddingBottom:2}}>
+        {[
+          {id:"toutes",l:"Toutes"},
+          {id:"attente",l:"En attente"},
+          {id:"echues",l:`Échues${nbEchues>0?" ("+nbEchues+")":""}`},
+          {id:"payees",l:"Payées"},
+          {id:"rappels",l:`Rappels${nbRappels>0?" ("+nbRappels+")":""}`},
+        ].map(f=>(
+          <button key={f.id} onClick={()=>setFiltre(f.id)} style={{
+            background:filtre===f.id?"#111":"#F5F5F0",
+            color:filtre===f.id?"#F2C94C":"#6B7280",
+            border:"none",borderRadius:20,padding:"6px 14px",
+            fontSize:12,fontWeight:filtre===f.id?700:400,
+            cursor:"pointer",whiteSpace:"nowrap",flexShrink:0,
+          }}>{f.l}</button>
+        ))}
+      </div>
+    );
+  })()}
 
-  {/* Liste */}
-  {filtrees.length===0
+  {/* Vue Rappels envoyés */}
+  {filtre==="rappels"&&(()=>{
+    const tousRappels = [];
+    (st.factures||[]).forEach(f=>{
+      const pv = st.partenaires.find(p=>p.id===f.partenaireId);
+      const total = calcTotal(f.lignes,f.typeClient,st.produits);
+      (f.rappels||[]).forEach(r=>{
+        tousRappels.push({...r, facture:f, pv, total});
+      });
+    });
+    tousRappels.sort((a,b)=>new Date(b.date)-new Date(a.date));
+    if(tousRappels.length===0) return (
+      <div style={{textAlign:"center",padding:"40px 20px",color:"#9CA3AF"}}>
+        <p style={{fontSize:40,marginBottom:12}}>🔔</p>
+        <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:20,fontWeight:600,color:"#374151"}}>Aucun rappel envoyé</p>
+        <p style={{fontSize:13,color:"#9CA3AF",marginTop:8}}>Les rappels générés depuis les factures échues apparaîtront ici.</p>
+      </div>
+    );
+    const totalFrais = tousRappels.reduce((s,r)=>s+r.frais,0);
+    const fraisEncaisses = tousRappels.filter(r=>r.facture.statut==="payée").reduce((s,r)=>s+r.frais,0);
+    return (
+      <div>
+        {/* Résumé */}
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:14}}>
+          <div style={{background:"#F9F9F6",border:"1px solid #E5E5E0",borderRadius:10,padding:"10px 12px",textAlign:"center"}}>
+            <p style={{fontSize:22,fontWeight:700,fontFamily:"'Cormorant Garamond',serif"}}>{tousRappels.length}</p>
+            <p style={{fontSize:10,color:"#6B7280",marginTop:2}}>Rappels envoyés</p>
+          </div>
+          <div style={{background:"#FEF2F2",border:"1px solid #FECACA",borderRadius:10,padding:"10px 12px",textAlign:"center"}}>
+            <p style={{fontSize:18,fontWeight:700,fontFamily:"'Cormorant Garamond',serif",color:"#991B1B"}}>CHF {totalFrais.toFixed(2)}</p>
+            <p style={{fontSize:10,color:"#991B1B",marginTop:2}}>Frais facturés</p>
+          </div>
+          <div style={{background:"#F0FDF4",border:"1px solid #86EFAC",borderRadius:10,padding:"10px 12px",textAlign:"center"}}>
+            <p style={{fontSize:18,fontWeight:700,fontFamily:"'Cormorant Garamond',serif",color:"#166534"}}>CHF {fraisEncaisses.toFixed(2)}</p>
+            <p style={{fontSize:10,color:"#166534",marginTop:2}}>Frais encaissés</p>
+          </div>
+        </div>
+
+        {/* Liste des rappels */}
+        {tousRappels.map((r,i)=>{
+          const coulBg = r.degree===1?"#FEF3C7":r.degree===2?"#FFEDD5":"#FEE2E2";
+          const coulTxt = r.degree===1?"#92400E":r.degree===2?"#9A3412":"#991B1B";
+          const icone = r.degree===1?"🔔":r.degree===2?"⚠️":"🚨";
+          const estPayee = r.facture.statut==="payée";
+          return (
+            <Card key={i} style={{marginBottom:8,borderLeft:"3px solid "+(estPayee?"#22C55E":r.degree===3?"#EF4444":r.degree===2?"#F97316":"#F59E0B")}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",cursor:"pointer"}} onClick={()=>setView(r.facture)}>
+                <div>
+                  <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
+                    <span style={{background:coulBg,color:coulTxt,borderRadius:20,padding:"2px 10px",fontSize:11,fontWeight:700}}>
+                      {icone} Rappel {r.degree}
+                    </span>
+                    <span style={{fontSize:12,fontWeight:600}}>{r.facture.numero}</span>
+                    <Badge c={estPayee?"green":r.degree>=2?"red":"yellow"}>{estPayee?"Payée":"En attente"}</Badge>
+                  </div>
+                  <p style={{fontSize:12,color:"#6B7280"}}>{r.pv?.nom||"—"}</p>
+                  <p style={{fontSize:11,color:"#9CA3AF",marginTop:2}}>Envoyé le {fmt(r.date)}</p>
+                </div>
+                <div style={{textAlign:"right"}}>
+                  {r.frais>0
+                    ? <p style={{fontSize:14,fontWeight:700,color:estPayee?"#166534":"#991B1B"}}>+CHF {r.frais.toFixed(2)}</p>
+                    : <p style={{fontSize:12,color:"#9CA3AF"}}>Sans frais</p>
+                  }
+                  <p style={{fontSize:11,color:"#9CA3AF",marginTop:2}}>
+                    Facture CHF {r.total.toFixed(2)}
+                    {r.frais>0?` + ${r.frais} frais`:""}
+                  </p>
+                </div>
+              </div>
+            </Card>
+          );
+        })}
+      </div>
+    );
+  })()}
+
+  {/* Liste factures normale */}
+  {filtre!=="rappels"&&(filtrees.length===0
     ? <div style={{textAlign:"center",padding:"40px 20px",color:"#9CA3AF"}}>
         <p style={{fontSize:40,marginBottom:12}}>🧾</p>
         <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:20,fontWeight:600,color:"#374151"}}>Aucune facture</p>
@@ -3115,7 +3197,7 @@ return {Numero:f.numero,Date:f.date,Client:pv?.nom,Total:total,Statut:f.statut};
           </Card>
         );
       })
-  }
+  )}
 
   {/* Modal nouvelle facture */}
   {modal==="form"&&(
