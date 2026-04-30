@@ -6176,6 +6176,49 @@ const CATEGORIES_FOURNISSEURS = [
 ];
 
 const Fournisseurs = ({st, setSt}) => {
+// ── SUB-TAB ─────────────────────────────────────────────────
+const [subTab, setSubTab] = useState<"contacts"|"factures">("contacts");
+
+// ── CONTACTS ────────────────────────────────────────────────
+const [cModal, setCModal] = useState(null);
+const [cViewId, setCViewId] = useState<string|null>(null);
+const [cSearch, setCSearch] = useState("");
+const emptyContact = () => ({id:null as any,nom:"",email:"",telephone:"",adresse:"",npa:"",ville:"",categorie:"",notes:""});
+const [cForm, setCForm] = useState(emptyContact());
+const cView = cViewId ? (st.fournisseurs||[]).find((f:any)=>f.id===cViewId)||null : null;
+
+const saveContact = () => {
+  if(!cForm.nom){alert("Le nom est obligatoire");return;}
+  if(cForm.id){
+    setSt((p:any)=>({...p,fournisseurs:(p.fournisseurs||[]).map((f:any)=>f.id===cForm.id?cForm:f)}));
+  } else {
+    const nf = {...cForm,id:uid()};
+    setSt((p:any)=>({...p,fournisseurs:[...(p.fournisseurs||[]),nf]}));
+  }
+  setCModal(null);
+};
+
+const supprimerContact = (id:string) => {
+  if(!window.confirm("Supprimer ce fournisseur ? Ses factures resteront conservées.")) return;
+  setSt((p:any)=>({...p,fournisseurs:(p.fournisseurs||[]).filter((f:any)=>f.id!==id)}));
+  setCViewId(null);
+};
+
+const getContactStats = (nom:string) => {
+  const ff = (st.facturesFournisseurs||[]).filter((f:any)=>f.fournisseur?.toLowerCase()===nom?.toLowerCase());
+  const total = sum(ff.map((f:any)=>parseFloat(f.montant)||0));
+  const aPayer = sum(ff.filter((f:any)=>f.statut==="à payer").map((f:any)=>parseFloat(f.montant)||0));
+  return {nb:ff.length,total,aPayer,ff:ff as any[]};
+};
+
+const contacts = (st.fournisseurs||[]).slice().sort((a:any,b:any)=>a.nom.localeCompare(b.nom));
+const cFiltered = contacts.filter((f:any)=>{
+  if(!cSearch) return true;
+  const s = cSearch.toLowerCase();
+  return f.nom?.toLowerCase().includes(s)||f.email?.toLowerCase().includes(s)||f.ville?.toLowerCase().includes(s)||f.categorie?.toLowerCase().includes(s);
+});
+
+// ── FACTURES ────────────────────────────────────────────────
 const [modal, setModal] = useState(null);
 const [viewId, setViewId] = useState(null);
 const [filtre, setFiltre] = useState("toutes");
@@ -6321,8 +6364,90 @@ const ech = new Date(f.dateEcheance||f.date);
 return ech < new Date();
 }).map(f=>parseFloat(f.montant)||0));
 
-// Vue détail
-if(view) {
+// ── Contact detail ───────────────────────────────────────────
+if(subTab==="contacts" && cView) {
+const stats = getContactStats((cView as any).nom);
+return (
+<div className="fade">
+<button onClick={()=>setCViewId(null)} style={{display:"flex",alignItems:"center",gap:6,background:"none",border:"none",color:"#9CA3AF",fontSize:13,marginBottom:12,padding:0,cursor:"pointer"}}>← Retour fournisseurs</button>
+
+  <div style={{background:"#111",borderRadius:14,padding:"16px",marginBottom:14}}>
+    <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:24,fontWeight:700,color:"#fff"}}>{(cView as any).nom}</p>
+    {(cView as any).categorie && <p style={{fontSize:11,color:"#E8B64C",marginTop:4,fontWeight:600}}>{(cView as any).categorie}</p>}
+    {(cView as any).email && <p style={{fontSize:12,color:"#aaa",marginTop:4}}>✉️ {(cView as any).email}</p>}
+    {(cView as any).telephone && <p style={{fontSize:12,color:"#aaa",marginTop:2}}>📞 {(cView as any).telephone}</p>}
+    {(cView as any).adresse && <p style={{fontSize:12,color:"#aaa",marginTop:2}}>📍 {(cView as any).adresse}{(cView as any).npa?" · "+(cView as any).npa:""}{(cView as any).ville?" "+((cView as any).ville):""}</p>}
+  </div>
+
+  {/* Actions */}
+  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:14}}>
+    <button onClick={()=>{setCForm({...(cView as any)});setCModal("form");setCViewId(null);}} style={{background:"#F5F5F0",border:"none",borderRadius:12,padding:"12px",fontWeight:600,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+      <Ic n="edit" s={14}/> Modifier
+    </button>
+    <button onClick={()=>supprimerContact((cView as any).id)} style={{background:"#FEE2E2",color:"#991B1B",border:"none",borderRadius:12,padding:"12px",fontWeight:600,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+      <Ic n="trash" s={14}/> Supprimer
+    </button>
+  </div>
+
+  {/* Stats */}
+  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:14}}>
+    <div style={{background:"#fff",border:"1px solid #EAE7E0",borderRadius:12,padding:"12px",textAlign:"center"}}>
+      <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:22,fontWeight:700,color:"#111"}}>{stats.nb}</p>
+      <p style={{fontSize:10,color:"#9CA3AF",marginTop:2}}>factures</p>
+    </div>
+    <div style={{background:"#fff",border:"1px solid #EAE7E0",borderRadius:12,padding:"12px",textAlign:"center"}}>
+      <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:22,fontWeight:700,color:"#111"}}>{chf(stats.total)}</p>
+      <p style={{fontSize:10,color:"#9CA3AF",marginTop:2}}>total dépensé</p>
+    </div>
+    {stats.aPayer>0 && (
+      <div style={{background:"#FEF9E7",border:"1px solid #FDE68A",borderRadius:12,padding:"12px",textAlign:"center",gridColumn:"span 2"}}>
+        <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:22,fontWeight:700,color:"#92400E"}}>{chf(stats.aPayer)}</p>
+        <p style={{fontSize:10,color:"#92400E",marginTop:2,fontWeight:600}}>à payer</p>
+      </div>
+    )}
+  </div>
+
+  {/* Notes */}
+  {(cView as any).notes && (
+    <Card style={{marginBottom:14,padding:"10px 14px",background:"#FDF6E3"}}>
+      <p style={{fontSize:10,color:"#9A3412",fontWeight:600,textTransform:"uppercase",marginBottom:4}}>Notes</p>
+      <p style={{fontSize:12}}>{(cView as any).notes}</p>
+    </Card>
+  )}
+
+  {/* Factures liées */}
+  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+    <h3 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:18}}>Factures</h3>
+    <button onClick={()=>{setForm({...empty(),fournisseur:(cView as any).nom});setModal("form");setSubTab("factures");setCViewId(null);}} style={{background:"#F2C94C",border:"none",borderRadius:8,padding:"7px 12px",fontWeight:600,fontSize:12,cursor:"pointer"}}>+ Nouvelle</button>
+  </div>
+  {stats.ff.length===0
+    ? <p style={{fontSize:12,color:"#9CA3AF",textAlign:"center",padding:"16px 0"}}>Aucune facture enregistrée</p>
+    : stats.ff.slice().sort((a:any,b:any)=>(b.date||"").localeCompare(a.date||"")).map((f:any)=>{
+        const ech = new Date(f.dateEcheance||f.date);
+        const echue = ech < new Date() && f.statut==="à payer";
+        return (
+          <Card key={f.id} style={{marginBottom:8,padding:"12px 14px",cursor:"pointer",borderLeft:f.statut==="payée"?"3px solid #22C55E":echue?"3px solid #B91C1C":"3px solid #E8B64C"}}
+            onClick={()=>{setViewId(f.id);setSubTab("factures");setCViewId(null);}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <div style={{flex:1,minWidth:0}}>
+                <p style={{fontWeight:600,fontSize:13}}>{f.categorie}</p>
+                <p style={{fontSize:11,color:"#737373",marginTop:2}}>{fmt(f.date)}{f.numero?" · N°"+f.numero:""}</p>
+              </div>
+              <div style={{textAlign:"right",marginLeft:10}}>
+                <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:18,fontWeight:700,color:echue?"#B91C1C":"#0A0A0A"}}>{chf(f.montant)}</p>
+                <Badge c={f.statut==="payée"?"green":echue?"red":"yellow"}>{f.statut}</Badge>
+              </div>
+            </div>
+          </Card>
+        );
+      })
+  }
+</div>
+);
+}
+
+// ── Facture detail ───────────────────────────────────────────
+if(subTab==="factures" && view) {
 const ech = new Date(view.dateEcheance||view.date);
 const joursRestants = Math.floor((ech - new Date())/86400000);
 const echue = joursRestants < 0 && view.statut === "à payer";
@@ -6406,9 +6531,84 @@ return (
 
 return (
 <div className="fade">
-<SectionTitle action={<Btn icon="plus" onClick={()=>{setForm(empty());setModal("form");}}>Nouvelle</Btn>}>
-Factures fournisseurs
-</SectionTitle>
+
+{/* Sub-tab navigation */}
+<div style={{display:"flex",gap:6,marginBottom:16,background:"#F5F5F0",borderRadius:12,padding:4}}>
+  {[{id:"contacts",l:"👤 Contacts"},{id:"factures",l:"📥 Factures"}].map(t=>(
+    <button key={t.id} onClick={()=>setSubTab(t.id as any)} style={{flex:1,background:subTab===t.id?"#fff":"transparent",border:"none",borderRadius:9,padding:"8px",fontWeight:subTab===t.id?700:500,fontSize:13,color:subTab===t.id?"#111":"#737373",cursor:"pointer",boxShadow:subTab===t.id?"0 1px 4px rgba(0,0,0,.08)":"none"}}>{t.l}</button>
+  ))}
+</div>
+
+{/* ── CONTACTS TAB ─────────────────────────────── */}
+{subTab==="contacts" && (<>
+<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+  <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:22,fontWeight:700}}>Fournisseurs</p>
+  <Btn icon="plus" onClick={()=>{setCForm(emptyContact());setCModal("form");}}>Nouveau</Btn>
+</div>
+
+<div style={{background:"#fff",border:"1px solid #EAE7E0",borderRadius:12,padding:"10px 12px",marginBottom:12,display:"flex",alignItems:"center",gap:8}}>
+  <span style={{color:"#9CA3AF",fontSize:14}}>🔍</span>
+  <input value={cSearch} onChange={e=>setCSearch(e.target.value)} placeholder="Rechercher un fournisseur..." style={{border:"none",outline:"none",flex:1,fontSize:13,background:"transparent"}}/>
+</div>
+
+{cFiltered.length===0
+  ? <div style={{textAlign:"center",padding:"40px 20px",color:"#9CA3AF"}}>
+      <p style={{fontSize:40,marginBottom:12}}>🏭</p>
+      <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:20,fontWeight:600,color:"#374151"}}>Aucun fournisseur</p>
+      <p style={{fontSize:13,marginTop:6}}>Ajoute tes fournisseurs pour garder leurs contacts à portée.</p>
+    </div>
+  : cFiltered.map((f:any)=>{
+      const s = getContactStats(f.nom);
+      return (
+        <Card key={f.id} style={{marginBottom:8,padding:"12px 14px",cursor:"pointer"}} onClick={()=>setCViewId(f.id)}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <div style={{flex:1,minWidth:0}}>
+              <p style={{fontWeight:700,fontSize:14}}>{f.nom}</p>
+              {f.categorie && <p style={{fontSize:11,color:"#9CA3AF",marginTop:2}}>{f.categorie}</p>}
+              {f.email && <p style={{fontSize:11,color:"#6B7280",marginTop:2}}>✉️ {f.email}</p>}
+            </div>
+            <div style={{textAlign:"right",marginLeft:10}}>
+              {s.aPayer>0 && <p style={{fontSize:11,fontWeight:700,color:"#92400E"}}>{chf(s.aPayer)} à payer</p>}
+              <p style={{fontSize:11,color:"#9CA3AF",marginTop:2}}>{s.nb} facture{s.nb!==1?"s":""}</p>
+            </div>
+          </div>
+        </Card>
+      );
+    })
+}
+
+{/* Modal contact */}
+{cModal==="form" && (
+  <Modal title={cForm.id?"Modifier fournisseur":"Nouveau fournisseur"} onClose={()=>setCModal(null)}>
+    <div style={{display:"grid",gap:12}}>
+      <F label="Nom / Entreprise" value={cForm.nom} onChange={(v:string)=>setCForm((p:any)=>({...p,nom:v}))} required placeholder="Ex: Migros, Karton.eu..."/>
+      <Sel label="Catégorie" value={cForm.categorie} onChange={(v:string)=>setCForm((p:any)=>({...p,categorie:v}))}
+        options={[{v:"",l:"— Choisir —"},...CATEGORIES_FOURNISSEURS.map(c=>({v:c,l:c}))]}/>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+        <F label="E-mail" value={cForm.email} onChange={(v:string)=>setCForm((p:any)=>({...p,email:v}))} placeholder="contact@exemple.com"/>
+        <F label="Téléphone" value={cForm.telephone} onChange={(v:string)=>setCForm((p:any)=>({...p,telephone:v}))} placeholder="+41..."/>
+      </div>
+      <F label="Adresse" value={cForm.adresse} onChange={(v:string)=>setCForm((p:any)=>({...p,adresse:v}))} placeholder="Rue et numéro"/>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 2fr",gap:10}}>
+        <F label="NPA" value={cForm.npa} onChange={(v:string)=>setCForm((p:any)=>({...p,npa:v}))} placeholder="2610"/>
+        <F label="Ville" value={cForm.ville} onChange={(v:string)=>setCForm((p:any)=>({...p,ville:v}))} placeholder="Saint-Imier"/>
+      </div>
+      <F label="Notes" value={cForm.notes} onChange={(v:string)=>setCForm((p:any)=>({...p,notes:v}))} placeholder="Conditions, délais, remarques..."/>
+    </div>
+    <div style={{display:"flex",gap:10,marginTop:20}}>
+      <Btn onClick={saveContact} full icon="check">Enregistrer</Btn>
+      <Btn onClick={()=>setCModal(null)} variant="ghost" full>Annuler</Btn>
+    </div>
+  </Modal>
+)}
+</>)}
+
+{/* ── FACTURES TAB ─────────────────────────────── */}
+{subTab==="factures" && (<>
+<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+  <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:22,fontWeight:700}}>Factures fournisseurs</p>
+  <Btn icon="plus" onClick={()=>{setForm(empty());setModal("form");}}>Nouvelle</Btn>
+</div>
 
   {/* Alertes */}
   {aPayer.length > 0 && (
@@ -6493,6 +6693,8 @@ Factures fournisseurs
       </div>
     </Modal>
   )}
+</>)}
+
 </div>
 
 );
