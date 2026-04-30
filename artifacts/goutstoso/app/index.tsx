@@ -2623,6 +2623,7 @@ const [modal,setModal] = useState(null);
 const [view,setView] = useState(null);
 const [filtre,setFiltre] = useState("toutes");
 const [sigMode,setSigMode] = useState(false);
+const [pjModal,setPjModal] = useState(false);
 
 const emptyF = {partenaireId:st.partenaires[0]?.id||"",typeClient:"revendeur",lignes:[{produitId:"",qte:1}],notes:"",date:today(),envoyee:false};
 const [form,setForm] = useState(emptyF);
@@ -3182,7 +3183,7 @@ const rappelsEnvoyes = view.rappels||[];
 
 return (
   <div className="fade">
-    <button onClick={()=>setView(null)} style={{display:"flex",alignItems:"center",gap:6,background:"none",border:"none",color:"#9CA3AF",fontSize:13,marginBottom:16,padding:0,cursor:"pointer"}}>← Retour</button>
+    <button onClick={()=>{setView(null);setPjModal(false);}} style={{display:"flex",alignItems:"center",gap:6,background:"none",border:"none",color:"#9CA3AF",fontSize:13,marginBottom:16,padding:0,cursor:"pointer"}}>← Retour</button>
 
     {/* Alerte retard + prochain rappel */}
     {retard&&(
@@ -3237,10 +3238,61 @@ return (
       <button onClick={()=>genererPDF(view)} style={{background:"#111",color:"#F2C94C",border:"none",borderRadius:12,padding:"13px",fontWeight:700,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
         ⬇️ PDF
       </button>
-      <button onClick={()=>envoyerEmail(view,null)} style={{background:"#FEF9E7",color:"#92400E",border:"1.5px solid #F2C94C",borderRadius:12,padding:"13px",fontWeight:600,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+      <button onClick={()=>setPjModal(true)} style={{background:"#FEF9E7",color:"#92400E",border:"1.5px solid #F2C94C",borderRadius:12,padding:"13px",fontWeight:600,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
         ✉️ Email
       </button>
     </div>
+
+    {/* MODAL PIÈCES JOINTES */}
+    {pjModal && (()=>{
+      const bulletins = (st.contrats||[]).filter(c=>c.livraison && c.partenaireId===view.partenaireId);
+      return (
+        <>
+          <div onClick={()=>setPjModal(false)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,.5)",zIndex:300}}/>
+          <div style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:480,zIndex:310,background:"#fff",borderRadius:"20px 20px 0 0",padding:"20px 20px 32px",boxShadow:"0 -8px 40px rgba(0,0,0,.18)"}}>
+            {/* Handle */}
+            <div style={{width:36,height:4,borderRadius:2,background:"#DDD",margin:"0 auto 16px"}}/>
+            <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:20,fontWeight:700,marginBottom:4}}>Pièces jointes</p>
+            <p style={{fontSize:12,color:"#9CA3AF",marginBottom:16}}>Téléchargez les documents avant d'envoyer l'email.</p>
+
+            {/* Facture */}
+            <button onClick={()=>genererPDF(view)} style={{width:"100%",display:"flex",alignItems:"center",gap:12,background:"#F5F5F0",border:"1.5px solid #E5E5E0",borderRadius:12,padding:"12px 14px",marginBottom:8,cursor:"pointer",textAlign:"left"}}>
+              <span style={{fontSize:22}}>📄</span>
+              <div style={{flex:1}}>
+                <p style={{fontWeight:700,fontSize:13,color:"#0A0A0A"}}>Facture {view.numero}</p>
+                <p style={{fontSize:11,color:"#9CA3AF",marginTop:2}}>Télécharger le PDF</p>
+              </div>
+              <span style={{fontSize:18,color:"#F2C94C"}}>⬇</span>
+            </button>
+
+            {/* Bulletins de livraison */}
+            {bulletins.length===0
+              ? <div style={{background:"#F9F9F6",borderRadius:10,padding:"10px 14px",marginBottom:8,textAlign:"center"}}>
+                  <p style={{fontSize:12,color:"#9CA3AF"}}>Aucun bon de livraison pour ce partenaire</p>
+                </div>
+              : bulletins.map(b=>(
+                <button key={b.id} onClick={()=>{const pv2=st.partenaires.find(p=>p.id===b.partenaireId);genererBulletinPDF(b,pv2,st);}} style={{width:"100%",display:"flex",alignItems:"center",gap:12,background:"#F5F5F0",border:"1.5px solid #E5E5E0",borderRadius:12,padding:"12px 14px",marginBottom:8,cursor:"pointer",textAlign:"left"}}>
+                  <span style={{fontSize:22}}>📋</span>
+                  <div style={{flex:1}}>
+                    <p style={{fontWeight:700,fontSize:13,color:"#0A0A0A"}}>{b.type==="depot-vente"?"Bon de dépôt":"Bon de livraison"} {b.numero}</p>
+                    <p style={{fontSize:11,color:"#9CA3AF",marginTop:2}}>du {fmt(b.date||b.dateDebut)} · Télécharger le PDF</p>
+                  </div>
+                  <span style={{fontSize:18,color:"#F2C94C"}}>⬇</span>
+                </button>
+              ))
+            }
+
+            {/* Bouton email */}
+            <button onClick={()=>{envoyerEmail(view,null);setPjModal(false);}} style={{width:"100%",background:"#F2C94C",border:"none",borderRadius:12,padding:"14px",fontWeight:700,fontSize:14,cursor:"pointer",marginTop:8,display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
+              ✉️ Composer l'email
+            </button>
+            <button onClick={()=>setPjModal(false)} style={{width:"100%",background:"none",border:"none",borderRadius:12,padding:"10px",fontWeight:500,fontSize:13,cursor:"pointer",color:"#9CA3AF",marginTop:4}}>
+              Annuler
+            </button>
+          </div>
+        </>
+      );
+    })()}
     {view.statut!=="payée"&&(
       <div style={{marginBottom:8}}>
         {view.envoyee
