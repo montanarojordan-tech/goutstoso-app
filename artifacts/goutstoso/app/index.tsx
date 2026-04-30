@@ -7710,6 +7710,7 @@ React.useEffect(()=>{
 
 const [tab,setTab] = useState("dashboard");
 const [showMore,setShowMore] = useState(false);
+const [showMenu,setShowMenu] = useState(false);
 const [st,setSt] = useState(INIT);
 
 const [loading, setLoading] = React.useState(true);
@@ -7841,7 +7842,7 @@ const allTabs = [...NAV_MAIN.filter(t=>t.id!=="more"), ...NAV_MORE];
 const currentTab = allTabs.find(t=>t.id===tab);
 const isMore = NAV_MORE.some(t=>t.id===tab);
 
-const goTo = (id) => { setTab(id); setShowMore(false); };
+const goTo = (id) => { setTab(id); setShowMore(false); setShowMenu(false); };
 
 if(isDesktop) {
 // ═══════════ DESKTOP LAYOUT ═══════════
@@ -7930,25 +7931,25 @@ return (
       position:"fixed",top:0,left:"50%",transform:"translateX(-50%)",
       width:"100%",maxWidth:480,zIndex:50,
       background:"#FFFFFF",borderBottom:"1px solid var(--gray-mid)",
-      padding:"12px 18px 10px",
+      padding:"10px 14px 8px",
       display:"flex",alignItems:"center",justifyContent:"space-between",
+      gap:8,
     }}>
-      <div style={{display:"flex",alignItems:"center",gap:10}}>
-        <img src={LOGO_B64} alt="GoûtStoso" style={{width:44,height:"auto",objectFit:"contain"}}/>
-        <div>
-          <p style={{fontSize:10,color:"var(--gray)",marginTop:1}}>{currentTab?.label||"Gestion"}</p>
-        </div>
+      {/* Hamburger */}
+      <button onClick={()=>setShowMenu(true)} style={{background:"#F4F4F2",border:"none",borderRadius:9,width:36,height:36,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",flexShrink:0}}>
+        <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="#0A0A0A" strokeWidth="2.2" strokeLinecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
+      {/* Logo + page courante */}
+      <div style={{display:"flex",alignItems:"center",gap:8,flex:1,minWidth:0}}>
+        <img src={LOGO_B64} alt="GoûtStoso" style={{width:36,height:"auto",objectFit:"contain",flexShrink:0}}/>
+        <p style={{fontSize:12,fontWeight:600,color:"#0A0A0A",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{currentTab?.label||"Accueil"}</p>
       </div>
-      <div style={{display:"flex",alignItems:"center",gap:6}}>
-        <div style={{background:"var(--lemon-pale)",border:"1px solid var(--lemon)",borderRadius:8,padding:"4px 10px"}}>
-          <p style={{fontSize:10,color:"var(--orange)",fontWeight:600}}>CHF {parseFloat(st.soldeBancaire||0).toFixed(2)}</p>
+      {/* Solde + actions */}
+      <div style={{display:"flex",alignItems:"center",gap:5,flexShrink:0}}>
+        <div style={{background:"var(--lemon-pale)",border:"1px solid var(--lemon)",borderRadius:7,padding:"3px 8px"}}>
+          <p style={{fontSize:10,color:"var(--orange)",fontWeight:600,whiteSpace:"nowrap"}}>CHF {parseFloat(st.soldeBancaire||0).toFixed(2)}</p>
         </div>
-        {authUser?.role==="admin" && (
-          <button onClick={()=>setShowAdmin(true)} style={{background:"#F4F4F2",border:"none",borderRadius:8,padding:"6px 8px",cursor:"pointer"}} title="Administration">
-            <Ic n="settings" s={14}/>
-          </button>
-        )}
-        <button onClick={handleLogout} style={{background:"#FEF2F2",border:"none",borderRadius:8,padding:"6px 8px",cursor:"pointer",color:"#B91C1C"}} title="Déconnexion">
+        <button onClick={handleLogout} style={{background:"#FEF2F2",border:"none",borderRadius:8,padding:"6px 7px",cursor:"pointer",color:"#B91C1C"}} title="Déconnexion">
           <Ic n="log-out" s={14}/>
         </button>
       </div>
@@ -7956,79 +7957,113 @@ return (
     {showAdmin && <AdminPanel currentUser={authUser} onClose={()=>setShowAdmin(false)}/>}
 
     {/* CONTENU PRINCIPAL */}
-    <div style={{flex:1,padding:"72px 16px 90px",overflowY:"auto",background:"var(--cream)",minHeight:"100vh"}}>
+    <div style={{flex:1,padding:"68px 16px 24px",overflowY:"auto",background:"var(--cream)",minHeight:"100vh"}}>
       {pages[tab]||null}
     </div>
 
-    {/* DRAWER "PLUS" */}
-    {showMore && (
-      <div style={{position:"fixed",bottom:64,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:480,zIndex:200,background:"rgba(255,255,255,0.98)",backdropFilter:"blur(16px)",borderRadius:"18px 18px 0 0",boxShadow:"0 -4px 32px rgba(0,0,0,.14)",overflow:"hidden"}}>
-        {/* Handle bar */}
-        <div style={{display:"flex",justifyContent:"center",padding:"10px 0 6px"}}>
-          <div style={{width:36,height:4,borderRadius:2,background:"#DDD"}}/>
-        </div>
-        <div style={{padding:"0 16px 8px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-          <p style={{fontSize:11,fontWeight:700,color:"#9CA3AF",textTransform:"uppercase",letterSpacing:".06em"}}>Menu</p>
-          <button onClick={()=>setShowMore(false)} style={{background:"#F5F5F0",border:"none",borderRadius:20,width:28,height:28,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",color:"#6B7280"}}><Ic n="x" s={14}/></button>
-        </div>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:1,background:"#F5F5F0",borderTop:"1px solid #F0EDE6"}}>
-          {NAV_MORE.map(t=>{
-            const active = tab===t.id;
-            return (
-              <button key={t.id} onClick={()=>goTo(t.id)} style={{
-                display:"flex",flexDirection:"column",alignItems:"center",gap:5,
-                padding:"14px 6px",border:"none",
-                background:active?"#FFFBEB":"#fff",
-                cursor:"pointer",
-              }}>
-                <div style={{width:40,height:40,borderRadius:12,background:active?"#F2C94C":"#F5F5F0",display:"flex",alignItems:"center",justifyContent:"center",transition:"background .15s"}}>
-                  <Ic n={t.icon} s={20} />
-                </div>
-                <span style={{fontSize:10,fontWeight:active?700:400,color:active?"#0A0A0A":"#6B7280",textAlign:"center",lineHeight:1.2}}>{t.label}</span>
-              </button>
-            );
-          })}
-        </div>
-        <div style={{height:"env(safe-area-inset-bottom,0px)"}}/>
-      </div>
-    )}
-    {showMore && <div onClick={()=>setShowMore(false)} style={{position:"fixed",inset:0,zIndex:190,background:"rgba(0,0,0,.3)"}}/>}
-
-    {/* BARRE DE NAVIGATION BAS */}
+    {/* ── DRAWER MENU LATÉRAL ──────────────────────────── */}
+    {/* Overlay */}
+    {showMenu && <div onClick={()=>setShowMenu(false)} style={{position:"fixed",inset:0,zIndex:290,background:"rgba(0,0,0,.45)",backdropFilter:"blur(2px)"}}/>}
+    {/* Drawer */}
     <div style={{
-      position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",
-      width:"100%",maxWidth:480,zIndex:100,
-      background:"rgba(255,255,255,0.97)",
-      backdropFilter:"blur(12px)",
-      borderTop:"1px solid rgba(234,231,224,0.8)",
-      boxShadow:"0 -2px 16px rgba(0,0,0,.06)",
-      display:"grid",gridTemplateColumns:"repeat(6,1fr)",
-      paddingBottom:"env(safe-area-inset-bottom,6px)",
-      paddingTop:4,
+      position:"fixed",top:0,left:0,bottom:0,
+      width:280,maxWidth:"80vw",
+      zIndex:300,
+      background:"#fff",
+      boxShadow:"4px 0 32px rgba(0,0,0,.18)",
+      display:"flex",flexDirection:"column",
+      transform:showMenu?"translateX(0)":"translateX(-100%)",
+      transition:"transform .28s cubic-bezier(.4,0,.2,1)",
+      overflowY:"auto",
     }}>
-      {NAV_MAIN.map(t=>{
-        const active = t.id==="more" ? isMore||showMore : tab===t.id;
-        return (
-          <button key={t.id} onClick={()=>t.id==="more"?setShowMore(s=>!s):goTo(t.id)} style={{
-            display:"flex",flexDirection:"column",alignItems:"center",gap:2,
-            padding:"6px 2px 8px",border:"none",background:"none",
-            color:active?"#0A0A0A":"#B5B2AB",
-            position:"relative",
-            transition:"color .15s",
-            minWidth:0,
-          }}>
-            <div style={{
-              width:38,height:28,borderRadius:9,
-              background:active?"#F2C94C":"transparent",
-              display:"flex",alignItems:"center",justifyContent:"center",
-              transition:"background .15s",
-            }}>
-              {t.id==="more"?<IcMore s={18}/>:<Ic n={t.icon} s={18}/>}
-            </div>
-            <span style={{fontSize:9,fontWeight:active?700:400,letterSpacing:"-0.01em",lineHeight:1.1,textAlign:"center"}}>{t.label}</span>
+      {/* Drawer header */}
+      <div style={{padding:"16px 16px 12px",display:"flex",alignItems:"center",justifyContent:"space-between",borderBottom:"1px solid #F0EDE6",background:"#0A0A0A",flexShrink:0}}>
+        <div style={{display:"flex",alignItems:"center",gap:10}}>
+          <img src={LOGO_B64} alt="GoûtStoso" style={{width:32,height:"auto",objectFit:"contain"}}/>
+          <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:17,fontWeight:700,color:"#F2C94C",letterSpacing:"-0.02em"}}>GoûtStoso</span>
+        </div>
+        <button onClick={()=>setShowMenu(false)} style={{background:"rgba(255,255,255,.1)",border:"none",borderRadius:"50%",width:30,height:30,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",color:"#fff"}}>
+          <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      {/* User info */}
+      <div style={{padding:"10px 14px",background:"#FAFAF7",borderBottom:"1px solid #F0EDE6",flexShrink:0}}>
+        <div style={{display:"flex",alignItems:"center",gap:8}}>
+          <div style={{width:28,height:28,background:"#0A0A0A",borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center"}}>
+            <span style={{fontSize:12,color:"#F2C94C",fontWeight:700}}>{(authUser.display_name||authUser.username).charAt(0).toUpperCase()}</span>
+          </div>
+          <div>
+            <p style={{fontSize:11,fontWeight:600,color:"#0A0A0A"}}>{authUser.display_name||authUser.username}</p>
+            <p style={{fontSize:9,color:"#737373"}}>Jordan Montanaro · admin@goutstoso.ch</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Sections groupées */}
+      <div style={{flex:1,padding:"8px 10px",overflowY:"auto"}}>
+        {[
+          {groupe:null, items:[
+            {id:"dashboard",label:"Accueil",icon:"dash",emoji:"🏠"},
+          ]},
+          {groupe:"Ventes", items:[
+            {id:"partenaires",label:"Dépôts",icon:"depot",emoji:"🤝"},
+            {id:"clients",label:"Clients",icon:"prod",emoji:"👥"},
+            {id:"commandes",label:"Commandes",icon:"facture",emoji:"📦"},
+            {id:"factures",label:"Factures",icon:"facture",emoji:"🧾"},
+          ]},
+          {groupe:"Stock & Produits", items:[
+            {id:"produits",label:"Produits",icon:"prod",emoji:"🍋"},
+            {id:"stocks",label:"Stocks",icon:"stock",emoji:"📊"},
+          ]},
+          {groupe:"Gestion", items:[
+            {id:"contrats",label:"Contrats",icon:"contrat",emoji:"📋"},
+            {id:"fournisseurs",label:"Fournisseurs",icon:"facture",emoji:"🏭"},
+            {id:"compta",label:"Comptabilité",icon:"compta",emoji:"💰"},
+            {id:"documents",label:"Documents",icon:"contrat",emoji:"📁"},
+            {id:"sauvegardes",label:"Sauvegardes",icon:"stock",emoji:"💾"},
+          ]},
+        ].map((section,si)=>(
+          <div key={si} style={{marginBottom:6}}>
+            {section.groupe && (
+              <p style={{fontSize:9,fontWeight:700,color:"#9CA3AF",textTransform:"uppercase",letterSpacing:".07em",padding:"8px 6px 4px"}}>{section.groupe}</p>
+            )}
+            {section.items.map(t=>{
+              const active = tab===t.id;
+              return (
+                <button key={t.id} onClick={()=>goTo(t.id)} style={{
+                  width:"100%",display:"flex",alignItems:"center",gap:10,
+                  padding:"9px 10px",marginBottom:2,
+                  border:"none",
+                  background:active?"#FFFBEB":"transparent",
+                  borderRadius:9,cursor:"pointer",textAlign:"left",
+                  color:active?"#0A0A0A":"#525252",
+                  fontSize:13,fontWeight:active?700:500,
+                  borderLeft:active?"3px solid #F2C94C":"3px solid transparent",
+                  transition:"background .12s,border-color .12s",
+                }}>
+                  <span style={{fontSize:16,width:22,textAlign:"center",flexShrink:0}}>{t.emoji}</span>
+                  <span>{t.label}</span>
+                  {active && <span style={{marginLeft:"auto",width:6,height:6,borderRadius:"50%",background:"#F2C94C",flexShrink:0}}/>}
+                </button>
+              );
+            })}
+          </div>
+        ))}
+      </div>
+
+      {/* Footer drawer */}
+      <div style={{padding:"12px 14px",borderTop:"1px solid #F0EDE6",flexShrink:0}}>
+        {authUser.role==="admin" && (
+          <button onClick={()=>{setShowMenu(false);setShowAdmin(true);}} style={{width:"100%",display:"flex",alignItems:"center",gap:8,padding:"8px 10px",background:"none",border:"1px solid #EAE7E0",borderRadius:8,cursor:"pointer",marginBottom:6,fontSize:12,color:"#525252"}}>
+            <Ic n="settings" s={14}/> Administration
           </button>
-        );
-      })}
+        )}
+        <button onClick={handleLogout} style={{width:"100%",display:"flex",alignItems:"center",gap:8,padding:"8px 10px",background:"#FEF2F2",border:"none",borderRadius:8,cursor:"pointer",fontSize:12,color:"#B91C1C"}}>
+          <Ic n="log-out" s={14}/> Déconnexion
+        </button>
+        {syncing && <p style={{fontSize:10,color:"#737373",textAlign:"center",marginTop:6}}>☁ Synchronisation...</p>}
+        {!syncing && <p style={{fontSize:10,color:"#15803D",textAlign:"center",marginTop:6}}>✓ Synchronisé</p>}
+      </div>
     </div>
   </div>
 </>
