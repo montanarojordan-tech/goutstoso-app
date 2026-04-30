@@ -1255,6 +1255,43 @@ doc.save(c.numero+".pdf");
 } catch(e){alert("Erreur PDF : "+e.message);}
 };
 
+const ajouterDocAnnexe = (doc, docId, st) => {
+const d = (st.documents||DOCS_DEFAUT)[docId];
+if(!d || !d.contenu) return;
+const W=210, mg=18;
+doc.addPage();
+doc.setFillColor(232,182,76);doc.rect(0,0,W,6,"F");
+pdfLogo(doc,mg);
+doc.setFontSize(12);doc.setFont("helvetica","bold");doc.setTextColor(17,17,17);
+const titleLines = doc.splitTextToSize(d.titre,W-mg*2);
+doc.text(titleLines,mg,41);
+doc.setDrawColor(230,230,228);doc.setLineWidth(0.3);doc.line(mg,47,W-mg,47);
+doc.setFontSize(8);doc.setFont("helvetica","normal");doc.setTextColor(60,60,60);
+const contentLines = doc.splitTextToSize(d.contenu||"", W-mg*2);
+let y=54;
+contentLines.forEach(line=>{
+if(y>275) {
+doc.setDrawColor(230,230,228);doc.line(mg,280,W-mg,280);
+doc.setFontSize(6);doc.setTextColor(150,150,150);
+doc.text("Goûtstoso - Jordan Montanaro · admin@goutstoso.ch",W/2,285,{align:"center"});
+doc.setFillColor(232,182,76);doc.rect(0,292,W,5,"F");
+doc.addPage();
+doc.setFillColor(232,182,76);doc.rect(0,0,W,6,"F");
+doc.setFontSize(8);doc.setFont("helvetica","normal");doc.setTextColor(150,150,150);
+doc.text(d.titre+" - suite",mg,15);
+doc.setDrawColor(230,230,228);doc.line(mg,19,W-mg,19);
+doc.setFontSize(8);doc.setTextColor(60,60,60);
+y=26;
+}
+doc.text(line,mg,y);
+y+=4;
+});
+doc.setDrawColor(230,230,228);doc.line(mg,280,W-mg,280);
+doc.setFontSize(6);doc.setTextColor(150,150,150);
+doc.text("Goûtstoso - Jordan Montanaro · admin@goutstoso.ch",W/2,285,{align:"center"});
+doc.setFillColor(232,182,76);doc.rect(0,292,W,5,"F");
+};
+
 const genererContratPDF = async (c, pv, st) => {
 try {
 await new Promise((res,rej)=>{
@@ -2802,51 +2839,6 @@ if(deg===1) {
 
 setSt(p=>({...p,factures:(p.factures||[]).map(x=>x.id===f.id?{...x,envoyee:true}:x)}));
 sendEmail({to:pv.email||"",toName:pv?.contact||pv?.nom||"",subject,body:bodyTxt.replace(/\n/g,"<br>")});
-};
-
-// Helper: ajoute un document légal en annexe à un PDF
-const ajouterDocAnnexe = (doc, docId, st) => {
-const d = (st.documents||DOCS_DEFAUT)[docId];
-if(!d || !d.contenu) return;
-const W=210, mg=18;
-doc.addPage();
-// Bande jaune
-doc.setFillColor(232,182,76);doc.rect(0,0,W,6,"F");
-// Header
-pdfLogo(doc,mg);
-// Titre
-doc.setFontSize(12);doc.setFont("helvetica","bold");doc.setTextColor(17,17,17);
-const titleLines = doc.splitTextToSize(d.titre,W-mg*2);
-doc.text(titleLines,mg,41);
-doc.setDrawColor(230,230,228);doc.setLineWidth(0.3);doc.line(mg,47,W-mg,47);
-// Contenu
-doc.setFontSize(8);doc.setFont("helvetica","normal");doc.setTextColor(60,60,60);
-const contentLines = doc.splitTextToSize(d.contenu||"", W-mg*2);
-let y=54;
-contentLines.forEach(line=>{
-if(y>275) {
-// Pied de page
-doc.setDrawColor(230,230,228);doc.line(mg,280,W-mg,280);
-doc.setFontSize(6);doc.setTextColor(150,150,150);
-doc.text("Goûtstoso - Jordan Montanaro · admin@goutstoso.ch",W/2,285,{align:"center"});
-doc.setFillColor(232,182,76);doc.rect(0,292,W,5,"F");
-doc.addPage();
-// Nouvelle page header
-doc.setFillColor(232,182,76);doc.rect(0,0,W,6,"F");
-doc.setFontSize(8);doc.setFont("helvetica","normal");doc.setTextColor(150,150,150);
-doc.text(d.titre+" - suite",mg,15);
-doc.setDrawColor(230,230,228);doc.line(mg,19,W-mg,19);
-doc.setFontSize(8);doc.setTextColor(60,60,60);
-y=26;
-}
-doc.text(line,mg,y);
-y+=4;
-});
-// Pied de page
-doc.setDrawColor(230,230,228);doc.line(mg,280,W-mg,280);
-doc.setFontSize(6);doc.setTextColor(150,150,150);
-doc.text("Goûtstoso - Jordan Montanaro · admin@goutstoso.ch",W/2,285,{align:"center"});
-doc.setFillColor(232,182,76);doc.rect(0,292,W,5,"F");
 };
 
 const genererPDF = async (f) => {
