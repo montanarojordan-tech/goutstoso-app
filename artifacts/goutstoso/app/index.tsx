@@ -1415,6 +1415,7 @@ const [sigMode,setSigMode] = useState(false);
 const [form,setForm] = useState({nom:"",adresse:"",contact:"",tel:"",email:"",type:"depot-vente",commission:0,statut:"actif"});
 const [livForm,setLivForm] = useState({type:"depot-vente",date:today(),lignes:[{produitId:"",qte:1}],notes:""});
 const [signingBulletin,setSigningBulletin] = useState(null);
+const [showContratDetail,setShowContratDetail] = useState(false);
 
 const savePV = () => {
 if(!form.nom) return;
@@ -1587,21 +1588,109 @@ return (
       const contrat = contratsDepot.find(c=>c.statut==="signé"||c.statut==="actif") || contratsDepot[0];
       if(!contrat) return (
         <div style={{background:"#F5F5F0",borderRadius:12,padding:"12px 14px",marginBottom:12,border:"1px solid #EAE7E0",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-          <p style={{fontSize:12,color:"#9CA3AF"}}>Aucun contrat</p>
-          <button onClick={()=>{}} style={{fontSize:11,color:"#6B7280",background:"none",border:"1px solid #EAE7E0",borderRadius:8,padding:"5px 10px"}}>+ Contrat</button>
+          <p style={{fontSize:12,color:"#9CA3AF"}}>Aucun contrat enregistré</p>
         </div>
       );
       const isActif = contrat.statut==="signé"||contrat.statut==="actif";
       return (
-        <div style={{background:isActif?"#F0FDF4":"#FEF9E7",borderRadius:12,padding:"12px 14px",marginBottom:12,border:"1px solid "+(isActif?"#BBF7D0":"#FDE68A")}}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-            <div style={{flex:1}}>
-              <p style={{fontSize:10,fontWeight:600,color:"#6B7280",textTransform:"uppercase",letterSpacing:"0.04em",marginBottom:2}}>Contrat</p>
-              <p style={{fontSize:13,fontWeight:700}}>{contrat.numero} · {contrat.type}</p>
-              <p style={{fontSize:11,color:"#6B7280",marginTop:2}}>Depuis {fmt(contrat.dateDebut)}{contrat.dateFin?" · Fin: "+fmt(contrat.dateFin):""}{contrat.commission>0?" · Commission: "+contrat.commission+"%":""}</p>
+        <div style={{marginBottom:12}}>
+          <div onClick={()=>setShowContratDetail(!showContratDetail)} style={{background:isActif?"#F0FDF4":"#FEF9E7",borderRadius:showContratDetail?12:12,padding:"12px 14px",border:"1px solid "+(isActif?"#BBF7D0":"#FDE68A"),cursor:"pointer"}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <div style={{flex:1}}>
+                <p style={{fontSize:10,fontWeight:600,color:"#6B7280",textTransform:"uppercase",letterSpacing:"0.04em",marginBottom:2}}>Contrat · Appuyer pour voir</p>
+                <p style={{fontSize:13,fontWeight:700}}>{contrat.numero} · {contrat.type}</p>
+                <p style={{fontSize:11,color:"#6B7280",marginTop:2}}>Depuis {fmt(contrat.dateDebut)}{contrat.dateFin?" · Fin: "+fmt(contrat.dateFin):""}{contrat.commission>0?" · Commission: "+contrat.commission+"%":""}</p>
+              </div>
+              <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:6}}>
+                <Badge c={isActif?"green":contrat.statut==="résilié"?"red":"gray"}>{contrat.statut||"brouillon"}</Badge>
+                <span style={{fontSize:11,color:"#9CA3AF"}}>{showContratDetail?"▲":"▼"}</span>
+              </div>
             </div>
-            <Badge c={isActif?"green":contrat.statut==="résilié"?"red":"gray"}>{contrat.statut||"brouillon"}</Badge>
           </div>
+          {showContratDetail && (
+            <div style={{background:"#fff",border:"1px solid #EAE7E0",borderTop:"none",borderRadius:"0 0 12px 12px",padding:"12px 14px"}}>
+              {contratsDepot.map((c,idx)=>{
+                const isCurr = c.id===contrat.id;
+                const lignesProd = (c.lignes||[]).filter(l=>l.produitId);
+                return (
+                  <div key={c.id} style={{paddingBottom:idx<contratsDepot.length-1?12:0,borderBottom:idx<contratsDepot.length-1?"1px solid #F5F5F0":"none",marginBottom:idx<contratsDepot.length-1?12:0}}>
+                    {contratsDepot.length>1 && <p style={{fontSize:10,fontWeight:700,color:"#9CA3AF",marginBottom:6}}>{isCurr?"▶ ACTUEL ":""}CONTRAT {idx+1}</p>}
+                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginBottom:8}}>
+                      <div style={{background:"#F9F9F6",borderRadius:8,padding:"8px 10px"}}>
+                        <p style={{fontSize:9,color:"#9CA3AF",fontWeight:600,textTransform:"uppercase"}}>Type</p>
+                        <p style={{fontSize:12,fontWeight:600,marginTop:2}}>{c.type}</p>
+                      </div>
+                      <div style={{background:"#F9F9F6",borderRadius:8,padding:"8px 10px"}}>
+                        <p style={{fontSize:9,color:"#9CA3AF",fontWeight:600,textTransform:"uppercase"}}>Statut</p>
+                        <p style={{fontSize:12,fontWeight:600,marginTop:2}}>{c.statut||"brouillon"}</p>
+                      </div>
+                      <div style={{background:"#F9F9F6",borderRadius:8,padding:"8px 10px"}}>
+                        <p style={{fontSize:9,color:"#9CA3AF",fontWeight:600,textTransform:"uppercase"}}>Début</p>
+                        <p style={{fontSize:12,fontWeight:600,marginTop:2}}>{fmt(c.dateDebut)}</p>
+                      </div>
+                      {c.dateFin && <div style={{background:"#F9F9F6",borderRadius:8,padding:"8px 10px"}}>
+                        <p style={{fontSize:9,color:"#9CA3AF",fontWeight:600,textTransform:"uppercase"}}>Fin</p>
+                        <p style={{fontSize:12,fontWeight:600,marginTop:2}}>{fmt(c.dateFin)}</p>
+                      </div>}
+                      {c.commission>0 && <div style={{background:"#F9F9F6",borderRadius:8,padding:"8px 10px"}}>
+                        <p style={{fontSize:9,color:"#9CA3AF",fontWeight:600,textTransform:"uppercase"}}>Commission</p>
+                        <p style={{fontSize:12,fontWeight:600,marginTop:2}}>{c.commission}%</p>
+                      </div>}
+                      {c.lieuSignature && <div style={{background:"#F9F9F6",borderRadius:8,padding:"8px 10px"}}>
+                        <p style={{fontSize:9,color:"#9CA3AF",fontWeight:600,textTransform:"uppercase"}}>Lieu signature</p>
+                        <p style={{fontSize:12,fontWeight:600,marginTop:2}}>{c.lieuSignature}</p>
+                      </div>}
+                    </div>
+                    {lignesProd.length>0 && (
+                      <div style={{marginBottom:8}}>
+                        <p style={{fontSize:10,fontWeight:600,color:"#6B7280",marginBottom:6}}>Produits concernés</p>
+                        {lignesProd.map((l,i)=>{
+                          const p = st.produits.find(x=>x.id===l.produitId);
+                          return <p key={i} style={{fontSize:11,color:"#374151",marginBottom:3}}>• {p?.nom} {p?.variante} {p?.format}</p>;
+                        })}
+                      </div>
+                    )}
+                    {c.notes && <p style={{fontSize:11,color:"#6B7280",fontStyle:"italic"}}>📝 {c.notes}</p>}
+                    <div style={{display:"flex",gap:8,marginTop:8}}>
+                      {c.signClient && <span style={{fontSize:10,color:"#166534",background:"#DCFCE7",borderRadius:20,padding:"3px 10px",fontWeight:600}}>✅ Signé client</span>}
+                      {c.signFournisseur && <span style={{fontSize:10,color:"#166534",background:"#DCFCE7",borderRadius:20,padding:"3px 10px",fontWeight:600}}>✅ Signé fournisseur</span>}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      );
+    })()}
+
+    {/* Factures liées */}
+    {(()=>{
+      const facturesPV = (st.factures||[]).filter(f=>f.partenaireId===pv.id).slice().reverse();
+      return (
+        <div style={{marginBottom:16}}>
+          <h3 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:18,marginBottom:10}}>Factures</h3>
+          {facturesPV.length===0
+            ? <p style={{fontSize:12,color:"#9CA3AF",textAlign:"center",padding:"10px 0"}}>Aucune facture pour ce dépôt</p>
+            : facturesPV.slice(0,8).map(f=>{
+                const total = calcTotal(f.lignes,f.typeClient,st.produits);
+                const isPaid = f.statut==="payée";
+                const isToSend = f.envoyee===false && !isPaid;
+                return (
+                  <Card key={f.id} style={{marginBottom:8,padding:"12px 14px",background:isToSend?"#FFFBEB":isPaid?"#F0FDF4":"#fff",border:"1px solid "+(isToSend?"#FDE68A":isPaid?"#BBF7D0":"#EAE7E0")}}>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                      <div style={{flex:1,minWidth:0}}>
+                        <p style={{fontSize:13,fontWeight:700}}>{f.numero}</p>
+                        <p style={{fontSize:11,color:"#6B7280",marginTop:2}}>{fmt(f.date)} · CHF {total.toFixed(2)}</p>
+                        {isToSend && <p style={{fontSize:10,color:"#92400E",fontWeight:700,marginTop:3}}>📤 À envoyer</p>}
+                        {f.envoyee && !isPaid && <p style={{fontSize:10,color:"#1E40AF",fontWeight:600,marginTop:3}}>✉️ Envoyée — en attente de paiement</p>}
+                      </div>
+                      <Badge c={isPaid?"green":f.envoyee?"blue":"yellow"}>{isPaid?"Payée":f.envoyee?"Envoyée":"En attente"}</Badge>
+                    </div>
+                  </Card>
+                );
+              })
+          }
         </div>
       );
     })()}
@@ -1730,36 +1819,6 @@ return (
         ))
     }
 
-    {/* Factures liées */}
-    {(()=>{
-      const facturesPV = (st.factures||[]).filter(f=>f.partenaireId===pv.id).slice().reverse();
-      return (
-        <div style={{marginTop:20}}>
-          <h3 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:18,marginBottom:10}}>Factures</h3>
-          {facturesPV.length===0
-            ? <p style={{fontSize:12,color:"#9CA3AF",textAlign:"center",padding:"16px 0"}}>Aucune facture pour ce dépôt</p>
-            : facturesPV.slice(0,8).map(f=>{
-                const total = calcTotal(f.lignes,f.typeClient,st.produits);
-                const isPaid = f.statut==="payée";
-                const isToSend = f.envoyee===false && !isPaid;
-                return (
-                  <Card key={f.id} style={{marginBottom:8,padding:"12px 14px",background:isToSend?"#FFFBEB":isPaid?"#F0FDF4":"#fff",border:"1px solid "+(isToSend?"#FDE68A":isPaid?"#BBF7D0":"#EAE7E0")}}>
-                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                      <div style={{flex:1,minWidth:0}}>
-                        <p style={{fontSize:13,fontWeight:700}}>{f.numero}</p>
-                        <p style={{fontSize:11,color:"#6B7280",marginTop:2}}>{fmt(f.date)} · CHF {total.toFixed(2)}</p>
-                        {isToSend && <p style={{fontSize:10,color:"#92400E",fontWeight:700,marginTop:3}}>📤 À envoyer</p>}
-                        {f.envoyee && !isPaid && <p style={{fontSize:10,color:"#1E40AF",fontWeight:600,marginTop:3}}>✉️ Envoyée — en attente de paiement</p>}
-                      </div>
-                      <Badge c={isPaid?"green":f.envoyee?"blue":"yellow"}>{isPaid?"Payée":f.envoyee?"Envoyée":"En attente"}</Badge>
-                    </div>
-                  </Card>
-                );
-              })
-          }
-        </div>
-      );
-    })()}
   </div>
 );
 
@@ -3128,35 +3187,6 @@ const totalFinal = total+(retard?.frais||0);
 const echeance = new Date(new Date(view.date).getTime()+30*86400000).toISOString().slice(0,10);
 const rappelsEnvoyes = view.rappels||[];
 
-if(sigMode) return (
-<div className="fade">
-<button onClick={()=>setSigMode(false)} style={{display:"flex",alignItems:"center",gap:6,background:"none",border:"none",color:"#9CA3AF",fontSize:13,marginBottom:16,padding:0,cursor:"pointer"}}>← Retour</button>
-<div style={{background:"#FEF9E7",borderRadius:12,padding:"12px 14px",marginBottom:16,border:"1.5px solid #F2C94C"}}>
-  <p style={{fontWeight:700,fontSize:13}}>✍️ Signature Goûtstoso</p>
-  <p style={{fontSize:11,color:"#92400E",marginTop:4}}>{view.numero}</p>
-</div>
-<SignaturePad
-  onSave={(sig)=>{
-    const updated = {...view,signFournisseur:sig};
-    setSt(p=>({...p,factures:p.factures.map(f=>f.id===view.id?updated:f)}));
-    setView(updated);
-    setSigMode(false);
-  }}
-  onCancel={()=>setSigMode(false)}
-/>
-{view.signFournisseur&&(
-  <div style={{marginTop:12,padding:"10px 12px",background:"#F5F5F0",borderRadius:10}}>
-    <p style={{fontSize:11,color:"#6B7280",marginBottom:6}}>Signature actuelle :</p>
-    <img src={view.signFournisseur} alt="sig" style={{height:36,maxWidth:160,objectFit:"contain"}}/>
-    <button onClick={()=>{
-      const updated={...view,signFournisseur:null};
-      setSt(p=>({...p,factures:p.factures.map(f=>f.id===view.id?updated:f)}));
-      setView(updated);setSigMode(false);
-    }} style={{display:"block",marginTop:8,background:"#FEE2E2",border:"none",borderRadius:8,padding:"6px 12px",fontSize:11,color:"#991B1B",cursor:"pointer"}}>Effacer la signature</button>
-  </div>
-)}
-</div>
-);
 
 return (
   <div className="fade">
@@ -3211,15 +3241,12 @@ return (
     )}
 
     {/* Actions */}
-    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:10}}>
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:10}}>
       <button onClick={()=>genererPDF(view)} style={{background:"#111",color:"#F2C94C",border:"none",borderRadius:12,padding:"13px",fontWeight:700,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
         ⬇️ PDF
       </button>
       <button onClick={()=>envoyerEmail(view,null)} style={{background:"#FEF9E7",color:"#92400E",border:"1.5px solid #F2C94C",borderRadius:12,padding:"13px",fontWeight:600,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
         ✉️ Email
-      </button>
-      <button onClick={()=>setSigMode(true)} style={{background:view.signFournisseur?"#DCFCE7":"#F5F5F0",color:view.signFournisseur?"#166534":"#374151",border:"none",borderRadius:12,padding:"13px",fontWeight:600,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
-        {view.signFournisseur?"✅ Signé":"✍️ Signer"}
       </button>
     </div>
     {view.statut!=="payée"&&(
