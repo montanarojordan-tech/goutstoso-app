@@ -3825,6 +3825,9 @@ const emptyT = {date:today(),type:"recette",compte:"3001",libelle:"",categorie:"
 const [form,setForm] = useState(emptyT);
 const [soldeModal,setSoldeModal] = useState(false);
 const [nouveauSolde,setNouveauSolde] = useState(st.soldeBancaire||0);
+const emptyR = () => ({id:null as any,nom:"",montant:"" as any,frequence:"mensuelle",compte:"6100",categorie:"Loyer",prochainPaiement:today(),actif:true});
+const [rModal,setRModal] = useState(false);
+const [rForm,setRForm] = useState<any>(emptyR());
 
 // Saisie automatique depuis factures payées
 React.useEffect(()=>{
@@ -4040,6 +4043,7 @@ return (
       {id:"journal",l:"Journal"},
       {id:"resultat",l:"Résultat"},
       {id:"bilan",l:"Bilan"},
+      {id:"recurrentes",l:"Récurr."},
     ].map(o=>(
       <button key={o.id} onClick={()=>setOnglet(o.id)} style={{background:onglet===o.id?"#0A0A0A":"transparent",color:onglet===o.id?"#FAFAF7":"#525252",border:onglet===o.id?"none":"1px solid #EAE7E0",borderRadius:8,padding:"6px 9px",fontSize:10.5,fontWeight:onglet===o.id?600:500,cursor:"pointer",whiteSpace:"nowrap",flexShrink:0,letterSpacing:"-0.01em"}}>
         {o.l}
@@ -4236,8 +4240,8 @@ return (
 
       {(() => {
         const now = new Date();
-        // Entrées prévues : factures clients en attente
-        const entreesPrevues = (st.factures||[]).filter(f=>f.statut==="en attente").map(f=>{
+        // Entrées prévues : factures partenaires en attente ou envoyées
+        const facEntrees = (st.factures||[]).filter(f=>f.statut==="en attente"||f.statut==="envoyée").map(f=>{
           const montant = sum((f.lignes||[]).map(l=>{
             const p = st.produits.find(pr=>pr.id===l.produitId);
             return ((f.typeClient==="revendeur"?p?.prixRevendeur:p?.prixClient)||0)*(l.qte||0);
@@ -4252,13 +4256,50 @@ return (
           };
         });
 
-        // Sorties prévues : factures fournisseurs à payer
-        const sortiesPrevues = (st.facturesFournisseurs||[]).filter(f=>f.statut==="à payer").map(f=>({
-          type: "sortie",
-          source: f.fournisseur+(f.numero?" #"+f.numero:""),
-          montant: parseFloat(f.montant)||0,
-          date: new Date(f.dateEcheance || f.date),
-        }));
+        // Entrées prévues : commandes directes non encore encaissées
+        const cmdEntrees = (st.commandes||[]).filter(c=>!c.envoyeeCompta && c.statut!=="payée").map(c=>{
+          const produitsTotal = sum((c.lignes||[]).filter(l=>l.produitId).map(l=>{
+            const p2 = st.produits.find(x=>x.id===l.produitId);
+            return (p2?.prixClient||0)*(l.qte||0);
+          }));
+          const net = produitsTotal - (parseFloat(c.rabais)||0) + (parseFloat(c.fraisPort)||0) - (parseFloat(c.commissionShopify)||0);
+          return {
+            type: "entree",
+            source: "Commande "+c.numero+" ("+c.source+")",
+            montant: Math.max(0, net),
+            date: new Date(c.date),
+          };
+        });
+
+        // Entrées prévues : dépenses récurrentes comme sorties (si elles tombent dans la période)
+        const recurrSorties = (st.depensesRecurrentes||[]).filter(r=>r.actif!==false).flatMap(r=>{
+          const items:any[] = [];
+          const d = new Date(r.prochainPaiement||today());
+          const d90 = new Date(now); d90.setDate(d90.getDate()+90);
+          let cur = new Date(d);
+          let iter = 0;
+          while(cur <= d90 && iter < 12) {
+            items.push({type:"sortie",source:"🔄 "+r.nom,montant:parseFloat(r.montant)||0,date:new Date(cur)});
+            if(r.frequence==="mensuelle") cur.setMonth(cur.getMonth()+1);
+            else if(r.frequence==="trimestrielle") cur.setMonth(cur.getMonth()+3);
+            else cur.setFullYear(cur.getFullYear()+1);
+            iter++;
+          }
+          return items;
+        });
+
+        const entreesPrevues = [...facEntrees, ...cmdEntrees];
+
+        // Sorties prévues : factures fournisseurs à payer + dépenses récurrentes
+        const sortiesPrevues = [
+          ...(st.facturesFournisseurs||[]).filter(f=>f.statut==="à payer").map(f=>({
+            type: "sortie" as const,
+            source: f.fournisseur+(f.numero?" #"+f.numero:""),
+            montant: parseFloat(f.montant)||0,
+            date: new Date(f.dateEcheance || f.date),
+          })),
+          ...recurrSorties,
+        ];
 
         const tousFlux = [...entreesPrevues, ...sortiesPrevues].sort((a,b)=>a.date-b.date);
         
@@ -4353,8 +4394,8 @@ return (
   {onglet==="rentabilite"&&(
     <div>
       <Card style={{marginBottom:12}}>
-        <h3 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:19,marginBottom:6,letterSpacing:"-0.015em"}}>Marges par produit</h3>
-        <p style={{fontSize:11,color:"#737373",marginBottom:14}}>Basé sur les coûts de revient saisis dans chaque produit</p>
+        <h3 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:19,marginBottom:6,letterSpacing:"-0.015em"}}>Marges & volumes vendus</h3>
+        <p style={{fontSize:11,color:"#737373",marginBottom:14}}>Marges théoriques + unités vendues sur la période sélectionnée</p>
         {st.produits.filter(p=>p.actif&&!p.nom.includes("Coffret")).map(p=>{
           const cout = p.coutRevient||0;
           const margeP = p.prixClient-cout;
@@ -4362,26 +4403,73 @@ return (
           const margePro = p.prixRevendeur-cout;
           const margeProPct = p.prixRevendeur?((margePro/p.prixRevendeur)*100).toFixed(0):0;
           const c = COULEURS[p.variante]||{accent:"#737373"};
+
+          // Volumes réels vendus depuis les commandes (période filtrée)
+          const unitesCmds = (st.commandes||[]).filter(cmd=>{
+            if(!cmd.envoyeeCompta) return false;
+            if(periode==="tout") return true;
+            if(periode.length===4) return (cmd.date||"").startsWith(periode);
+            if(periode.length===7) return (cmd.date||"").startsWith(periode);
+            return true;
+          }).reduce((acc,cmd)=>{
+            const l = (cmd.lignes||[]).find(l=>l.produitId===p.id);
+            return acc + (l?parseInt(l.qte)||0:0);
+          },0);
+
+          // Volumes depuis factures partenaires payées
+          const unitesFact = (st.factures||[]).filter(f=>{
+            if(f.statut!=="payée") return false;
+            if(periode==="tout") return true;
+            if(periode.length===4) return (f.datePaiement||f.date||"").startsWith(periode);
+            if(periode.length===7) return (f.datePaiement||f.date||"").startsWith(periode);
+            return true;
+          }).reduce((acc,f)=>{
+            const l = (f.lignes||[]).find(l=>l.produitId===p.id);
+            return acc + (l?parseInt(l.qte)||0:0);
+          },0);
+
+          const totalUnites = unitesCmds + unitesFact;
+          const caGenere = unitesCmds*(p.prixClient||0) + unitesFact*(p.prixRevendeur||0);
+          const margeGeneree = unitesCmds*margeP + unitesFact*margePro;
+
           return (
-            <div key={p.id} style={{padding:"10px 0",borderBottom:"1px solid #EAE7E0"}}>
+            <div key={p.id} style={{padding:"12px 0",borderBottom:"1px solid #EAE7E0"}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:6}}>
                 <p style={{fontSize:13,fontWeight:600}}>{p.nom} <span style={{color:c.accent,fontWeight:400,fontSize:12}}>{p.variante}</span> {p.format}</p>
                 <p style={{fontSize:11,color:"#737373"}}>Coût: <strong>{chf(cout)}</strong></p>
               </div>
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,fontSize:11}}>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,fontSize:11,marginBottom:8}}>
                 <div style={{background:"#F4F4F2",borderRadius:6,padding:"6px 8px"}}>
                   <p style={{color:"#737373",fontSize:10,fontWeight:500}}>PUBLIC {chf(p.prixClient)}</p>
                   <p style={{fontWeight:700,color:margePPct>30?"#15803D":margePPct>15?"#9A3412":"#B91C1C",marginTop:2}}>
-                    {margePPct}% <span style={{fontSize:10,fontWeight:400}}>· {chf(margeP)}</span>
+                    {margePPct}% <span style={{fontSize:10,fontWeight:400}}>· {chf(margeP)}/u</span>
                   </p>
                 </div>
                 <div style={{background:"#F4F4F2",borderRadius:6,padding:"6px 8px"}}>
                   <p style={{color:"#737373",fontSize:10,fontWeight:500}}>PRO {chf(p.prixRevendeur)}</p>
                   <p style={{fontWeight:700,color:margeProPct>30?"#15803D":margeProPct>15?"#9A3412":"#B91C1C",marginTop:2}}>
-                    {margeProPct}% <span style={{fontSize:10,fontWeight:400}}>· {chf(margePro)}</span>
+                    {margeProPct}% <span style={{fontSize:10,fontWeight:400}}>· {chf(margePro)}/u</span>
                   </p>
                 </div>
               </div>
+              {totalUnites>0 && (
+                <div style={{background:"#EFF6FF",borderRadius:6,padding:"7px 10px",display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:4}}>
+                  <div style={{textAlign:"center"}}>
+                    <p style={{fontSize:8,color:"#1E40AF",fontWeight:600,textTransform:"uppercase"}}>Vendues</p>
+                    <p style={{fontSize:14,fontWeight:700,color:"#1E40AF",marginTop:1}}>{totalUnites}</p>
+                    <p style={{fontSize:8,color:"#6B7280"}}>unités</p>
+                  </div>
+                  <div style={{textAlign:"center"}}>
+                    <p style={{fontSize:8,color:"#1E40AF",fontWeight:600,textTransform:"uppercase"}}>CA</p>
+                    <p style={{fontSize:13,fontWeight:700,color:"#1E40AF",marginTop:1}}>{chf(caGenere)}</p>
+                  </div>
+                  <div style={{textAlign:"center"}}>
+                    <p style={{fontSize:8,color:margeGeneree>0?"#15803D":"#B91C1C",fontWeight:600,textTransform:"uppercase"}}>Marge</p>
+                    <p style={{fontSize:13,fontWeight:700,color:margeGeneree>0?"#15803D":"#B91C1C",marginTop:1}}>{chf(margeGeneree)}</p>
+                  </div>
+                </div>
+              )}
+              {totalUnites===0 && <p style={{fontSize:10,color:"#9CA3AF",textAlign:"center",padding:"2px 0"}}>Aucune vente enregistrée sur cette période</p>}
             </div>
           );
         })}
@@ -4628,6 +4716,126 @@ return (
           </span>
         </div>
       </Card>
+    </div>
+  )}
+
+  {/* DÉPENSES RÉCURRENTES */}
+  {onglet==="recurrentes"&&(
+    <div>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+        <div>
+          <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:19,fontWeight:700}}>Dépenses récurrentes</p>
+          <p style={{fontSize:11,color:"#737373",marginTop:2}}>Loyer, assurances, abonnements… apparaissent dans la trésorerie prévisionnelle.</p>
+        </div>
+        <Btn icon="plus" small onClick={()=>{setRForm(emptyR());setRModal(true);}}>Ajouter</Btn>
+      </div>
+
+      {(st.depensesRecurrentes||[]).length===0 ? (
+        <div style={{textAlign:"center",padding:"40px 20px",color:"#737373"}}>
+          <p style={{fontSize:36,marginBottom:8}}>🔄</p>
+          <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:18,color:"#374151",fontWeight:600}}>Aucune dépense récurrente</p>
+          <p style={{fontSize:12,marginTop:6}}>Ajoute tes charges fixes pour les voir dans la trésorerie prévisionnelle.</p>
+        </div>
+      ) : (
+        <div style={{display:"flex",flexDirection:"column",gap:8}}>
+          {(st.depensesRecurrentes||[]).map((r:any)=>{
+            const prochaineDate = new Date(r.prochainPaiement);
+            const jours = Math.floor((prochaineDate.getTime() - Date.now())/86400000);
+            const enRetard = jours < 0;
+            const urgent = jours <= 7 && jours >= 0;
+            return (
+              <Card key={r.id} style={{padding:"12px 14px",opacity:r.actif===false?.5:1,borderLeft:enRetard?"3px solid #B91C1C":urgent?"3px solid #E8B64C":"3px solid #D1D5DB"}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8}}>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:3}}>
+                      <p style={{fontSize:13,fontWeight:700}}>{r.nom}</p>
+                      <span style={{fontSize:9,background:"#F4F4F2",borderRadius:4,padding:"1px 6px",fontFamily:"monospace",color:"#525252"}}>{r.compte}</span>
+                    </div>
+                    <p style={{fontSize:11,color:"#737373"}}>{r.frequence} · {r.categorie}</p>
+                    <p style={{fontSize:10,color:enRetard?"#B91C1C":urgent?"#9A3412":"#525252",marginTop:3,fontWeight:enRetard||urgent?600:400}}>
+                      {enRetard
+                        ? `⚠️ Dû depuis ${Math.abs(jours)}j — ${fmt(r.prochainPaiement)}`
+                        : jours===0 ? "🔴 Dû aujourd'hui"
+                        : urgent ? `🟡 Dans ${jours}j — ${fmt(r.prochainPaiement)}`
+                        : `Prochain : ${fmt(r.prochainPaiement)}`
+                      }
+                    </p>
+                  </div>
+                  <div style={{textAlign:"right",flexShrink:0}}>
+                    <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:18,fontWeight:700,color:"#B91C1C"}}>{chf(r.montant)}</p>
+                    <div style={{display:"flex",gap:5,marginTop:6,justifyContent:"flex-end"}}>
+                      <button onClick={()=>{
+                        const conf = window.confirm(`Comptabiliser "${r.nom}" — ${chf(r.montant)} ?\nUne écriture de dépense sera créée.`);
+                        if(!conf) return;
+                        const newTrans = {id:uid(),date:today(),compte:r.compte,libelle:r.nom,type:"depense",categorie:r.categorie,montant:parseFloat(r.montant)||0,description:"Dépense récurrente : "+r.nom,postfinance:true};
+                        const next = new Date(r.prochainPaiement);
+                        if(r.frequence==="mensuelle") next.setMonth(next.getMonth()+1);
+                        else if(r.frequence==="trimestrielle") next.setMonth(next.getMonth()+3);
+                        else next.setFullYear(next.getFullYear()+1);
+                        const nextStr = next.toISOString().slice(0,10);
+                        setSt((p:any)=>({...p,
+                          transactions:[...(p.transactions||[]),newTrans],
+                          soldeBancaire:parseFloat((parseFloat(p.soldeBancaire||0)-(parseFloat(r.montant)||0)).toFixed(2)),
+                          depensesRecurrentes:(p.depensesRecurrentes||[]).map((x:any)=>x.id===r.id?{...x,prochainPaiement:nextStr}:x),
+                        }));
+                      }} style={{background:"#15803D",color:"#fff",border:"none",borderRadius:7,padding:"5px 9px",fontSize:10,fontWeight:600,cursor:"pointer"}}>✓ Payer</button>
+                      <button onClick={()=>{setRForm({...r,montant:String(r.montant)});setRModal(true);}} style={{background:"#F4F4F2",border:"none",borderRadius:7,padding:"5px 9px",fontSize:10,cursor:"pointer"}}>✏️</button>
+                      <button onClick={()=>{if(window.confirm("Supprimer cette dépense récurrente ?"))setSt((p:any)=>({...p,depensesRecurrentes:(p.depensesRecurrentes||[]).filter((x:any)=>x.id!==r.id)}));}} style={{background:"#FEE2E2",color:"#991B1B",border:"none",borderRadius:7,padding:"5px 9px",fontSize:10,cursor:"pointer"}}>🗑</button>
+                    </div>
+                  </div>
+                </div>
+              </Card>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Résumé mensuel */}
+      {(st.depensesRecurrentes||[]).filter((r:any)=>r.actif!==false).length>0 && (
+        <Card style={{marginTop:14,background:"#FEF9E7",border:"1px solid #FCD34D",padding:"12px 14px"}}>
+          <p style={{fontSize:10,fontWeight:600,color:"#9A3412",textTransform:"uppercase",marginBottom:8}}>Charge mensuelle équivalente</p>
+          {(() => {
+            const total = (st.depensesRecurrentes||[]).filter((r:any)=>r.actif!==false).reduce((acc:number,r:any)=>{
+              const m = parseFloat(r.montant)||0;
+              return acc + (r.frequence==="mensuelle"?m:r.frequence==="trimestrielle"?m/3:m/12);
+            },0);
+            return <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:24,fontWeight:700,color:"#9A3412"}}>{chf(total)}<span style={{fontSize:12,color:"#9CA3AF",fontWeight:400}}> / mois</span></p>;
+          })()}
+        </Card>
+      )}
+
+      {/* Modal */}
+      {rModal&&(
+        <Modal title={rForm.id?"Modifier dépense récurrente":"Nouvelle dépense récurrente"} onClose={()=>setRModal(false)}>
+          <div style={{display:"grid",gap:12}}>
+            <F label="Nom de la dépense" value={rForm.nom} onChange={(v:string)=>setRForm((p:any)=>({...p,nom:v}))} required placeholder="Ex: Loyer atelier, Assurance responsabilité..."/>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+              <F label="Montant (CHF)" type="number" value={rForm.montant||""} onChange={(v:string)=>setRForm((p:any)=>({...p,montant:v}))} required/>
+              <Sel label="Fréquence" value={rForm.frequence} onChange={(v:string)=>setRForm((p:any)=>({...p,frequence:v}))}
+                options={[{v:"mensuelle",l:"Mensuelle"},{v:"trimestrielle",l:"Trimestrielle"},{v:"annuelle",l:"Annuelle"}]}/>
+            </div>
+            <F label="Prochain paiement" type="date" value={rForm.prochainPaiement} onChange={(v:string)=>setRForm((p:any)=>({...p,prochainPaiement:v}))}/>
+            <Sel label="Catégorie" value={rForm.categorie} onChange={(v:string)=>setRForm((p:any)=>({...p,categorie:v}))}
+              options={CATEGORIES_DEPENSE.map(c=>({v:c,l:c}))}/>
+            <Sel label="Compte comptable" value={rForm.compte} onChange={(v:string)=>setRForm((p:any)=>({...p,compte:v}))}
+              options={Object.entries(PLAN_COMPTABLE).filter(([k])=>!k.startsWith("3")).map(([k,vl])=>({v:k,l:k+" - "+vl}))}/>
+          </div>
+          <div style={{display:"flex",gap:10,marginTop:20}}>
+            <Btn onClick={()=>{
+              if(!rForm.nom||!rForm.montant){alert("Nom et montant obligatoires");return;}
+              const cleaned = {...rForm,montant:parseFloat(String(rForm.montant).replace(",","."))||0};
+              if(cleaned.id) {
+                setSt((p:any)=>({...p,depensesRecurrentes:(p.depensesRecurrentes||[]).map((x:any)=>x.id===cleaned.id?cleaned:x)}));
+              } else {
+                cleaned.id = uid();
+                setSt((p:any)=>({...p,depensesRecurrentes:[...(p.depensesRecurrentes||[]),cleaned]}));
+              }
+              setRModal(false);
+            }} full icon="check">Enregistrer</Btn>
+            <Btn onClick={()=>setRModal(false)} variant="ghost" full>Annuler</Btn>
+          </div>
+        </Modal>
+      )}
     </div>
   )}
 
@@ -4933,7 +5141,48 @@ const toggleStatut = (c) => {
 const cycle = ["en attente","en attente retrait","expédiée","livrée","retirée","payée"];
 const idx = cycle.indexOf(c.statut);
 const newStatut = cycle[(idx+1)%cycle.length] || "en attente";
-setSt(p=>({...p,commandes:p.commandes.map(x=>x.id===c.id?{...x,statut:newStatut}:x)}));
+
+const STATUTS_SORTIS = ["expédiée","livrée","retirée","payée"];
+const vaEtreEnvoye = STATUTS_SORTIS.includes(newStatut);
+const etaitEnvoye = c.stockDeduit === true;
+
+setSt(p=>{
+  let newStocks = p.stocks ? [...p.stocks] : [];
+  let stockDeduit = c.stockDeduit || false;
+
+  if(!etaitEnvoye && vaEtreEnvoye) {
+    // Décrémentation : distribuer sur les entrées de stock disponibles
+    (c.lignes||[]).filter(l=>l.produitId&&(l.qte||0)>0).forEach(l=>{
+      let restant = parseInt(l.qte)||0;
+      newStocks = newStocks.map(s=>{
+        if(s.produitId!==l.produitId || restant<=0) return s;
+        const dedd = Math.min(s.qte||0, restant);
+        restant -= dedd;
+        return {...s, qte: (s.qte||0) - dedd};
+      });
+    });
+    stockDeduit = true;
+    // Notification discrète en console (pas d'alert pour UX fluide)
+  } else if(etaitEnvoye && !vaEtreEnvoye) {
+    // Restauration stock si on revient en arrière
+    (c.lignes||[]).filter(l=>l.produitId&&(l.qte||0)>0).forEach(l=>{
+      let aRestorer = parseInt(l.qte)||0;
+      let done = false;
+      newStocks = newStocks.map(s=>{
+        if(s.produitId!==l.produitId || done) return s;
+        done = true;
+        return {...s, qte: (s.qte||0) + aRestorer};
+      });
+    });
+    stockDeduit = false;
+  }
+
+  return {
+    ...p,
+    stocks: newStocks,
+    commandes: p.commandes.map(x=>x.id===c.id?{...x,statut:newStatut,stockDeduit}:x),
+  };
+});
 };
 
 const addLigne = () => setForm(p=>({...p,lignes:[...p.lignes,{produitId:"",qte:1}]}));
@@ -4985,6 +5234,18 @@ return (
       <button onClick={()=>{setForm({...view});setModal("form");setViewId(null);}} style={{background:"#F5F5F0",border:"none",borderRadius:10,padding:"10px",fontWeight:600,fontSize:12,cursor:"pointer"}}>✏️ Modifier</button>
       <button onClick={()=>supprimer(view.id)} style={{background:"#FEE2E2",color:"#991B1B",border:"none",borderRadius:10,padding:"10px",fontWeight:600,fontSize:12,cursor:"pointer"}}>🗑 Supprimer</button>
     </div>
+    {/* Indicateur stock déduit */}
+    {view.stockDeduit
+      ? <div style={{background:"#F0FDF4",border:"1px solid #BBF7D0",borderRadius:8,padding:"7px 12px",marginBottom:8,display:"flex",alignItems:"center",gap:6,fontSize:11,color:"#15803D",fontWeight:600}}>
+          📦 Stock déduit automatiquement à l'expédition
+        </div>
+      : (view.statut==="en attente"||view.statut==="en attente retrait") && (
+          <div style={{background:"#F8F8F6",border:"1px solid #E5E5E0",borderRadius:8,padding:"7px 12px",marginBottom:8,display:"flex",alignItems:"center",gap:6,fontSize:11,color:"#737373"}}>
+            📦 Le stock sera déduit automatiquement au passage en "expédiée"
+          </div>
+        )
+    }
+
     {view.email && (view.statut==="livrée"||view.statut==="retirée"||view.statut==="expédiée") && (
       <button onClick={()=>envoyerEmailSatisfaction(view)} style={{width:"100%",background:view.emailSatisfactionEnvoye?"#F5F5F0":"linear-gradient(135deg,#E8B64C,#D4A017)",color:view.emailSatisfactionEnvoye?"#525252":"#fff",border:"none",borderRadius:10,padding:"12px",fontWeight:600,fontSize:12,cursor:"pointer",marginBottom:12}}>
         {view.emailSatisfactionEnvoye ? `✓ Email satisfaction envoyé le ${fmt(view.emailSatisfactionEnvoye)}` : "✨ Envoyer email de satisfaction"}
