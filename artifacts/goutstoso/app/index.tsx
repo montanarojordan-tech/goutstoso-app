@@ -2004,9 +2004,20 @@ return (
       </button>
     )}
     
-    <button onClick={()=>supprimer(view.id)} style={{width:"100%",background:"#FEE2E2",color:"#991B1B",border:"none",borderRadius:10,padding:"10px",fontWeight:600,fontSize:12,cursor:"pointer",marginBottom:14,display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
-      <Ic n="trash" s={14}/> Supprimer ce contrat
-    </button>
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:14}}>
+      {view.statut!=="résilié"&&(
+        <button onClick={()=>{
+          if(!window.confirm("Résilier ce contrat ? Il sera archivé mais pas supprimé.")) return;
+          setSt(p=>({...p,contrats:(p.contrats||[]).map(x=>x.id===view.id?{...x,statut:"résilié",dateResiliation:today()}:x)}));
+          setViewId(null);
+        }} style={{background:"#FFF7ED",color:"#C2410C",border:"1.5px solid #FED7AA",borderRadius:10,padding:"10px",fontWeight:600,fontSize:12,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+          🚫 Résilier
+        </button>
+      )}
+      <button onClick={()=>supprimer(view.id)} style={{background:"#FEE2E2",color:"#991B1B",border:"none",borderRadius:10,padding:"10px",fontWeight:600,fontSize:12,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6,gridColumn:view.statut==="résilié"?"1/-1":"auto"}}>
+        <Ic n="trash" s={14}/> Supprimer
+      </button>
+    </div>
 
     {/* Infos */}
     <Card style={{marginBottom:12,padding:"12px 14px"}}>
@@ -2102,8 +2113,58 @@ return (
 
 }
 
-// Vue liste
+// Vue liste — refonte complète
+const today_d = new Date();
 const contratsListe = (st.contrats||[]).filter(c=>!c.livraison);
+const [filtreC, setFiltreC] = useState("tous");
+
+const getStatutContrat = (c) => {
+  if(c.statut==="résilié") return "résilié";
+  if(c.statut==="brouillon") return "brouillon";
+  if(c.dateFin) {
+    const fin = new Date(c.dateFin);
+    if(fin < today_d) return "expiré";
+    const diff = Math.round((fin - today_d)/(1000*60*60*24));
+    if(diff<=30) return "expire_bientot";
+  }
+  if(c.statut==="signé"||c.statut==="actif") return "actif";
+  return c.statut||"brouillon";
+};
+
+const filtresC = [
+  {id:"tous", l:"Tous"},
+  {id:"actif", l:"Actifs"},
+  {id:"brouillon", l:"Brouillons"},
+  {id:"expiré", l:"Expirés"},
+  {id:"résilié", l:"Résiliés"},
+];
+
+const contratsFiltres = contratsListe.filter(c=>{
+  if(filtreC==="tous") return true;
+  const s = getStatutContrat(c);
+  if(filtreC==="actif") return s==="actif"||s==="expire_bientot";
+  return s===filtreC;
+}).slice().reverse();
+
+const renouveler = (c) => {
+  if(!window.confirm("Renouveler ce contrat ? Un nouveau contrat sera créé avec les mêmes termes.")) return;
+  const prefix = c.type==="depot-vente"?"DPV":c.type==="partenariat"?"PAR":c.type==="offre"?"OFF":"CTR";
+  const existing = (st.contrats||[]).filter(x=>x.type===c.type&&!x.livraison).map(x=>x.numero);
+  let n=1; while(existing.includes(`${prefix}-${new Date().getFullYear()}-${String(n).padStart(3,"0")}`)) n++;
+  const numero = `${prefix}-${new Date().getFullYear()}-${String(n).padStart(3,"0")}`;
+  const duree = c.dateDebut&&c.dateFin ? Math.round((new Date(c.dateFin)-new Date(c.dateDebut))/(1000*60*60*24)) : 60;
+  const newDebut = today();
+  const newFin = c.dateFin ? new Date(new Date().getTime()+duree*86400000).toISOString().slice(0,10) : "";
+  const newC = {...c, id:uid(), numero, dateDebut:newDebut, dateFin:newFin, statut:"brouillon", signFournisseur:null, signClient:null, dateSignature:null};
+  setSt(p=>({...p, contrats:[...(p.contrats||[]),newC]}));
+  alert("Contrat "+numero+" créé ! Ouvre-le pour le signer.");
+};
+
+const resilier = (c) => {
+  if(!window.confirm("Résilier ce contrat ? Il sera archivé mais pas supprimé.")) return;
+  setSt(p=>({...p, contrats:(p.contrats||[]).map(x=>x.id===c.id?{...x,statut:"résilié",dateResiliation:today()}:x)}));
+  setViewId(null);
+};
 
 return (
 <div className="fade">
@@ -2111,98 +2172,165 @@ return (
 Contrats
 </SectionTitle>
 
-  {contratsListe.length===0 ? (
+  {/* Alertes expiration */}
+  {(()=>{
+    const urgents = contratsListe.filter(c=>getStatutContrat(c)==="expire_bientot");
+    if(!urgents.length) return null;
+    return (
+      <div style={{background:"#FEF3C7",border:"1px solid #FCD34D",borderRadius:12,padding:"10px 14px",marginBottom:14}}>
+        <p style={{fontWeight:700,color:"#92400E",fontSize:13}}>⏰ {urgents.length} contrat{urgents.length>1?"s":""} expire{urgents.length>1?"nt":""} bientôt</p>
+        {urgents.map(c=>{
+          const pv=st.partenaires.find(p=>p.id===c.partenaireId);
+          const jours=Math.round((new Date(c.dateFin)-today_d)/(1000*60*60*24));
+          return <p key={c.id} style={{fontSize:11,color:"#92400E",marginTop:2}}>· {c.numero} — {pv?.nom} — dans {jours} jour{jours>1?"s":""}</p>;
+        })}
+      </div>
+    );
+  })()}
+
+  {/* Filtres */}
+  <div style={{display:"flex",gap:6,marginBottom:14,overflowX:"auto",paddingBottom:2}}>
+    {filtresC.map(f=>(
+      <button key={f.id} onClick={()=>setFiltreC(f.id)} style={{
+        background:filtreC===f.id?"#111":"#F5F5F0",
+        color:filtreC===f.id?"#F2C94C":"#6B7280",
+        border:"none",borderRadius:20,padding:"6px 14px",
+        fontSize:12,fontWeight:filtreC===f.id?700:400,
+        cursor:"pointer",whiteSpace:"nowrap",flexShrink:0,
+      }}>{f.l}</button>
+    ))}
+  </div>
+
+  {contratsFiltres.length===0 ? (
     <div style={{textAlign:"center",padding:"40px 20px",color:"#9CA3AF"}}>
       <p style={{fontSize:40,marginBottom:12}}>📄</p>
       <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:20,fontWeight:600,color:"#374151"}}>Aucun contrat</p>
-      <p style={{fontSize:13,marginTop:6}}>Crée ton premier contrat</p>
-      <button onClick={()=>{setForm(emptyC());setModal("form");}} style={{marginTop:16,background:"#F2C94C",border:"none",borderRadius:12,padding:"12px 24px",fontWeight:700,fontSize:14,cursor:"pointer"}}>
+      <p style={{fontSize:13,marginTop:6,marginBottom:16}}>Créez votre premier contrat de dépôt-vente ou de partenariat.</p>
+      <button onClick={()=>{setForm(emptyC());setModal("form");}} style={{background:"#F2C94C",border:"none",borderRadius:12,padding:"12px 24px",fontWeight:700,fontSize:14,cursor:"pointer"}}>
         + Nouveau contrat
       </button>
     </div>
-  ) : contratsListe.slice().reverse().map(c=>{
+  ) : contratsFiltres.map(c=>{
     const pv = st.partenaires.find(p=>p.id===c.partenaireId);
-    const typeL = c.type==="depot-vente"?"Dépôt-vente":c.type==="partenariat"?"Partenariat":"Contrat";
+    const statut = getStatutContrat(c);
+    const typeIcon = c.type==="depot-vente"?"📋":c.type==="partenariat"?"🤝":c.type==="offre"?"💼":"📄";
+    const typeL = c.type==="depot-vente"?"Dépôt-vente":c.type==="partenariat"?"Partenariat":c.type==="offre"?"Offre":"Autre";
+    const coulBord = statut==="actif"?"#22C55E":statut==="expire_bientot"?"#F59E0B":statut==="expiré"||statut==="résilié"?"#9CA3AF":"#F2C94C";
+    const jours = c.dateFin ? Math.round((new Date(c.dateFin)-today_d)/(1000*60*60*24)) : null;
     return (
-      <Card key={c.id} style={{marginBottom:10,padding:"12px 14px"}}>
-        <div onClick={()=>setViewId(c.id)} style={{cursor:"pointer",marginBottom:8}}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+      <Card key={c.id} style={{marginBottom:10,borderLeft:"3px solid "+coulBord}}>
+        <div onClick={()=>setViewId(c.id)} style={{cursor:"pointer",marginBottom:10}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:6}}>
             <div style={{flex:1,minWidth:0}}>
-              <p style={{fontWeight:700,fontSize:13}}>{c.numero}</p>
-              <p style={{fontSize:12,color:"#6B7280",marginTop:2}}>{pv?.nom||"-"}</p>
-              <p style={{fontSize:11,color:"#9CA3AF",marginTop:1}}>{typeL} · {fmt(c.dateDebut)}</p>
+              <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:3}}>
+                <span style={{fontSize:13}}>{typeIcon}</span>
+                <p style={{fontWeight:700,fontSize:13}}>{c.numero}</p>
+              </div>
+              <p style={{fontSize:13,color:"#374151",fontWeight:500}}>{pv?.nom||"—"}</p>
+              <p style={{fontSize:11,color:"#9CA3AF",marginTop:2}}>{typeL} · Début {fmt(c.dateDebut)}</p>
+              {c.dateFin&&<p style={{fontSize:11,marginTop:2,color:statut==="expire_bientot"?"#92400E":statut==="expiré"?"#6B7280":"#6B7280"}}>
+                Fin {fmt(c.dateFin)}{statut==="expire_bientot"?" · ⚠️ "+jours+"j restants":statut==="expiré"?" · Expiré":""}
+              </p>}
             </div>
-            <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:6}}>
-              <Badge c={badgeC(c.statut)}>{c.statut}</Badge>
-              <div style={{display:"flex",gap:4}}>
-                <div style={{width:10,height:10,borderRadius:"50%",background:c.signFournisseur?"#166534":"#D1D5DB"}} title="Goûtstoso"/>
-                <div style={{width:10,height:10,borderRadius:"50%",background:c.signClient?"#166534":"#D1D5DB"}} title="Client"/>
+            <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:6,marginLeft:8}}>
+              <Badge c={statut==="actif"||statut==="expire_bientot"?"green":statut==="brouillon"?"yellow":statut==="résilié"?"gray":"gray"}>
+                {statut==="expire_bientot"?"Expire bientôt":statut==="actif"?"Actif":statut==="brouillon"?"Brouillon":statut==="résilié"?"Résilié":"Expiré"}
+              </Badge>
+              <div style={{display:"flex",gap:4,alignItems:"center"}}>
+                <span style={{fontSize:9,color:"#9CA3AF"}}>Sig:</span>
+                <div style={{width:9,height:9,borderRadius:"50%",background:c.signFournisseur?"#22C55E":"#E5E7EB"}} title="Goûtstoso"/>
+                <div style={{width:9,height:9,borderRadius:"50%",background:c.signClient?"#22C55E":"#E5E7EB"}} title="Client"/>
               </div>
             </div>
           </div>
         </div>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 40px",gap:6}}>
-          <button onClick={()=>setViewId(c.id)} style={{background:"#F5F5F0",border:"none",borderRadius:8,padding:"8px",fontSize:12,fontWeight:600,cursor:"pointer"}}>👁 Ouvrir</button>
-          <button onClick={()=>envoyerContrat(c)} style={{background:"#FEF9E7",color:"#92400E",border:"none",borderRadius:8,padding:"8px",fontSize:12,fontWeight:600,cursor:"pointer"}}>✉️ Email</button>
-          <button onClick={()=>supprimer(c.id)} style={{background:"#FEE2E2",border:"none",borderRadius:8,padding:"8px",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}><Ic n="trash" s={14}/></button>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 40px",gap:6}}>
+          <button onClick={()=>setViewId(c.id)} style={{background:"#111",color:"#F2C94C",border:"none",borderRadius:8,padding:"8px",fontSize:11,fontWeight:700,cursor:"pointer"}}>👁 Voir</button>
+          <button onClick={()=>envoyerContrat(c)} style={{background:"#FEF9E7",color:"#92400E",border:"none",borderRadius:8,padding:"8px",fontSize:11,fontWeight:600,cursor:"pointer"}}>✉️ Email</button>
+          <button onClick={()=>renouveler(c)} style={{background:"#EFF6FF",color:"#1D4ED8",border:"none",borderRadius:8,padding:"8px",fontSize:11,fontWeight:600,cursor:"pointer"}}>🔄 Renouveler</button>
+          <button onClick={()=>supprimer(c.id)} style={{background:"#FEE2E2",border:"none",borderRadius:8,padding:"8px",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}><Ic n="trash" s={13}/></button>
         </div>
       </Card>
     );
   })}
 
-  {/* Modal création/édition */}
+  {/* Modal création/édition — formulaire repensé */}
   {modal==="form"&&form&&(
     <Modal title={form.id?"Modifier contrat":"Nouveau contrat"} onClose={()=>{setModal(null);setForm(null);}}>
       <div style={{display:"grid",gap:14}}>
-        <Sel label="Type" value={form.type} onChange={v=>setForm(p=>({...p,type:v}))}
-          options={[{v:"depot-vente",l:"📋 Dépôt-vente"},{v:"partenariat",l:"🤝 Partenariat"},{v:"offre",l:"💼 Offre commerciale"},{v:"autre",l:"📄 Autre"}]}/>
+
+        {/* Type avec icônes */}
+        <div>
+          <label style={{fontSize:11,fontWeight:600,color:"#9CA3AF",textTransform:"uppercase",display:"block",marginBottom:8}}>Type de contrat</label>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+            {[
+              {v:"depot-vente",l:"Dépôt-vente",icon:"📋",desc:"Produits en consignation"},
+              {v:"partenariat",l:"Partenariat",icon:"🤝",desc:"Revendeur régulier"},
+              {v:"offre",l:"Offre commerciale",icon:"💼",desc:"Proposition tarifaire"},
+              {v:"autre",l:"Autre",icon:"📄",desc:"Contrat libre"},
+            ].map(t=>(
+              <button key={t.v} onClick={()=>setForm(p=>({...p,type:t.v}))} style={{
+                background:form.type===t.v?"#111":"#F9F9F6",
+                color:form.type===t.v?"#F2C94C":"#374151",
+                border:form.type===t.v?"2px solid #F2C94C":"1.5px solid #E5E5E0",
+                borderRadius:10,padding:"10px 8px",cursor:"pointer",textAlign:"left",
+              }}>
+                <p style={{fontSize:18,marginBottom:2}}>{t.icon}</p>
+                <p style={{fontSize:12,fontWeight:700}}>{t.l}</p>
+                <p style={{fontSize:10,opacity:.7,marginTop:1}}>{t.desc}</p>
+              </button>
+            ))}
+          </div>
+        </div>
+
         {form.type==="offre" && (
-          <>
-            <Sel label="Mode d'acceptation" value={form.modeAcceptation||"signature"} onChange={v=>setForm(p=>({...p,modeAcceptation:v}))}
-              options={[
-                {v:"signature",l:"✍️ Signature du client"},
-                {v:"commande",l:"📧 Commande par retour d'email"},
-              ]}/>
-            <F label="Validité de l'offre (jours)" type="number" value={form.validiteOffre||"30"} onChange={v=>setForm(p=>({...p,validiteOffre:v}))}/>
-          </>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+            <Sel label="Acceptation" value={form.modeAcceptation||"signature"} onChange={v=>setForm(p=>({...p,modeAcceptation:v}))}
+              options={[{v:"signature",l:"✍️ Signature"},{v:"commande",l:"📧 Commande email"}]}/>
+            <F label="Validité (jours)" type="number" value={form.validiteOffre||"30"} onChange={v=>setForm(p=>({...p,validiteOffre:v}))}/>
+          </div>
         )}
-        <Sel label="Partenaire" value={form.partenaireId} onChange={v=>setForm(p=>({...p,partenaireId:v}))} required
-          options={[{v:"",l:"- Sélectionner -"},...st.partenaires.map(p=>({v:p.id,l:p.nom}))]}/>
+
+        <Sel label="Partenaire *" value={form.partenaireId} onChange={v=>setForm(p=>({...p,partenaireId:v}))} required
+          options={[{v:"",l:"— Sélectionner un partenaire —"},...st.partenaires.map(p=>({v:p.id,l:p.nom}))]}/>
+
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
           <F label="Date début" type="date" value={form.dateDebut} onChange={v=>setForm(p=>({...p,dateDebut:v}))}/>
-          <F label="Date fin" type="date" value={form.dateFin||""} onChange={v=>setForm(p=>({...p,dateFin:v}))}/>
+          <F label="Date fin (optionnel)" type="date" value={form.dateFin||""} onChange={v=>setForm(p=>({...p,dateFin:v}))}/>
         </div>
+
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-          <F label="Commission (%)" type="number" value={form.commission||""} onChange={v=>setForm(p=>({...p,commission:v}))}/>
+          <F label="Commission (%)" type="number" value={form.commission||""} onChange={v=>setForm(p=>({...p,commission:v}))} placeholder="0"/>
           <F label="Lieu signature" value={form.lieuSignature||"Villeret"} onChange={v=>setForm(p=>({...p,lieuSignature:v}))}/>
         </div>
 
         <div>
-          <label style={{fontSize:11,fontWeight:600,color:"#9CA3AF",textTransform:"uppercase",display:"block",marginBottom:8}}>Produits (optionnel)</label>
+          <label style={{fontSize:11,fontWeight:600,color:"#9CA3AF",textTransform:"uppercase",display:"block",marginBottom:8}}>Produits concernés (optionnel)</label>
           {(form.lignes||[]).map((l,i)=>(
             <div key={i} style={{display:"grid",gridTemplateColumns:"1fr 55px 55px 36px",gap:6,marginBottom:8,alignItems:"flex-end"}}>
               <Sel label="" value={l.produitId} onChange={v=>{
                 const p=st.produits.find(x=>x.id===v);
                 updLigne(i,"produitId",v);
                 if(p) updLigne(i,"prixUnitaire",p.prixRevendeur);
-              }} options={[{v:"",l:"- Produit -"},...st.produits.filter(p=>p.actif).map(p=>({v:p.id,l:`${p.nom} ${p.variante} ${p.format}`}))]}/>
+              }} options={[{v:"",l:"— Produit —"},...st.produits.filter(p=>p.actif).map(p=>({v:p.id,l:`${p.nom} ${p.variante} ${p.format}`}))]}/>
               <input type="number" value={l.qte||0} placeholder="Qté" onChange={e=>updLigne(i,"qte",+e.target.value)}
-                style={{padding:"11px 4px",fontSize:13,border:"1.5px solid #E5E5E0",borderRadius:10,textAlign:"center",width:55}}/>
+                style={{padding:"11px 4px",fontSize:13,border:"1.5px solid #E5E5E0",borderRadius:10,textAlign:"center"}}/>
               <input type="number" value={l.prixUnitaire||0} placeholder="CHF" onChange={e=>updLigne(i,"prixUnitaire",+e.target.value)}
-                style={{padding:"11px 4px",fontSize:12,border:"1.5px solid #E5E5E0",borderRadius:10,textAlign:"center",width:55}}/>
+                style={{padding:"11px 4px",fontSize:12,border:"1.5px solid #E5E5E0",borderRadius:10,textAlign:"center"}}/>
               <button onClick={()=>delLigne(i)} style={{background:"#FEE2E2",border:"none",borderRadius:8,padding:"10px 6px",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>
                 <Ic n="trash" s={13}/>
               </button>
             </div>
           ))}
-          <button onClick={addLigne} style={{background:"none",border:"1.5px dashed #E5E5E0",borderRadius:10,padding:"8px",width:"100%",color:"#9CA3AF",fontSize:13,cursor:"pointer"}}>
+          <button onClick={addLigne} style={{background:"none",border:"1.5px dashed #E5E5E0",borderRadius:10,padding:"9px",width:"100%",color:"#9CA3AF",fontSize:13,cursor:"pointer"}}>
             + Ajouter un produit
           </button>
         </div>
 
-        <F label="Notes / Conditions" value={form.notes||""} onChange={v=>setForm(p=>({...p,notes:v}))} placeholder="Conditions particulières..."/>
-        <Sel label="Statut" value={form.statut} onChange={v=>setForm(p=>({...p,statut:v}))}
-          options={[{v:"brouillon",l:"Brouillon"},{v:"en attente signature",l:"En attente signature"},{v:"signé",l:"Signé"},{v:"actif",l:"Actif"},{v:"terminé",l:"Terminé"}]}/>
+        <F label="Conditions particulières / Notes" value={form.notes||""} onChange={v=>setForm(p=>({...p,notes:v}))} placeholder="Ex: renouvellement automatique, clause spéciale..."/>
+
+        <Sel label="Statut initial" value={form.statut} onChange={v=>setForm(p=>({...p,statut:v}))}
+          options={[{v:"brouillon",l:"📝 Brouillon"},{v:"en attente signature",l:"✍️ En attente signature"},{v:"signé",l:"✅ Signé"},{v:"actif",l:"🟢 Actif"},{v:"terminé",l:"🔘 Terminé"}]}/>
       </div>
       <div style={{display:"flex",gap:10,marginTop:20}}>
         <Btn onClick={save} full icon="check">Enregistrer</Btn>
@@ -5140,15 +5268,17 @@ Clients
 // Templates de documents par défaut
 const DOCS_DEFAUT = {
 cgv: {
-titre:"CGV - Conditions Générales de Vente",
+titre:"Conditions Générales de Vente (CGV)",
 description:"Règles commerciales applicables à toutes les ventes et dépôts-vente",
 contenu: CGV,
-categorie:"Vente",
+categorie:"Légal",
+icone:"📜",
 },
 contrat_depot: {
-titre:"Contrat de dépôt-vente - Type",
-description:"Modèle de contrat de dépôt-vente réutilisable",
-categorie:"Contrat",
+titre:"Contrat de dépôt-vente (modèle)",
+description:"Modèle prêt à l'emploi pour vos accords de dépôt-vente",
+icone:"📋",
+categorie:"Contrats-types",
 contenu: `CONTRAT DE DÉPÔT-VENTE
 
 Entre les soussignés :
@@ -5216,7 +5346,7 @@ En deux exemplaires originaux.
 LE FOURNISSEUR                                    LE DÉPOSITAIRE
 Goûtstoso - Jordan Montanaro                       .........................
 
-Signature :                                        Signature :`, }, contrat_partenariat: { titre:"Contrat de partenariat commercial", description:"Pour distributeurs et revendeurs réguliers", categorie:"Contrat", contenu: `CONTRAT DE PARTENARIAT COMMERCIAL
+Signature :                                        Signature :`, }, contrat_partenariat: { titre:"Contrat de partenariat commercial", description:"Pour revendeurs et distributeurs réguliers", icone:"🤝", categorie:"Contrats-types", contenu: `CONTRAT DE PARTENARIAT COMMERCIAL
 
 Entre :
 
@@ -5282,7 +5412,175 @@ Fait à ................................., le ........................
 LE FOURNISSEUR                                    LE PARTENAIRE
 Goûtstoso - Jordan Montanaro                       .........................
 
-Signature :                                        Signature :`, }, bon_livraison: { titre:"Bon de livraison - Type", description:"Modèle de bon de livraison standard", categorie:"Livraison", contenu: `BON DE LIVRAISON N° ......................
+Signature :                                        Signature :`, }, lettre_resiliation: { titre:"Lettre de résiliation de contrat", description:"Courrier formel pour mettre fin à un accord de dépôt-vente ou partenariat", icone:"🚫", categorie:"Courriers", contenu: `Villeret, le [DATE]
+
+Goûtstoso
+Jordan Montanaro
+Rue des Sources 19
+2613 Villeret
+admin@goutstoso.ch
+
+[NOM PARTENAIRE / DÉPOSITAIRE]
+[Adresse]
+[NPA Ville]
+
+Objet : Résiliation du contrat N° [NUMÉRO] du [DATE DÉBUT]
+
+Madame, Monsieur,
+
+Par la présente, nous vous informons de notre décision de mettre fin au contrat de [dépôt-vente / partenariat] N° [NUMÉRO] conclu entre Goûtstoso et votre établissement en date du [DATE SIGNATURE].
+
+Conformément à l'article [X] dudit contrat, cette résiliation prend effet à l'expiration d'un préavis de 30 jours à compter de la réception de la présente lettre, soit au [DATE RÉSILIATION EFFECTIVE].
+
+Avant cette date, nous vous remercions de bien vouloir :
+- Effectuer un inventaire complet des produits Goûtstoso en votre possession
+- Nous régler les produits vendus à ce jour (cf. facture ci-jointe ou à venir)
+- Nous restituer les produits invendus en parfait état (emballage d'origine, étiquettes intactes)
+
+Nous organiserons ensemble les modalités pratiques de restitution dans les meilleurs délais.
+
+Nous tenons à vous remercier pour la collaboration que nous avons eu ensemble et vous souhaitons le meilleur pour la suite de vos activités.
+
+Nous restons à votre disposition pour toute question.
+
+Cordialement,
+
+Jordan Montanaro
+Goûtstoso
+admin@goutstoso.ch`, }, lettre_relance_partenaire: { titre:"Lettre de relance partenaire", description:"Courrier pour relancer un partenaire inactif ou sans nouvelles", icone:"💌", categorie:"Courriers", contenu: `Villeret, le [DATE]
+
+[NOM PARTENAIRE]
+[Adresse]
+
+Objet : Suivi de notre partenariat — Goutstoso
+
+Madame, Monsieur,
+
+Suite à notre accord de [dépôt-vente / partenariat] N° [NUMÉRO] et n'ayant pas eu de nouvelles de votre part depuis quelque temps, nous vous contactons afin de faire le point sur notre collaboration.
+
+État actuel de votre dépôt :
+- Produits déposés : [QUANTITÉ]
+- Dernier inventaire : [DATE]
+- Solde à régler : CHF [MONTANT] (si applicable)
+
+Nous souhaitons vous proposer :
+☐ Un inventaire des produits en dépôt
+☐ Un réapprovisionnement si le stock est bas
+☐ Un point sur les ventes et les retours
+☐ Un renouvellement / mise à jour de notre contrat
+
+Nos coordonnées :
+Jordan Montanaro — admin@goutstoso.ch — [TEL]
+
+Nous vous remercions par avance pour votre retour et restons disponibles pour convenir d'une date de rendez-vous à votre convenance.
+
+Cordialement,
+
+Jordan Montanaro
+Goûtstoso`, }, nda: { titre:"Accord de confidentialité (NDA)", description:"Pour partenaires et fournisseurs stratégiques", icone:"🔒", categorie:"Contrats-types", contenu: `ACCORD DE CONFIDENTIALITÉ
+
+Entre :
+
+Goûtstoso, Jordan Montanaro, Rue des Sources 19, 2613 Villeret (ci-après "la Partie Divulgatrice")
+
+ET
+
+[Nom / Raison sociale]
+[Adresse]
+(ci-après "la Partie Réceptrice")
+
+ARTICLE 1 - OBJET
+Le présent accord protège les informations confidentielles échangées dans le cadre de nos relations commerciales.
+
+ARTICLE 2 - INFORMATIONS CONFIDENTIELLES
+Sont confidentielles : les recettes et procédés de fabrication, la stratégie commerciale, les données clients/fournisseurs, les tarifs et conditions, et tout projet en cours.
+
+ARTICLE 3 - ENGAGEMENTS
+La Partie Réceptrice s'engage à :
+- Garder strictement confidentielles toutes les informations reçues
+- Ne les utiliser que dans le cadre défini avec Goûtstoso
+- Ne pas les divulguer à des tiers sans autorisation écrite
+
+ARTICLE 4 - DURÉE
+3 ans à compter de la signature. L'obligation de confidentialité perdure 2 ans après la fin de la relation.
+
+ARTICLE 5 - DROIT APPLICABLE
+Droit suisse. Juridiction : canton de Berne.
+
+Fait à .........................., le ..........................
+
+LA PARTIE DIVULGATRICE                    LA PARTIE RÉCEPTRICE
+Goûtstoso - Jordan Montanaro              ........................
+
+Signature :                               Signature :`, }, mentions_legales: { titre:"Mentions légales & identité", description:"Informations légales de l'entreprise Goûtstoso", icone:"🏛️", categorie:"Légal", contenu: `MENTIONS LÉGALES — GOÛTSTOSO
+
+RAISON SOCIALE
+Goûtstoso (entreprise individuelle)
+
+PROPRIÉTAIRE
+Jordan Montanaro
+
+ADRESSE
+Rue des Sources 19
+2613 Villeret
+Suisse
+
+CONTACT
+Email : admin@goutstoso.ch
+Site : www.goutstoso.ch
+
+ACTIVITÉ
+Production et commercialisation de liqueurs artisanales (Limoncello et dérivés)
+Taux d'alcool : 30% vol.
+Produits fabriqués en Suisse
+
+COMPTE BANCAIRE
+PostFinance
+IBAN : CH23 0900 0000 1565 1485 8
+Titulaire : Goûtstoso / Jordan Montanaro
+
+DROIT APPLICABLE
+Suisse (canton de Berne)
+Toute relation commerciale est soumise au droit suisse.
+En cas de litige, les tribunaux du canton de Berne sont compétents.
+
+PROTECTION DES DONNÉES
+Goûtstoso collecte uniquement les données nécessaires à la gestion commerciale (nom, adresse, email, téléphone des partenaires et clients).
+Ces données ne sont pas transmises à des tiers.
+Conformément à la LPD (Loi fédérale sur la protection des données), vous pouvez demander l'accès, la rectification ou la suppression de vos données à admin@goutstoso.ch.
+
+VENTE D'ALCOOL
+Goûtstoso s'engage à ne vendre ses produits qu'à des personnes majeures (18 ans et plus) conformément à la législation suisse sur les boissons alcoolisées.
+
+Mis à jour le : [DATE]`, }, charte_alcool: { titre:"Charte de consommation responsable", description:"Obligations légales liées à la vente de boissons alcoolisées", icone:"🍋", categorie:"Légal", contenu: `CHARTE DE CONSOMMATION RESPONSABLE — GOÛTSTOSO
+
+En tant que producteur de liqueurs artisanales à 30% vol., Goûtstoso s'engage à promouvoir une consommation responsable.
+
+1. PROTECTION DES MINEURS
+- Interdiction formelle de vente aux moins de 18 ans (Loi fédérale sur l'alcool)
+- Obligation de contrôle de l'âge en cas de doute
+- Nos partenaires s'engagent à respecter ces règles
+
+2. MODÉRATION
+Nous invitons nos clients à :
+- Consommer avec modération
+- Ne pas conduire après consommation (taux légal : 0.5‰ en Suisse)
+- Éviter la consommation en cas de grossesse
+
+3. OBLIGATIONS DE NOS PARTENAIRES REVENDEURS
+- Afficher les interdictions légales en point de vente
+- Ne pas vendre à des personnes en état d'ivresse manifeste
+- Respecter les horaires de vente du canton
+
+4. PUBLICITÉ
+Nos communications ne ciblent pas les mineurs et n'incitent pas à une consommation excessive.
+
+5. ÉTIQUETAGE
+Nos produits indiquent : taux d'alcool, contenance, ingrédients, mentions légales.
+
+En cas de problème : Addiction Suisse — www.addictionsuisse.ch
+
+Goûtstoso - Jordan Montanaro`, }, bon_livraison: { titre:"Bon de livraison (modèle)", description:"Modèle de bon de livraison / dépôt standard", icone:"📦", categorie:"Contrats-types", contenu: `BON DE LIVRAISON N° ......................
 
 Date de livraison : .............................
 
@@ -5331,7 +5629,7 @@ Livré par (Fournisseur) :                Reçu par (Destinataire) :
 
 Nom : ...........................         Nom : ...........................
 Date : ..........................         Date : ..........................
-Signature :                                Signature :`, }, bon_retour: { titre:"Bon de retour", description:"Pour la reprise des produits invendus", categorie:"Livraison", contenu: `BON DE RETOUR N° ......................
+Signature :                                Signature :`, }, bon_retour: { titre:"Bon de retour (modèle)", description:"Pour la reprise des produits invendus en fin de dépôt", icone:"↩️", categorie:"Contrats-types", contenu: `BON DE RETOUR N° ......................
 
 Date : .............................
 
@@ -5380,101 +5678,7 @@ Date : ..........................          Date : ..........................
 Signature :                                 Signature :
 
 Observations : ..........................................................
-.............................................................................`, }, nda: { titre:"Accord de confidentialité (NDA)", description:"Pour partenaires et fournisseurs stratégiques", categorie:"Confidentialité", contenu: `ACCORD DE CONFIDENTIALITÉ (NON-DISCLOSURE AGREEMENT)
-
-Entre :
-
-Goûtstoso, Jordan Montanaro, Rue des Sources 19, 2613 Villeret (ci-après "la Partie Divulgatrice")
-
-ET
-
-[Nom / Raison sociale]
-[Adresse]
-(ci-après "la Partie Réceptrice")
-
-ARTICLE 1 - OBJET
-Le présent accord a pour objet de protéger les informations confidentielles échangées entre les parties dans le cadre de leurs relations commerciales (discussions, collaboration, partenariat, fourniture, etc.).
-
-ARTICLE 2 - INFORMATIONS CONFIDENTIELLES
-Sont considérées comme confidentielles toutes les informations communiquées, quel qu'en soit le support, concernant notamment :
-
-- Les recettes, procédés de fabrication et savoir-faire
-- La stratégie commerciale, marketing et financière
-- Les données clients et fournisseurs
-- Les tarifs et conditions commerciales
-- Les projets en cours et à venir
-
-ARTICLE 3 - ENGAGEMENTS DE LA PARTIE RÉCEPTRICE
-La Partie Réceptrice s'engage à :
-a) Garder strictement confidentielles toutes les informations reçues
-b) N'utiliser ces informations que pour l'objet défini avec Goûtstoso
-c) Ne pas les divulguer à des tiers sans autorisation écrite préalable
-d) Les protéger avec le même soin qu'elle apporte à ses propres informations confidentielles
-e) Limiter l'accès aux seules personnes de son équipe ayant un besoin réel
-
-ARTICLE 4 - EXCLUSIONS
-Ne sont pas couvertes les informations :
-
-- Déjà publiques au moment de leur communication
-- Obtenues légalement d'un tiers sans obligation de confidentialité
-- Développées indépendamment sans utilisation des informations confidentielles
-
-ARTICLE 5 - DURÉE
-Le présent accord est conclu pour une durée de 3 ans à compter de sa signature. L'obligation de confidentialité perdure 2 ans après la fin de la relation commerciale.
-
-ARTICLE 6 - RESTITUTION
-À la fin de la relation commerciale ou sur simple demande, la Partie Réceptrice s'engage à restituer ou détruire tous les documents et supports contenant des informations confidentielles.
-
-ARTICLE 7 - SANCTIONS
-Toute violation du présent accord pourra donner lieu à des poursuites judiciaires et à des dommages-intérêts correspondant au préjudice subi.
-
-ARTICLE 8 - DROIT APPLICABLE
-Droit suisse applicable. Juridiction compétente : tribunaux du canton de Berne.
-
-Fait à .........................., le ..........................
-
-LA PARTIE DIVULGATRICE                           LA PARTIE RÉCEPTRICE
-Goûtstoso - Jordan Montanaro                     ........................
-
-Signature :                                       Signature :`, }, consommation_responsable: { titre:"Charte de consommation responsable", description:"Obligations légales liées à la vente d'alcool", categorie:"Légal", contenu: `CHARTE DE CONSOMMATION RESPONSABLE
-
-En tant que producteur et distributeur de boissons alcoolisées (liqueurs artisanales à 30% vol.), Goûtstoso s'engage à promouvoir une consommation responsable et à respecter la législation suisse en vigueur.
-
-1. PROTECTION DES MINEURS
-   Goûtstoso rappelle et s'engage à faire respecter par ses partenaires :
-
-- L'interdiction formelle de vente d'alcool aux personnes de moins de 18 ans (Loi fédérale sur l'alcool)
-- L'obligation de contrôler l'âge en cas de doute
-- L'interdiction d'offrir de l'alcool à titre gratuit à des mineurs
-
-1. PROMOTION DE LA MODÉRATION
-   Nous invitons nos clients et partenaires à :
-
-- Consommer nos produits avec modération
-- Ne pas conduire après consommation d'alcool
-- Respecter les taux d'alcoolémie légaux (0,5‰ en Suisse)
-- Éviter la consommation d'alcool en cas de grossesse
-
-1. OBLIGATIONS DE NOS PARTENAIRES
-   Nos dépositaires et revendeurs s'engagent à :
-
-- Afficher les interdictions légales en point de vente
-- Former leur personnel à la vérification de l'âge
-- Ne pas vendre d'alcool à des personnes manifestement en état d'ivresse
-- Respecter les horaires légaux de vente selon leur canton
-
-1. PUBLICITÉ RESPONSABLE
-   Goûtstoso s'engage à ce que ses communications :
-
-- Ne ciblent pas les mineurs
-- N'incitent pas à une consommation excessive
-- Ne présentent pas l'alcool comme ayant des vertus thérapeutiques
-- Ne soient pas diffusées dans des lieux fréquentés majoritairement par des mineurs
-
-1. ÉTIQUETAGE
-   Nos produits comportent obligatoirement :
-
-- Le taux d'alcool volumétrique (30% vol.)
+.............................................................................`, }, consommation_responsable_old: { titre:"_old", description:"", icone:"", categorie:"_old", contenu:``, }, consommation_old2: { titre:"_old2", description:"", icone:"", categorie:"_old", contenu:`
 - La contenance
 - La liste des ingrédients
 - Les mentions légales (interdiction aux mineurs)
@@ -5579,84 +5783,142 @@ navigator.clipboard?.writeText((d.titre||"")+"\n\n"+(d.contenu||""))
 .catch(()=>alert("Impossible de copier"));
 };
 
-// Vue document
-if(view) {
+// Vue document détail
+if(view && view.categorie !== "_old") {
 return (
 <div className="fade">
-<button onClick={()=>{setViewId(null);setEditing(false);}} style={{display:"flex",alignItems:"center",gap:6,background:"none",border:"none",color:"#737373",fontSize:13,marginBottom:12,padding:0,cursor:"pointer"}}>← Retour</button>
+<button onClick={()=>{setViewId(null);setEditing(false);}} style={{display:"flex",alignItems:"center",gap:6,background:"none",border:"none",color:"#9CA3AF",fontSize:13,marginBottom:14,padding:0,cursor:"pointer"}}>← Retour aux documents</button>
 
-    <div style={{background:"#0A0A0A",borderRadius:12,padding:"14px 16px",marginBottom:12}}>
-      <p style={{fontSize:10,color:"#E8B64C",fontWeight:600,textTransform:"uppercase",letterSpacing:"-0.005em"}}>{view.categorie}</p>
-      <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:20,fontWeight:600,color:"#fff",marginTop:4,letterSpacing:"-0.02em"}}>{view.titre}</p>
-      {view.modifieLe && <p style={{fontSize:10,color:"#A3A3A3",marginTop:4}}>Modifié le {fmt(view.modifieLe)}</p>}
-    </div>
-
-    {editing ? (
+  {/* Header */}
+  <div style={{background:"#0A0A0A",borderRadius:14,padding:"16px",marginBottom:12}}>
+    <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:6}}>
+      <span style={{fontSize:26}}>{view.icone||"📄"}</span>
       <div>
-        <F label="Titre" value={editTitre} onChange={setEditTitre}/>
-        <div style={{marginTop:14}}>
-          <label style={{fontSize:11,fontWeight:600,color:"#737373",textTransform:"uppercase",display:"block",marginBottom:6}}>Contenu</label>
-          <textarea value={editContent} onChange={e=>setEditContent(e.target.value)} style={{width:"100%",minHeight:400,padding:"12px",fontSize:12,fontFamily:"'Inter',monospace",border:"1px solid #EAE7E0",borderRadius:10,resize:"vertical",lineHeight:1.6}}/>
-        </div>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginTop:14}}>
-          <Btn onClick={save} full icon="check">Enregistrer</Btn>
-          <Btn onClick={()=>setEditing(false)} variant="ghost" full>Annuler</Btn>
-        </div>
-        {DOCS_DEFAUT[viewId] && (
-          <button onClick={resetDoc} style={{width:"100%",background:"#FEF2F2",color:"#B91C1C",border:"none",borderRadius:10,padding:"10px",fontWeight:500,fontSize:12,cursor:"pointer",marginTop:10}}>
-            ↻ Restaurer la version par défaut
-          </button>
-        )}
+        <p style={{fontSize:10,color:"#F2C94C",fontWeight:700,textTransform:"uppercase",letterSpacing:".06em"}}>{view.categorie}</p>
+        <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:20,fontWeight:700,color:"#fff",marginTop:2,lineHeight:1.2}}>{view.titre}</p>
       </div>
-    ) : (
-      <>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6,marginBottom:12}}>
-          <button onClick={()=>{setEditing(true);setEditContent(view.contenu||"");setEditTitre(view.titre||"");}} style={{background:"#0A0A0A",color:"#FAFAF7",border:"none",borderRadius:10,padding:"11px 4px",fontWeight:500,fontSize:12,cursor:"pointer"}}>✏️ Modifier</button>
-          <button onClick={()=>exporterPDF(viewId)} style={{background:"#FDF6E3",color:"#9A3412",border:"1px solid #FCD34D",borderRadius:10,padding:"11px 4px",fontWeight:500,fontSize:12,cursor:"pointer"}}>📄 PDF</button>
-          <button onClick={()=>copier(viewId)} style={{background:"#F4F4F2",border:"none",borderRadius:10,padding:"11px 4px",fontWeight:500,fontSize:12,cursor:"pointer"}}>📋 Copier</button>
-        </div>
-
-        <Card style={{padding:"16px"}}>
-          <p style={{fontSize:11,color:"#737373",marginBottom:12,fontStyle:"italic"}}>{view.description}</p>
-          <div style={{whiteSpace:"pre-wrap",fontSize:12,lineHeight:1.7,color:"#262626",fontFamily:"'Inter',sans-serif"}}>{view.contenu}</div>
-        </Card>
-      </>
-    )}
+    </div>
+    <p style={{fontSize:11,color:"#9CA3AF",marginTop:4}}>{view.description}</p>
+    {view.modifieLe && <p style={{fontSize:10,color:"#6B7280",marginTop:4}}>Modifié le {fmt(view.modifieLe)}</p>}
   </div>
-);
 
+  {editing ? (
+    <div>
+      <F label="Titre du document" value={editTitre} onChange={setEditTitre}/>
+      <div style={{marginTop:14}}>
+        <label style={{fontSize:11,fontWeight:600,color:"#9CA3AF",textTransform:"uppercase",display:"block",marginBottom:6}}>Contenu</label>
+        <textarea value={editContent} onChange={e=>setEditContent(e.target.value)}
+          style={{width:"100%",minHeight:420,padding:"14px",fontSize:12,fontFamily:"'Courier New',monospace",border:"1.5px solid #E5E5E0",borderRadius:10,resize:"vertical",lineHeight:1.7,boxSizing:"border-box"}}/>
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginTop:14}}>
+        <Btn onClick={save} full icon="check">Enregistrer</Btn>
+        <Btn onClick={()=>setEditing(false)} variant="ghost" full>Annuler</Btn>
+      </div>
+      {DOCS_DEFAUT[viewId] && DOCS_DEFAUT[viewId].categorie !== "_old" && (
+        <button onClick={resetDoc} style={{width:"100%",background:"#FEF2F2",color:"#B91C1C",border:"none",borderRadius:10,padding:"10px",fontWeight:500,fontSize:12,cursor:"pointer",marginTop:10}}>
+          ↻ Restaurer le modèle par défaut
+        </button>
+      )}
+    </div>
+  ) : (
+    <>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:14}}>
+        <button onClick={()=>{setEditing(true);setEditContent(view.contenu||"");setEditTitre(view.titre||"");}}
+          style={{background:"#111",color:"#F2C94C",border:"none",borderRadius:10,padding:"11px 6px",fontWeight:700,fontSize:12,cursor:"pointer"}}>
+          ✏️ Modifier
+        </button>
+        <button onClick={()=>exporterPDF(viewId)}
+          style={{background:"#FEF9E7",color:"#92400E",border:"1.5px solid #F2C94C",borderRadius:10,padding:"11px 6px",fontWeight:700,fontSize:12,cursor:"pointer"}}>
+          📄 PDF
+        </button>
+        <button onClick={()=>copier(viewId)}
+          style={{background:"#F5F5F0",border:"none",borderRadius:10,padding:"11px 6px",fontWeight:600,fontSize:12,cursor:"pointer"}}>
+          📋 Copier
+        </button>
+      </div>
+
+      <Card style={{padding:"18px"}}>
+        <div style={{whiteSpace:"pre-wrap",fontSize:12,lineHeight:1.8,color:"#1a1a1a",fontFamily:"'Courier New',monospace"}}>
+          {view.contenu}
+        </div>
+      </Card>
+    </>
+  )}
+</div>
+);
 }
 
-// Vue liste
-const docsEntries = Object.entries(docs);
-const categories = [...new Set(docsEntries.map(([,d])=>d.categorie))].sort();
+// Vue liste — nouvelle structure par catégories
+const ORDRE_CATEGORIES = ["Contrats-types","Courriers","Légal"];
+const docsEntries = Object.entries(docs).filter(([,d])=>d.categorie!=="_old"&&d.titre&&d.titre!=="@_old"&&d.titre!=="_old"&&d.titre!=="_old2");
+const categories = ORDRE_CATEGORIES.filter(cat=>docsEntries.some(([,d])=>d.categorie===cat));
+
+const catConfig = {
+  "Contrats-types": {icon:"📋", color:"#EFF6FF", border:"#BFDBFE", txt:"#1D4ED8", desc:"Modèles de contrats prêts à personnaliser"},
+  "Courriers": {icon:"✉️", color:"#F0FDF4", border:"#86EFAC", txt:"#166534", desc:"Lettres types pour vos communications"},
+  "Légal": {icon:"📜", color:"#FEF9E7", border:"#F2C94C", txt:"#92400E", desc:"Documents légaux et réglementaires"},
+};
 
 return (
 <div className="fade">
-<SectionTitle>Documents légaux</SectionTitle>
+<SectionTitle>Documents</SectionTitle>
 
-  <Card style={{marginBottom:14,padding:"12px 14px",background:"#FDF6E3",border:"1px solid #FCD34D"}}>
-    <p style={{fontSize:12,color:"#9A3412",fontWeight:500}}>📜 Tes documents légaux</p>
-    <p style={{fontSize:11,color:"#9A3412",marginTop:3,opacity:.85}}>Modèles prêts à l'emploi et personnalisables. Export PDF disponible pour chaque document.</p>
-  </Card>
+  {/* Stats */}
+  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:18}}>
+    {ORDRE_CATEGORIES.map(cat=>{
+      const cfg = catConfig[cat];
+      const nb = docsEntries.filter(([,d])=>d.categorie===cat).length;
+      return (
+        <div key={cat} style={{background:cfg.color,border:"1px solid "+cfg.border,borderRadius:12,padding:"12px 10px",textAlign:"center"}}>
+          <p style={{fontSize:22}}>{cfg.icon}</p>
+          <p style={{fontSize:18,fontWeight:700,fontFamily:"'Cormorant Garamond',serif",color:cfg.txt,lineHeight:1}}>{nb}</p>
+          <p style={{fontSize:9,color:cfg.txt,opacity:.8,marginTop:2,fontWeight:600,textTransform:"uppercase"}}>{cat}</p>
+        </div>
+      );
+    })}
+  </div>
 
-  {categories.map(cat=>(
-    <div key={cat} style={{marginBottom:18}}>
-      <p style={{fontSize:10,fontWeight:600,color:"#737373",textTransform:"uppercase",marginBottom:8,letterSpacing:"0.04em"}}>{cat}</p>
-      {docsEntries.filter(([,d])=>d.categorie===cat).map(([id,d])=>(
-        <Card key={id} style={{marginBottom:8,padding:"12px 14px",cursor:"pointer"}} onClick={()=>setViewId(id)}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
-            <div style={{flex:1,minWidth:0}}>
-              <p style={{fontWeight:600,fontSize:13}}>{d.titre}</p>
-              <p style={{fontSize:11,color:"#737373",marginTop:3,lineHeight:1.4}}>{d.description}</p>
-              {d.modifieLe && <p style={{fontSize:10,color:"#A3A3A3",marginTop:4}}>Modifié le {fmt(d.modifieLe)}</p>}
-            </div>
-            <div style={{color:"#A3A3A3",marginLeft:10,fontSize:18}}>›</div>
+  {categories.map(cat=>{
+    const cfg = catConfig[cat]||{icon:"📄",color:"#F9F9F6",border:"#E5E5E0",txt:"#374151",desc:""};
+    const entries = docsEntries.filter(([,d])=>d.categorie===cat);
+    return (
+      <div key={cat} style={{marginBottom:22}}>
+        {/* En-tête catégorie */}
+        <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
+          <div style={{background:cfg.color,border:"1px solid "+cfg.border,borderRadius:8,padding:"5px 10px",display:"flex",alignItems:"center",gap:6}}>
+            <span style={{fontSize:14}}>{cfg.icon}</span>
+            <span style={{fontSize:12,fontWeight:700,color:cfg.txt}}>{cat}</span>
           </div>
-        </Card>
-      ))}
-    </div>
-  ))}
+          <p style={{fontSize:11,color:"#9CA3AF"}}>{cfg.desc}</p>
+        </div>
+
+        {/* Cartes documents */}
+        <div style={{display:"grid",gap:8}}>
+          {entries.map(([id,d])=>(
+            <Card key={id} style={{padding:"14px 16px",cursor:"pointer",border:"1px solid #F0F0EC"}} onClick={()=>setViewId(id)}>
+              <div style={{display:"flex",alignItems:"center",gap:12}}>
+                <div style={{width:42,height:42,borderRadius:10,background:cfg.color,border:"1px solid "+cfg.border,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                  <span style={{fontSize:20}}>{d.icone||cfg.icon}</span>
+                </div>
+                <div style={{flex:1,minWidth:0}}>
+                  <p style={{fontWeight:700,fontSize:13,color:"#111"}}>{d.titre}</p>
+                  <p style={{fontSize:11,color:"#6B7280",marginTop:2,lineHeight:1.4}}>{d.description}</p>
+                  {d.modifieLe&&<p style={{fontSize:10,color:"#A3A3A3",marginTop:3}}>Modifié le {fmt(d.modifieLe)}</p>}
+                </div>
+                <div style={{display:"flex",flexDirection:"column",gap:6,flexShrink:0}}>
+                  <button onClick={e=>{e.stopPropagation();exporterPDF(id);}}
+                    style={{background:"#111",color:"#F2C94C",border:"none",borderRadius:8,padding:"6px 10px",fontSize:10,fontWeight:700,cursor:"pointer"}}>
+                    PDF
+                  </button>
+                  <div style={{color:"#D1D5DB",fontSize:18,textAlign:"center"}}>›</div>
+                </div>
+              </div>
+            </Card>
+          ))}
+        </div>
+      </div>
+    );
+  })}
 </div>
 
 );
