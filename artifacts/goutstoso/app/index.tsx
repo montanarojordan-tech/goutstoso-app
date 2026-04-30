@@ -1399,6 +1399,7 @@ const [view,setView] = useState(null);
 const [sigMode,setSigMode] = useState(false);
 const [form,setForm] = useState({nom:"",adresse:"",contact:"",tel:"",email:"",type:"depot-vente",commission:0,statut:"actif"});
 const [livForm,setLivForm] = useState({type:"depot-vente",date:today(),lignes:[{produitId:"",qte:1}],notes:""});
+const [signingBulletin,setSigningBulletin] = useState(null);
 
 const savePV = () => {
 if(!form.nom) return;
@@ -1504,6 +1505,34 @@ if(view) {
 const pv = view;
 const docs = (st.contrats||[]).filter(c=>c.partenaireId===pv.id&&c.livraison);
 const depots = (st.depotStocks||[]).filter(d=>d.partenaireId===pv.id);
+
+if(signingBulletin) return (
+<div className="fade">
+<button onClick={()=>setSigningBulletin(null)} style={{display:"flex",alignItems:"center",gap:6,background:"none",border:"none",color:"#9CA3AF",fontSize:13,marginBottom:16,padding:0,cursor:"pointer"}}>← Retour</button>
+<div style={{background:"#FEF9E7",borderRadius:12,padding:"12px 14px",marginBottom:16,border:"1.5px solid #F2C94C"}}>
+  <p style={{fontWeight:700,fontSize:13}}>✍️ Signature client</p>
+  <p style={{fontSize:11,color:"#92400E",marginTop:4}}>{signingBulletin.numero} — {pv.nom}</p>
+</div>
+<SignaturePad
+  onSave={(sig)=>{
+    setSt(p=>({...p,contrats:p.contrats.map(c=>c.id===signingBulletin.id?{...c,signClient:sig,statut:"signé"}:c)}));
+    setSigningBulletin(null);
+  }}
+  onCancel={()=>setSigningBulletin(null)}
+/>
+{signingBulletin.signClient&&(
+  <div style={{marginTop:12,padding:"10px 12px",background:"#F5F5F0",borderRadius:10}}>
+    <p style={{fontSize:11,color:"#6B7280",marginBottom:6}}>Signature actuelle :</p>
+    <img src={signingBulletin.signClient} alt="sig" style={{height:36,maxWidth:160,objectFit:"contain"}}/>
+    <button onClick={()=>{
+      setSt(p=>({...p,contrats:p.contrats.map(c=>c.id===signingBulletin.id?{...c,signClient:null,statut:"en attente"}:c)}));
+      setSigningBulletin(null);
+    }} style={{display:"block",marginTop:8,background:"#FEE2E2",border:"none",borderRadius:8,padding:"6px 12px",fontSize:11,color:"#991B1B",cursor:"pointer"}}>Effacer</button>
+  </div>
+)}
+</div>
+);
+
 return (
 <div className="fade">
 <button onClick={()=>setView(null)} style={{display:"flex",alignItems:"center",gap:6,background:"none",border:"none",color:"#9CA3AF",fontSize:13,marginBottom:16,padding:0,cursor:"pointer"}}>← Retour</button>
@@ -1596,9 +1625,10 @@ return (
               </div>
               <Badge c={c.statut==="signé"?"green":"yellow"}>{c.statut}</Badge>
             </div>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 40px",gap:6}}>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr 40px",gap:6}}>
               <button onClick={()=>genererBulletinPDF(c,pv,st)} style={{background:"#111",color:"#F2C94C",border:"none",borderRadius:8,padding:"7px",fontSize:11,fontWeight:700,cursor:"pointer"}}>📄 PDF</button>
               <button onClick={()=>envoyerBulletin(c)} style={{background:"#F5F5F0",border:"none",borderRadius:8,padding:"7px",fontSize:11,fontWeight:600,cursor:"pointer"}}>✉️ Envoyer</button>
+              <button onClick={()=>setSigningBulletin(c)} style={{background:c.signClient?"#DCFCE7":"#FEF9E7",color:c.signClient?"#166534":"#92400E",border:"none",borderRadius:8,padding:"7px",fontSize:11,fontWeight:600,cursor:"pointer"}}>{c.signClient?"✅ Signé":"✍️ Signer"}</button>
               <button onClick={()=>{
                 if(window.confirm("Modifier ce bulletin ? La signature sera perdue.")) {
                   // Reload livraison form with this data
@@ -2151,12 +2181,14 @@ const getStatutContrat = (c) => {
   return c.statut||"brouillon";
 };
 
+const nbExpires = contratsListe.filter(c=>getStatutContrat(c)==="expiré").length;
+const nbResilies = contratsListe.filter(c=>getStatutContrat(c)==="résilié").length;
 const filtresC = [
-  {id:"tous", l:"Tous"},
+  {id:"tous", l:`Tous (${contratsListe.length})`},
   {id:"actif", l:"Actifs"},
   {id:"brouillon", l:"Brouillons"},
-  {id:"expiré", l:"Expirés"},
-  {id:"résilié", l:"Résiliés"},
+  {id:"expiré", l:nbExpires>0?`Expirés (${nbExpires})`:"Expirés"},
+  {id:"résilié", l:nbResilies>0?`Résiliés (${nbResilies})`:"Résiliés"},
 ];
 
 const contratsFiltres = contratsListe.filter(c=>{
@@ -2401,6 +2433,7 @@ const Factures = ({st,setSt}) => {
 const [modal,setModal] = useState(null);
 const [view,setView] = useState(null);
 const [filtre,setFiltre] = useState("toutes");
+const [sigMode,setSigMode] = useState(false);
 
 const emptyF = {partenaireId:st.partenaires[0]?.id||"",typeClient:"revendeur",lignes:[{produitId:"",qte:1}],notes:"",date:today()};
 const [form,setForm] = useState(emptyF);
@@ -2778,6 +2811,18 @@ const echeance=new Date(new Date(f.date).getTime()+30*86400000).toISOString().sl
   doc.text("IBAN : CH23 0900 0000 1565 1485 8",mg+4,y+11);
   doc.setFont("helvetica","normal");doc.setTextColor(107,114,128);
   doc.text("PostFinance · Goûtstoso / Jordan Montanaro · Paiement à 30 jours",mg+4,y+16);
+  y+=20;
+
+  // Signature fournisseur
+  if(f.signFournisseur) {
+    const sigW=70;
+    doc.setFontSize(7);doc.setFont("helvetica","bold");doc.setTextColor(156,163,175);
+    doc.text("SIGNATURE GOÛTSTOSO",mg,y+4);
+    try { doc.addImage(f.signFournisseur,"PNG",mg,y+6,sigW,18); } catch(e){}
+    doc.setDrawColor(200,200,200);doc.setLineWidth(0.2);doc.line(mg,y+26,mg+sigW,y+26);
+    doc.setFontSize(7.5);doc.setFont("helvetica","normal");doc.setTextColor(107,114,128);
+    doc.text("Jordan Montanaro / Goûtstoso",mg,y+30);
+  }
 
   // Pied de page
   doc.setDrawColor(230,230,228);doc.setLineWidth(0.3);doc.line(mg,277,W-mg,277);
@@ -2989,6 +3034,36 @@ const totalFinal = total+(retard?.frais||0);
 const echeance = new Date(new Date(view.date).getTime()+30*86400000).toISOString().slice(0,10);
 const rappelsEnvoyes = view.rappels||[];
 
+if(sigMode) return (
+<div className="fade">
+<button onClick={()=>setSigMode(false)} style={{display:"flex",alignItems:"center",gap:6,background:"none",border:"none",color:"#9CA3AF",fontSize:13,marginBottom:16,padding:0,cursor:"pointer"}}>← Retour</button>
+<div style={{background:"#FEF9E7",borderRadius:12,padding:"12px 14px",marginBottom:16,border:"1.5px solid #F2C94C"}}>
+  <p style={{fontWeight:700,fontSize:13}}>✍️ Signature Goûtstoso</p>
+  <p style={{fontSize:11,color:"#92400E",marginTop:4}}>{view.numero}</p>
+</div>
+<SignaturePad
+  onSave={(sig)=>{
+    const updated = {...view,signFournisseur:sig};
+    setSt(p=>({...p,factures:p.factures.map(f=>f.id===view.id?updated:f)}));
+    setView(updated);
+    setSigMode(false);
+  }}
+  onCancel={()=>setSigMode(false)}
+/>
+{view.signFournisseur&&(
+  <div style={{marginTop:12,padding:"10px 12px",background:"#F5F5F0",borderRadius:10}}>
+    <p style={{fontSize:11,color:"#6B7280",marginBottom:6}}>Signature actuelle :</p>
+    <img src={view.signFournisseur} alt="sig" style={{height:36,maxWidth:160,objectFit:"contain"}}/>
+    <button onClick={()=>{
+      const updated={...view,signFournisseur:null};
+      setSt(p=>({...p,factures:p.factures.map(f=>f.id===view.id?updated:f)}));
+      setView(updated);setSigMode(false);
+    }} style={{display:"block",marginTop:8,background:"#FEE2E2",border:"none",borderRadius:8,padding:"6px 12px",fontSize:11,color:"#991B1B",cursor:"pointer"}}>Effacer la signature</button>
+  </div>
+)}
+</div>
+);
+
 return (
   <div className="fade">
     <button onClick={()=>setView(null)} style={{display:"flex",alignItems:"center",gap:6,background:"none",border:"none",color:"#9CA3AF",fontSize:13,marginBottom:16,padding:0,cursor:"pointer"}}>← Retour</button>
@@ -3042,12 +3117,15 @@ return (
     )}
 
     {/* Actions */}
-    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:10}}>
       <button onClick={()=>genererPDF(view)} style={{background:"#111",color:"#F2C94C",border:"none",borderRadius:12,padding:"13px",fontWeight:700,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
-        ⬇️ Facture PDF
+        ⬇️ PDF
       </button>
       <button onClick={()=>envoyerEmail(view,null)} style={{background:"#FEF9E7",color:"#92400E",border:"1.5px solid #F2C94C",borderRadius:12,padding:"13px",fontWeight:600,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
-        ✉️ Email facture
+        ✉️ Email
+      </button>
+      <button onClick={()=>setSigMode(true)} style={{background:view.signFournisseur?"#DCFCE7":"#F5F5F0",color:view.signFournisseur?"#166534":"#374151",border:"none",borderRadius:12,padding:"13px",fontWeight:600,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+        {view.signFournisseur?"✅ Signé":"✍️ Signer"}
       </button>
     </div>
     {view.statut!=="payée"&&(
@@ -3145,6 +3223,17 @@ return (
         <p style={{fontSize:11,fontWeight:700}}>IBAN : CH23 0900 0000 1565 1485 8</p>
         <p style={{fontSize:10,color:"#6B7280",marginTop:1}}>PostFinance · Goûtstoso / Jordan Montanaro · À 30 jours</p>
       </div>
+      {/* Signature Fournisseur */}
+      {view.signFournisseur&&(
+        <div style={{padding:"8px 16px 12px",borderTop:"1px solid #F5F5F0",display:"flex",alignItems:"flex-end",gap:24}}>
+          <div>
+            <p style={{fontSize:8,fontWeight:700,color:"#9CA3AF",textTransform:"uppercase",marginBottom:4}}>Signature Goûtstoso</p>
+            <img src={view.signFournisseur} alt="signature" style={{height:40,maxWidth:140,objectFit:"contain",display:"block"}}/>
+            <div style={{width:140,height:1,background:"#ddd",marginTop:3}}/>
+            <p style={{fontSize:8,color:"#9CA3AF",marginTop:2}}>Jordan Montanaro</p>
+          </div>
+        </div>
+      )}
       <div style={{background:"#F2C94C",height:4}}/>
     </div>
     <details style={{background:"#F5F5F0",borderRadius:10,padding:"12px 14px",marginTop:14,fontSize:10,color:"#6B7280"}}>
