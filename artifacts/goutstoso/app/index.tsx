@@ -6704,12 +6704,12 @@ return (
 // APP SHELL - Navigation mobile en bas
 // ══════════════════════════════════════════════════════════════
 
-// Groupes de navigation - 5 max en bas, reste dans "Plus"
+// Groupes de navigation - 6 en bas, reste dans "Plus"
 const NAV_MAIN = [
 {id:"dashboard",label:"Accueil",icon:"dash"},
 {id:"partenaires",label:"Dépôts",icon:"depot"},
 {id:"clients",label:"Clients",icon:"prod"},
-{id:"fournisseurs",label:"Fournisseurs",icon:"facture"},
+{id:"fournisseurs",label:"Fourn.",icon:"facture"},
 {id:"compta",label:"Compta",icon:"compta"},
 {id:"more",label:"Plus",icon:"more"},
 ];
@@ -7467,26 +7467,32 @@ return (
 
     {/* DRAWER "PLUS" */}
     {showMore && (
-      <div style={{position:"fixed",bottom:70,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:480,zIndex:200,background:"var(--white)",borderTop:"2px solid var(--lemon)",boxShadow:"0 -8px 30px rgba(0,0,0,.15)"}}>
-        <div style={{padding:"8px 16px 4px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-          <p style={{fontSize:12,fontWeight:600,color:"var(--gray)",textTransform:"uppercase",letterSpacing:".06em"}}>Navigation</p>
-          <button onClick={()=>setShowMore(false)} style={{background:"none",border:"none",color:"var(--gray)",padding:4}}><Ic n="x" s={16}/></button>
+      <div style={{position:"fixed",bottom:64,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:480,zIndex:200,background:"rgba(255,255,255,0.98)",backdropFilter:"blur(16px)",borderRadius:"18px 18px 0 0",boxShadow:"0 -4px 32px rgba(0,0,0,.14)",overflow:"hidden"}}>
+        {/* Handle bar */}
+        <div style={{display:"flex",justifyContent:"center",padding:"10px 0 6px"}}>
+          <div style={{width:36,height:4,borderRadius:2,background:"#DDD"}}/>
         </div>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:0}}>
-          {NAV_MORE.map(t=>(
-            <button key={t.id} onClick={()=>goTo(t.id)} style={{
-              display:"flex",flexDirection:"column",alignItems:"center",gap:4,
-              padding:"14px 8px",border:"none",
-              background:tab===t.id?"var(--lemon-pale)":"var(--white)",
-              color:tab===t.id?"var(--lemon2)":"var(--ink)",
-              borderTop:"1px solid var(--gray-mid)",
-            }}>
-              <div style={{background:tab===t.id?"var(--lemon)":"var(--gray-light)",borderRadius:10,padding:8,color:tab===t.id?"var(--white)":"var(--gray)"}}>
-                <Ic n={t.icon} s={20}/>
-              </div>
-              <span style={{fontSize:11,fontWeight:tab===t.id?700:400}}>{t.label}</span>
-            </button>
-          ))}
+        <div style={{padding:"0 16px 8px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+          <p style={{fontSize:11,fontWeight:700,color:"#9CA3AF",textTransform:"uppercase",letterSpacing:".06em"}}>Menu</p>
+          <button onClick={()=>setShowMore(false)} style={{background:"#F5F5F0",border:"none",borderRadius:20,width:28,height:28,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",color:"#6B7280"}}><Ic n="x" s={14}/></button>
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:1,background:"#F5F5F0",borderTop:"1px solid #F0EDE6"}}>
+          {NAV_MORE.map(t=>{
+            const active = tab===t.id;
+            return (
+              <button key={t.id} onClick={()=>goTo(t.id)} style={{
+                display:"flex",flexDirection:"column",alignItems:"center",gap:5,
+                padding:"14px 6px",border:"none",
+                background:active?"#FFFBEB":"#fff",
+                cursor:"pointer",
+              }}>
+                <div style={{width:40,height:40,borderRadius:12,background:active?"#F2C94C":"#F5F5F0",display:"flex",alignItems:"center",justifyContent:"center",transition:"background .15s"}}>
+                  <Ic n={t.icon} s={20} />
+                </div>
+                <span style={{fontSize:10,fontWeight:active?700:400,color:active?"#0A0A0A":"#6B7280",textAlign:"center",lineHeight:1.2}}>{t.label}</span>
+              </button>
+            );
+          })}
         </div>
         <div style={{height:"env(safe-area-inset-bottom,0px)"}}/>
       </div>
@@ -7497,26 +7503,34 @@ return (
     <div style={{
       position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",
       width:"100%",maxWidth:480,zIndex:100,
-      background:"var(--white)",
-      borderTop:"1px solid #EAE7E0",
-      display:"grid",gridTemplateColumns:"repeat(5,1fr)",
-      paddingBottom:"env(safe-area-inset-bottom,8px)",
+      background:"rgba(255,255,255,0.97)",
+      backdropFilter:"blur(12px)",
+      borderTop:"1px solid rgba(234,231,224,0.8)",
+      boxShadow:"0 -2px 16px rgba(0,0,0,.06)",
+      display:"grid",gridTemplateColumns:"repeat(6,1fr)",
+      paddingBottom:"env(safe-area-inset-bottom,6px)",
+      paddingTop:4,
     }}>
       {NAV_MAIN.map(t=>{
         const active = t.id==="more" ? isMore||showMore : tab===t.id;
         return (
           <button key={t.id} onClick={()=>t.id==="more"?setShowMore(s=>!s):goTo(t.id)} style={{
-            display:"flex",flexDirection:"column",alignItems:"center",gap:4,
-            padding:"10px 4px 8px",border:"none",background:"none",
-            color:active?"#0A0A0A":"#A3A3A3",
+            display:"flex",flexDirection:"column",alignItems:"center",gap:2,
+            padding:"6px 2px 8px",border:"none",background:"none",
+            color:active?"#0A0A0A":"#B5B2AB",
             position:"relative",
             transition:"color .15s",
+            minWidth:0,
           }}>
-            {active && <div style={{position:"absolute",top:0,left:"50%",transform:"translateX(-50%)",width:20,height:2,background:"#0A0A0A",borderRadius:"0 0 2px 2px"}}/>}
-            <div style={{padding:"2px"}}>
-              {t.id==="more"?<IcMore s={20}/>:<Ic n={t.icon} s={20}/>}
+            <div style={{
+              width:38,height:28,borderRadius:9,
+              background:active?"#F2C94C":"transparent",
+              display:"flex",alignItems:"center",justifyContent:"center",
+              transition:"background .15s",
+            }}>
+              {t.id==="more"?<IcMore s={18}/>:<Ic n={t.icon} s={18}/>}
             </div>
-            <span style={{fontSize:10,fontWeight:active?600:400,letterSpacing:"-0.005em"}}>{t.label}</span>
+            <span style={{fontSize:9,fontWeight:active?700:400,letterSpacing:"-0.01em",lineHeight:1.1,textAlign:"center"}}>{t.label}</span>
           </button>
         );
       })}
