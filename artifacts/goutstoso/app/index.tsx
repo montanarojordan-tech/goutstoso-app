@@ -5278,7 +5278,7 @@ contrat_depot: {
 titre:"Contrat de dépôt-vente (modèle)",
 description:"Modèle prêt à l'emploi pour vos accords de dépôt-vente",
 icone:"📋",
-categorie:"Contrats-types",
+categorie:"_old",
 contenu: `CONTRAT DE DÉPÔT-VENTE
 
 Entre les soussignés :
@@ -5346,7 +5346,7 @@ En deux exemplaires originaux.
 LE FOURNISSEUR                                    LE DÉPOSITAIRE
 Goûtstoso - Jordan Montanaro                       .........................
 
-Signature :                                        Signature :`, }, contrat_partenariat: { titre:"Contrat de partenariat commercial", description:"Pour revendeurs et distributeurs réguliers", icone:"🤝", categorie:"Contrats-types", contenu: `CONTRAT DE PARTENARIAT COMMERCIAL
+Signature :                                        Signature :`, }, contrat_partenariat: { titre:"Contrat de partenariat commercial", description:"Pour revendeurs et distributeurs réguliers", icone:"🤝", categorie:"_old", contenu: `CONTRAT DE PARTENARIAT COMMERCIAL
 
 Entre :
 
@@ -5477,7 +5477,7 @@ Nous vous remercions par avance pour votre retour et restons disponibles pour co
 Cordialement,
 
 Jordan Montanaro
-Goûtstoso`, }, nda: { titre:"Accord de confidentialité (NDA)", description:"Pour partenaires et fournisseurs stratégiques", icone:"🔒", categorie:"Contrats-types", contenu: `ACCORD DE CONFIDENTIALITÉ
+Goûtstoso`, }, nda: { titre:"Accord de confidentialité (NDA)", description:"Pour partenaires et fournisseurs stratégiques", icone:"🔒", categorie:"_old", contenu: `ACCORD DE CONFIDENTIALITÉ
 
 Entre :
 
@@ -5580,7 +5580,7 @@ Nos produits indiquent : taux d'alcool, contenance, ingrédients, mentions léga
 
 En cas de problème : Addiction Suisse — www.addictionsuisse.ch
 
-Goûtstoso - Jordan Montanaro`, }, bon_livraison: { titre:"Bon de livraison (modèle)", description:"Modèle de bon de livraison / dépôt standard", icone:"📦", categorie:"Contrats-types", contenu: `BON DE LIVRAISON N° ......................
+Goûtstoso - Jordan Montanaro`, }, bon_livraison: { titre:"Bon de livraison (modèle)", description:"Modèle de bon de livraison / dépôt standard", icone:"📦", categorie:"_old", contenu: `BON DE LIVRAISON N° ......................
 
 Date de livraison : .............................
 
@@ -5629,7 +5629,7 @@ Livré par (Fournisseur) :                Reçu par (Destinataire) :
 
 Nom : ...........................         Nom : ...........................
 Date : ..........................         Date : ..........................
-Signature :                                Signature :`, }, bon_retour: { titre:"Bon de retour (modèle)", description:"Pour la reprise des produits invendus en fin de dépôt", icone:"↩️", categorie:"Contrats-types", contenu: `BON DE RETOUR N° ......................
+Signature :                                Signature :`, }, bon_retour: { titre:"Bon de retour (modèle)", description:"Pour la reprise des produits invendus en fin de dépôt", icone:"↩️", categorie:"_old", contenu: `BON DE RETOUR N° ......................
 
 Date : .............................
 
@@ -5849,12 +5849,11 @@ return (
 }
 
 // Vue liste — nouvelle structure par catégories
-const ORDRE_CATEGORIES = ["Contrats-types","Courriers","Légal"];
-const docsEntries = Object.entries(docs).filter(([,d])=>d.categorie!=="_old"&&d.titre&&d.titre!=="@_old"&&d.titre!=="_old"&&d.titre!=="_old2");
+const ORDRE_CATEGORIES = ["Courriers","Légal"];
+const docsEntries = Object.entries(docs).filter(([,d])=>d.categorie!=="_old"&&d.titre&&d.titre!=="_old"&&d.titre!=="_old2");
 const categories = ORDRE_CATEGORIES.filter(cat=>docsEntries.some(([,d])=>d.categorie===cat));
 
 const catConfig = {
-  "Contrats-types": {icon:"📋", color:"#EFF6FF", border:"#BFDBFE", txt:"#1D4ED8", desc:"Modèles de contrats prêts à personnaliser"},
   "Courriers": {icon:"✉️", color:"#F0FDF4", border:"#86EFAC", txt:"#166534", desc:"Lettres types pour vos communications"},
   "Légal": {icon:"📜", color:"#FEF9E7", border:"#F2C94C", txt:"#92400E", desc:"Documents légaux et réglementaires"},
 };
@@ -5864,7 +5863,7 @@ return (
 <SectionTitle>Documents</SectionTitle>
 
   {/* Stats */}
-  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:18}}>
+  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:18}}>
     {ORDRE_CATEGORIES.map(cat=>{
       const cfg = catConfig[cat];
       const nb = docsEntries.filter(([,d])=>d.categorie===cat).length;
