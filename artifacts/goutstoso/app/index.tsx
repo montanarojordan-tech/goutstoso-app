@@ -1364,8 +1364,11 @@ doc.text("Goûtstoso - Jordan Montanaro · Rue des Sources 19 · 2613 Villeret �
 doc.setFillColor(242,201,76);doc.rect(0,292,W,5,"F");
 } // fin if signatures
 
-// Annexe: CGV
+// Annexes légales
 ajouterDocAnnexe(doc, "cgv", st);
+if(c.type==="depot-vente"||c.type==="partenariat") {
+  ajouterDocAnnexe(doc, "charte_alcool", st);
+}
 
 doc.save(c.numero+".pdf");
 
@@ -2771,8 +2774,9 @@ const echeance=new Date(new Date(f.date).getTime()+30*86400000).toISOString().sl
   doc.text("Goûtstoso - Jordan Montanaro · Rue des Sources 19 · 2613 Villeret · admin@goutstoso.ch · www.goutstoso.ch",W/2,282,{align:"center"});
   doc.setFillColor(242,201,76);doc.rect(0,292,W,5,"F");
 
-  // Annexe: CGV
+  // Annexes légales
   ajouterDocAnnexe(doc, "cgv", st);
+  ajouterDocAnnexe(doc, "charte_alcool", st);
 
   doc.save(f.numero+(retard?"-RAPPEL":"")+".pdf");
 } catch(e){alert("Erreur PDF : "+e.message);}
@@ -2948,6 +2952,9 @@ try {
   doc.setFontSize(7.5);doc.setFont("helvetica","normal");doc.setTextColor(150,150,150);
   doc.text("Goûtstoso - Jordan Montanaro · Rue des Sources 19 · 2613 Villeret · admin@goutstoso.ch",W/2,282,{align:"center"});
   doc.setFillColor(cr,cg,cb);doc.rect(0,292,W,5,"F");
+
+  // Annexe légale
+  ajouterDocAnnexe(doc, "cgv", st);
 
   doc.save("RAPPEL-"+deg+"-"+f.numero+".pdf");
   alert("✅ Rappel "+deg+" généré et enregistré !");
