@@ -303,14 +303,14 @@ return (
 // ── CARD ───────────────────────────────────────────────────────
 const Card = ({children,style,onClick}) => (
 
-  <div onClick={onClick} style={Object.assign({background:"#fff",borderRadius:12,border:"1px solid #EAE7E0",padding:"16px"},style||{})}>{children}</div>
+  <div onClick={onClick} style={Object.assign({background:"#fff",borderRadius:12,border:"1px solid #EAE7E0",padding:"12px"},style||{})}>{children}</div>
 );
 
 // ── SECTION TITLE ──────────────────────────────────────────────
 const SectionTitle = ({children,action}) => (
 
-  <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:18}}>
-    <h2 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:24,fontWeight:700,color:"#111"}}>{children}</h2>
+  <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
+    <h2 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:20,fontWeight:700,color:"#111"}}>{children}</h2>
     {action}
   </div>
 );
@@ -541,7 +541,7 @@ return (
 <p style={{fontSize:11,color:"#737373",fontWeight:500,letterSpacing:"-0.005em"}}>
 {new Date().toLocaleDateString("fr-CH",{weekday:"long",day:"numeric",month:"long"})}
 </p>
-<h1 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:30,fontWeight:600,letterSpacing:"-0.025em",marginTop:2}}>
+<h1 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:22,fontWeight:600,letterSpacing:"-0.025em",marginTop:2}}>
 Bonjour {authUser.display_name||authUser.username}
 </h1>
 </div>
@@ -588,11 +588,11 @@ Bonjour {authUser.display_name||authUser.username}
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginTop:10}}>
       <div>
         <p style={{fontSize:10,color:"#A3A3A3"}}>Solde PostFinance</p>
-        <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:26,fontWeight:700,color:"#fff",marginTop:2}}>{chf(soldeBancaire)}</p>
+        <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:20,fontWeight:700,color:"#fff",marginTop:2}}>{chf(soldeBancaire)}</p>
       </div>
       <div>
         <p style={{fontSize:10,color:"#A3A3A3"}}>À encaisser</p>
-        <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:26,fontWeight:700,color:"#E8B64C",marginTop:2}}>{chf(caAttente)}</p>
+        <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:20,fontWeight:700,color:"#E8B64C",marginTop:2}}>{chf(caAttente)}</p>
         <p style={{fontSize:9,color:"#A3A3A3",marginTop:1}}>{facturesAttente.length} facture(s)</p>
       </div>
     </div>
@@ -621,11 +621,11 @@ Bonjour {authUser.display_name||authUser.username}
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
       <div style={{background:"#F4F4F2",borderRadius:8,padding:"10px 12px"}}>
         <p style={{fontSize:10,color:"#737373",fontWeight:500}}>Chiffre d'affaires</p>
-        <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:22,fontWeight:700,marginTop:2}}>{chf(caMois)}</p>
+        <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:17,fontWeight:700,marginTop:2}}>{chf(caMois)}</p>
       </div>
       <div style={{background:"#F4F4F2",borderRadius:8,padding:"10px 12px"}}>
         <p style={{fontSize:10,color:"#737373",fontWeight:500}}>Commandes web</p>
-        <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:22,fontWeight:700,marginTop:2}}>{nbCmdMois}</p>
+        <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:17,fontWeight:700,marginTop:2}}>{nbCmdMois}</p>
       </div>
     </div>
     {topProduits.length > 0 && (
@@ -3995,7 +3995,7 @@ return (
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8}}>
       <div style={{minWidth:0,flex:1}}>
         <p style={{fontSize:9,color:"#E8B64C",fontWeight:600,textTransform:"uppercase",letterSpacing:"0.04em"}}>Solde PostFinance</p>
-        <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:24,fontWeight:700,color:"#fff",lineHeight:1,marginTop:3}}>{chf(st.soldeBancaire)}</p>
+        <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:19,fontWeight:700,color:"#fff",lineHeight:1,marginTop:3}}>{chf(st.soldeBancaire)}</p>
         <p style={{fontSize:9,color:"#737373",marginTop:3}}>Cliquer pour modifier</p>
       </div>
       <div style={{textAlign:"right",minWidth:0,flexShrink:0}}>
@@ -4223,7 +4223,7 @@ return (
       <Card style={{background:resultat>=0?"#DCFCE7":"#FEE2E2",border:"2px solid "+(resultat>=0?"#22C55E":"#EF4444")}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
           <span style={{fontSize:14,fontWeight:700,color:resultat>=0?"#166534":"#991B1B"}}>RÉSULTAT NET</span>
-          <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:26,fontWeight:700,color:resultat>=0?"#166534":"#991B1B"}}>{resultat>=0?"+":""}{chf(resultat)}</span>
+          <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:19,fontWeight:700,color:resultat>=0?"#166534":"#991B1B"}}>{resultat>=0?"+":""}{chf(resultat)}</span>
         </div>
       </Card>
     </div>
@@ -4329,7 +4329,7 @@ return (
         return (
           <>
             <Card style={{marginBottom:12}}>
-              <h3 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:19,marginBottom:14,letterSpacing:"-0.015em"}}>Prévisions de trésorerie</h3>
+              <h3 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:15,marginBottom:14,letterSpacing:"-0.015em"}}>Prévisions de trésorerie</h3>
               
               {[
                 {label:"Dans 30 jours",data:s30,date:proj30},
@@ -4351,7 +4351,7 @@ return (
 
             {/* Flux à venir */}
             <Card style={{marginBottom:12}}>
-              <h3 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:19,marginBottom:10,letterSpacing:"-0.015em"}}>Flux à venir</h3>
+              <h3 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:15,marginBottom:10,letterSpacing:"-0.015em"}}>Flux à venir</h3>
               {tousFlux.length === 0 ? (
                 <p style={{fontSize:12,color:"#737373",textAlign:"center",padding:"10px 0"}}>Aucun flux prévu</p>
               ) : tousFlux.slice(0,10).map((f,i)=>{
@@ -4429,15 +4429,15 @@ return (
             </p>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
               <div style={{textAlign:"center"}}>
-                <p style={{fontSize:22,fontWeight:800,color:"#F2C94C",lineHeight:1}}>{totalUnites}</p>
+                <p style={{fontSize:17,fontWeight:800,color:"#F2C94C",lineHeight:1}}>{totalUnites}</p>
                 <p style={{fontSize:9,color:"#aaa",marginTop:3}}>unités vendues</p>
               </div>
               <div style={{textAlign:"center"}}>
-                <p style={{fontSize:18,fontWeight:800,color:"#fff",lineHeight:1}}>{chf(totalCA)}</p>
+                <p style={{fontSize:15,fontWeight:800,color:"#fff",lineHeight:1}}>{chf(totalCA)}</p>
                 <p style={{fontSize:9,color:"#aaa",marginTop:3}}>chiffre d'affaires</p>
               </div>
               <div style={{textAlign:"center"}}>
-                <p style={{fontSize:18,fontWeight:800,color:totalMarge>0?"#4ADE80":"#F87171",lineHeight:1}}>{chf(totalMarge)}</p>
+                <p style={{fontSize:15,fontWeight:800,color:totalMarge>0?"#4ADE80":"#F87171",lineHeight:1}}>{chf(totalMarge)}</p>
                 <p style={{fontSize:9,color:"#aaa",marginTop:3}}>marge brute ({pct}%)</p>
               </div>
             </div>
@@ -4446,7 +4446,7 @@ return (
         );
       })()}
       <Card style={{marginBottom:12}}>
-        <h3 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:19,marginBottom:6,letterSpacing:"-0.015em"}}>Marges & volumes par produit</h3>
+        <h3 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:16,marginBottom:4,letterSpacing:"-0.015em"}}>Marges & volumes par produit</h3>
         <p style={{fontSize:11,color:"#737373",marginBottom:14}}>Marges théoriques + unités vendues sur la période sélectionnée</p>
         {st.produits.filter(p=>p.actif&&!p.nom.includes("Coffret")).map(p=>{
           const cout = p.coutRevient||0;
@@ -4529,7 +4529,7 @@ return (
 
       {/* Analyse prix recommandés */}
       <Card style={{marginBottom:12}}>
-        <h3 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:19,marginBottom:6,letterSpacing:"-0.015em"}}>💡 Analyse des prix</h3>
+        <h3 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:15,marginBottom:6,letterSpacing:"-0.015em"}}>💡 Analyse des prix</h3>
         <p style={{fontSize:11,color:"#737373",marginBottom:14}}>Basé sur ton coût de revient, tes charges et les standards du marché suisse</p>
         {st.produits.filter(p=>p.actif&&!p.nom.includes("Coffret")).map(p=>{
           const cout = p.coutRevient||0;
@@ -4628,7 +4628,7 @@ return (
 
       {/* Top 5 ventes */}
       <Card style={{marginBottom:12}}>
-        <h3 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:19,marginBottom:14,letterSpacing:"-0.015em"}}>Top produits (CA {periode==="tout"?"global":periode})</h3>
+        <h3 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:15,marginBottom:14,letterSpacing:"-0.015em"}}>Top produits (CA {periode==="tout"?"global":periode})</h3>
         {(() => {
           const ventesParProd = {};
           transByPeriode.filter(t=>t.type==="recette").forEach(t=>{
@@ -4658,7 +4658,7 @@ return (
 
       {/* Point mort */}
       <Card style={{marginBottom:12,background:"#FDF6E3",border:"1px solid #FCD34D"}}>
-        <h3 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:19,marginBottom:8,letterSpacing:"-0.015em",color:"#9A3412"}}>⚡ Point mort mensuel</h3>
+        <h3 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:15,marginBottom:8,letterSpacing:"-0.015em",color:"#9A3412"}}>⚡ Point mort mensuel</h3>
         {(() => {
           const chargesFixes = (() => {
             const categoriesFixes = ["Services","Salaires","Frais bancaires","Assurances","Locaux","Téléphone","Internet"];
@@ -4697,7 +4697,7 @@ return (
 
       {/* Analyse coûts */}
       <Card>
-        <h3 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:19,marginBottom:12,letterSpacing:"-0.015em"}}>Répartition des dépenses</h3>
+        <h3 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:15,marginBottom:12,letterSpacing:"-0.015em"}}>Répartition des dépenses</h3>
         {catDepenses.length===0?<p style={{fontSize:12,color:"#737373",textAlign:"center",padding:"10px 0"}}>Aucune dépense</p>:
           catDepenses.slice(0,8).map(c=>{
             const pct = depenses?((c.total/depenses)*100).toFixed(0):0;
