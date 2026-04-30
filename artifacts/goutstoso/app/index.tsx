@@ -6326,12 +6326,26 @@ const [editContent,setEditContent] = useState("");
 const [editTitre,setEditTitre] = useState("");
 const [uploadingPJ,setUploadingPJ] = useState(false);
 
-// Initialiser les documents par défaut si pas présents
+// Fusionner DOCS_DEFAUT avec les documents sauvegardés
+// → garantit que nouveaux docs apparaissent, et que catégorie/icône sont toujours à jour
 React.useEffect(()=>{
 try {
-if(!st.documents || Object.keys(st.documents||{}).length===0) {
-setSt(p=>({...p,documents:{...DOCS_DEFAUT}}));
-}
+const saved = st.documents || {};
+const merged = {...DOCS_DEFAUT};
+Object.keys(merged).forEach(k=>{
+  if(saved[k]){
+    // Préserver le contenu/titre/pièce jointe modifiés par l'utilisateur
+    // mais forcer la catégorie et l'icône depuis DOCS_DEFAUT
+    merged[k] = {
+      ...DOCS_DEFAUT[k],
+      ...(saved[k].contenu ? {contenu: saved[k].contenu} : {}),
+      ...(saved[k].titre && saved[k].titre !== "_old" && saved[k].titre !== "_old2" ? {titre: saved[k].titre} : {}),
+      ...(saved[k].modifieLe ? {modifieLe: saved[k].modifieLe} : {}),
+      ...(saved[k].pieceJointe ? {pieceJointe: saved[k].pieceJointe, pieceJointeNom: saved[k].pieceJointeNom, pieceJointeDate: saved[k].pieceJointeDate} : {}),
+    };
+  }
+});
+setSt(p=>({...p,documents:merged}));
 } catch(e) { console.log("Docs init error",e); }
 },[]);
 
