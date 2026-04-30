@@ -6010,12 +6010,12 @@ function Sauvegardes({authUser}:{authUser:any}) {
       ) : (
         backups.map((b,i)=>(
           <div key={b.id} style={{padding:"14px 16px",borderBottom:i<backups.length-1?"1px solid var(--border)":"none",display:"flex",alignItems:"center",gap:12}}>
-            <div style={{width:36,height:36,borderRadius:10,background:b.type==="auto"?"var(--blue-bg)":"var(--lemon-pale)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,flexShrink:0}}>
-              {b.type==="auto"?"🔄":"💾"}
+            <div style={{width:36,height:36,borderRadius:10,background:b.backup_type==="auto"?"var(--blue-bg)":"var(--lemon-pale)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,flexShrink:0}}>
+              {b.backup_type==="auto"?"🔄":"💾"}
             </div>
             <div style={{flex:1,minWidth:0}}>
               <p style={{fontSize:13,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{b.label}</p>
-              <p style={{fontSize:11,color:"var(--gray)",marginTop:2}}>{fmtDate(b.created_at)} · {b.type==="auto"?"Auto":"Manuel"} · {b.created_by}</p>
+              <p style={{fontSize:11,color:"var(--gray)",marginTop:2}}>{fmtDate(b.created_at)} · {b.backup_type==="auto"?"Auto":"Manuel"} · {b.created_by}</p>
             </div>
             <button
               onClick={()=>downloadBackup(b)}
