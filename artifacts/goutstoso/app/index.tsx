@@ -922,7 +922,14 @@ const t=sum((st.stocks||[]).filter(s=>s.produitId===p.id).map(s=>s.qte));
 return "• "+p.nom+" "+p.variante+" "+p.format+" : "+t+" unités";
 }).join("\n");
 const subj = encodeURIComponent("⚠️ Alerte stock bas - GoûtStoso");
-const body = encodeURIComponent("Bonjour,\n\nStock bas (≤ 3 unités) :\n\n"+lignes+"\n\nMerci de prévoir une production.\n\nGoûtStoso");
+const body = encodeURIComponent(
+"Bonjour Jordan,\n\n"+
+"Une alerte stock bas vient d'être détectée. Les produits suivants ont atteint un niveau critique (≤ 3 unités) :\n\n"+
+lignes+"\n\n"+
+"Merci de planifier une production dès que possible afin d'éviter toute rupture.\n\n"+
+"Bonne journée,\n"+
+"Goûtstoso"
+);
 sendEmail({to:"admin@goutstoso.ch",subject:subj,body:bodyTxt||body||""});
 };
 
@@ -970,11 +977,18 @@ const prodsBas = st.produits.filter(p=>p.actif&&!p.nom.includes("Coffret")).filt
 const t=sum((st.stocks||[]).filter(s=>s.produitId===p.id).map(s=>s.qte));
 return t<=3&&t>0;
 });
-const body = prodsBas.map(p=>{
+const lignesBas = prodsBas.map(p=>{
 const t=sum((st.stocks||[]).filter(s=>s.produitId===p.id).map(s=>s.qte));
 return `• ${p.nom} ${p.variante} ${p.format} : ${t} unités restantes`;
-}).join("%0A");
-sendEmail({to:"admin@goutstoso.ch",subject:subj,body:bodyTxt||body||""});
+}).join("\n");
+const bodyAlerte =
+"Bonjour Jordan,\n\n"+
+"Une alerte stock bas vient d'être détectée. Les produits suivants ont atteint un niveau critique (≤ 3 unités) :\n\n"+
+lignesBas+"\n\n"+
+"Merci de planifier une production dès que possible afin d'éviter toute rupture.\n\n"+
+"Bonne journée,\nGoûtstoso";
+const subj2 = "⚠️ Alerte stock bas - Goûtstoso";
+sendEmail({to:"admin@goutstoso.ch",subject:subj2,body:bodyAlerte});
 }} style={{background:"#991B1B",color:"#fff",border:"none",borderRadius:8,padding:"7px 12px",fontSize:12,fontWeight:700,cursor:"pointer",flexShrink:0,marginLeft:8}}>
 ✉️ Alerter
 </button>
@@ -1570,9 +1584,19 @@ return `• ${prod?.nom} ${prod?.variante} ${prod?.format} x${l.qte}`;
 }).join("\n");
 const typeLabel = contrat.type==="depot-vente"?"Bon de dépôt-vente":"Bon de livraison";
 const subj = encodeURIComponent(`${typeLabel} ${contrat.numero} - Goutstoso`);
-const body = encodeURIComponent(`Bonjour ${pv?.contact||""},\n\nVeuillez trouver ci-joint le ${typeLabel} N° ${contrat.numero} du ${fmt(contrat.dateDebut)}.\n\nProduits :\n${lignesTxt}\n\nStatut signature : ${contrat.statut}\n\nCordialement,\nL'équipe Goutstoso\nadmin@goutstoso.ch`);
+const contact = pv?.contact || pv?.nom || "";
+const bodyStr =
+`Bonjour ${contact},\n\n`+
+`Veuillez trouver ci-joint le ${typeLabel} N° ${contrat.numero} du ${fmt(contrat.dateDebut)}.\n\n`+
+`Détail des produits :\n${lignesTxt}\n\n`+
+(contrat.statut==="signé"
+  ? `Ce document est signé et enregistré dans nos dossiers.\n\n`
+  : `Si ce document n'a pas encore été signé, merci de nous le retourner signé dans les plus brefs délais.\n\n`
+)+
+`Pour toute question, n'hésitez pas à nous contacter à admin@goutstoso.ch.\n\n`+
+`Cordialement,\n\nJordan Montanaro\nGoûtstoso\nadmin@goutstoso.ch · www.goutstoso.ch`;
 if(!pv?.email) { alert("Aucun email pour ce partenaire"); return; }
-sendEmail({to:pv?.email||"",toName:pv?.contact||"",subject:decodeURIComponent(subj),body:decodeURIComponent(body)});
+sendEmail({to:pv?.email||"",toName:contact,subject:decodeURIComponent(subj),body:bodyStr});
 };
 
 // Vue liste des bulletins d'un partenaire
@@ -2099,28 +2123,32 @@ const delLigne = (i) => setForm(p=>({...p,lignes:p.lignes.filter((_,j)=>j!==i)})
 
 const envoyerContrat = (c) => {
 const pv = st.partenaires.find(p=>p.id===c.partenaireId);
+const contact = pv?.contact || pv?.nom || "";
 const typeL = c.type==="depot-vente"?"Contrat de dépôt-vente":c.type==="partenariat"?"Contrat de partenariat":c.type==="offre"?"Offre commerciale":"Contrat";
-const subj = encodeURIComponent(typeL+" "+c.numero+" - Goutstoso");
-let bodyTxt = "Bonjour "+(pv?.contact||"")+",\n\n";
+const subj = typeL+" "+c.numero+" - Goûtstoso";
+let bodyTxt = "Bonjour "+contact+",\n\n";
 if(c.type==="offre") {
-const validite = c.validiteOffre || 30;
-const dateExp = new Date(c.dateDebut);
-dateExp.setDate(dateExp.getDate()+parseInt(validite));
-bodyTxt += "Suite à notre échange, nous avons le plaisir de vous transmettre notre offre commerciale N° "+c.numero+" en pièce jointe.\n\n";
-bodyTxt += "Cette offre est valable jusqu'au "+fmt(dateExp.toISOString().slice(0,10))+".\n\n";
-if(c.modeAcceptation==="commande") {
-bodyTxt += "Pour accepter cette offre, il vous suffit de nous retourner votre commande par email à admin@goutstoso.ch en faisant référence à l'offre "+c.numero+". Votre commande vaudra acceptation des conditions.\n\n";
+  const validite = c.validiteOffre || 30;
+  const dateExp = new Date(c.dateDebut);
+  dateExp.setDate(dateExp.getDate()+parseInt(validite));
+  bodyTxt +=
+    "Suite à notre échange, nous avons le plaisir de vous soumettre notre offre commerciale N° "+c.numero+", dont vous trouverez le détail en pièce jointe.\n\n"+
+    "Cette offre est valable jusqu'au "+fmt(dateExp.toISOString().slice(0,10))+".\n\n";
+  if(c.modeAcceptation==="commande") {
+    bodyTxt += "Pour accepter cette offre, il vous suffit de nous retourner votre commande par email à admin@goutstoso.ch en faisant référence au numéro "+c.numero+". Votre commande vaudra acceptation de l'ensemble des conditions.\n\n";
+  } else {
+    bodyTxt += "Pour accepter cette offre, nous vous remercions de nous retourner le document signé, par email ou par courrier postal.\n\n";
+  }
+  bodyTxt += "Nous demeurons à votre entière disposition pour toute question ou information complémentaire.\n\n";
 } else {
-bodyTxt += "Pour accepter cette offre, merci de nous retourner le document signé par email ou par courrier.\n\n";
+  bodyTxt +=
+    "Veuillez trouver ci-joint le "+typeL+" N° "+c.numero+".\n\n"+
+    "Nous vous remercions de prendre connaissance de ce document et de nous le retourner signé dans les meilleurs délais si cela n'a pas encore été fait.\n\n"+
+    "Pour toute question, n'hésitez pas à nous contacter.\n\n";
 }
-bodyTxt += "Nous restons à votre entière disposition pour toute question ou précision.\n\n";
-} else {
-bodyTxt += "Veuillez trouver ci-joint le "+typeL+" N° "+c.numero+".\n\n";
-}
-bodyTxt += "Cordialement,\nL'équipe Goutstoso\nadmin@goutstoso.ch";
-const body = encodeURIComponent(bodyTxt);
+bodyTxt += "Cordialement,\n\nJordan Montanaro\nGoûtstoso\nadmin@goutstoso.ch · www.goutstoso.ch";
 if(!pv?.email) { alert("Aucun email pour ce partenaire"); return; }
-sendEmail({to:pv?.email||"",toName:pv?.contact||"",subject:decodeURIComponent(subj),body:decodeURIComponent(body)});
+sendEmail({to:pv?.email||"",toName:contact,subject:subj,body:bodyTxt});
 };
 
 const totalContrat = (c) => {
@@ -2800,42 +2828,53 @@ const subject = deg
   ? "Rappel "+deg+" — Facture "+f.numero+" - Goutstoso"
   : "Facture "+f.numero+" - Goutstoso";
 
+const contact = pv?.contact || pv?.nom || "";
+const iban = "IBAN : CH23 0900 0000 1565 1485 8\nBanque : PostFinance\nTitulaire : Goûtstoso / Jordan Montanaro\nMontant : CHF ";
 let bodyTxt = "";
 if(deg===1) {
-  bodyTxt = "Bonjour "+(pv?.contact||pv?.nom||"")+",\n\n"+
-    "Sauf erreur de notre part, la facture "+f.numero+" du "+fmt(f.date)+" d'un montant de CHF "+total.toFixed(2)+" reste impayée à ce jour (échéance : "+fmt(echeance)+").\n\n"+
-    "Ce premier rappel est envoyé à titre gracieux, sans frais supplémentaires.\n\n"+
-    "Nous vous prions de bien vouloir régler la somme de CHF "+total.toFixed(2)+" dans un délai de 10 jours.\n\n"+
-    "Sans paiement de votre part dans ce délai, un deuxième rappel vous sera adressé avec des frais de CHF 15.00.\n\n"+
-    "IBAN : CH23 0900 0000 1565 1485 8 — PostFinance\nTitulaire : Goûtstoso / Jordan Montanaro\n\n"+
-    "Cordialement,\nJordan Montanaro — Goûtstoso\nadmin@goutstoso.ch";
+  bodyTxt =
+    "Bonjour "+contact+",\n\n"+
+    "Sauf erreur de notre part, notre facture N° "+f.numero+" du "+fmt(f.date)+" d'un montant de CHF "+total.toFixed(2)+" demeure impayée à ce jour.\n\n"+
+    "Nous vous adressons ce premier rappel à titre gracieux, sans frais supplémentaires, et vous prions de bien vouloir procéder au règlement dans un délai de 10 jours à compter de la présente.\n\n"+
+    "Passé ce délai, un deuxième rappel vous sera adressé, majoré de frais administratifs de CHF 15.00.\n\n"+
+    "Coordonnées de paiement :\n"+iban+total.toFixed(2)+"\n\n"+
+    "Si ce paiement a déjà été effectué, nous vous remercions de ne pas tenir compte de ce message.\n\n"+
+    "Cordialement,\n\nJordan Montanaro\nGoûtstoso\nadmin@goutstoso.ch · www.goutstoso.ch";
 } else if(deg===2) {
-  bodyTxt = "Bonjour "+(pv?.contact||pv?.nom||"")+",\n\n"+
-    "Malgré notre premier rappel, la facture "+f.numero+" du "+fmt(f.date)+" d'un montant de CHF "+total.toFixed(2)+" reste toujours impayée.\n\n"+
-    "Nous vous adressons ce deuxième rappel avec les frais correspondants :\n"+
-    "  Montant facture : CHF "+total.toFixed(2)+"\n"+
-    "  Frais de rappel : CHF 15.00\n"+
-    "  TOTAL DÛ       : CHF "+totalFinal.toFixed(2)+"\n\n"+
-    "Nous vous demandons instamment de régler la totalité de CHF "+totalFinal.toFixed(2)+" dans les 10 jours.\n\n"+
-    "Sans réponse de votre part, un troisième et dernier rappel vous sera adressé avec des frais de CHF 25.00, avant toute procédure de recouvrement.\n\n"+
-    "IBAN : CH23 0900 0000 1565 1485 8 — PostFinance\nTitulaire : Goûtstoso / Jordan Montanaro\n\n"+
-    "Cordialement,\nJordan Montanaro — Goûtstoso\nadmin@goutstoso.ch";
+  bodyTxt =
+    "Bonjour "+contact+",\n\n"+
+    "Malgré notre premier rappel resté sans réponse, la facture N° "+f.numero+" du "+fmt(f.date)+" demeure toujours impayée.\n\n"+
+    "Nous vous adressons ce deuxième rappel et vous demandons de procéder au règlement dans un délai de 10 jours, incluant les frais de rappel :\n\n"+
+    "  Montant de la facture   CHF "+total.toFixed(2)+"\n"+
+    "  Frais de rappel         CHF 15.00\n"+
+    "  ─────────────────────────────────\n"+
+    "  TOTAL DÛ                CHF "+totalFinal.toFixed(2)+"\n\n"+
+    "Coordonnées de paiement :\n"+iban+totalFinal.toFixed(2)+"\n\n"+
+    "Sans règlement dans ce délai, un troisième et dernier rappel vous sera adressé avec des frais de CHF 25.00, avant toute procédure de recouvrement.\n\n"+
+    "Cordialement,\n\nJordan Montanaro\nGoûtstoso\nadmin@goutstoso.ch · www.goutstoso.ch";
 } else if(deg===3) {
-  bodyTxt = "Bonjour "+(pv?.contact||pv?.nom||"")+",\n\n"+
-    "En dépit de nos deux précédents rappels restés sans effet, la facture "+f.numero+" du "+fmt(f.date)+" demeure impayée.\n\n"+
-    "Ce troisième et dernier rappel est transmis avec les frais définitifs :\n"+
-    "  Montant facture : CHF "+total.toFixed(2)+"\n"+
-    "  Frais de rappel : CHF 25.00\n"+
-    "  TOTAL DÛ       : CHF "+totalFinal.toFixed(2)+"\n\n"+
-    "Sans règlement complet sous 10 jours, nous nous verrons dans l'obligation d'engager une procédure de recouvrement et/ou de suspendre toutes livraisons en cours. Les frais de recouvrement et intérêts légaux seront entièrement à votre charge.\n\n"+
-    "IBAN : CH23 0900 0000 1565 1485 8 — PostFinance\nTitulaire : Goûtstoso / Jordan Montanaro\n\n"+
-    "Cordialement,\nJordan Montanaro — Goûtstoso\nadmin@goutstoso.ch";
+  bodyTxt =
+    "Bonjour "+contact+",\n\n"+
+    "En dépit de nos deux précédents rappels demeurés sans effet, la facture N° "+f.numero+" du "+fmt(f.date)+" reste impayée.\n\n"+
+    "Ce troisième et dernier rappel exige le règlement immédiat du montant suivant :\n\n"+
+    "  Montant de la facture   CHF "+total.toFixed(2)+"\n"+
+    "  Frais de rappel         CHF 25.00\n"+
+    "  ─────────────────────────────────\n"+
+    "  TOTAL DÛ                CHF "+totalFinal.toFixed(2)+"\n\n"+
+    "Coordonnées de paiement :\n"+iban+totalFinal.toFixed(2)+"\n\n"+
+    "À défaut de paiement sous 10 jours, nous nous verrons dans l'obligation d'engager une procédure de recouvrement. L'ensemble des frais en découlant seront entièrement à votre charge.\n\n"+
+    "Cordialement,\n\nJordan Montanaro\nGoûtstoso\nadmin@goutstoso.ch · www.goutstoso.ch";
 } else {
-  bodyTxt = "Bonjour "+(pv?.contact||pv?.nom||"")+",\n\n"+
-    "Veuillez trouver ci-dessous votre facture "+f.numero+" du "+fmt(f.date)+".\n\n"+
-    lignesTxt+"\n\nTOTAL : CHF "+total.toFixed(2)+"\n\n"+
-    "Paiement à 30 jours\nIBAN : CH23 0900 0000 1565 1485 8 — PostFinance\n\n"+
-    "Cordialement,\nJordan Montanaro — Goûtstoso\nadmin@goutstoso.ch";
+  bodyTxt =
+    "Bonjour "+contact+",\n\n"+
+    "Veuillez trouver ci-joint notre facture N° "+f.numero+" du "+fmt(f.date)+".\n\n"+
+    "Détail de la commande :\n"+lignesTxt+"\n\n"+
+    "  TOTAL TTC               CHF "+total.toFixed(2)+"\n"+
+    "  Conditions de paiement  30 jours nets\n\n"+
+    "Coordonnées de paiement :\n"+iban+total.toFixed(2)+"\n\n"+
+    "Pour toute question relative à cette facture, n'hésitez pas à nous contacter à admin@goutstoso.ch.\n\n"+
+    "Nous vous remercions de votre confiance.\n\n"+
+    "Cordialement,\n\nJordan Montanaro\nGoûtstoso\nadmin@goutstoso.ch · www.goutstoso.ch";
 }
 
 setSt(p=>({...p,factures:(p.factures||[]).map(x=>x.id===f.id?{...x,envoyee:true}:x)}));
@@ -4738,31 +4777,20 @@ return "CMD-"+y+"-"+String(n).padStart(3,"0");
 const envoyerEmailSatisfaction = (c) => {
 if(!c.email) { alert("Ce client n'a pas d'email"); return; }
 
-const subject = "Merci pour votre commande Goutstoso";
-const body = `Bonjour ${c.client},
-
-Merci infiniment pour votre commande ${c.numero} !
-
-Nous espérons que nos liqueurs artisanales vous apporteront de beaux moments de dégustation. Chaque bouteille est le fruit d'un travail passionné, de macérations lentes et de fruits soigneusement sélectionnés.
-
-Votre avis compte énormément pour nous.
-
-Auriez-vous quelques minutes pour nous faire part de votre ressenti ? Vos impressions nous aident à nous améliorer et à faire découvrir nos produits à d'autres amateurs.
-
-Partagez votre expérience :
-
-- Laissez un avis sur notre page Google : https://g.page/r/CXbd92zwMoz_EAE/review
-- Taguez-nous sur Instagram : @goutstoso
-- Répondez simplement à cet email
-
-Avec nos remerciements chaleureux,
-
-L'équipe Goutstoso
-admin@goutstoso.ch · www.goutstoso.ch
-
------
-
-A consommer avec modération. L'abus d'alcool est dangereux pour la santé.`;
+const subject = "Merci pour votre commande — Goûtstoso";
+const body =
+`Bonjour ${c.client},\n\n`+
+`Nous vous remercions chaleureusement de votre commande N° ${c.numero}.\n\n`+
+`Chaque bouteille Goûtstoso est le fruit d'un savoir-faire artisanal : macérations longues, fruits soigneusement sélectionnés et assemblages travaillés avec passion. Nous espérons que nos liqueurs vous apporteront de beaux moments de dégustation.\n\n`+
+`Votre avis nous tient à cœur.\n\n`+
+`Si vous avez quelques minutes, nous serions ravis que vous partagiez votre expérience :\n\n`+
+`  • Laisser un avis Google : https://g.page/r/CXbd92zwMoz_EAE/review\n`+
+`  • Nous taguer sur Instagram : @goutstoso\n`+
+`  • Répondre directement à cet email\n\n`+
+`À très bientôt,\n\n`+
+`Jordan Montanaro\nGoûtstoso\nadmin@goutstoso.ch · www.goutstoso.ch\n\n`+
+`─────────────────────────────────\n`+
+`L'abus d'alcool est dangereux pour la santé. À consommer avec modération.`;
 
 sendEmail({to:c.email||"",toName:c?.contact||"",subject,body});
 
