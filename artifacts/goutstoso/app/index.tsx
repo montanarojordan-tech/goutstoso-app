@@ -1837,10 +1837,10 @@ return (
               </div>
               <Badge c={c.statut==="signé"?"green":"yellow"}>{c.statut}</Badge>
             </div>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr 40px",gap:6}}>
-              <button onClick={()=>genererBulletinPDF(c,pv,st)} style={{background:"#111",color:"#F2C94C",border:"none",borderRadius:8,padding:"7px",fontSize:11,fontWeight:700,cursor:"pointer"}}>📄 PDF</button>
-              <button onClick={()=>envoyerBulletin(c)} style={{background:"#F5F5F0",border:"none",borderRadius:8,padding:"7px",fontSize:11,fontWeight:600,cursor:"pointer"}}>✉️ Envoyer</button>
-              <button onClick={()=>setSigningBulletin(c)} style={{background:c.signClient?"#DCFCE7":"#FEF9E7",color:c.signClient?"#166534":"#92400E",border:"none",borderRadius:8,padding:"7px",fontSize:11,fontWeight:600,cursor:"pointer"}}>{c.signClient?"✅ Signé":"✍️ Signer"}</button>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
+              <button onClick={()=>genererBulletinPDF(c,pv,st)} style={{background:"#111",color:"#F2C94C",border:"none",borderRadius:8,padding:"8px",fontSize:11,fontWeight:700,cursor:"pointer"}}>📄 PDF</button>
+              <button onClick={()=>envoyerBulletin(c)} style={{background:"#F5F5F0",border:"none",borderRadius:8,padding:"8px",fontSize:11,fontWeight:600,cursor:"pointer"}}>✉️ Envoyer</button>
+              <button onClick={()=>setSigningBulletin(c)} style={{background:c.signClient?"#DCFCE7":"#FEF9E7",color:c.signClient?"#166534":"#92400E",border:"none",borderRadius:8,padding:"8px",fontSize:11,fontWeight:600,cursor:"pointer"}}>{c.signClient?"✅ Signé":"✍️ Signer"}</button>
               <button onClick={()=>{
                 if(window.confirm("Modifier ce bulletin ? La signature sera perdue.")) {
                   // Reload livraison form with this data
@@ -2513,7 +2513,7 @@ Contrats
             </div>
           </div>
         </div>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 40px",gap:6}}>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
           <button onClick={()=>setViewId(c.id)} style={{background:"#111",color:"#F2C94C",border:"none",borderRadius:8,padding:"8px",fontSize:11,fontWeight:700,cursor:"pointer"}}>👁 Voir</button>
           <button onClick={()=>envoyerContrat(c)} style={{background:"#FEF9E7",color:"#92400E",border:"none",borderRadius:8,padding:"8px",fontSize:11,fontWeight:600,cursor:"pointer"}}>✉️ Email</button>
           <button onClick={()=>renouveler(c)} style={{background:"#EFF6FF",color:"#1D4ED8",border:"none",borderRadius:8,padding:"8px",fontSize:11,fontWeight:600,cursor:"pointer"}}>🔄 Renouveler</button>
@@ -4393,8 +4393,60 @@ return (
   {/* RENTABILITÉ */}
   {onglet==="rentabilite"&&(
     <div>
+      {/* TOTAL MARGE BRUTE — synthèse toutes ventes */}
+      {(()=>{
+        const prodActifs = st.produits.filter(p=>p.actif&&!p.nom.includes("Coffret"));
+        let totalUnites=0, totalCA=0, totalMarge=0;
+        prodActifs.forEach(p=>{
+          const cout = p.coutRevient||0;
+          const margeP = p.prixClient-cout;
+          const margePro = p.prixRevendeur-cout;
+          const uCmd = (st.commandes||[]).filter(cmd=>{
+            if(!cmd.envoyeeCompta) return false;
+            if(periode==="tout") return true;
+            return (cmd.date||"").startsWith(periode);
+          }).reduce((a,cmd)=>{
+            const l=(cmd.lignes||[]).find(l=>l.produitId===p.id);
+            return a+(l?parseInt(l.qte)||0:0);
+          },0);
+          const uFact = (st.factures||[]).filter(f=>{
+            if(f.statut!=="payée") return false;
+            if(periode==="tout") return true;
+            return (f.datePaiement||f.date||"").startsWith(periode);
+          }).reduce((a,f)=>{
+            const l=(f.lignes||[]).find(l=>l.produitId===p.id);
+            return a+(l?parseInt(l.qte)||0:0);
+          },0);
+          totalUnites += uCmd+uFact;
+          totalCA += uCmd*(p.prixClient||0) + uFact*(p.prixRevendeur||0);
+          totalMarge += uCmd*margeP + uFact*margePro;
+        });
+        const pct = totalCA>0?Math.round((totalMarge/totalCA)*100):0;
+        return (
+          <div style={{background:"linear-gradient(135deg,#1a1a1a 0%,#2d2d2d 100%)",borderRadius:14,padding:"16px",marginBottom:12,color:"#fff"}}>
+            <p style={{fontSize:10,fontWeight:600,color:"#F2C94C",textTransform:"uppercase",letterSpacing:".08em",marginBottom:8}}>
+              Ta marge brute totale {periode==="tout"?"— toutes périodes":`— ${periode}`}
+            </p>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
+              <div style={{textAlign:"center"}}>
+                <p style={{fontSize:22,fontWeight:800,color:"#F2C94C",lineHeight:1}}>{totalUnites}</p>
+                <p style={{fontSize:9,color:"#aaa",marginTop:3}}>unités vendues</p>
+              </div>
+              <div style={{textAlign:"center"}}>
+                <p style={{fontSize:18,fontWeight:800,color:"#fff",lineHeight:1}}>{chf(totalCA)}</p>
+                <p style={{fontSize:9,color:"#aaa",marginTop:3}}>chiffre d'affaires</p>
+              </div>
+              <div style={{textAlign:"center"}}>
+                <p style={{fontSize:18,fontWeight:800,color:totalMarge>0?"#4ADE80":"#F87171",lineHeight:1}}>{chf(totalMarge)}</p>
+                <p style={{fontSize:9,color:"#aaa",marginTop:3}}>marge brute ({pct}%)</p>
+              </div>
+            </div>
+            {totalUnites===0&&<p style={{fontSize:11,color:"#aaa",textAlign:"center",marginTop:8}}>Aucune vente sur cette période — marque tes commandes comme "envoyées en compta" ou tes factures comme "payées"</p>}
+          </div>
+        );
+      })()}
       <Card style={{marginBottom:12}}>
-        <h3 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:19,marginBottom:6,letterSpacing:"-0.015em"}}>Marges & volumes vendus</h3>
+        <h3 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:19,marginBottom:6,letterSpacing:"-0.015em"}}>Marges & volumes par produit</h3>
         <p style={{fontSize:11,color:"#737373",marginBottom:14}}>Marges théoriques + unités vendues sur la période sélectionnée</p>
         {st.produits.filter(p=>p.actif&&!p.nom.includes("Coffret")).map(p=>{
           const cout = p.coutRevient||0;
@@ -4530,7 +4582,7 @@ return (
               {/* Suggestions prix */}
               <div style={{marginBottom:8}}>
                 <p style={{fontSize:9,fontWeight:600,color:"#737373",textTransform:"uppercase",marginBottom:6}}>Prix suggérés PUBLIC</p>
-                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:4,fontSize:10}}>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:4,fontSize:10}}>
                   <div style={{background:"#FEF2F2",padding:"6px 4px",borderRadius:6,textAlign:"center"}}>
                     <p style={{color:"#B91C1C",fontWeight:600,fontSize:8}}>PLANCHER</p>
                     <p style={{fontWeight:700,marginTop:2}}>{chf(plancher)}</p>
