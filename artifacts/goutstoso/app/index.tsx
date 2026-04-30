@@ -2365,7 +2365,32 @@ setSt(p=>({...p,factures:[...(p.factures||[]),{...form,id:uid(),numero,statut:"e
 setModal(null);
 };
 
-const marquerPayee = id => setSt(p=>({...p,factures:p.factures.map(f=>f.id===id?{...f,statut:"payée",datePaiement:today()}:f)}));
+const marquerPayee = (id) => setSt(p => {
+  const facture = (p.factures||[]).find(f=>f.id===id);
+  const rappels = facture?.rappels||[];
+  const dernierRappel = rappels[rappels.length-1];
+  const frais = dernierRappel ? (dernierRappel.degree>=3?25:dernierRappel.degree>=2?15:0) : 0;
+  const pv = (p.partenaires||[]).find(par=>par.id===facture?.partenaireId);
+  const newTransactions = frais>0 ? [
+    ...p.transactions,
+    {
+      id: "rappel-"+id+"-"+Date.now(),
+      date: today(),
+      compte: "3750",
+      libelle: "Frais de rappel",
+      type: "recette",
+      categorie: "Frais de rappel",
+      montant: frais,
+      description: "Frais rappel "+dernierRappel.degree+" — "+((facture?.numero)||"")+" ("+((pv?.nom)||"")+")",
+      postfinance: true,
+    }
+  ] : p.transactions;
+  return {
+    ...p,
+    factures: p.factures.map(f=>f.id===id?{...f,statut:"payée",datePaiement:today()}:f),
+    transactions: newTransactions,
+  };
+});
 const del = id => setSt(p=>({...p,factures:p.factures.filter(f=>f.id!==id)}));
 
 const addLigne = () => setForm(p=>({...p,lignes:[...p.lignes,{produitId:"",qte:1}]}));
@@ -2884,9 +2909,20 @@ return (
       </button>
     </div>
     {view.statut!=="payée"&&(
-      <button onClick={()=>{marquerPayee(view.id);setView(null);}} style={{width:"100%",background:"#DCFCE7",border:"none",borderRadius:12,padding:"12px",fontWeight:700,fontSize:13,color:"#166534",cursor:"pointer",marginBottom:16,display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
-        ✅ Marquer comme payée
-      </button>
+      <div style={{marginBottom:16}}>
+        <button onClick={()=>{marquerPayee(view.id);setView(null);}} style={{width:"100%",background:"#DCFCE7",border:"none",borderRadius:12,padding:"12px",fontWeight:700,fontSize:13,color:"#166534",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+          ✅ Marquer comme payée
+        </button>
+        {(view.rappels||[]).length>0&&(()=>{
+          const lastR=(view.rappels||[])[view.rappels.length-1];
+          const fraisR=lastR?.degree>=3?25:lastR?.degree>=2?15:0;
+          return fraisR>0?(
+            <p style={{fontSize:10,color:"#166534",textAlign:"center",marginTop:5}}>
+              ↳ CHF {fraisR.toFixed(2)} frais de rappel seront enregistrés automatiquement en comptabilité (compte 3750)
+            </p>
+          ):null;
+        })()}
+      </div>
     )}
 
     {/* Document */}
@@ -3219,6 +3255,7 @@ const PLAN_COMPTABLE = {
 "3400":"Ventes de prestations",
 "3600":"Frais d'expédition facturés",
 "3700":"Autres produits d'exploitation",
+"3750":"Frais de rappel encaissés",
 "3800":"Produits divers",
 // CHARGES (matières & production)
 "4000":"Achats de matériel",
@@ -3247,7 +3284,7 @@ const PLAN_COMPTABLE = {
 "8900":"Impôts",
 };
 
-const CATEGORIES_RECETTE = ["Vente Limonta","Vente Limelo","Vente Clementino","Vente Coffrets","Dépôt-vente","Vente directe","Frais expédition facturés","Autres"];
+const CATEGORIES_RECETTE = ["Vente Limonta","Vente Limelo","Vente Clementino","Vente Coffrets","Dépôt-vente","Vente directe","Frais expédition facturés","Frais de rappel","Autres"];
 const CATEGORIES_DEPENSE = ["Matières premières","Bouteilles","Étiquettes","Emballages","Dédouanement","Marketing","Frais d'expédition (envois)","Transport","Matériel","Commissions","Services","Salaires","Frais bancaires","Autres"];
 
 const Comptabilite = ({st,setSt}) => {
@@ -4076,8 +4113,10 @@ return (
           <F label="Date" type="date" value={form.date} onChange={v=>setForm(p=>({...p,date:v}))}/>
         </div>
         <F label="Montant (CHF)" type="number" value={form.montant||""} onChange={v=>setForm(p=>({...p,montant:v}))} required/>
-        <Sel label="Catégorie" value={form.categorie} onChange={v=>setForm(p=>({...p,categorie:v}))}
-          options={(form.type==="recette"?CATEGORIES_RECETTE:CATEGORIES_DEPENSE).map(c=>({v:c,l:c}))}/>
+        <Sel label="Catégorie" value={form.categorie} onChange={v=>{
+          const compteAuto = v==="Frais de rappel"?"3750":form.compte;
+          setForm(p=>({...p,categorie:v,compte:compteAuto,libelle:v==="Frais de rappel"?"Frais de rappel":(PLAN_COMPTABLE[compteAuto]||p.libelle)}));
+        }} options={(form.type==="recette"?CATEGORIES_RECETTE:CATEGORIES_DEPENSE).map(c=>({v:c,l:c}))}/>
         <Sel label="Compte comptable" value={form.compte} onChange={v=>setForm(p=>({...p,compte:v,libelle:PLAN_COMPTABLE[v]||""}))}
           options={Object.entries(PLAN_COMPTABLE).filter(([k])=>form.type==="recette"?k.startsWith("3"):!k.startsWith("3")).map(([k,v])=>({v:k,l:k+" - "+v}))}/>
         <F label="Description" value={form.description} onChange={v=>setForm(p=>({...p,description:v}))} placeholder="Précisions (optionnel)"/>
