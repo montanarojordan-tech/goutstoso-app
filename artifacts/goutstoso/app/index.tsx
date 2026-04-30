@@ -1979,6 +1979,7 @@ const [modal,setModal] = useState(null);
 const [viewId,setViewId] = useState(null);
 const [sigMode,setSigMode] = useState(null); // "fournisseur" | "client" | null
 const [form,setForm] = useState(null);
+const [filtreC,setFiltreC] = useState("tous");
 
 // Toujours récupérer le contrat frais depuis le state
 const view = viewId ? (st.contrats||[]).find(c=>c.id===viewId) : null;
@@ -2318,7 +2319,6 @@ return (
 // Vue liste — refonte complète
 const today_d = new Date();
 const contratsListe = (st.contrats||[]).filter(c=>!c.livraison);
-const [filtreC, setFiltreC] = useState("tous");
 
 const getStatutContrat = (c) => {
   if(c.statut==="résilié") return "résilié";
