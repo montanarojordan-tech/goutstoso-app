@@ -490,6 +490,21 @@ action: "commandes",
 });
 }
 
+// Factures à envoyer (créées mais pas encore envoyées)
+(st.factures||[]).filter(f=>f.envoyee===false && f.statut!=="payée").forEach(f=>{
+const pv2 = st.partenaires.find(p=>p.id===f.partenaireId);
+const total = calcTotal(f.lignes,f.typeClient,st.produits);
+alertes.push({
+  type:"facture_a_envoyer",
+  priorite:"haute",
+  icone:"📤",
+  titre:"Facture à envoyer : "+f.numero,
+  desc:(pv2?.nom||"Client inconnu")+" · CHF "+total.toFixed(2)+" · "+fmt(f.date),
+  action:"partenaires",
+  id:f.id,
+});
+});
+
 // Trier par priorité
 const ordre = {haute: 0, moyenne: 1, basse: 2};
 alertes.sort((a,b)=>ordre[a.priorite]-ordre[b.priorite]);
@@ -1449,6 +1464,23 @@ const doc = {
   createdAt:today(),
 };
 
+// Auto-créer la facture si livraison ferme signée
+let autoFac = null;
+let autoFacNum = "";
+if(livForm.type==="livraison" && sig) {
+  const yF = new Date().getFullYear();
+  const existingFacNums = (st.factures||[]).map(f=>f.numero);
+  let fn=1;
+  while(existingFacNums.includes("FAC-"+yF+"-"+String(fn).padStart(3,"0"))) fn++;
+  autoFacNum = "FAC-"+yF+"-"+String(fn).padStart(3,"0");
+  autoFac = {
+    id:uid(), numero:autoFacNum, date:livForm.date,
+    partenaireId:pv.id, typeClient:"revendeur",
+    lignes:lignesValides, statut:"en attente",
+    notes:"Facture auto — "+num, envoyee:false, bulletinId:doc.id,
+  };
+}
+
 setSt(p=>({...p,
   depotStocks:newDepots,
   contrats:[...p.contrats,{
@@ -1459,12 +1491,17 @@ setSt(p=>({...p,
     signClient:doc.signature, signFournisseur:null,
     lieuSignature:"", livraison:true,
   }],
+  factures: autoFac ? [...(p.factures||[]), autoFac] : (p.factures||[]),
 }));
 
 setModal(null);
 setSigMode(false);
 setLivForm({type:"depot-vente",date:today(),lignes:[{produitId:"",qte:1}],notes:""});
-alert(num+" enregistré"+(sig?" avec signature":"")+".");
+if(autoFac) {
+  alert(num+" enregistré avec signature.\n✅ Facture "+autoFacNum+" créée — pensez à l'envoyer (alerte sur l'Accueil).");
+} else {
+  alert(num+" enregistré"+(sig?" avec signature":"")+".");
+}
 
 };
 
@@ -1475,7 +1512,7 @@ const vendus = depots.filter(d=>d.qteVendue>0);
 if(!vendus.length){ alert("Aucune vente à facturer."); return; }
 const num = "FAC-"+new Date().getFullYear()+"-"+String((st.factures||[]).length+1).padStart(3,"0");
 const lignes = vendus.map(d=>({produitId:d.produitId,qte:d.qteVendue}));
-const newFac = {id:uid(),numero:num,date:today(),partenaireId:pv.id,typeClient:"revendeur",lignes,statut:"en attente",datePaiement:"",notes:"Inventaire dépôt-vente"};
+const newFac = {id:uid(),numero:num,date:today(),partenaireId:pv.id,typeClient:"revendeur",lignes,statut:"en attente",datePaiement:"",notes:"Inventaire dépôt-vente",envoyee:false};
 // Réduire qteDeposee pour les ventes + retraits, et réinitialiser les compteurs
 // Supprimer les lignes vides, garder celles avec du stock restant
 const newDepots = (st.depotStocks||[]).map(d=>{
@@ -1484,7 +1521,7 @@ const resteApresOp = d.qteDeposee - d.qteVendue - (d.qteRetournee||0);
 return {...d, qteDeposee: resteApresOp, qteVendue: 0, qteRetournee: 0, dateInventaire: today()};
 }).filter(d=>d.qteDeposee>0); // supprimer les lignes vides après inventaire
 setSt(p=>({...p,factures:[...(p.factures||[]),newFac],depotStocks:newDepots}));
-alert("Facture "+num+" créée !\nLe stock a été mis à jour.");
+alert("Facture "+num+" créée ! 📤 Pensez à l'envoyer au partenaire.\nLe stock a été mis à jour.");
 };
 
 const envoyerBulletin = (contrat) => {
@@ -1543,6 +1580,31 @@ return (
 </div>
 <Badge c={pv.statut==="actif"?"green":"gray"}>{pv.statut}</Badge>
 </div>
+
+    {/* Contrat actif */}
+    {(()=>{
+      const contratsDepot = (st.contrats||[]).filter(c=>c.partenaireId===pv.id&&!c.livraison).slice().reverse();
+      const contrat = contratsDepot.find(c=>c.statut==="signé"||c.statut==="actif") || contratsDepot[0];
+      if(!contrat) return (
+        <div style={{background:"#F5F5F0",borderRadius:12,padding:"12px 14px",marginBottom:12,border:"1px solid #EAE7E0",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+          <p style={{fontSize:12,color:"#9CA3AF"}}>Aucun contrat</p>
+          <button onClick={()=>{}} style={{fontSize:11,color:"#6B7280",background:"none",border:"1px solid #EAE7E0",borderRadius:8,padding:"5px 10px"}}>+ Contrat</button>
+        </div>
+      );
+      const isActif = contrat.statut==="signé"||contrat.statut==="actif";
+      return (
+        <div style={{background:isActif?"#F0FDF4":"#FEF9E7",borderRadius:12,padding:"12px 14px",marginBottom:12,border:"1px solid "+(isActif?"#BBF7D0":"#FDE68A")}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <div style={{flex:1}}>
+              <p style={{fontSize:10,fontWeight:600,color:"#6B7280",textTransform:"uppercase",letterSpacing:"0.04em",marginBottom:2}}>Contrat</p>
+              <p style={{fontSize:13,fontWeight:700}}>{contrat.numero} · {contrat.type}</p>
+              <p style={{fontSize:11,color:"#6B7280",marginTop:2}}>Depuis {fmt(contrat.dateDebut)}{contrat.dateFin?" · Fin: "+fmt(contrat.dateFin):""}{contrat.commission>0?" · Commission: "+contrat.commission+"%":""}</p>
+            </div>
+            <Badge c={isActif?"green":contrat.statut==="résilié"?"red":"gray"}>{contrat.statut||"brouillon"}</Badge>
+          </div>
+        </div>
+      );
+    })()}
 
     {/* Stock en dépôt */}
     <Card style={{marginBottom:16}}>
@@ -1667,6 +1729,37 @@ return (
           </Card>
         ))
     }
+
+    {/* Factures liées */}
+    {(()=>{
+      const facturesPV = (st.factures||[]).filter(f=>f.partenaireId===pv.id).slice().reverse();
+      return (
+        <div style={{marginTop:20}}>
+          <h3 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:18,marginBottom:10}}>Factures</h3>
+          {facturesPV.length===0
+            ? <p style={{fontSize:12,color:"#9CA3AF",textAlign:"center",padding:"16px 0"}}>Aucune facture pour ce dépôt</p>
+            : facturesPV.slice(0,8).map(f=>{
+                const total = calcTotal(f.lignes,f.typeClient,st.produits);
+                const isPaid = f.statut==="payée";
+                const isToSend = f.envoyee===false && !isPaid;
+                return (
+                  <Card key={f.id} style={{marginBottom:8,padding:"12px 14px",background:isToSend?"#FFFBEB":isPaid?"#F0FDF4":"#fff",border:"1px solid "+(isToSend?"#FDE68A":isPaid?"#BBF7D0":"#EAE7E0")}}>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                      <div style={{flex:1,minWidth:0}}>
+                        <p style={{fontSize:13,fontWeight:700}}>{f.numero}</p>
+                        <p style={{fontSize:11,color:"#6B7280",marginTop:2}}>{fmt(f.date)} · CHF {total.toFixed(2)}</p>
+                        {isToSend && <p style={{fontSize:10,color:"#92400E",fontWeight:700,marginTop:3}}>📤 À envoyer</p>}
+                        {f.envoyee && !isPaid && <p style={{fontSize:10,color:"#1E40AF",fontWeight:600,marginTop:3}}>✉️ Envoyée — en attente de paiement</p>}
+                      </div>
+                      <Badge c={isPaid?"green":f.envoyee?"blue":"yellow"}>{isPaid?"Payée":f.envoyee?"Envoyée":"En attente"}</Badge>
+                    </div>
+                  </Card>
+                );
+              })
+          }
+        </div>
+      );
+    })()}
   </div>
 );
 
@@ -1675,14 +1768,14 @@ return (
 return (
 <div className="fade">
 <SectionTitle action={<Btn icon="plus" onClick={()=>{setForm({nom:"",adresse:"",contact:"",tel:"",email:"",type:"depot-vente",commission:0,statut:"actif",id:null});setModal("form");}}>Nouveau</Btn>}>
-Points de vente
+Dépôts-vente
 </SectionTitle>
 
   {st.partenaires.length===0
     ? <div style={{textAlign:"center",padding:"40px 20px",color:"#9CA3AF"}}>
         <p style={{fontSize:40,marginBottom:12}}>🏪</p>
-        <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:20,fontWeight:600,color:"#374151"}}>Aucun point de vente</p>
-        <p style={{fontSize:13,marginTop:6}}>Ajoute ton premier partenaire pour commencer.</p>
+        <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:20,fontWeight:600,color:"#374151"}}>Aucun dépôt-vente</p>
+        <p style={{fontSize:13,marginTop:6}}>Ajoute ton premier point de vente pour commencer.</p>
       </div>
     : st.partenaires.map(pv=>{
         const depots = (st.depotStocks||[]).filter(d=>d.partenaireId===pv.id);
@@ -2435,7 +2528,7 @@ const [view,setView] = useState(null);
 const [filtre,setFiltre] = useState("toutes");
 const [sigMode,setSigMode] = useState(false);
 
-const emptyF = {partenaireId:st.partenaires[0]?.id||"",typeClient:"revendeur",lignes:[{produitId:"",qte:1}],notes:"",date:today()};
+const emptyF = {partenaireId:st.partenaires[0]?.id||"",typeClient:"revendeur",lignes:[{produitId:"",qte:1}],notes:"",date:today(),envoyee:false};
 const [form,setForm] = useState(emptyF);
 const [modalRegroup,setModalRegroup] = useState(false);
 const [selectedForRegroup,setSelectedForRegroup] = useState([]);
@@ -2648,6 +2741,7 @@ if(deg===1) {
     "Cordialement,\nJordan Montanaro — Goûtstoso\nadmin@goutstoso.ch";
 }
 
+setSt(p=>({...p,factures:(p.factures||[]).map(x=>x.id===f.id?{...x,envoyee:true}:x)}));
 sendEmail({to:pv.email||"",toName:pv?.contact||pv?.nom||"",subject,body:bodyTxt.replace(/\n/g,"<br>")});
 };
 
@@ -3128,6 +3222,19 @@ return (
         {view.signFournisseur?"✅ Signé":"✍️ Signer"}
       </button>
     </div>
+    {view.statut!=="payée"&&(
+      <div style={{marginBottom:8}}>
+        {view.envoyee
+          ? <div style={{background:"#EFF6FF",border:"1px solid #BFDBFE",borderRadius:10,padding:"10px 14px",display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+              <p style={{fontSize:12,color:"#1E40AF",fontWeight:600}}>✉️ Facture envoyée</p>
+              <button onClick={()=>setSt(p=>({...p,factures:p.factures.map(x=>x.id===view.id?{...x,envoyee:false}:x)}))} style={{fontSize:10,color:"#9CA3AF",background:"none",border:"none",cursor:"pointer",textDecoration:"underline"}}>Annuler</button>
+            </div>
+          : <button onClick={()=>{setSt(p=>({...p,factures:p.factures.map(x=>x.id===view.id?{...x,envoyee:true}:x)}));setView(v=>({...v,envoyee:true}));}} style={{width:"100%",background:"#EFF6FF",border:"1.5px solid #BFDBFE",borderRadius:10,padding:"10px",fontWeight:700,fontSize:13,color:"#1E40AF",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6,marginBottom:8}}>
+              📤 Marquer comme envoyée
+            </button>
+        }
+      </div>
+    )}
     {view.statut!=="payée"&&(
       <div style={{marginBottom:16}}>
         <button onClick={()=>{marquerPayee(view.id);setView(null);}} style={{width:"100%",background:"#DCFCE7",border:"none",borderRadius:12,padding:"12px",fontWeight:700,fontSize:13,color:"#166534",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
@@ -6371,18 +6478,18 @@ Factures fournisseurs
 // Groupes de navigation - 5 max en bas, reste dans "Plus"
 const NAV_MAIN = [
 {id:"dashboard",label:"Accueil",icon:"dash"},
-{id:"factures",label:"Factures",icon:"facture"},
 {id:"partenaires",label:"Dépôts",icon:"depot"},
+{id:"clients",label:"Clients",icon:"prod"},
+{id:"fournisseurs",label:"Fournisseurs",icon:"facture"},
 {id:"compta",label:"Compta",icon:"compta"},
 {id:"more",label:"Plus",icon:"more"},
 ];
 const NAV_MORE = [
+{id:"factures",label:"Factures",icon:"facture"},
+{id:"contrats",label:"Contrats",icon:"contrat"},
 {id:"commandes",label:"Commandes",icon:"facture"},
-{id:"fournisseurs",label:"Fournisseurs",icon:"facture"},
-{id:"clients",label:"Clients",icon:"prod"},
 {id:"produits",label:"Produits",icon:"prod"},
 {id:"stocks",label:"Stocks",icon:"stock"},
-{id:"contrats",label:"Contrats",icon:"contrat"},
 {id:"documents",label:"Documents",icon:"contrat"},
 {id:"sauvegardes",label:"Sauvegardes",icon:"stock"},
 ];
