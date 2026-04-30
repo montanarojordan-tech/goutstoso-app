@@ -292,6 +292,23 @@ const SectionTitle = ({children,action}) => (
   </div>
 );
 
+// ── HELPER RAPPELS (top-level, utilisé par Dashboard et Factures) ──
+const getProchainRappelFn = (f) => {
+  if(f.statut==="payée") return null;
+  const now = new Date();
+  const echeance = new Date(new Date(f.date).getTime()+30*86400000);
+  if(now < echeance) return null;
+  const rappels = f.rappels||[];
+  if(rappels.length===0) return {degree:1,frais:0,available:true,daysLeft:0};
+  const last = rappels[rappels.length-1];
+  if(last.degree>=3) return {degree:null,available:false};
+  const daysSince = Math.floor((now-new Date(last.date))/86400000);
+  const nextDeg = last.degree+1;
+  const nextFrais = nextDeg===2?15:25;
+  if(daysSince>=10) return {degree:nextDeg,frais:nextFrais,available:true,daysLeft:0};
+  return {degree:nextDeg,frais:nextFrais,available:false,daysLeft:10-daysSince};
+};
+
 // ══════════════════════════════════════════════════════════════
 // PAGE: TABLEAU DE BORD
 // ══════════════════════════════════════════════════════════════
@@ -317,20 +334,34 @@ return ((f.typeClient==="revendeur"?prod?.prixRevendeur:prod?.prixClient)||0)*(l
 // === ALERTES ===
 const alertes = [];
 
-// Factures échues
-(st.factures||[]).filter(f=>f.statut==="en attente").forEach(f=>{
-const dateF = new Date(f.date);
-const jours = Math.floor((now - dateF)/86400000);
-if(jours >= 30) {
-alertes.push({
-type: "facture",
-priorite: jours >= 60 ? "haute" : "moyenne",
-icone: "💰",
-titre: "Facture "+f.numero+" - retard "+jours+"j",
-desc: "Partenaire : "+(st.partenaires.find(p=>p.id===f.partenaireId)?.nom||""),
-action: "factures",
-id: f.id,
-});
+// Factures échues — rappels intelligents
+(st.factures||[]).filter(f=>f.statut!=="payée").forEach(f=>{
+const pr = getProchainRappelFn(f);
+if(!pr) return;
+const pv = st.partenaires.find(p=>p.id===f.partenaireId);
+const rappels = f.rappels||[];
+const echeance = new Date(new Date(f.date).getTime()+30*86400000);
+const joursRetard = Math.floor((now-echeance)/86400000);
+if(pr.available) {
+  alertes.push({
+    type:"facture",
+    priorite: pr.degree>=3?"haute": pr.degree>=2?"haute":"moyenne",
+    icone: pr.degree===1?"🔔": pr.degree===2?"⚠️":"🚨",
+    titre:"Rappel "+pr.degree+" disponible — "+f.numero,
+    desc:(pv?.nom||"")+" · CHF "+(rappels.length>0?(parseFloat(f.total||0)+pr.frais).toFixed(2):parseFloat(f.total||0).toFixed(2))+(pr.frais>0?" (+ CHF "+pr.frais+" frais)":"")+" · "+joursRetard+"j de retard",
+    action:"factures",
+    id: f.id,
+  });
+} else if(pr.degree && pr.daysLeft>0) {
+  alertes.push({
+    type:"facture",
+    priorite:"basse",
+    icone:"⏳",
+    titre:"Rappel "+pr.degree+" dans "+pr.daysLeft+"j — "+f.numero,
+    desc:(pv?.nom||"")+" · Rappel "+(pr.degree-1)+" envoyé le "+fmt((rappels[rappels.length-1]||{}).date||""),
+    action:"factures",
+    id: f.id,
+  });
 }
 });
 
@@ -2345,46 +2376,73 @@ if(f.statut==="payée") return null;
 const echeance = new Date(new Date(f.date).getTime()+30*86400000);
 const jours = Math.floor((new Date()-echeance)/86400000);
 if(jours < 0) return null;
-return {
-jours,
-frais: jours>=60?25:jours>=30?15:0,
-niveau: jours>=60?"critique":jours>=30?"rappel2":"rappel1",
+const rappels = f.rappels||[];
+const dernierRappel = rappels[rappels.length-1];
+const frais = dernierRappel ? (dernierRappel.degree>=3?25:dernierRappel.degree>=2?15:0) : 0;
+const niveau = jours>=60?"critique":jours>=30?"rappel2":"rappel1";
+return {jours, frais, niveau};
 };
-};
+const getProchainRappel = (f) => getProchainRappelFn(f);
 
-const envoyerEmail = (f) => {
+const envoyerEmail = (f, rappelDegree=null) => {
 const pv = st.partenaires.find(p=>p.id===f.partenaireId);
 if(!pv?.email) { alert("Aucun email pour ce partenaire"); return; }
 const retard = getInfosRetard(f);
+const pr = getProchainRappel(f);
+const deg = rappelDegree || (pr?.degree||null);
 const lignesTxt = (f.lignes||[]).filter(l=>l.produitId).map(l=>{
 const p = st.produits.find(x=>x.id===l.produitId);
 const pu = p?(f.typeClient==="revendeur"?p.prixRevendeur:p.prixClient):0;
 return "- "+(p?.nom||"")+" "+(p?.variante||"")+" "+(p?.format||"")+" x"+l.qte+" = CHF "+(pu*l.qte).toFixed(2);
 }).join("\n");
 const total = calcTotal(f.lignes,f.typeClient,st.produits);
-const totalAvecFrais = total+(retard?.frais||0);
+const fraisDeg = deg===1?0:deg===2?15:deg===3?25:0;
+const totalFinal = total+fraisDeg;
+const echeance = new Date(new Date(f.date).getTime()+30*86400000).toISOString().slice(0,10);
 
-const subject = retard
-  ? "Rappel paiement "+f.numero+" - Goutstoso"
+const subject = deg
+  ? "Rappel "+deg+" — Facture "+f.numero+" - Goutstoso"
   : "Facture "+f.numero+" - Goutstoso";
 
-const body = retard
-  ? "Bonjour "+(pv?.contact||"")+",\n\n"+
-    "Sauf erreur de notre part, la facture "+f.numero+" du "+fmt(f.date)+" d'un montant de CHF "+total.toFixed(2)+" est toujours impayée.\n\n"+
-    "Retard : "+retard.jours+" jours\n"+
-    (retard.frais>0?"Frais de rappel : CHF "+retard.frais.toFixed(2)+"\n":"")+
-    "TOTAL DU : CHF "+totalAvecFrais.toFixed(2)+"\n\n"+
-    "Nous vous prions de bien vouloir régulariser cette situation dans les plus brefs délais.\n\n"+
-    "IBAN : CH23 0900 0000 1565 1485 8 - PostFinance\n\n"+
-    "Cordialement,\nL'équipe Goutstoso\nadmin@goutstoso.ch"
-  : "Bonjour "+(pv?.contact||"")+",\n\n"+
+let bodyTxt = "";
+if(deg===1) {
+  bodyTxt = "Bonjour "+(pv?.contact||pv?.nom||"")+",\n\n"+
+    "Sauf erreur de notre part, la facture "+f.numero+" du "+fmt(f.date)+" d'un montant de CHF "+total.toFixed(2)+" reste impayée à ce jour (échéance : "+fmt(echeance)+").\n\n"+
+    "Ce premier rappel est envoyé à titre gracieux, sans frais supplémentaires.\n\n"+
+    "Nous vous prions de bien vouloir régler la somme de CHF "+total.toFixed(2)+" dans un délai de 10 jours.\n\n"+
+    "Sans paiement de votre part dans ce délai, un deuxième rappel vous sera adressé avec des frais de CHF 15.00.\n\n"+
+    "IBAN : CH23 0900 0000 1565 1485 8 — PostFinance\nTitulaire : Goûtstoso / Jordan Montanaro\n\n"+
+    "Cordialement,\nJordan Montanaro — Goûtstoso\nadmin@goutstoso.ch";
+} else if(deg===2) {
+  bodyTxt = "Bonjour "+(pv?.contact||pv?.nom||"")+",\n\n"+
+    "Malgré notre premier rappel, la facture "+f.numero+" du "+fmt(f.date)+" d'un montant de CHF "+total.toFixed(2)+" reste toujours impayée.\n\n"+
+    "Nous vous adressons ce deuxième rappel avec les frais correspondants :\n"+
+    "  Montant facture : CHF "+total.toFixed(2)+"\n"+
+    "  Frais de rappel : CHF 15.00\n"+
+    "  TOTAL DÛ       : CHF "+totalFinal.toFixed(2)+"\n\n"+
+    "Nous vous demandons instamment de régler la totalité de CHF "+totalFinal.toFixed(2)+" dans les 10 jours.\n\n"+
+    "Sans réponse de votre part, un troisième et dernier rappel vous sera adressé avec des frais de CHF 25.00, avant toute procédure de recouvrement.\n\n"+
+    "IBAN : CH23 0900 0000 1565 1485 8 — PostFinance\nTitulaire : Goûtstoso / Jordan Montanaro\n\n"+
+    "Cordialement,\nJordan Montanaro — Goûtstoso\nadmin@goutstoso.ch";
+} else if(deg===3) {
+  bodyTxt = "Bonjour "+(pv?.contact||pv?.nom||"")+",\n\n"+
+    "En dépit de nos deux précédents rappels restés sans effet, la facture "+f.numero+" du "+fmt(f.date)+" demeure impayée.\n\n"+
+    "Ce troisième et dernier rappel est transmis avec les frais définitifs :\n"+
+    "  Montant facture : CHF "+total.toFixed(2)+"\n"+
+    "  Frais de rappel : CHF 25.00\n"+
+    "  TOTAL DÛ       : CHF "+totalFinal.toFixed(2)+"\n\n"+
+    "Sans règlement complet sous 10 jours, nous nous verrons dans l'obligation d'engager une procédure de recouvrement et/ou de suspendre toutes livraisons en cours. Les frais de recouvrement et intérêts légaux seront entièrement à votre charge.\n\n"+
+    "IBAN : CH23 0900 0000 1565 1485 8 — PostFinance\nTitulaire : Goûtstoso / Jordan Montanaro\n\n"+
+    "Cordialement,\nJordan Montanaro — Goûtstoso\nadmin@goutstoso.ch";
+} else {
+  bodyTxt = "Bonjour "+(pv?.contact||pv?.nom||"")+",\n\n"+
     "Veuillez trouver ci-dessous votre facture "+f.numero+" du "+fmt(f.date)+".\n\n"+
     lignesTxt+"\n\nTOTAL : CHF "+total.toFixed(2)+"\n\n"+
-    "Paiement à 30 jours\nIBAN : CH23 0900 0000 1565 1485 8 - PostFinance\n\n"+
-    "Cordialement,\nL'équipe Goutstoso\nadmin@goutstoso.ch";
+    "Paiement à 30 jours\nIBAN : CH23 0900 0000 1565 1485 8 — PostFinance\n\n"+
+    "Cordialement,\nJordan Montanaro — Goûtstoso\nadmin@goutstoso.ch";
+}
 
-sendEmail({to:pv.email||"",toName:pv?.contact||"",subject,body});
-
+sendEmail({to:pv.email||"",toName:pv?.contact||pv?.nom||"",subject,body:bodyTxt.replace(/\n/g,"<br>")});
 };
 
 // Helper: ajoute un document légal en annexe à un PDF
@@ -2568,6 +2626,181 @@ const echeance=new Date(new Date(f.date).getTime()+30*86400000).toISOString().sl
 
 };
 
+// ── GÉNÉRER LETTRE RAPPEL FORMELLE ──────────────────────────────
+const genererRappelPDF = async (f) => {
+const pr = getProchainRappel(f);
+if(!pr || !pr.available) { alert("Aucun rappel disponible pour cette facture."); return; }
+const deg = pr.degree;
+const frais = pr.frais;
+const pv = st.partenaires.find(p=>p.id===f.partenaireId);
+const total = calcTotal(f.lignes,f.typeClient,st.produits);
+const totalFinal = total+frais;
+const echeance = new Date(new Date(f.date).getTime()+30*86400000).toISOString().slice(0,10);
+const dateRappel = today();
+const newRappel = {degree:deg, date:dateRappel, frais};
+
+// Enregistrer le rappel dans l'état
+setSt(p=>({
+  ...p,
+  factures: p.factures.map(fac=>fac.id===f.id
+    ? {...fac, rappels:[...(fac.rappels||[]), newRappel]}
+    : fac
+  )
+}));
+
+try {
+  await new Promise((res,rej)=>{
+    if(window.jspdf){res();return;}
+    const s=document.createElement("script");
+    s.src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";
+    s.onload=res;s.onerror=rej;document.head.appendChild(s);
+  });
+  const {jsPDF}=window.jspdf;
+  const doc=new jsPDF("p","mm","a4");
+  const W=210,mg=18;
+
+  // Bande jaune top
+  doc.setFillColor(242,201,76);doc.rect(0,0,W,6,"F");
+
+  // Header
+  doc.setFontSize(20);doc.setFont("helvetica","bold");doc.setTextColor(17,17,17);
+  doc.text("Goûtstoso",mg,20);
+  doc.setFontSize(8);doc.setFont("helvetica","normal");doc.setTextColor(150,150,150);
+  doc.text("Liqueurs artisanales suisses · Jordan Montanaro",mg,26);
+  doc.text("Rue des Sources 19 · 2613 Villeret · admin@goutstoso.ch",mg,30);
+
+  // Titre rappel
+  const couleurDeg = deg===1?"#B45309":deg===2?"#C2410C":"#991B1B";
+  const [cr,cg,cb] = deg===1?[180,67,9]:deg===2?[194,65,12]:[153,27,27];
+  doc.setFontSize(28);doc.setFont("helvetica","bold");doc.setTextColor(cr,cg,cb);
+  doc.text("RAPPEL N°"+deg,W-mg,20,{align:"right"});
+  doc.setFontSize(10);doc.setTextColor(180,180,180);
+  doc.text("Réf. facture : "+f.numero,W-mg,28,{align:"right"});
+  doc.text("Date : "+fmt(dateRappel),W-mg,33,{align:"right"});
+
+  // Ligne de séparation
+  doc.setDrawColor(230,230,228);doc.setLineWidth(0.3);doc.line(mg,38,W-mg,38);
+
+  // Adresses
+  let y=46;
+  doc.setFontSize(7);doc.setFont("helvetica","bold");doc.setTextColor(156,163,175);
+  doc.text("EXPÉDITEUR",mg,y);doc.text("DESTINATAIRE",W/2+2,y);
+  doc.setDrawColor(242,201,76);doc.setLineWidth(0.5);
+  doc.line(mg,y+1,mg+20,y+1);doc.line(W/2+2,y+1,W/2+18,y+1);
+  y+=6;
+  doc.setFontSize(10);doc.setFont("helvetica","bold");doc.setTextColor(17,17,17);
+  doc.text("Goûtstoso",mg,y);doc.text(pv?.nom||"",W/2+2,y);
+  doc.setFontSize(8.5);doc.setFont("helvetica","normal");doc.setTextColor(107,114,128);
+  ["Jordan Montanaro","Rue des Sources 19","2613 Villeret","admin@goutstoso.ch"].forEach((l,i)=>doc.text(l,mg,y+5+i*4.5));
+  [(pv?.adresse||""),pv?.email||""].filter(Boolean).forEach((l,i)=>doc.text(l,W/2+2,y+5+i*4.5));
+  y+=32;
+
+  // Tableau récap facture
+  doc.setFillColor(17,17,17);doc.rect(mg,y,W-mg*2,8,"F");
+  doc.setFontSize(7.5);doc.setFont("helvetica","bold");doc.setTextColor(242,201,76);
+  doc.text("DÉSIGNATION",mg+3,y+5.5);
+  doc.setTextColor(180,180,180);
+  doc.text("FACTURE",130,y+5.5,{align:"center"});
+  doc.text("ÉCHÉANCE",155,y+5.5,{align:"center"});
+  doc.text("MONTANT CHF",W-mg-2,y+5.5,{align:"right"});
+  y+=8;
+  doc.setFillColor(250,250,248);doc.rect(mg,y,W-mg*2,11,"F");
+  doc.setDrawColor(240,240,238);doc.setLineWidth(0.2);doc.rect(mg,y,W-mg*2,11,"S");
+  doc.setFontSize(9);doc.setFont("helvetica","bold");doc.setTextColor(17,17,17);
+  doc.text("Facture "+f.numero,mg+3,y+7);
+  doc.setFontSize(8.5);doc.setFont("helvetica","normal");doc.setTextColor(107,114,128);
+  doc.text(fmt(f.date),130,y+7,{align:"center"});
+  doc.text(fmt(echeance),155,y+7,{align:"center"});
+  doc.setFont("helvetica","bold");doc.setTextColor(17,17,17);
+  doc.text("CHF "+total.toFixed(2),W-mg-2,y+7,{align:"right"});
+  y+=18;
+
+  // Boîte totaux
+  const boxX=W/2+10,boxW=W/2-mg-10;
+  doc.setFillColor(255,248,235);doc.setDrawColor(cr,cg,cb);doc.setLineWidth(0.5);
+  doc.roundedRect(boxX,y,boxW,frais>0?44:28,3,3,"FD");
+  doc.setFontSize(8.5);doc.setFont("helvetica","normal");doc.setTextColor(107,114,128);
+  doc.text("Montant facture",boxX+4,y+9);doc.text("CHF "+total.toFixed(2),boxX+boxW-4,y+9,{align:"right"});
+  if(frais>0){
+    doc.setTextColor(cr,cg,cb);doc.setFont("helvetica","bold");
+    doc.text("Frais de rappel n°"+deg,boxX+4,y+18);doc.text("CHF "+frais.toFixed(2),boxX+boxW-4,y+18,{align:"right"});
+    doc.setDrawColor(cr,cg,cb);doc.setLineWidth(0.3);doc.line(boxX+3,y+23,boxX+boxW-3,y+23);
+    doc.setFontSize(11);doc.setFont("helvetica","bold");doc.setTextColor(17,17,17);
+    doc.text("TOTAL DÛ",boxX+4,y+32);doc.setTextColor(cr,cg,cb);
+    doc.text("CHF "+totalFinal.toFixed(2),boxX+boxW-4,y+32,{align:"right"});
+  } else {
+    doc.setDrawColor(cr,cg,cb);doc.setLineWidth(0.3);doc.line(boxX+3,y+15,boxX+boxW-3,y+15);
+    doc.setFontSize(11);doc.setFont("helvetica","bold");doc.setTextColor(17,17,17);
+    doc.text("TOTAL DÛ",boxX+4,y+23);doc.setTextColor(cr,cg,cb);
+    doc.text("CHF "+total.toFixed(2),boxX+boxW-4,y+23,{align:"right"});
+  }
+  y+=frais>0?54:38;
+
+  // Texte corps du rappel
+  doc.setFontSize(9.5);doc.setFont("helvetica","normal");doc.setTextColor(60,60,60);
+  const lignesTxt1 = [];
+  if(deg===1){
+    lignesTxt1.push("Madame, Monsieur,","");
+    lignesTxt1.push("Sauf erreur de notre part, la facture "+f.numero+" du "+fmt(f.date)+" d'un montant de");
+    lignesTxt1.push("CHF "+total.toFixed(2)+" n'a pas encore été réglée à ce jour.");
+    lignesTxt1.push("");
+    lignesTxt1.push("Ce premier rappel vous est adressé à titre gracieux, sans aucuns frais supplémentaires.");
+    lignesTxt1.push("Nous vous prions de bien vouloir procéder au règlement dans un délai de 10 jours.");
+    lignesTxt1.push("");
+    lignesTxt1.push("Sans paiement de votre part dans ce délai, un deuxième rappel vous sera adressé");
+    lignesTxt1.push("avec des frais de rappel de CHF 15.00.");
+  } else if(deg===2){
+    lignesTxt1.push("Madame, Monsieur,","");
+    lignesTxt1.push("Malgré notre premier rappel, la facture "+f.numero+" du "+fmt(f.date)+" reste impayée.");
+    lignesTxt1.push("");
+    lignesTxt1.push("Nous vous adressons ce deuxième rappel et vous demandons instamment de régler");
+    lignesTxt1.push("la totalité de CHF "+totalFinal.toFixed(2)+" (facture + frais de rappel CHF 15.00) dans les 10 jours.");
+    lignesTxt1.push("");
+    lignesTxt1.push("Sans paiement dans ce délai, un troisième et dernier rappel vous sera adressé");
+    lignesTxt1.push("avec des frais de CHF 25.00, avant toute procédure de recouvrement.");
+  } else {
+    lignesTxt1.push("Madame, Monsieur,","");
+    lignesTxt1.push("En dépit de nos deux précédents rappels restés sans effet, la facture "+f.numero);
+    lignesTxt1.push("du "+fmt(f.date)+" demeure impayée.");
+    lignesTxt1.push("");
+    lignesTxt1.push("Ce troisième et dernier rappel exige le règlement immédiat de CHF "+totalFinal.toFixed(2));
+    lignesTxt1.push("(facture + frais de rappel CHF 25.00) dans un délai de 10 jours.");
+    lignesTxt1.push("");
+    lignesTxt1.push("Sans règlement dans ce délai, nous engagerons une procédure de recouvrement.");
+    lignesTxt1.push("Les frais de recouvrement et intérêts légaux seront entièrement à votre charge.");
+  }
+  lignesTxt1.forEach((l,i)=>{ doc.text(l,mg,y+i*5.5); });
+  y+=lignesTxt1.length*5.5+10;
+
+  // IBAN
+  doc.setFillColor(245,245,242);doc.roundedRect(mg,y,W-mg*2,20,3,3,"F");
+  doc.setFontSize(7);doc.setFont("helvetica","bold");doc.setTextColor(156,163,175);
+  doc.text("COORDONNÉES DE PAIEMENT",mg+4,y+5);
+  doc.setFontSize(8.5);doc.setFont("helvetica","bold");doc.setTextColor(17,17,17);
+  doc.text("IBAN : CH23 0900 0000 1565 1485 8",mg+4,y+12);
+  doc.setFont("helvetica","normal");doc.setTextColor(107,114,128);
+  doc.text("PostFinance · Goûtstoso / Jordan Montanaro · Montant : CHF "+totalFinal.toFixed(2),mg+4,y+17);
+  y+=28;
+
+  // Signature
+  doc.setFontSize(8.5);doc.setFont("helvetica","normal");doc.setTextColor(107,114,128);
+  doc.text("Cordialement,",mg,y);
+  doc.setFont("helvetica","bold");doc.setTextColor(17,17,17);
+  doc.text("Jordan Montanaro — Goûtstoso",mg,y+7);
+  doc.setFont("helvetica","normal");doc.setTextColor(107,114,128);
+  doc.text("admin@goutstoso.ch · www.goutstoso.ch",mg,y+12);
+
+  // Pied de page
+  doc.setDrawColor(230,230,228);doc.setLineWidth(0.3);doc.line(mg,277,W-mg,277);
+  doc.setFontSize(7.5);doc.setFont("helvetica","normal");doc.setTextColor(150,150,150);
+  doc.text("Goûtstoso - Jordan Montanaro · Rue des Sources 19 · 2613 Villeret · admin@goutstoso.ch",W/2,282,{align:"center"});
+  doc.setFillColor(cr,cg,cb);doc.rect(0,292,W,5,"F");
+
+  doc.save("RAPPEL-"+deg+"-"+f.numero+".pdf");
+  alert("✅ Rappel "+deg+" généré et enregistré !");
+} catch(e){alert("Erreur PDF : "+e.message);}
+};
+
 // Filtres
 const factures = (st.factures||[]).slice().reverse();
 const filtrees = factures.filter(f=>{
@@ -2584,32 +2817,70 @@ if(view) {
 const pv = st.partenaires.find(p=>p.id===view.partenaireId);
 const total = calcTotal(view.lignes,view.typeClient,st.produits);
 const retard = getInfosRetard(view);
+const pr = getProchainRappel(view);
 const totalFinal = total+(retard?.frais||0);
 const echeance = new Date(new Date(view.date).getTime()+30*86400000).toISOString().slice(0,10);
+const rappelsEnvoyes = view.rappels||[];
 
 return (
   <div className="fade">
     <button onClick={()=>setView(null)} style={{display:"flex",alignItems:"center",gap:6,background:"none",border:"none",color:"#9CA3AF",fontSize:13,marginBottom:16,padding:0,cursor:"pointer"}}>← Retour</button>
 
-    {/* Alerte retard */}
+    {/* Alerte retard + prochain rappel */}
     {retard&&(
-      <div style={{background:"#FEE2E2",border:"1px solid #FCA5A5",borderRadius:12,padding:"10px 14px",marginBottom:14}}>
-        <p style={{fontWeight:700,color:"#991B1B",fontSize:13}}>⚠️ Retard : {retard.jours} jours</p>
+      <div style={{background: pr?.degree===3?"#FEF2F2":pr?.degree===2?"#FFF7ED":"#FEF2F2",border:"1px solid "+(pr?.degree===3?"#FCA5A5":pr?.degree===2?"#FED7AA":"#FCA5A5"),borderRadius:12,padding:"10px 14px",marginBottom:14}}>
+        <p style={{fontWeight:700,color:"#991B1B",fontSize:13}}>
+          {pr?.degree===1?"🔔":pr?.degree===2?"⚠️":"🚨"} Retard : {retard.jours} jours — {pr?.available?"Rappel "+pr.degree+" disponible":pr?.daysLeft?"Rappel "+pr?.degree+" disponible dans "+pr?.daysLeft+"j":"3 rappels envoyés"}
+        </p>
         <p style={{fontSize:11,color:"#B91C1C",marginTop:2}}>
           Échéance dépassée le {fmt(echeance)}
-          {retard.frais>0?` · Frais de rappel : CHF ${retard.frais}`:
-           retard.niveau==="rappel1"?` · Rappel sera envoyé dans ${30-retard.jours} jours`:""}
+          {retard.frais>0?` · Frais en cours : CHF ${retard.frais}`:""}
         </p>
       </div>
     )}
 
+    {/* Historique rappels */}
+    {rappelsEnvoyes.length>0&&(
+      <div style={{background:"#F9F9F6",border:"1px solid #E5E5E0",borderRadius:12,padding:"10px 14px",marginBottom:14}}>
+        <p style={{fontWeight:700,fontSize:11,color:"#6B7280",textTransform:"uppercase",marginBottom:8}}>Historique des rappels</p>
+        {rappelsEnvoyes.map((r,i)=>(
+          <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 0",borderBottom:i<rappelsEnvoyes.length-1?"1px solid #EEEEEA":"none"}}>
+            <div style={{display:"flex",alignItems:"center",gap:8}}>
+              <span style={{background:r.degree===1?"#FEF3C7":r.degree===2?"#FFEDD5":"#FEE2E2",color:r.degree===1?"#92400E":r.degree===2?"#9A3412":"#991B1B",borderRadius:20,padding:"2px 10px",fontSize:11,fontWeight:700}}>
+                Rappel {r.degree}
+              </span>
+              <span style={{fontSize:12,color:"#374151"}}>Envoyé le {fmt(r.date)}</span>
+            </div>
+            <span style={{fontSize:12,fontWeight:600,color:r.frais>0?"#991B1B":"#6B7280"}}>{r.frais>0?"+ CHF "+r.frais.toFixed(2):"Sans frais"}</span>
+          </div>
+        ))}
+      </div>
+    )}
+
+    {/* Bouton rappel disponible */}
+    {pr?.available&&view.statut!=="payée"&&(
+      <div style={{marginBottom:14}}>
+        <button onClick={()=>genererRappelPDF(view)} style={{width:"100%",background:pr.degree===1?"#FEF3C7":pr.degree===2?"#FFEDD5":"#FEE2E2",border:"1.5px solid "+(pr.degree===1?"#F59E0B":pr.degree===2?"#F97316":"#EF4444"),borderRadius:12,padding:"13px",fontWeight:700,fontSize:13,color:pr.degree===1?"#92400E":pr.degree===2?"#9A3412":"#991B1B",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
+          {pr.degree===1?"🔔":pr.degree===2?"⚠️":"🚨"} Générer Rappel {pr.degree}{pr.frais>0?" (+ CHF "+pr.frais.toFixed(2)+" frais)":""}
+        </button>
+        <button onClick={()=>envoyerEmail(view,pr.degree)} style={{width:"100%",marginTop:6,background:"none",border:"1px solid #E5E5E0",borderRadius:10,padding:"9px",fontSize:12,fontWeight:600,color:"#6B7280",cursor:"pointer"}}>
+          ✉️ Envoyer Rappel {pr.degree} par email
+        </button>
+      </div>
+    )}
+    {pr&&!pr.available&&pr.degree&&view.statut!=="payée"&&(
+      <div style={{background:"#F0FDF4",border:"1px solid #86EFAC",borderRadius:12,padding:"10px 14px",marginBottom:14}}>
+        <p style={{fontSize:12,color:"#166534"}}>⏳ Rappel {pr.degree} disponible dans <strong>{pr.daysLeft} jour{pr.daysLeft>1?"s":""}</strong> (délai de 10 jours entre rappels)</p>
+      </div>
+    )}
+
     {/* Actions */}
-    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:16}}>
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
       <button onClick={()=>genererPDF(view)} style={{background:"#111",color:"#F2C94C",border:"none",borderRadius:12,padding:"13px",fontWeight:700,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
-        ⬇️ {retard?"Rappel PDF":"Facture PDF"}
+        ⬇️ Facture PDF
       </button>
-      <button onClick={()=>envoyerEmail(view)} style={{background:"#FEF9E7",color:"#92400E",border:"1.5px solid #F2C94C",borderRadius:12,padding:"13px",fontWeight:600,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
-        ✉️ {retard?"Rappel email":"Envoyer"}
+      <button onClick={()=>envoyerEmail(view,null)} style={{background:"#FEF9E7",color:"#92400E",border:"1.5px solid #F2C94C",borderRadius:12,padding:"13px",fontWeight:600,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+        ✉️ Email facture
       </button>
     </div>
     {view.statut!=="payée"&&(
@@ -2766,9 +3037,11 @@ return {Numero:f.numero,Date:f.date,Client:pv?.nom,Total:total,Statut:f.statut};
         const pv=st.partenaires.find(p=>p.id===f.partenaireId);
         const total=calcTotal(f.lignes,f.typeClient,st.produits);
         const retard=getInfosRetard(f);
+        const pr=getProchainRappel(f);
+        const rappelsEnvoyes=f.rappels||[];
         return (
           <Card key={f.id} style={{marginBottom:10,borderLeft:retard?"3px solid #EF4444":f.statut==="payée"?"3px solid #22C55E":"3px solid #F2C94C"}}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}} onClick={()=>setView(f)}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:6}} onClick={()=>setView(f)}>
               <div style={{cursor:"pointer"}}>
                 <p style={{fontWeight:700,fontSize:13}}>{f.numero}</p>
                 <p style={{fontSize:12,color:"#6B7280",marginTop:1}}>{pv?.nom}</p>
@@ -2778,19 +3051,29 @@ return {Numero:f.numero,Date:f.date,Client:pv?.nom,Total:total,Statut:f.statut};
                 <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:20,fontWeight:700,color:retard?"#DC2626":f.statut==="payée"?"#166534":"#111"}}>
                   CHF {total.toFixed(2)}
                 </p>
-                <div style={{marginTop:4}}>
+                <div style={{marginTop:4,display:"flex",gap:4,justifyContent:"flex-end",flexWrap:"wrap"}}>
                   <Badge c={f.statut==="payée"?"green":retard?"red":"yellow"}>
                     {f.statut==="payée"?"Payée":retard?`Retard ${retard.jours}j`:"En attente"}
                   </Badge>
+                  {rappelsEnvoyes.length>0&&<Badge c="red">R{rappelsEnvoyes[rappelsEnvoyes.length-1].degree} envoyé</Badge>}
                 </div>
               </div>
             </div>
+            {/* Alerte rappel disponible sur la carte */}
+            {pr?.available&&f.statut!=="payée"&&(
+              <div style={{background:pr.degree===1?"#FEF3C7":pr.degree===2?"#FFEDD5":"#FEE2E2",borderRadius:8,padding:"5px 10px",marginBottom:6,fontSize:11,fontWeight:600,color:pr.degree===1?"#92400E":pr.degree===2?"#9A3412":"#991B1B"}}>
+                {pr.degree===1?"🔔":pr.degree===2?"⚠️":"🚨"} Rappel {pr.degree} disponible{pr.frais>0?" · +CHF "+pr.frais:" · sans frais"}
+              </div>
+            )}
             <div style={{display:"flex",gap:6}}>
               <button onClick={()=>setView(f)} style={{flex:1,background:"#F5F5F0",border:"none",borderRadius:8,padding:"7px",fontSize:12,fontWeight:500,cursor:"pointer"}}>👁 Voir</button>
               {f.statut!=="payée"&&<button onClick={()=>marquerPayee(f.id)} style={{flex:1,background:"#DCFCE7",border:"none",borderRadius:8,padding:"7px",fontSize:12,fontWeight:600,color:"#166534",cursor:"pointer"}}>✅ Payée</button>}
-              <button onClick={()=>envoyerEmail(f)} style={{flex:1,background:retard?"#FEE2E2":"#FEF9E7",border:"none",borderRadius:8,padding:"7px",fontSize:12,fontWeight:600,color:retard?"#991B1B":"#92400E",cursor:"pointer"}}>
-                {retard?"⚠️ Rappel":"✉️ Email"}
-              </button>
+              {pr?.available&&f.statut!=="payée"
+                ? <button onClick={()=>genererRappelPDF(f)} style={{flex:1,background:pr.degree===1?"#FEF3C7":pr.degree===2?"#FFEDD5":"#FEE2E2",border:"none",borderRadius:8,padding:"7px",fontSize:12,fontWeight:700,color:pr.degree===1?"#92400E":pr.degree===2?"#9A3412":"#991B1B",cursor:"pointer"}}>
+                    {pr.degree===1?"🔔":pr.degree===2?"⚠️":"🚨"} Rappel {pr.degree}
+                  </button>
+                : <button onClick={()=>envoyerEmail(f,null)} style={{flex:1,background:"#FEF9E7",border:"none",borderRadius:8,padding:"7px",fontSize:12,fontWeight:600,color:"#92400E",cursor:"pointer"}}>✉️ Email</button>
+              }
               <button onClick={()=>{if(window.confirm("Supprimer ?"))del(f.id);}} style={{background:"#FEE2E2",border:"none",borderRadius:8,padding:"7px 10px",cursor:"pointer",display:"flex"}}><Ic n="trash" s={14}/></button>
             </div>
           </Card>
