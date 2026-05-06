@@ -1881,6 +1881,65 @@ return (
     }
 
   </div>
+
+  {/* Modal livraison — inclus dans la vue détail aussi */}
+  {modal==="livraison"&&selected&&(
+    <Modal title={`Livraison - ${selected.nom}`} onClose={()=>{setModal(null);setSigMode(false);}}>
+      {!sigMode ? (
+        <div style={{display:"grid",gap:14}}>
+          <Sel label="Type de document" value={livForm.type} onChange={v=>setLivForm(p=>({...p,type:v}))}
+            options={[{v:"depot-vente",l:"📋 Bon de dépôt-vente"},{v:"livraison",l:"🚚 Bon de livraison ferme"}]}/>
+          <F label="Date" type="date" value={livForm.date} onChange={v=>setLivForm(p=>({...p,date:v}))}/>
+          <div>
+            <label style={{fontSize:11,fontWeight:600,color:"#9CA3AF",textTransform:"uppercase",letterSpacing:".06em",display:"block",marginBottom:8}}>Produits</label>
+            {livForm.lignes.map((l,i)=>(
+              <div key={i} style={{display:"grid",gridTemplateColumns:"1fr auto auto",gap:8,marginBottom:8,alignItems:"flex-end"}}>
+                <Sel label="" value={l.produitId} onChange={v=>updLigne(i,"produitId",v)}
+                  options={[{v:"",l:"- Produit -"},...(st.produits||[]).filter(p=>p.actif&&!p.nom.includes("Coffret")).map(p=>({v:p.id,l:`${p.nom} ${p.variante} ${p.format}`}))]}/>
+                <div style={{width:60}}>
+                  <input type="number" value={l.qte} min={1} onChange={e=>updLigne(i,"qte",+e.target.value)}
+                    style={{width:60,padding:"11px 8px",fontSize:16,border:"1.5px solid #E5E5E0",borderRadius:10,textAlign:"center"}}/>
+                </div>
+                <button onClick={()=>delLigne(i)} style={{background:"#FEE2E2",border:"none",borderRadius:8,padding:"10px 8px",cursor:"pointer",display:"flex",alignItems:"center"}}>
+                  <Ic n="trash" s={14}/>
+                </button>
+              </div>
+            ))}
+            <button onClick={addLigne} style={{background:"none",border:"1.5px dashed #E5E5E0",borderRadius:10,padding:"8px",width:"100%",color:"#9CA3AF",fontSize:13,cursor:"pointer",marginTop:2}}>
+              + Ajouter un produit
+            </button>
+          </div>
+          <F label="Notes" value={livForm.notes||""} onChange={v=>setLivForm(p=>({...p,notes:v}))} placeholder="Observations..."/>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginTop:4}}>
+            <button onClick={()=>saveLivraison(null)} style={{background:"#F5F5F0",border:"none",borderRadius:12,padding:"13px",fontWeight:600,fontSize:13,cursor:"pointer"}}>
+              Enregistrer sans signature
+            </button>
+            <button onClick={()=>{
+              const lignesValides = (livForm.lignes||[]).filter(l=>l.produitId&&l.qte>0);
+              if(!lignesValides.length) { alert("⚠️ Ajoute au moins un produit avec quantité avant de signer"); return; }
+              setSigMode(true);
+            }} style={{background:"#F2C94C",border:"none",borderRadius:12,padding:"13px",fontWeight:700,fontSize:13,cursor:"pointer"}}>
+              ✍️ Faire signer
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div>
+          <div style={{background:"#FEF9E7",borderRadius:10,padding:"10px 12px",marginBottom:14,fontSize:12,color:"#92400E"}}>
+            <p style={{fontWeight:700}}>{livForm.type==="depot-vente"?"Bon de dépôt-vente":"Bon de livraison"} · {fmt(livForm.date)}</p>
+            <p style={{marginTop:4}}>
+              {livForm.lignes.filter(l=>l.produitId).map(l=>{
+                const p = (st.produits||[]).find(x=>x.id===l.produitId);
+                return `${p?.nom} ${p?.variante} ${p?.format} × ${l.qte}`;
+              }).join(" · ")}
+            </p>
+          </div>
+          <SignaturePad onSave={sig=>saveLivraison(sig)} onCancel={()=>setSigMode(false)}/>
+        </div>
+      )}
+    </Modal>
+  )}
+
 );
 
 }
