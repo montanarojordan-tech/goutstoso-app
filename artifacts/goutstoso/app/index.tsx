@@ -7510,8 +7510,14 @@ return (
 // PAGE: OFFRES COMMERCIALES
 // ══════════════════════════════════════════════════════════════
 
-const genererOffrePDF = (offre, st) => {
+const genererOffrePDF = async (offre, st) => {
 try {
+  await new Promise((res,rej)=>{
+    if((window as any).jspdf){res(null);return;}
+    const s=document.createElement("script");
+    s.src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";
+    s.onload=res;s.onerror=rej;document.head.appendChild(s);
+  });
   const {jsPDF} = (window as any).jspdf;
   const doc = new jsPDF({unit:"mm",format:"a4"});
   const W = 210; const mg = 14;
@@ -7548,7 +7554,7 @@ try {
 
   // Bloc client - hauteur dynamique selon les lignes remplies
   let y = 50;
-  const clientLines: string[] = [];
+  const clientLines = [];
   if(clientContact) clientLines.push(clientContact);
   if(clientAdr) clientLines.push(clientAdr);
   if(clientNpaVille) clientLines.push(clientNpaVille);
@@ -7568,7 +7574,10 @@ try {
 
   // Logo client (coin supérieur droit du bloc destinataire)
   if(clientLogo){
-    try { doc.addImage(clientLogo,"",mg+62,y-2,22,16); } catch(e){ /* ignore si format non supporté */ }
+    try {
+      const logoFmt = clientLogo.startsWith("data:image/png")?"PNG":"JPEG";
+      doc.addImage(clientLogo,logoFmt,mg+62,y-2,22,16);
+    } catch(e){ /* ignore si format non supporté */ }
   }
 
   // Bloc infos offre (positionné par rapport à y original, hauteur fixe 26)
