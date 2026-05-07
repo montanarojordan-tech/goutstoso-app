@@ -153,6 +153,7 @@ contrats:[
 {id:"c1",numero:"DPT-2026-002",type:"depot-vente",partenaireId:"pv1",dateSignature:"2026-01-01",dateDebut:"2026-01-01",dateFin:"2026-03-01",commission:0,statut:"actif",lignes:[{produitId:"p1",qte:2},{produitId:"p2",qte:2},{produitId:"p3",qte:2},{produitId:"p4",qte:2},{produitId:"p5",qte:2},{produitId:"p6",qte:2}],notes:""},
 ],
 factures:[],
+offres:[],
 transactions:[
 // Journal comptable réel - extrait des images
 {id:"t1",date:"2026-04-27",compte:"4200",libelle:"Bouteilles / Bouchons",type:"depense",categorie:"Emballages",montant:289.90,description:"Bouteilles et bouchons"},
@@ -7481,6 +7482,535 @@ return (
 };
 
 // ══════════════════════════════════════════════════════════════
+// PAGE: OFFRES COMMERCIALES
+// ══════════════════════════════════════════════════════════════
+
+const genererOffrePDF = (offre, st) => {
+try {
+  const {jsPDF} = (window as any).jspdf;
+  const doc = new jsPDF({unit:"mm",format:"a4"});
+  const W = 210; const mg = 14;
+  const pv = (st.partenaires||[]).find(p=>p.id===offre.partenaireId);
+  const clientNom = pv?.nom || offre.clientNom || "Client";
+  const clientAdr = pv?.adresse || offre.clientAdresse || "";
+  const clientEmail = pv?.email || offre.clientEmail || "";
+
+  // Bande jaune top
+  doc.setFillColor(242,201,76); doc.rect(0,0,W,8,"F");
+
+  // Logo text
+  doc.setFont("helvetica","bold"); doc.setFontSize(20); doc.setTextColor(10,10,10);
+  doc.text("GOÛTSTOSO",mg,22);
+  doc.setFont("helvetica","normal"); doc.setFontSize(8); doc.setTextColor(100,100,100);
+  doc.text("Liqueurs artisanales · Jordan Montanaro",mg,28);
+  doc.text("Rue des Sources 19 · 2613 Villeret · admin@goutstoso.ch",mg,33);
+
+  // Bloc OFFRE
+  doc.setFillColor(10,10,10); doc.roundedRect(W-90,12,76,28,3,3,"F");
+  doc.setFont("helvetica","bold"); doc.setFontSize(13); doc.setTextColor(242,201,76);
+  doc.text("OFFRE COMMERCIALE",W-52,22,{align:"center"});
+  doc.setFontSize(10); doc.setTextColor(255,255,255);
+  doc.text(offre.numero,W-52,28,{align:"center"});
+  doc.setFontSize(8);
+  doc.text("Du "+fmt(offre.date)+" · Valable jusqu'au "+fmt(offre.dateValidite||offre.date),W-52,34,{align:"center"});
+
+  // Ligne séparatrice
+  doc.setDrawColor(230,230,228); doc.setLineWidth(0.4); doc.line(mg,42,W-mg,42);
+
+  // Bloc client
+  let y = 50;
+  doc.setFillColor(249,249,246); doc.rect(mg,y-4,86,26,"F");
+  doc.setFont("helvetica","bold"); doc.setFontSize(8); doc.setTextColor(115,115,115);
+  doc.text("DESTINATAIRE",mg+4,y+1);
+  doc.setFont("helvetica","bold"); doc.setFontSize(10); doc.setTextColor(10,10,10);
+  doc.text(clientNom,mg+4,y+8);
+  doc.setFont("helvetica","normal"); doc.setFontSize(8); doc.setTextColor(80,80,80);
+  if(clientAdr) doc.text(clientAdr,mg+4,y+14);
+  if(clientEmail) doc.text(clientEmail,mg+4,y+20);
+
+  // Bloc infos offre
+  doc.setFillColor(254,249,231); doc.rect(W-100,y-4,86,26,"F");
+  doc.setFont("helvetica","bold"); doc.setFontSize(8); doc.setTextColor(146,64,14);
+  doc.text("INFORMATIONS",W-96,y+1);
+  doc.setFont("helvetica","normal"); doc.setFontSize(8); doc.setTextColor(80,80,80);
+  doc.text("N° offre : "+offre.numero,W-96,y+8);
+  doc.text("Date : "+fmt(offre.date),W-96,y+14);
+  doc.text("Validité : "+fmt(offre.dateValidite||offre.date),W-96,y+20);
+
+  // Intro
+  y += 34;
+  if(offre.introText){
+    doc.setFont("helvetica","italic"); doc.setFontSize(9); doc.setTextColor(60,60,60);
+    const lines = doc.splitTextToSize(offre.introText, W-mg*2);
+    doc.text(lines, mg, y);
+    y += lines.length*5+4;
+  }
+
+  // Tableau produits
+  y += 4;
+  const cols = [{l:"Produit",w:52},{l:"Format",w:18},{l:"Alcool",w:15},{l:"Prix public",w:24},{l:"Prix partenaire",w:28},{l:"Qté",w:12},{l:"Total CHF",w:24}];
+  const tableW = cols.reduce((s,c)=>s+c.w,0);
+  const startX = (W-tableW)/2;
+
+  // En-tête tableau
+  doc.setFillColor(10,10,10);
+  doc.rect(startX,y,tableW,8,"F");
+  let cx = startX;
+  cols.forEach(c=>{
+    doc.setFont("helvetica","bold"); doc.setFontSize(7); doc.setTextColor(242,201,76);
+    doc.text(c.l,cx+c.w/2,y+5.5,{align:"center"});
+    cx+=c.w;
+  });
+  y+=8;
+
+  // Lignes produits
+  const lignesValides = (offre.lignes||[]).filter(l=>l.produitId);
+  let totalPrix = 0; let totalPublic = 0;
+  lignesValides.forEach((l,i)=>{
+    const prod = (st.produits||[]).find(p=>p.id===l.produitId);
+    if(!prod) return;
+    const pPart = prod.prixRevendeur||0;
+    const pPub = prod.prixClient||0;
+    const total = pPart*(l.qte||0);
+    totalPrix += total;
+    totalPublic += pPub*(l.qte||0);
+    const bg = i%2===0 ? [255,255,255] : [249,249,246];
+    doc.setFillColor(bg[0],bg[1],bg[2]);
+    doc.rect(startX,y,tableW,9,"F");
+    doc.setDrawColor(235,235,230); doc.setLineWidth(0.2);
+    doc.line(startX,y+9,startX+tableW,y+9);
+    const vals = [
+      prod.nom+" "+prod.variante,
+      prod.format,
+      prod.alcool||"30% vol.",
+      "CHF "+pPub.toFixed(2),
+      "CHF "+pPart.toFixed(2),
+      String(l.qte||0),
+      "CHF "+total.toFixed(2),
+    ];
+    cx = startX;
+    vals.forEach((v,vi)=>{
+      doc.setFont("helvetica",vi===0?"bold":"normal"); doc.setFontSize(8);
+      doc.setTextColor(vi===0?10:60,vi===0?10:60,vi===0?10:60);
+      doc.text(v,cx+cols[vi].w/2,y+5.5,{align:"center"});
+      cx+=cols[vi].w;
+    });
+    y+=9;
+  });
+
+  // Économie partenaire
+  const economie = totalPublic - totalPrix;
+  doc.setFillColor(240,253,244);
+  doc.rect(startX,y,tableW,8,"F");
+  doc.setFont("helvetica","bold"); doc.setFontSize(8); doc.setTextColor(22,101,52);
+  doc.text("Économie partenaire vs prix public",startX+4,y+5.5);
+  doc.text("− CHF "+economie.toFixed(2),startX+tableW-4,y+5.5,{align:"right"});
+  y+=8;
+
+  // Total
+  doc.setFillColor(10,10,10);
+  doc.rect(startX,y,tableW,10,"F");
+  doc.setFont("helvetica","bold"); doc.setFontSize(10); doc.setTextColor(242,201,76);
+  doc.text("TOTAL PARTENAIRE (hors TVA)",startX+4,y+6.5);
+  doc.text("CHF "+totalPrix.toFixed(2),startX+tableW-4,y+6.5,{align:"right"});
+  y+=10;
+
+  // Conditions
+  y+=6;
+  doc.setFillColor(249,249,246); doc.rect(mg,y,W-mg*2,22,"F");
+  doc.setFont("helvetica","bold"); doc.setFontSize(8); doc.setTextColor(80,80,80);
+  doc.text("CONDITIONS",mg+4,y+5);
+  doc.setFont("helvetica","normal"); doc.setFontSize(7.5); doc.setTextColor(100,100,100);
+  doc.text("• Prix en CHF, hors TVA (Goûtstoso non assujetti à la TVA)",mg+4,y+11);
+  doc.text("• Offre valable jusqu'au "+fmt(offre.dateValidite||offre.date)+" · Paiement à 30 jours dès livraison",mg+4,y+16);
+  doc.text("• Tarifs réservés aux partenaires revendeurs et dépositaires agréés Goûtstoso",mg+4,y+21);
+  y+=28;
+
+  // Notes
+  if(offre.notes){
+    doc.setFont("helvetica","italic"); doc.setFontSize(8); doc.setTextColor(80,80,80);
+    const nlines = doc.splitTextToSize("Note : "+offre.notes,W-mg*2);
+    doc.text(nlines,mg,y); y+=nlines.length*5+4;
+  }
+
+  // Signature
+  y+=6;
+  doc.setFont("helvetica","normal"); doc.setFontSize(8); doc.setTextColor(100,100,100);
+  doc.text("Pour acceptation, veuillez retourner ce document signé ou confirmer par email.",mg,y);
+  y+=8;
+  doc.text("Signature & cachet du partenaire :",mg,y);
+  doc.setDrawColor(180,180,175); doc.line(mg+60,y,mg+130,y);
+  doc.text("Villeret, le ____________________",W-mg-64,y);
+
+  // Footer
+  doc.setDrawColor(230,230,228); doc.setLineWidth(0.3); doc.line(mg,282,W-mg,282);
+  doc.setFont("helvetica","normal"); doc.setFontSize(7); doc.setTextColor(150,150,150);
+  doc.text("Goûtstoso - Jordan Montanaro · Rue des Sources 19 · 2613 Villeret · admin@goutstoso.ch · www.goutstoso.ch",W/2,286,{align:"center"});
+  doc.setFillColor(242,201,76); doc.rect(0,292,W,5,"F");
+
+  doc.save(offre.numero+".pdf");
+} catch(e){ alert("Erreur PDF : "+e.message); }
+};
+
+const Offres = ({st, setSt}) => {
+const [modal, setModal] = useState(null);
+const [viewId, setViewId] = useState(null);
+const [form, setForm] = useState<any>(null);
+
+const offres = st.offres || [];
+const view = viewId ? offres.find(o=>o.id===viewId) : null;
+
+const nextNumero = () => {
+  const y = new Date().getFullYear();
+  const existing = offres.map(o=>o.numero||"");
+  let n=1;
+  while(existing.includes("OFF-"+y+"-"+String(n).padStart(3,"0"))) n++;
+  return "OFF-"+y+"-"+String(n).padStart(3,"0");
+};
+
+const dateValiditeDefaut = () => {
+  const d = new Date(); d.setDate(d.getDate()+30);
+  return d.toISOString().slice(0,10);
+};
+
+const emptyForm = () => ({
+  id:null,
+  numero:nextNumero(),
+  date:today(),
+  dateValidite:dateValiditeDefaut(),
+  partenaireId:"",
+  clientNom:"",
+  clientAdresse:"",
+  clientEmail:"",
+  introText:"Nous avons le plaisir de vous soumettre notre offre commerciale pour nos liqueurs artisanales Goûtstoso. Vous trouverez ci-dessous notre tarification partenaire ainsi que le détail de nos produits disponibles.",
+  lignes:(st.produits||[]).filter(p=>p.actif&&!p.nom.includes("Coffret")).map(p=>({produitId:p.id,qte:0})),
+  notes:"",
+  statut:"brouillon",
+});
+
+const saveOffre = () => {
+  if(!form.clientNom && !form.partenaireId){ alert("Renseigne au moins le nom du destinataire ou un partenaire"); return; }
+  const lignesOk = (form.lignes||[]).filter(l=>l.produitId&&l.qte>0);
+  if(!lignesOk.length){ alert("Ajoute au moins un produit avec une quantité"); return; }
+  const pv = (st.partenaires||[]).find(p=>p.id===form.partenaireId);
+  const saved = {
+    ...form,
+    id: form.id||uid(),
+    lignes: lignesOk,
+    clientNom: form.clientNom||(pv?.nom||""),
+    clientAdresse: form.clientAdresse||(pv?.adresse||""),
+    clientEmail: form.clientEmail||(pv?.email||""),
+    createdAt: form.createdAt||today(),
+    modifieLe: today(),
+  };
+  if(form.id){
+    setSt(p=>({...p,offres:(p.offres||[]).map(o=>o.id===form.id?saved:o)}));
+  } else {
+    setSt(p=>({...p,offres:[...(p.offres||[]),saved]}));
+  }
+  setModal(null);
+  setViewId(saved.id);
+};
+
+const supprimerOffre = (id) => {
+  if(!window.confirm("Supprimer cette offre ?")) return;
+  setSt(p=>({...p,offres:(p.offres||[]).filter(o=>o.id!==id)}));
+  setViewId(null);
+};
+
+const convertirEnCommande = (offre) => {
+  if(!window.confirm("Convertir cette offre en commande ?")) return;
+  const y = new Date().getFullYear();
+  const existing = (st.commandes||[]).map(c=>c.numero);
+  let n=1; while(existing.includes("CMD-"+y+"-"+String(n).padStart(3,"0"))) n++;
+  const numero = "CMD-"+y+"-"+String(n).padStart(3,"0");
+  const newCmd = {
+    id:uid(), numero, date:today(),
+    clientId:"", client:offre.clientNom,
+    email:offre.clientEmail, telephone:"", adresse:offre.clientAdresse, npa:"", ville:"",
+    lignes:offre.lignes.map(l=>({produitId:l.produitId,qte:l.qte})),
+    rabais:0, fraisPort:0, commissionShopify:0,
+    statut:"en attente", envoyeeCompta:false,
+    notes:"Issue de l'offre "+offre.numero,
+  };
+  setSt(p=>({
+    ...p,
+    commandes:[...(p.commandes||[]),newCmd],
+    offres:(p.offres||[]).map(o=>o.id===offre.id?{...o,statut:"acceptée"}:o),
+  }));
+  alert("✅ Commande "+numero+" créée ! Retrouve-la dans Ventes → Commandes.");
+};
+
+const setStatut = (id, statut) => setSt(p=>({...p,offres:(p.offres||[]).map(o=>o.id===id?{...o,statut}:o)}));
+
+const totalOffre = (offre) => {
+  return (offre.lignes||[]).reduce((s,l)=>{
+    const p=(st.produits||[]).find(x=>x.id===l.produitId);
+    return s+(p?.prixRevendeur||0)*(l.qte||0);
+  },0);
+};
+
+const statutConfig = {
+  "brouillon":{color:"#6B7280",bg:"#F3F4F6",label:"Brouillon"},
+  "envoyée":{color:"#92400E",bg:"#FEF9E7",label:"Envoyée"},
+  "acceptée":{color:"#166534",bg:"#DCFCE7",label:"Acceptée ✓"},
+  "refusée":{color:"#991B1B",bg:"#FEE2E2",label:"Refusée"},
+};
+
+const updLigne = (i,v) => setForm(p=>({...p,lignes:p.lignes.map((l,j)=>j===i?{...l,qte:+v}:l)}));
+
+// Vue détail
+if(view) return (
+<div className="fade">
+  <button onClick={()=>setViewId(null)} style={{display:"flex",alignItems:"center",gap:6,background:"none",border:"none",color:"#9CA3AF",fontSize:13,marginBottom:16,padding:0,cursor:"pointer"}}>← Retour</button>
+
+  <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:4}}>
+    <div>
+      <h2 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:22,fontWeight:700}}>{view.numero}</h2>
+      <p style={{fontSize:12,color:"#6B7280"}}>{view.clientNom}</p>
+    </div>
+    <span style={{background:statutConfig[view.statut]?.bg||"#F3F4F6",color:statutConfig[view.statut]?.color||"#6B7280",borderRadius:20,padding:"4px 12px",fontSize:11,fontWeight:700}}>
+      {statutConfig[view.statut]?.label||view.statut}
+    </span>
+  </div>
+  <p style={{fontSize:11,color:"#9CA3AF",marginBottom:16}}>Émise le {fmt(view.date)} · Valable jusqu'au {fmt(view.dateValidite||view.date)}</p>
+
+  {/* Actions */}
+  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:10}}>
+    <button onClick={()=>genererOffrePDF(view,st)} style={{background:"#111",color:"#F2C94C",border:"none",borderRadius:10,padding:"11px 4px",fontWeight:700,fontSize:11,cursor:"pointer"}}>📄 PDF</button>
+    <button onClick={()=>{setForm({...view});setModal("form");setViewId(null);}} style={{background:"#FEF9E7",border:"1.5px solid #F2C94C",borderRadius:10,padding:"11px 4px",fontWeight:600,fontSize:11,cursor:"pointer",color:"#92400E"}}>✏️ Modifier</button>
+    <button onClick={()=>supprimerOffre(view.id)} style={{background:"#FEE2E2",border:"none",borderRadius:10,padding:"11px 4px",fontWeight:600,fontSize:11,cursor:"pointer",color:"#991B1B"}}>🗑 Suppr.</button>
+  </div>
+
+  {/* Statut */}
+  <div style={{display:"flex",gap:6,marginBottom:14,flexWrap:"wrap"}}>
+    {["brouillon","envoyée","acceptée","refusée"].map(s=>(
+      <button key={s} onClick={()=>setStatut(view.id,s)}
+        style={{padding:"5px 12px",borderRadius:20,fontSize:11,fontWeight:700,cursor:"pointer",
+          background:view.statut===s?"#111":"#F3F4F6",color:view.statut===s?"#F2C94C":"#6B7280",
+          border:view.statut===s?"none":"1px solid #E5E7EB"}}>
+        {statutConfig[s].label}
+      </button>
+    ))}
+  </div>
+
+  {/* Convertir en commande */}
+  {(view.statut==="envoyée"||view.statut==="acceptée") && (
+    <button onClick={()=>convertirEnCommande(view)}
+      style={{width:"100%",background:"#0A0A0A",color:"#FAFAF7",border:"none",borderRadius:10,padding:"11px",fontWeight:600,fontSize:12,cursor:"pointer",marginBottom:14,display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+      🔄 Convertir en commande
+    </button>
+  )}
+
+  {/* Intro */}
+  {view.introText && (
+    <Card style={{padding:"12px 14px",marginBottom:12,borderLeft:"3px solid #F2C94C"}}>
+      <p style={{fontSize:12,color:"#374151",fontStyle:"italic",lineHeight:1.6}}>{view.introText}</p>
+    </Card>
+  )}
+
+  {/* Tableau produits */}
+  <Card style={{padding:0,overflow:"hidden",marginBottom:12}}>
+    <div style={{background:"#0A0A0A",padding:"10px 14px",display:"grid",gridTemplateColumns:"1fr auto auto auto",gap:8,alignItems:"center"}}>
+      <p style={{fontSize:10,fontWeight:700,color:"#F2C94C",textTransform:"uppercase"}}>Produit</p>
+      <p style={{fontSize:10,fontWeight:700,color:"#9CA3AF",width:50,textAlign:"center"}}>Prix public</p>
+      <p style={{fontSize:10,fontWeight:700,color:"#F2C94C",width:60,textAlign:"center"}}>Prix part.</p>
+      <p style={{fontSize:10,fontWeight:700,color:"#9CA3AF",width:30,textAlign:"center"}}>Qté</p>
+    </div>
+    {(view.lignes||[]).map((l,i)=>{
+      const prod=(st.produits||[]).find(p=>p.id===l.produitId);
+      if(!prod) return null;
+      const total=(prod.prixRevendeur||0)*(l.qte||0);
+      return (
+        <div key={i} style={{padding:"10px 14px",display:"grid",gridTemplateColumns:"1fr auto auto auto",gap:8,alignItems:"center",borderBottom:"1px solid #F5F5F0",background:i%2===0?"#fff":"#FAFAF8"}}>
+          <div>
+            <p style={{fontWeight:600,fontSize:13}}>{prod.nom} {prod.variante}</p>
+            <p style={{fontSize:10,color:"#9CA3AF"}}>{prod.format} · {prod.alcool||"30% vol."}</p>
+          </div>
+          <p style={{fontSize:11,color:"#9CA3AF",width:50,textAlign:"center",textDecoration:"line-through"}}>CHF {(prod.prixClient||0).toFixed(2)}</p>
+          <p style={{fontSize:12,fontWeight:700,color:"#166534",width:60,textAlign:"center"}}>CHF {(prod.prixRevendeur||0).toFixed(2)}</p>
+          <p style={{fontSize:13,fontWeight:700,width:30,textAlign:"center"}}>{l.qte}</p>
+        </div>
+      );
+    })}
+    <div style={{padding:"12px 14px",background:"#0A0A0A",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+      <p style={{fontSize:12,fontWeight:600,color:"#9CA3AF"}}>TOTAL PARTENAIRE</p>
+      <p style={{fontSize:16,fontWeight:700,color:"#F2C94C",fontFamily:"'Cormorant Garamond',serif"}}>{chf(totalOffre(view))}</p>
+    </div>
+  </Card>
+
+  {/* Économie */}
+  {(()=>{
+    const pub = (view.lignes||[]).reduce((s,l)=>{const p=(st.produits||[]).find(x=>x.id===l.produitId);return s+(p?.prixClient||0)*(l.qte||0);},0);
+    const part = totalOffre(view);
+    const eco = pub-part;
+    if(eco<=0) return null;
+    return (
+      <Card style={{padding:"10px 14px",background:"#F0FDF4",border:"1px solid #86EFAC",marginBottom:12}}>
+        <p style={{fontSize:12,color:"#166534",fontWeight:600}}>🎁 Économie partenaire : <strong>{chf(eco)}</strong> vs prix public ({chf(pub)})</p>
+      </Card>
+    );
+  })()}
+
+  {view.notes&&<Card style={{padding:"10px 14px",marginBottom:12}}><p style={{fontSize:12,color:"#6B7280",fontStyle:"italic"}}>Note : {view.notes}</p></Card>}
+</div>
+);
+
+return (
+<div className="fade">
+<SectionTitle action={<Btn icon="plus" onClick={()=>{setForm(emptyForm());setModal("form");}}>Nouvelle offre</Btn>}>Offres</SectionTitle>
+
+{/* Stats */}
+{(()=>{
+  const total=offres.length;
+  const envoyees=offres.filter(o=>o.statut==="envoyée").length;
+  const acceptees=offres.filter(o=>o.statut==="acceptée").length;
+  const caPotentiel=sum(offres.filter(o=>o.statut!=="refusée").map(o=>totalOffre(o)));
+  return (
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:8,marginBottom:18}}>
+      {[
+        {l:"Total",v:total,bg:"#F9F9F6",txt:"#374151",sub:""},
+        {l:"Envoyées",v:envoyees,bg:"#FEF9E7",txt:"#92400E",sub:""},
+        {l:"Acceptées",v:acceptees,bg:"#F0FDF4",txt:"#166534",sub:""},
+        {l:"CA potentiel",v:chf(caPotentiel),bg:"#0A0A0A",txt:"#F2C94C",sub:""},
+      ].map((k,i)=>(
+        <div key={i} style={{background:k.bg,borderRadius:12,padding:"10px 6px",textAlign:"center",border:"1px solid "+(i<3?"#EAE7E0":"#0A0A0A")}}>
+          <p style={{fontSize:16,fontWeight:700,fontFamily:"'Cormorant Garamond',serif",color:k.txt}}>{k.v}</p>
+          <p style={{fontSize:9,color:i===3?"#E8B64C":k.txt,opacity:i===3?1:.8,marginTop:2,fontWeight:600,textTransform:"uppercase"}}>{k.l}</p>
+        </div>
+      ))}
+    </div>
+  );
+})()}
+
+{/* Liste */}
+{offres.length===0 ? (
+  <div style={{textAlign:"center",padding:"50px 20px",color:"#9CA3AF"}}>
+    <p style={{fontSize:40,marginBottom:12}}>📋</p>
+    <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:20,fontWeight:600,color:"#374151"}}>Aucune offre</p>
+    <p style={{fontSize:13,marginTop:6}}>Crée ta première offre commerciale partenaire.</p>
+  </div>
+) : (
+  <div style={{display:"grid",gap:10}}>
+    {offres.slice().reverse().map(o=>{
+      const sc=statutConfig[o.statut]||statutConfig["brouillon"];
+      const total=totalOffre(o);
+      const expired=o.dateValidite&&o.dateValidite<today()&&o.statut==="envoyée";
+      return (
+        <Card key={o.id} style={{padding:"14px 16px",cursor:"pointer",border:expired?"1.5px solid #FCA5A5":"1px solid #F0F0EC"}} onClick={()=>setViewId(o.id)}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:6}}>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+                <p style={{fontWeight:700,fontSize:14}}>{o.numero}</p>
+                <span style={{background:sc.bg,color:sc.color,borderRadius:20,padding:"2px 9px",fontSize:10,fontWeight:700}}>{sc.label}</span>
+                {expired && <span style={{background:"#FEE2E2",color:"#991B1B",borderRadius:20,padding:"2px 8px",fontSize:10,fontWeight:700}}>⚠ EXPIRÉE</span>}
+              </div>
+              <p style={{fontSize:12,color:"#6B7280",marginTop:2}}>{o.clientNom}</p>
+              <p style={{fontSize:10,color:"#9CA3AF",marginTop:1}}>Émise {fmt(o.date)} · Valable jusqu'au {fmt(o.dateValidite||o.date)}</p>
+            </div>
+            <div style={{textAlign:"right",flexShrink:0}}>
+              <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:18,fontWeight:700,color:"#0A0A0A"}}>{chf(total)}</p>
+              <p style={{fontSize:10,color:"#9CA3AF"}}>{(o.lignes||[]).length} produit(s)</p>
+            </div>
+          </div>
+          <button onClick={e=>{e.stopPropagation();genererOffrePDF(o,st);}}
+            style={{background:"#111",color:"#F2C94C",border:"none",borderRadius:8,padding:"6px 14px",fontSize:11,fontWeight:700,cursor:"pointer",marginTop:4}}>
+            📄 PDF
+          </button>
+        </Card>
+      );
+    })}
+  </div>
+)}
+
+{/* Modal création/édition */}
+{modal==="form"&&form&&(
+  <Modal title={form.id?"Modifier l'offre":"Nouvelle offre commerciale"} onClose={()=>setModal(null)}>
+    <div style={{display:"grid",gap:14}}>
+
+      {/* Numéro & dates */}
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10}}>
+        <F label="N° offre" value={form.numero} onChange={v=>setForm(p=>({...p,numero:v}))}/>
+        <F label="Date" type="date" value={form.date} onChange={v=>setForm(p=>({...p,date:v}))}/>
+        <F label="Valable jusqu'au" type="date" value={form.dateValidite} onChange={v=>setForm(p=>({...p,dateValidite:v}))}/>
+      </div>
+
+      {/* Destinataire */}
+      <div style={{background:"#F9F9F6",borderRadius:10,padding:"12px",border:"1px solid #EAE7E0"}}>
+        <p style={{fontSize:11,fontWeight:700,color:"#374151",marginBottom:10,textTransform:"uppercase",letterSpacing:".04em"}}>Destinataire</p>
+        <Sel label="Partenaire enregistré" value={form.partenaireId}
+          onChange={v=>{
+            const pv=(st.partenaires||[]).find(p=>p.id===v);
+            setForm(p=>({...p,partenaireId:v,clientNom:pv?.nom||p.clientNom,clientAdresse:pv?.adresse||p.clientAdresse,clientEmail:pv?.email||p.clientEmail}));
+          }}
+          options={[{v:"",l:"— Ou saisir manuellement —"},...(st.partenaires||[]).map(p=>({v:p.id,l:p.nom}))]}/>
+        <div style={{display:"grid",gap:8,marginTop:8}}>
+          <F label="Nom / Entreprise" value={form.clientNom} onChange={v=>setForm(p=>({...p,clientNom:v}))} placeholder="Ex: Cave Paratte Vins"/>
+          <F label="Adresse" value={form.clientAdresse||""} onChange={v=>setForm(p=>({...p,clientAdresse:v}))}/>
+          <F label="Email" value={form.clientEmail||""} onChange={v=>setForm(p=>({...p,clientEmail:v}))}/>
+        </div>
+      </div>
+
+      {/* Intro */}
+      <div>
+        <p style={{fontSize:11,fontWeight:600,color:"#374151",marginBottom:6}}>Texte d'introduction</p>
+        <textarea value={form.introText||""} onChange={e=>setForm(p=>({...p,introText:e.target.value}))}
+          style={{width:"100%",minHeight:70,padding:"8px 10px",fontSize:12,border:"1.5px solid #D1D5DB",borderRadius:10,resize:"vertical",fontFamily:"inherit",boxSizing:"border-box"}}/>
+      </div>
+
+      {/* Produits */}
+      <div>
+        <p style={{fontSize:11,fontWeight:700,color:"#374151",marginBottom:8,textTransform:"uppercase",letterSpacing:".04em"}}>Produits & quantités</p>
+        <div style={{background:"#0A0A0A",borderRadius:"10px 10px 0 0",padding:"8px 12px",display:"grid",gridTemplateColumns:"1fr 60px 60px 70px",gap:8}}>
+          <p style={{fontSize:9,fontWeight:700,color:"#F2C94C"}}>PRODUIT</p>
+          <p style={{fontSize:9,fontWeight:700,color:"#9CA3AF",textAlign:"center"}}>PRIX PUB.</p>
+          <p style={{fontSize:9,fontWeight:700,color:"#F2C94C",textAlign:"center"}}>PRIX PART.</p>
+          <p style={{fontSize:9,fontWeight:700,color:"#9CA3AF",textAlign:"center"}}>QTÉ</p>
+        </div>
+        {(form.lignes||[]).map((l,i)=>{
+          const prod=(st.produits||[]).find(p=>p.id===l.produitId);
+          if(!prod) return null;
+          return (
+            <div key={i} style={{display:"grid",gridTemplateColumns:"1fr 60px 60px 70px",gap:8,alignItems:"center",padding:"8px 12px",background:i%2===0?"#fff":"#FAFAF8",border:"1px solid #F0F0EC",borderTop:"none"}}>
+              <div>
+                <p style={{fontWeight:600,fontSize:12}}>{prod.nom} {prod.variante}</p>
+                <p style={{fontSize:10,color:"#9CA3AF"}}>{prod.format}</p>
+              </div>
+              <p style={{fontSize:11,color:"#9CA3AF",textAlign:"center",textDecoration:"line-through"}}>CHF {prod.prixClient}</p>
+              <p style={{fontSize:12,fontWeight:700,color:"#166534",textAlign:"center"}}>CHF {prod.prixRevendeur}</p>
+              <input type="number" min={0} value={l.qte||0} onChange={e=>updLigne(i,e.target.value)}
+                style={{padding:"6px 4px",fontSize:14,fontWeight:700,textAlign:"center",border:"1.5px solid #E5E5E0",borderRadius:8,width:"100%",boxSizing:"border-box"}}/>
+            </div>
+          );
+        })}
+        {(()=>{
+          const total=sum((form.lignes||[]).map(l=>{const p=(st.produits||[]).find(x=>x.id===l.produitId);return (p?.prixRevendeur||0)*(l.qte||0);}));
+          if(!total) return null;
+          return (
+            <div style={{background:"#0A0A0A",borderRadius:"0 0 10px 10px",padding:"10px 12px",display:"flex",justifyContent:"space-between"}}>
+              <p style={{fontSize:12,color:"#9CA3AF",fontWeight:600}}>TOTAL PARTENAIRE</p>
+              <p style={{fontSize:14,fontWeight:700,color:"#F2C94C"}}>{chf(total)}</p>
+            </div>
+          );
+        })()}
+      </div>
+
+      {/* Notes */}
+      <F label="Notes / remarques" value={form.notes||""} onChange={v=>setForm(p=>({...p,notes:v}))} placeholder="Conditions particulières, délai de livraison..."/>
+
+      {/* Statut */}
+      <Sel label="Statut" value={form.statut} onChange={v=>setForm(p=>({...p,statut:v}))}
+        options={[{v:"brouillon",l:"Brouillon"},{v:"envoyée",l:"Envoyée"},{v:"acceptée",l:"Acceptée"},{v:"refusée",l:"Refusée"}]}/>
+
+      <Btn onClick={saveOffre} full icon="check">Enregistrer l'offre</Btn>
+    </div>
+  </Modal>
+)}
+</div>
+);
+};
+
+// ══════════════════════════════════════════════════════════════
 // APP SHELL - Navigation mobile en bas
 // ══════════════════════════════════════════════════════════════
 
@@ -7494,6 +8024,7 @@ const NAV_MAIN = [
 {id:"more",label:"Plus",icon:"more"},
 ];
 const NAV_MORE = [
+{id:"offres",label:"Offres",icon:"contrat"},
 {id:"factures",label:"Factures",icon:"facture"},
 {id:"contrats",label:"Contrats",icon:"contrat"},
 {id:"commandes",label:"Commandes",icon:"facture"},
@@ -8121,6 +8652,7 @@ clients:<Clients st={st} setSt={setSt}/>,
 documents:<Documents st={st} setSt={setSt}/>,
 sauvegardes:<Sauvegardes authUser={authUser}/>,
 compta:<Comptabilite st={st} setSt={setSt}/>,
+offres:<Offres st={st} setSt={setSt}/>,
 };
 
 const allTabs = [...NAV_MAIN.filter(t=>t.id!=="more"), ...NAV_MORE];
@@ -8157,6 +8689,7 @@ return (
           ]},
           {groupe:"Ventes", items:[
             {id:"partenaires",label:"Dépôts",emoji:"🤝"},
+            {id:"offres",label:"Offres",emoji:"📋"},
             {id:"clients",label:"Clients",emoji:"👥"},
             {id:"commandes",label:"Commandes",emoji:"📦"},
             {id:"factures",label:"Factures",emoji:"🧾"},
@@ -8324,6 +8857,7 @@ return (
           ]},
           {groupe:"Ventes", items:[
             {id:"partenaires",label:"Dépôts",icon:"depot",emoji:"🤝"},
+            {id:"offres",label:"Offres",icon:"contrat",emoji:"📋"},
             {id:"clients",label:"Clients",icon:"prod",emoji:"👥"},
             {id:"commandes",label:"Commandes",icon:"facture",emoji:"📦"},
             {id:"factures",label:"Factures",icon:"facture",emoji:"🧾"},
