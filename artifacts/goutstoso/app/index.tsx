@@ -2002,13 +2002,38 @@ Dépôts-vente
   {modal==="form"&&(
     <Modal title={form.id?"Modifier partenaire":"Nouveau partenaire"} onClose={()=>setModal(null)}>
       <div style={{display:"grid",gap:14}}>
-        <F label="Nom" value={form.nom} onChange={v=>setForm(p=>({...p,nom:v}))} required/>
-        <F label="Adresse" value={form.adresse||""} onChange={v=>setForm(p=>({...p,adresse:v}))}/>
+
+        {/* Logo */}
+        <div>
+          <p style={{fontSize:11,fontWeight:600,color:"#374151",marginBottom:8}}>Logo du partenaire</p>
+          <div style={{display:"flex",alignItems:"center",gap:12}}>
+            {form.logo && (
+              <img src={form.logo} alt="logo" style={{height:50,maxWidth:100,objectFit:"contain",borderRadius:8,border:"1px solid #EAE7E0",background:"#fff",padding:4}}/>
+            )}
+            <label style={{background:"#F5F5F0",border:"1.5px dashed #D1D5DB",borderRadius:10,padding:"8px 14px",fontSize:12,fontWeight:600,cursor:"pointer",color:"#374151"}}>
+              {form.logo ? "🔄 Remplacer" : "📷 Ajouter un logo"}
+              <input type="file" accept="image/*" style={{display:"none"}} onChange={e=>{
+                const file=e.target.files?.[0]; if(!file) return;
+                if(file.size>500000){alert("Image trop lourde (max 500 Ko)");return;}
+                const r=new FileReader(); r.onload=ev=>setForm(p=>({...p,logo:ev.target?.result as string})); r.readAsDataURL(file);
+              }}/>
+            </label>
+            {form.logo && <button onClick={()=>setForm(p=>({...p,logo:null}))} style={{background:"#FEE2E2",border:"none",borderRadius:8,padding:"6px 10px",fontSize:11,color:"#991B1B",cursor:"pointer"}}>✕ Retirer</button>}
+          </div>
+        </div>
+
+        <F label="Nom de l'entreprise" value={form.nom} onChange={v=>setForm(p=>({...p,nom:v}))} required/>
+        <F label="Adresse (rue)" value={form.adresse||""} onChange={v=>setForm(p=>({...p,adresse:v}))}/>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 2fr",gap:10}}>
+          <F label="NPA" value={form.npa||""} onChange={v=>setForm(p=>({...p,npa:v}))} placeholder="2610"/>
+          <F label="Ville" value={form.ville||""} onChange={v=>setForm(p=>({...p,ville:v}))} placeholder="Saint-Imier"/>
+        </div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-          <F label="Contact" value={form.contact||""} onChange={v=>setForm(p=>({...p,contact:v}))}/>
+          <F label="Contact (personne)" value={form.contact||""} onChange={v=>setForm(p=>({...p,contact:v}))}/>
           <F label="Téléphone" value={form.tel||""} onChange={v=>setForm(p=>({...p,tel:v}))}/>
         </div>
         <F label="Email" value={form.email||""} onChange={v=>setForm(p=>({...p,email:v}))}/>
+        <F label="Site web" value={form.site||""} onChange={v=>setForm(p=>({...p,site:v}))} placeholder="www.exemple.ch"/>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
           <Sel label="Type" value={form.type} onChange={v=>setForm(p=>({...p,type:v}))}
             options={[{v:"depot-vente",l:"Dépôt-vente"},{v:"livraison",l:"Livraison ferme"}]}/>
@@ -7490,10 +7515,14 @@ try {
   const {jsPDF} = (window as any).jspdf;
   const doc = new jsPDF({unit:"mm",format:"a4"});
   const W = 210; const mg = 14;
-  const pv = (st.partenaires||[]).find(p=>p.id===offre.partenaireId);
-  const clientNom = pv?.nom || offre.clientNom || "Client";
-  const clientAdr = pv?.adresse || offre.clientAdresse || "";
-  const clientEmail = pv?.email || offre.clientEmail || "";
+  const clientNom = offre.clientNom || "Client";
+  const clientContact = offre.clientContact || "";
+  const clientAdr = offre.clientAdresse || "";
+  const clientNpaVille = [offre.clientNpa,offre.clientVille].filter(Boolean).join(" ");
+  const clientEmail = offre.clientEmail || "";
+  const clientTel = offre.clientTel || "";
+  const clientSite = offre.clientSite || "";
+  const clientLogo = offre.clientLogo || "";
 
   // Bande jaune top
   doc.setFillColor(242,201,76); doc.rect(0,0,W,8,"F");
@@ -7517,18 +7546,32 @@ try {
   // Ligne séparatrice
   doc.setDrawColor(230,230,228); doc.setLineWidth(0.4); doc.line(mg,42,W-mg,42);
 
-  // Bloc client
+  // Bloc client - hauteur dynamique selon les lignes remplies
   let y = 50;
-  doc.setFillColor(249,249,246); doc.rect(mg,y-4,86,26,"F");
+  const clientLines: string[] = [];
+  if(clientContact) clientLines.push(clientContact);
+  if(clientAdr) clientLines.push(clientAdr);
+  if(clientNpaVille) clientLines.push(clientNpaVille);
+  if(clientEmail) clientLines.push(clientEmail);
+  if(clientTel) clientLines.push(clientTel);
+  if(clientSite) clientLines.push(clientSite);
+  const blockH = Math.max(26, 10 + clientLines.length * 6);
+
+  doc.setFillColor(249,249,246); doc.rect(mg,y-4,86,blockH,"F");
   doc.setFont("helvetica","bold"); doc.setFontSize(8); doc.setTextColor(115,115,115);
   doc.text("DESTINATAIRE",mg+4,y+1);
   doc.setFont("helvetica","bold"); doc.setFontSize(10); doc.setTextColor(10,10,10);
   doc.text(clientNom,mg+4,y+8);
   doc.setFont("helvetica","normal"); doc.setFontSize(8); doc.setTextColor(80,80,80);
-  if(clientAdr) doc.text(clientAdr,mg+4,y+14);
-  if(clientEmail) doc.text(clientEmail,mg+4,y+20);
+  let cy = y+15;
+  clientLines.forEach(l=>{ doc.text(l,mg+4,cy); cy+=5.5; });
 
-  // Bloc infos offre
+  // Logo client (coin supérieur droit du bloc destinataire)
+  if(clientLogo){
+    try { doc.addImage(clientLogo,"",mg+62,y-2,22,16); } catch(e){ /* ignore si format non supporté */ }
+  }
+
+  // Bloc infos offre (positionné par rapport à y original, hauteur fixe 26)
   doc.setFillColor(254,249,231); doc.rect(W-100,y-4,86,26,"F");
   doc.setFont("helvetica","bold"); doc.setFontSize(8); doc.setTextColor(146,64,14);
   doc.text("INFORMATIONS",W-96,y+1);
@@ -7537,8 +7580,8 @@ try {
   doc.text("Date : "+fmt(offre.date),W-96,y+14);
   doc.text("Validité : "+fmt(offre.dateValidite||offre.date),W-96,y+20);
 
-  // Intro
-  y += 34;
+  // Intro — avance y selon la hauteur réelle du bloc client
+  y += blockH + 8;
   if(offre.introText){
     doc.setFont("helvetica","italic"); doc.setFontSize(9); doc.setTextColor(60,60,60);
     const lines = doc.splitTextToSize(offre.introText, W-mg*2);
@@ -7680,8 +7723,14 @@ const emptyForm = () => ({
   dateValidite:dateValiditeDefaut(),
   partenaireId:"",
   clientNom:"",
+  clientContact:"",
   clientAdresse:"",
+  clientNpa:"",
+  clientVille:"",
   clientEmail:"",
+  clientTel:"",
+  clientSite:"",
+  clientLogo:"",
   introText:"Nous avons le plaisir de vous soumettre notre offre commerciale pour nos liqueurs artisanales Goûtstoso. Vous trouverez ci-dessous notre tarification partenaire ainsi que le détail de nos produits disponibles.",
   lignes:(st.produits||[]).filter(p=>p.actif&&!p.nom.includes("Coffret")).map(p=>({produitId:p.id,qte:0})),
   notes:"",
@@ -7698,8 +7747,14 @@ const saveOffre = () => {
     id: form.id||uid(),
     lignes: lignesOk,
     clientNom: form.clientNom||(pv?.nom||""),
+    clientContact: form.clientContact||(pv?.contact||""),
     clientAdresse: form.clientAdresse||(pv?.adresse||""),
+    clientNpa: form.clientNpa||(pv?.npa||""),
+    clientVille: form.clientVille||(pv?.ville||""),
     clientEmail: form.clientEmail||(pv?.email||""),
+    clientTel: form.clientTel||(pv?.tel||""),
+    clientSite: form.clientSite||(pv?.site||""),
+    clientLogo: form.clientLogo||(pv?.logo||""),
     createdAt: form.createdAt||today(),
     modifieLe: today(),
   };
@@ -7765,15 +7820,29 @@ if(view) return (
   <button onClick={()=>setViewId(null)} style={{display:"flex",alignItems:"center",gap:6,background:"none",border:"none",color:"#9CA3AF",fontSize:13,marginBottom:16,padding:0,cursor:"pointer"}}>← Retour</button>
 
   <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:4}}>
-    <div>
+    <div style={{flex:1,minWidth:0}}>
       <h2 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:22,fontWeight:700}}>{view.numero}</h2>
-      <p style={{fontSize:12,color:"#6B7280"}}>{view.clientNom}</p>
+      <p style={{fontSize:13,fontWeight:600,color:"#111",marginTop:2}}>{view.clientNom}</p>
     </div>
-    <span style={{background:statutConfig[view.statut]?.bg||"#F3F4F6",color:statutConfig[view.statut]?.color||"#6B7280",borderRadius:20,padding:"4px 12px",fontSize:11,fontWeight:700}}>
-      {statutConfig[view.statut]?.label||view.statut}
-    </span>
+    <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:6,flexShrink:0,marginLeft:10}}>
+      {view.clientLogo && <img src={view.clientLogo} alt="logo" style={{height:36,maxWidth:80,objectFit:"contain",borderRadius:6,border:"1px solid #EAE7E0",background:"#fff",padding:3}}/>}
+      <span style={{background:statutConfig[view.statut]?.bg||"#F3F4F6",color:statutConfig[view.statut]?.color||"#6B7280",borderRadius:20,padding:"4px 12px",fontSize:11,fontWeight:700}}>
+        {statutConfig[view.statut]?.label||view.statut}
+      </span>
+    </div>
   </div>
-  <p style={{fontSize:11,color:"#9CA3AF",marginBottom:16}}>Émise le {fmt(view.date)} · Valable jusqu'au {fmt(view.dateValidite||view.date)}</p>
+  <p style={{fontSize:11,color:"#9CA3AF",marginBottom:10}}>Émise le {fmt(view.date)} · Valable jusqu'au {fmt(view.dateValidite||view.date)}</p>
+
+  {/* Bloc infos partenaire */}
+  <Card style={{padding:"10px 14px",marginBottom:14,background:"#F9F9F6",border:"1px solid #EAE7E0"}}>
+    <div style={{display:"grid",gridTemplateColumns:"auto 1fr",gap:"4px 12px",fontSize:11}}>
+      {view.clientContact&&<><span style={{color:"#9CA3AF",fontWeight:600}}>Contact</span><span>{view.clientContact}</span></>}
+      {(view.clientAdresse||view.clientNpa||view.clientVille)&&<><span style={{color:"#9CA3AF",fontWeight:600}}>Adresse</span><span>{[view.clientAdresse,[view.clientNpa,view.clientVille].filter(Boolean).join(" ")].filter(Boolean).join(", ")}</span></>}
+      {view.clientEmail&&<><span style={{color:"#9CA3AF",fontWeight:600}}>Email</span><span>{view.clientEmail}</span></>}
+      {view.clientTel&&<><span style={{color:"#9CA3AF",fontWeight:600}}>Tél.</span><span>{view.clientTel}</span></>}
+      {view.clientSite&&<><span style={{color:"#9CA3AF",fontWeight:600}}>Site</span><span>{view.clientSite}</span></>}
+    </div>
+  </Card>
 
   {/* Actions */}
   <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:10}}>
@@ -7941,13 +8010,53 @@ return (
         <Sel label="Partenaire enregistré" value={form.partenaireId}
           onChange={v=>{
             const pv=(st.partenaires||[]).find(p=>p.id===v);
-            setForm(p=>({...p,partenaireId:v,clientNom:pv?.nom||p.clientNom,clientAdresse:pv?.adresse||p.clientAdresse,clientEmail:pv?.email||p.clientEmail}));
+            setForm(p=>({...p,
+              partenaireId:v,
+              clientNom:pv?.nom||p.clientNom,
+              clientContact:pv?.contact||p.clientContact||"",
+              clientAdresse:pv?.adresse||p.clientAdresse||"",
+              clientNpa:pv?.npa||p.clientNpa||"",
+              clientVille:pv?.ville||p.clientVille||"",
+              clientEmail:pv?.email||p.clientEmail||"",
+              clientTel:pv?.tel||p.clientTel||"",
+              clientSite:pv?.site||p.clientSite||"",
+              clientLogo:pv?.logo||p.clientLogo||"",
+            }));
           }}
           options={[{v:"",l:"— Ou saisir manuellement —"},...(st.partenaires||[]).map(p=>({v:p.id,l:p.nom}))]}/>
-        <div style={{display:"grid",gap:8,marginTop:8}}>
-          <F label="Nom / Entreprise" value={form.clientNom} onChange={v=>setForm(p=>({...p,clientNom:v}))} placeholder="Ex: Cave Paratte Vins"/>
-          <F label="Adresse" value={form.clientAdresse||""} onChange={v=>setForm(p=>({...p,clientAdresse:v}))}/>
-          <F label="Email" value={form.clientEmail||""} onChange={v=>setForm(p=>({...p,clientEmail:v}))}/>
+
+        {/* Logo partenaire */}
+        <div>
+          <p style={{fontSize:11,fontWeight:600,color:"#374151",marginBottom:6}}>Logo du partenaire (optionnel)</p>
+          <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+            {form.clientLogo && (
+              <img src={form.clientLogo} alt="logo" style={{height:44,maxWidth:90,objectFit:"contain",borderRadius:8,border:"1px solid #EAE7E0",background:"#fff",padding:4}}/>
+            )}
+            <label style={{background:"#F5F5F0",border:"1.5px dashed #D1D5DB",borderRadius:10,padding:"7px 12px",fontSize:11,fontWeight:600,cursor:"pointer",color:"#374151"}}>
+              {form.clientLogo?"🔄 Remplacer":"📷 Charger un logo"}
+              <input type="file" accept="image/*" style={{display:"none"}} onChange={e=>{
+                const file=e.target.files?.[0]; if(!file) return;
+                if(file.size>500000){alert("Image trop lourde (max 500 Ko)");return;}
+                const r=new FileReader(); r.onload=ev=>setForm(p=>({...p,clientLogo:ev.target?.result as string})); r.readAsDataURL(file);
+              }}/>
+            </label>
+            {form.clientLogo && <button onClick={()=>setForm(p=>({...p,clientLogo:""}))} style={{background:"#FEE2E2",border:"none",borderRadius:8,padding:"5px 10px",fontSize:11,color:"#991B1B",cursor:"pointer"}}>✕</button>}
+          </div>
+        </div>
+
+        <div style={{display:"grid",gap:8,marginTop:4}}>
+          <F label="Nom / Entreprise *" value={form.clientNom} onChange={v=>setForm(p=>({...p,clientNom:v}))} placeholder="Ex: Cave Paratte Vins"/>
+          <F label="Personne de contact" value={form.clientContact||""} onChange={v=>setForm(p=>({...p,clientContact:v}))} placeholder="Ex: Marie Dupont"/>
+          <F label="Adresse (rue)" value={form.clientAdresse||""} onChange={v=>setForm(p=>({...p,clientAdresse:v}))}/>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 2fr",gap:8}}>
+            <F label="NPA" value={form.clientNpa||""} onChange={v=>setForm(p=>({...p,clientNpa:v}))} placeholder="2610"/>
+            <F label="Ville" value={form.clientVille||""} onChange={v=>setForm(p=>({...p,clientVille:v}))} placeholder="Saint-Imier"/>
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+            <F label="Email" value={form.clientEmail||""} onChange={v=>setForm(p=>({...p,clientEmail:v}))}/>
+            <F label="Téléphone" value={form.clientTel||""} onChange={v=>setForm(p=>({...p,clientTel:v}))}/>
+          </div>
+          <F label="Site web" value={form.clientSite||""} onChange={v=>setForm(p=>({...p,clientSite:v}))} placeholder="www.exemple.ch"/>
         </div>
       </div>
 
