@@ -7776,6 +7776,26 @@ const saveOffre = () => {
   setViewId(saved.id);
 };
 
+const creerContactDepuisOffre = (offre) => {
+  const nom = offre.clientNom || offre.clientContact || "";
+  if(!nom){ alert("Aucun nom de client renseigné sur cette offre."); return; }
+  const existe = (st.fournisseurs||[]).find((f:any)=>f.nom?.toLowerCase()===nom.toLowerCase());
+  if(existe){ alert(`Le contact "${nom}" existe déjà dans ton carnet.`); return; }
+  const nouveau = {
+    id: uid(),
+    nom,
+    email: offre.clientEmail||"",
+    telephone: offre.clientTel||"",
+    adresse: offre.clientAdresse||"",
+    npa: offre.clientNpa||"",
+    ville: offre.clientVille||"",
+    categorie: "Client",
+    notes: offre.clientSite ? "Site : "+offre.clientSite : "",
+  };
+  setSt((p:any)=>({...p,fournisseurs:[...(p.fournisseurs||[]),nouveau]}));
+  alert(`✅ Contact "${nom}" créé dans le carnet de contacts.`);
+};
+
 const supprimerOffre = (id) => {
   if(!window.confirm("Supprimer cette offre ?")) return;
   setSt(p=>({...p,offres:(p.offres||[]).filter(o=>o.id!==id)}));
@@ -7854,11 +7874,14 @@ if(view) return (
   </Card>
 
   {/* Actions */}
-  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:10}}>
+  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:8}}>
     <button onClick={()=>genererOffrePDF(view,st)} style={{background:"#111",color:"#F2C94C",border:"none",borderRadius:10,padding:"11px 4px",fontWeight:700,fontSize:11,cursor:"pointer"}}>📄 PDF</button>
     <button onClick={()=>{setForm({...view});setModal("form");setViewId(null);}} style={{background:"#FEF9E7",border:"1.5px solid #F2C94C",borderRadius:10,padding:"11px 4px",fontWeight:600,fontSize:11,cursor:"pointer",color:"#92400E"}}>✏️ Modifier</button>
     <button onClick={()=>supprimerOffre(view.id)} style={{background:"#FEE2E2",border:"none",borderRadius:10,padding:"11px 4px",fontWeight:600,fontSize:11,cursor:"pointer",color:"#991B1B"}}>🗑 Suppr.</button>
   </div>
+  <button onClick={()=>creerContactDepuisOffre(view)} style={{width:"100%",marginBottom:10,background:"#EFF6FF",border:"1.5px solid #BFDBFE",borderRadius:10,padding:"10px",fontWeight:600,fontSize:12,color:"#1E40AF",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+    👤 Créer un contact depuis cette offre
+  </button>
 
   {/* Statut */}
   <div style={{display:"flex",gap:6,marginBottom:14,flexWrap:"wrap"}}>
