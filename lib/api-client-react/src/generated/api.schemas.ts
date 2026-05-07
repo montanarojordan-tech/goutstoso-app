@@ -8,3 +8,38 @@
 export interface HealthStatus {
   status: string;
 }
+
+export type CreateSigningRequestDocumentData = { [key: string]: unknown };
+
+export interface CreateSigningRequest {
+  documentType: string;
+  documentTitle: string;
+  documentData: CreateSigningRequestDocumentData;
+  expiresInDays?: number;
+}
+
+export interface SigningRequestCreated {
+  token: string;
+  signingUrl: string;
+  expiresAt: string;
+}
+
+export type SigningRequestPublicDocumentData = { [key: string]: unknown };
+
+export interface SigningRequestPublic {
+  token: string;
+  documentType: string;
+  documentTitle: string;
+  documentData: SigningRequestPublicDocumentData;
+  status: string;
+  /** @nullable */
+  signerName?: string | null;
+  /** @nullable */
+  signedAt?: string | null;
+  expiresAt: string;
+}
+
+export interface SubmitSignature {
+  signerName: string;
+  signatureData: string;
+}

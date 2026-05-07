@@ -10,6 +10,8 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: signing
+    description: Document signing operations
 paths:
   /healthz:
     get:
@@ -24,6 +26,78 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /sign:
+    post:
+      operationId: createSigningRequest
+      tags: [signing]
+      summary: Create a signing request
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSigningRequest"
+      responses:
+        "201":
+          description: Signing request created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SigningRequestCreated"
+        "400":
+          description: Invalid request
+
+  /sign/{token}:
+    get:
+      operationId: getSigningRequest
+      tags: [signing]
+      summary: Get a signing request (public)
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Signing request found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SigningRequestPublic"
+        "404":
+          description: Not found or expired
+
+  /sign/{token}/submit:
+    post:
+      operationId: submitSignature
+      tags: [signing]
+      summary: Submit a signature (public)
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SubmitSignature"
+      responses:
+        "200":
+          description: Signature submitted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SigningRequestPublic"
+        "400":
+          description: Already signed or invalid
+        "404":
+          description: Not found or expired
+
 components:
   schemas:
     HealthStatus:
@@ -33,4 +107,75 @@ components:
           type: string
       required:
         - status
+
+    CreateSigningRequest:
+      type: object
+      properties:
+        documentType:
+          type: string
+        documentTitle:
+          type: string
+        documentData:
+          type: object
+          additionalProperties: true
+        expiresInDays:
+          type: integer
+          default: 30
+      required:
+        - documentType
+        - documentTitle
+        - documentData
+
+    SigningRequestCreated:
+      type: object
+      properties:
+        token:
+          type: string
+        signingUrl:
+          type: string
+        expiresAt:
+          type: string
+      required:
+        - token
+        - signingUrl
+        - expiresAt
+
+    SigningRequestPublic:
+      type: object
+      properties:
+        token:
+          type: string
+        documentType:
+          type: string
+        documentTitle:
+          type: string
+        documentData:
+          type: object
+          additionalProperties: true
+        status:
+          type: string
+        signerName:
+          type: ["string", "null"]
+        signedAt:
+          type: ["string", "null"]
+        expiresAt:
+          type: string
+      required:
+        - token
+        - documentType
+        - documentTitle
+        - documentData
+        - status
+        - expiresAt
+
+    SubmitSignature:
+      type: object
+      properties:
+        signerName:
+          type: string
+        signatureData:
+          type: string
+      required:
+        - signerName
+        - signatureData
 

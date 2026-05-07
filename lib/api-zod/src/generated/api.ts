@@ -14,3 +14,58 @@ import * as zod from "zod";
 export const HealthCheckResponse = zod.object({
   status: zod.string(),
 });
+
+/**
+ * @summary Create a signing request
+ */
+export const createSigningRequestBodyExpiresInDaysDefault = 30;
+
+export const CreateSigningRequestBody = zod.object({
+  documentType: zod.string(),
+  documentTitle: zod.string(),
+  documentData: zod.record(zod.string(), zod.unknown()),
+  expiresInDays: zod
+    .number()
+    .default(createSigningRequestBodyExpiresInDaysDefault),
+});
+
+/**
+ * @summary Get a signing request (public)
+ */
+export const GetSigningRequestParams = zod.object({
+  token: zod.coerce.string(),
+});
+
+export const GetSigningRequestResponse = zod.object({
+  token: zod.string(),
+  documentType: zod.string(),
+  documentTitle: zod.string(),
+  documentData: zod.record(zod.string(), zod.unknown()),
+  status: zod.string(),
+  signerName: zod.string().nullish(),
+  signedAt: zod.string().nullish(),
+  expiresAt: zod.string(),
+});
+
+/**
+ * @summary Submit a signature (public)
+ */
+export const SubmitSignatureParams = zod.object({
+  token: zod.coerce.string(),
+});
+
+export const SubmitSignatureBody = zod.object({
+  signerName: zod.string(),
+  signatureData: zod.string(),
+});
+
+export const SubmitSignatureResponse = zod.object({
+  token: zod.string(),
+  documentType: zod.string(),
+  documentTitle: zod.string(),
+  documentData: zod.record(zod.string(), zod.unknown()),
+  status: zod.string(),
+  signerName: zod.string().nullish(),
+  signedAt: zod.string().nullish(),
+  expiresAt: zod.string(),
+});

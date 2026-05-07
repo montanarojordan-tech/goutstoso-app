@@ -5,18 +5,27 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import type {
+  MutationFunction,
   QueryFunction,
   QueryKey,
+  UseMutationOptions,
+  UseMutationResult,
   UseQueryOptions,
   UseQueryResult,
 } from "@tanstack/react-query";
 
-import type { HealthStatus } from "./api.schemas";
+import type {
+  CreateSigningRequest,
+  HealthStatus,
+  SigningRequestCreated,
+  SigningRequestPublic,
+  SubmitSignature,
+} from "./api.schemas";
 
 import { customFetch } from "../custom-fetch";
-import type { ErrorType } from "../custom-fetch";
+import type { ErrorType, BodyType } from "../custom-fetch";
 
 type AwaitedInput<T> = PromiseLike<T> | T;
 
@@ -99,3 +108,264 @@ export function useHealthCheck<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary Create a signing request
+ */
+export const getCreateSigningRequestUrl = () => {
+  return `/api/sign`;
+};
+
+export const createSigningRequest = async (
+  createSigningRequest: CreateSigningRequest,
+  options?: RequestInit,
+): Promise<SigningRequestCreated> => {
+  return customFetch<SigningRequestCreated>(getCreateSigningRequestUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createSigningRequest),
+  });
+};
+
+export const getCreateSigningRequestMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createSigningRequest>>,
+    TError,
+    { data: BodyType<CreateSigningRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createSigningRequest>>,
+  TError,
+  { data: BodyType<CreateSigningRequest> },
+  TContext
+> => {
+  const mutationKey = ["createSigningRequest"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createSigningRequest>>,
+    { data: BodyType<CreateSigningRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createSigningRequest(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateSigningRequestMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createSigningRequest>>
+>;
+export type CreateSigningRequestMutationBody = BodyType<CreateSigningRequest>;
+export type CreateSigningRequestMutationError = ErrorType<void>;
+
+/**
+ * @summary Create a signing request
+ */
+export const useCreateSigningRequest = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createSigningRequest>>,
+    TError,
+    { data: BodyType<CreateSigningRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createSigningRequest>>,
+  TError,
+  { data: BodyType<CreateSigningRequest> },
+  TContext
+> => {
+  return useMutation(getCreateSigningRequestMutationOptions(options));
+};
+
+/**
+ * @summary Get a signing request (public)
+ */
+export const getGetSigningRequestUrl = (token: string) => {
+  return `/api/sign/${token}`;
+};
+
+export const getSigningRequest = async (
+  token: string,
+  options?: RequestInit,
+): Promise<SigningRequestPublic> => {
+  return customFetch<SigningRequestPublic>(getGetSigningRequestUrl(token), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetSigningRequestQueryKey = (token: string) => {
+  return [`/api/sign/${token}`] as const;
+};
+
+export const getGetSigningRequestQueryOptions = <
+  TData = Awaited<ReturnType<typeof getSigningRequest>>,
+  TError = ErrorType<void>,
+>(
+  token: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getSigningRequest>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetSigningRequestQueryKey(token);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getSigningRequest>>
+  > = ({ signal }) => getSigningRequest(token, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!token,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getSigningRequest>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetSigningRequestQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getSigningRequest>>
+>;
+export type GetSigningRequestQueryError = ErrorType<void>;
+
+/**
+ * @summary Get a signing request (public)
+ */
+
+export function useGetSigningRequest<
+  TData = Awaited<ReturnType<typeof getSigningRequest>>,
+  TError = ErrorType<void>,
+>(
+  token: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getSigningRequest>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetSigningRequestQueryOptions(token, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Submit a signature (public)
+ */
+export const getSubmitSignatureUrl = (token: string) => {
+  return `/api/sign/${token}/submit`;
+};
+
+export const submitSignature = async (
+  token: string,
+  submitSignature: SubmitSignature,
+  options?: RequestInit,
+): Promise<SigningRequestPublic> => {
+  return customFetch<SigningRequestPublic>(getSubmitSignatureUrl(token), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(submitSignature),
+  });
+};
+
+export const getSubmitSignatureMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof submitSignature>>,
+    TError,
+    { token: string; data: BodyType<SubmitSignature> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof submitSignature>>,
+  TError,
+  { token: string; data: BodyType<SubmitSignature> },
+  TContext
+> => {
+  const mutationKey = ["submitSignature"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof submitSignature>>,
+    { token: string; data: BodyType<SubmitSignature> }
+  > = (props) => {
+    const { token, data } = props ?? {};
+
+    return submitSignature(token, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SubmitSignatureMutationResult = NonNullable<
+  Awaited<ReturnType<typeof submitSignature>>
+>;
+export type SubmitSignatureMutationBody = BodyType<SubmitSignature>;
+export type SubmitSignatureMutationError = ErrorType<void>;
+
+/**
+ * @summary Submit a signature (public)
+ */
+export const useSubmitSignature = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof submitSignature>>,
+    TError,
+    { token: string; data: BodyType<SubmitSignature> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof submitSignature>>,
+  TError,
+  { token: string; data: BodyType<SubmitSignature> },
+  TContext
+> => {
+  return useMutation(getSubmitSignatureMutationOptions(options));
+};
