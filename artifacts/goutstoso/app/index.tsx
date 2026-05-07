@@ -7650,15 +7650,6 @@ try {
     y+=9;
   });
 
-  // Économie partenaire
-  const economie = totalPublic - totalPrix;
-  doc.setFillColor(240,253,244);
-  doc.rect(startX,y,tableW,8,"F");
-  doc.setFont("helvetica","bold"); doc.setFontSize(8); doc.setTextColor(22,101,52);
-  doc.text("Économie partenaire vs prix public",startX+4,y+5.5);
-  doc.text("− CHF "+economie.toFixed(2),startX+tableW-4,y+5.5,{align:"right"});
-  y+=8;
-
   // Total
   doc.setFillColor(10,10,10);
   doc.rect(startX,y,tableW,10,"F");
@@ -7685,14 +7676,40 @@ try {
     doc.text(nlines,mg,y); y+=nlines.length*5+4;
   }
 
-  // Signature
-  y+=6;
-  doc.setFont("helvetica","normal"); doc.setFontSize(8); doc.setTextColor(100,100,100);
-  doc.text("Pour acceptation, veuillez retourner ce document signé ou confirmer par email.",mg,y);
+  // Signatures — deux colonnes
   y+=8;
-  doc.text("Signature & cachet du partenaire :",mg,y);
-  doc.setDrawColor(180,180,175); doc.line(mg+60,y,mg+130,y);
-  doc.text("Villeret, le ____________________",W-mg-64,y);
+  doc.setFont("helvetica","normal"); doc.setFontSize(8); doc.setTextColor(100,100,100);
+  doc.text("Pour acceptation, veuillez retourner ce document signé.",mg,y);
+  y+=10;
+
+  const sigColW = (W - mg*2 - 10) / 2;
+  const col1X = mg;
+  const col2X = mg + sigColW + 10;
+
+  // Colonne Goûtstoso (gauche)
+  doc.setFillColor(249,249,246); doc.rect(col1X,y,sigColW,36,"F");
+  doc.setFont("helvetica","bold"); doc.setFontSize(8); doc.setTextColor(80,80,80);
+  doc.text("GOÛTSTOSO",col1X+4,y+5);
+  doc.setFont("helvetica","normal"); doc.setFontSize(7.5); doc.setTextColor(120,120,120);
+  doc.text("Jordan Montanaro",col1X+4,y+10);
+  doc.text("Date : ___________________",col1X+4,y+17);
+  doc.setDrawColor(180,180,175); doc.setLineWidth(0.5);
+  doc.line(col1X+4,y+32,col1X+sigColW-4,y+32);
+  doc.setFont("helvetica","normal"); doc.setFontSize(7); doc.setTextColor(160,160,160);
+  doc.text("Signature",col1X+4,y+36);
+
+  // Colonne Partenaire (droite)
+  doc.setFillColor(249,249,246); doc.rect(col2X,y,sigColW,36,"F");
+  doc.setFont("helvetica","bold"); doc.setFontSize(8); doc.setTextColor(80,80,80);
+  doc.text(clientNom.toUpperCase(),col2X+4,y+5);
+  doc.setFont("helvetica","normal"); doc.setFontSize(7.5); doc.setTextColor(120,120,120);
+  doc.text(clientContact||"Représentant autorisé",col2X+4,y+10);
+  doc.text("Date : ___________________",col2X+4,y+17);
+  doc.setDrawColor(180,180,175); doc.setLineWidth(0.5);
+  doc.line(col2X+4,y+32,col2X+sigColW-4,y+32);
+  doc.setFont("helvetica","normal"); doc.setFontSize(7); doc.setTextColor(160,160,160);
+  doc.text("Signature & cachet",col2X+4,y+36);
+  y+=42;
 
   // Footer
   doc.setDrawColor(230,230,228); doc.setLineWidth(0.3); doc.line(mg,282,W-mg,282);
