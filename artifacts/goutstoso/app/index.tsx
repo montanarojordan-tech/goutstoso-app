@@ -1633,6 +1633,7 @@ if(signingBulletin) return (
 );
 
 return (
+<>
 <div className="fade">
 <button onClick={()=>setView(null)} style={{display:"flex",alignItems:"center",gap:6,background:"none",border:"none",color:"#9CA3AF",fontSize:13,marginBottom:16,padding:0,cursor:"pointer"}}>← Retour</button>
 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
@@ -1940,6 +1941,7 @@ return (
     </Modal>
   )}
 
+</>
 );
 
 }
