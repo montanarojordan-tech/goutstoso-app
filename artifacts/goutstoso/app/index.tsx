@@ -2289,9 +2289,10 @@ return (
       <button onClick={()=>envoyerContrat(view)} style={{background:"#FEF9E7",color:"#92400E",border:"1.5px solid #F2C94C",borderRadius:10,padding:"11px 4px",fontWeight:700,fontSize:11,cursor:"pointer"}}>✉️ Email</button>
       <button onClick={()=>{setForm({...view});setModal("form");setViewId(null);}} style={{background:"#F5F5F0",border:"none",borderRadius:10,padding:"11px 4px",fontWeight:600,fontSize:11,cursor:"pointer"}}>✏️ Modifier</button>
     </div>
-    <button onClick={()=>{const pvLocal=(st.partenaires||[]).find(p=>p.id===view.partenaireId);const enriched={...view,partenaireNom:view.partenaireNom||pvLocal?.nom||"",lignes:(view.lignes||[]).map(l=>{const prod=(st.produits||[]).find(p=>p.id===l.produitId);return {...l,designation:prod?`${prod.nom}${prod.format?" · "+prod.format:""}`:l.produitId};})};envoyerPourSignature("contrat","Contrat "+view.numero,enriched,pvLocal?.email||view.partenaireEmail||"");}} style={{width:"100%",marginBottom:8,background:"linear-gradient(135deg,#0a0a0a,#1a1a1a)",border:"none",borderRadius:10,padding:"11px",fontWeight:700,fontSize:12,color:"#F2C94C",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+    <button onClick={async()=>{const pvLocal=(st.partenaires||[]).find(p=>p.id===view.partenaireId);const enriched={...view,partenaireNom:view.partenaireNom||pvLocal?.nom||"",lignes:(view.lignes||[]).map(l=>{const prod=(st.produits||[]).find(p=>p.id===l.produitId);return {...l,designation:prod?`${prod.nom}${prod.format?" · "+prod.format:""}`:l.produitId};})};const token=await envoyerPourSignature("contrat","Contrat "+view.numero,enriched,pvLocal?.email||view.partenaireEmail||"");if(token)setSt(p=>({...p,contrats:p.contrats.map(c=>c.id===view.id?{...c,signingToken:token}:c)}));}} style={{width:"100%",marginBottom:view.signingToken?4:8,background:"linear-gradient(135deg,#0a0a0a,#1a1a1a)",border:"none",borderRadius:10,padding:"11px",fontWeight:700,fontSize:12,color:"#F2C94C",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
       🔏 Envoyer pour signature
     </button>
+    {view.signingToken&&<button onClick={async()=>{try{const r=await fetch(`/api/sign/${view.signingToken}`);const d=await r.json();if(d.status!=="signed"){alert("Pas encore signé. Relancez une fois que votre partenaire a cliqué le lien.");return;}setSt(p=>({...p,contrats:p.contrats.map(c=>c.id===view.id?{...c,signClient:d.signatureData,statut:"signé",signerNom:d.signerName,signingToken:null}:c)}));setView(v=>({...v,signClient:d.signatureData,statut:"signé",signerNom:d.signerName,signingToken:null}));alert(`✅ ${d.signerName} a signé !\nLa signature est maintenant intégrée dans le PDF.`);}catch(e){alert("Erreur : "+e.message);}}} style={{width:"100%",marginBottom:8,background:"#DCFCE7",border:"1.5px solid #86EFAC",borderRadius:10,padding:"10px",fontWeight:700,fontSize:12,color:"#166534",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>🔄 Vérifier la signature</button>}
     {/* CONVERSION pour offre → commande */}
     {view.type==="offre" && (
       <button onClick={()=>{
@@ -3422,9 +3423,10 @@ return (
         </>
       );
     })()}
-    <button onClick={()=>{const pvLocal=(st.partenaires||[]).find(p=>p.id===view.partenaireId);const enriched={...view,clientNom:view.clientNom||pvLocal?.nom||"",lignes:(view.lignes||[]).map(l=>{const prod=(st.produits||[]).find(p=>p.id===l.produitId);return {...l,designation:prod?`${prod.nom}${prod.format?" · "+prod.format:""}`:l.produitId,prixUnitaire:prod?.prixRevendeur||0};})};envoyerPourSignature("facture","Facture "+view.numero,enriched,enriched.clientNom?pvLocal?.email||view.clientEmail||"":"");}} style={{width:"100%",marginBottom:8,background:"linear-gradient(135deg,#0a0a0a,#1a1a1a)",border:"none",borderRadius:10,padding:"11px",fontWeight:700,fontSize:12,color:"#F2C94C",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+    <button onClick={async()=>{const pvLocal=(st.partenaires||[]).find(p=>p.id===view.partenaireId);const enriched={...view,clientNom:view.clientNom||pvLocal?.nom||"",lignes:(view.lignes||[]).map(l=>{const prod=(st.produits||[]).find(p=>p.id===l.produitId);return {...l,designation:prod?`${prod.nom}${prod.format?" · "+prod.format:""}`:l.produitId,prixUnitaire:prod?.prixRevendeur||0};})};const token=await envoyerPourSignature("facture","Facture "+view.numero,enriched,enriched.clientNom?pvLocal?.email||view.clientEmail||"":"");if(token)setSt(p=>({...p,factures:p.factures.map(f=>f.id===view.id?{...f,signingToken:token}:f)}));}} style={{width:"100%",marginBottom:view.signingToken?4:8,background:"linear-gradient(135deg,#0a0a0a,#1a1a1a)",border:"none",borderRadius:10,padding:"11px",fontWeight:700,fontSize:12,color:"#F2C94C",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
       🔏 Envoyer pour signature
     </button>
+    {view.signingToken&&<button onClick={async()=>{try{const r=await fetch(`/api/sign/${view.signingToken}`);const d=await r.json();if(d.status!=="signed"){alert("Pas encore signé. Relancez une fois que votre partenaire a cliqué le lien.");return;}setSt(p=>({...p,factures:p.factures.map(f=>f.id===view.id?{...f,signFournisseur:d.signatureData,statut:"signée",signerNom:d.signerName,signingToken:null}:f)}));setView(v=>({...v,signFournisseur:d.signatureData,statut:"signée",signerNom:d.signerName,signingToken:null}));alert(`✅ ${d.signerName} a signé !\nLa signature est maintenant intégrée dans le PDF.`);}catch(e){alert("Erreur : "+e.message);}}} style={{width:"100%",marginBottom:8,background:"#DCFCE7",border:"1.5px solid #86EFAC",borderRadius:10,padding:"10px",fontWeight:700,fontSize:12,color:"#166534",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>🔄 Vérifier la signature</button>}
     {view.statut!=="payée"&&(
       <div style={{marginBottom:8}}>
         {view.envoyee
@@ -7807,17 +7809,40 @@ const envoyerPourSignature = async (documentType, documentTitle, documentData, e
       body: JSON.stringify({documentType, documentTitle, documentData, expiresInDays:30}),
     });
     if(!r.ok) throw new Error("Erreur serveur");
-    const {signingUrl} = await r.json();
+    const {token, signingUrl} = await r.json();
     try { await navigator.clipboard.writeText(signingUrl); } catch(_){}
-    const sujet = encodeURIComponent(`Signature requise : ${documentTitle}`);
-    const corps = encodeURIComponent(`Bonjour,\n\nVeuillez trouver ci-dessous le lien pour signer électroniquement le document "${documentTitle}" de Goûtstoso :\n\n${signingUrl}\n\nCe lien est valable 30 jours. Il vous suffit de cliquer, vérifier le document, puis signer avec votre doigt ou la souris.\n\nCordialement,\nJordan Montanaro\nGoûtstoso — Liqueurs artisanales\nadmin@goutstoso.ch`);
+    const sujet = encodeURIComponent(`Signature requise — ${documentTitle}`);
+    const corps = encodeURIComponent(
+`────────────────────────────────────
+  GOÛTSTOSO — SIGNATURE ÉLECTRONIQUE
+────────────────────────────────────
+
+Bonjour,
+
+Vous êtes invité(e) à signer électroniquement :
+
+  📄  ${documentTitle}
+
+Accédez au document et signez en quelques secondes :
+
+  ➜  ${signingUrl}
+
+Ce lien est valable 30 jours. Il suffit de cliquer,
+vérifier le document, puis signer avec votre doigt.
+
+────────────────────────────────────
+Jordan Montanaro · Goûtstoso
+admin@goutstoso.ch · www.goutstoso.ch
+────────────────────────────────────`);
     const mailtoLink = `mailto:${email}?subject=${sujet}&body=${corps}`;
     const msg = `✅ Lien créé et copié !\n\n${signingUrl}\n\nOuvrir l'app email pour envoyer ?`;
     if(window.confirm(msg)) {
       window.open(mailtoLink, "_blank");
     }
+    return token;
   } catch(e) {
     alert("Erreur lors de la création du lien : " + e.message);
+    return null;
   }
 };
 
@@ -7927,9 +7952,10 @@ if(view) return (
   <button onClick={()=>creerContactDepuisOffre(view)} style={{width:"100%",marginBottom:8,background:"#EFF6FF",border:"1.5px solid #BFDBFE",borderRadius:10,padding:"10px",fontWeight:600,fontSize:12,color:"#1E40AF",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
     👤 Créer un contact depuis cette offre
   </button>
-  <button onClick={()=>{const enriched={...view,lignes:(view.lignes||[]).map(l=>{const prod=(st.produits||[]).find(p=>p.id===l.produitId);return {...l,designation:prod?`${prod.nom}${prod.format?" · "+prod.format:""}`:l.produitId,prixUnitaire:prod?.prixRevendeur||0};})};envoyerPourSignature("offre","Offre "+view.numero,enriched,view.clientEmail||"");}} style={{width:"100%",marginBottom:10,background:"linear-gradient(135deg,#0a0a0a,#1a1a1a)",border:"none",borderRadius:10,padding:"11px",fontWeight:700,fontSize:12,color:"#F2C94C",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+  <button onClick={async()=>{const enriched={...view,lignes:(view.lignes||[]).map(l=>{const prod=(st.produits||[]).find(p=>p.id===l.produitId);return {...l,designation:prod?`${prod.nom}${prod.format?" · "+prod.format:""}`:l.produitId,prixUnitaire:prod?.prixRevendeur||0};})};const token=await envoyerPourSignature("offre","Offre "+view.numero,enriched,view.clientEmail||"");if(token)setSt(p=>({...p,offres:p.offres.map(o=>o.id===view.id?{...o,signingToken:token}:o)}));}} style={{width:"100%",marginBottom:view.signingToken?4:10,background:"linear-gradient(135deg,#0a0a0a,#1a1a1a)",border:"none",borderRadius:10,padding:"11px",fontWeight:700,fontSize:12,color:"#F2C94C",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
     🔏 Envoyer pour signature
   </button>
+  {view.signingToken&&<button onClick={async()=>{try{const r=await fetch(`/api/sign/${view.signingToken}`);const d=await r.json();if(d.status!=="signed"){alert("Pas encore signé. Relancez une fois que votre partenaire a cliqué le lien.");return;}setSt(p=>({...p,offres:p.offres.map(o=>o.id===view.id?{...o,signClient:d.signatureData,statut:"acceptée",signerNom:d.signerName,signingToken:null}:o)}));setView(v=>({...v,signClient:d.signatureData,statut:"acceptée",signerNom:d.signerName,signingToken:null}));alert(`✅ ${d.signerName} a signé !\nLa signature est maintenant intégrée dans le PDF.`);}catch(e){alert("Erreur : "+e.message);}}} style={{width:"100%",marginBottom:10,background:"#DCFCE7",border:"1.5px solid #86EFAC",borderRadius:10,padding:"10px",fontWeight:700,fontSize:12,color:"#166534",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>🔄 Vérifier la signature</button>}
 
   {/* Statut */}
   <div style={{display:"flex",gap:6,marginBottom:14,flexWrap:"wrap"}}>

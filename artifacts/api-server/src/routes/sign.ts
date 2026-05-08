@@ -68,6 +68,7 @@ router.get("/sign/:token", async (req, res) => {
     documentData: row.documentData,
     status: row.status,
     signerName: row.signerName ?? null,
+    signatureData: row.status === "signed" ? row.signatureData : null,
     signedAt: row.signedAt?.toISOString() ?? null,
     expiresAt: row.expiresAt.toISOString(),
   });
@@ -109,6 +110,20 @@ router.post("/sign/:token/submit", async (req, res) => {
       signedAt,
     })
     .where(eq(signingRequestsTable.token, params.data.token));
+
+  // Notification push via ntfy.sh (gratuit, sans compte)
+  try {
+    const ntfyTopic = process.env.NTFY_TOPIC ?? "goutstoso-signatures";
+    await fetch(`https://ntfy.sh/${ntfyTopic}`, {
+      method: "POST",
+      headers: {
+        "Title": `✅ Document signé : ${row.documentTitle}`,
+        "Priority": "high",
+        "Tags": "pen,white_check_mark",
+      },
+      body: `${body.data.signerName} a signé "${row.documentTitle}" le ${signedAt.toLocaleDateString("fr-CH")}`,
+    });
+  } catch (_) {}
 
   res.json({
     token: row.token,
