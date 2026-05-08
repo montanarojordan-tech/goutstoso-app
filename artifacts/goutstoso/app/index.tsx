@@ -7707,16 +7707,26 @@ try {
   doc.text("Signature",col1X+4,y+36);
 
   // Colonne Partenaire (droite)
-  doc.setFillColor(249,249,246); doc.rect(col2X,y,sigColW,36,"F");
+  const hasSig = !!offre.signClient;
+  doc.setFillColor(hasSig?230:249,hasSig?246:249,hasSig?230:246);
+  doc.rect(col2X,y,sigColW,36,"F");
   doc.setFont("helvetica","bold"); doc.setFontSize(8); doc.setTextColor(80,80,80);
   doc.text(clientNom.toUpperCase(),col2X+4,y+5);
   doc.setFont("helvetica","normal"); doc.setFontSize(7.5); doc.setTextColor(120,120,120);
   doc.text(clientContact||"Représentant autorisé",col2X+4,y+10);
-  doc.text("Date : ___________________",col2X+4,y+17);
-  doc.setDrawColor(180,180,175); doc.setLineWidth(0.5);
-  doc.line(col2X+4,y+32,col2X+sigColW-4,y+32);
-  doc.setFont("helvetica","normal"); doc.setFontSize(7); doc.setTextColor(160,160,160);
-  doc.text("Signature & cachet",col2X+4,y+36);
+  if(hasSig) {
+    const dateSig = offre.signedAt ? fmt(offre.signedAt.slice(0,10)) : fmt(today());
+    doc.text("Date : "+dateSig,col2X+4,y+17);
+    try { doc.addImage(offre.signClient,"PNG",col2X+4,y+17,sigColW-8,16); } catch(e){}
+    doc.setTextColor(21,128,61); doc.setFont("helvetica","bold"); doc.setFontSize(7);
+    doc.text("✓ Signé électroniquement — "+(offre.signerNom||clientNom),col2X+4,y+35);
+  } else {
+    doc.text("Date : ___________________",col2X+4,y+17);
+    doc.setDrawColor(180,180,175); doc.setLineWidth(0.5);
+    doc.line(col2X+4,y+32,col2X+sigColW-4,y+32);
+    doc.setFont("helvetica","normal"); doc.setFontSize(7); doc.setTextColor(160,160,160);
+    doc.text("Signature & cachet",col2X+4,y+36);
+  }
   y+=42;
 
   // Footer
