@@ -7705,16 +7705,25 @@ try {
   const col2X = mg + sigColW + 10;
 
   // Colonne Goûtstoso (gauche)
-  doc.setFillColor(249,249,246); doc.rect(col1X,y,sigColW,36,"F");
+  const hasJordanSig = !!offre.signJordan;
+  doc.setFillColor(hasJordanSig?230:249,hasJordanSig?246:249,hasJordanSig?230:246);
+  doc.rect(col1X,y,sigColW,36,"F");
   doc.setFont("helvetica","bold"); doc.setFontSize(8); doc.setTextColor(80,80,80);
   doc.text("GOÛTSTOSO",col1X+4,y+5);
   doc.setFont("helvetica","normal"); doc.setFontSize(7.5); doc.setTextColor(120,120,120);
   doc.text("Jordan Montanaro",col1X+4,y+10);
-  doc.text("Date : ___________________",col1X+4,y+17);
-  doc.setDrawColor(180,180,175); doc.setLineWidth(0.5);
-  doc.line(col1X+4,y+32,col1X+sigColW-4,y+32);
-  doc.setFont("helvetica","normal"); doc.setFontSize(7); doc.setTextColor(160,160,160);
-  doc.text("Signature",col1X+4,y+36);
+  if(hasJordanSig) {
+    doc.text("Date : "+fmt(today()),col1X+4,y+17);
+    try { doc.addImage(offre.signJordan,"PNG",col1X+4,y+17,sigColW-8,16); } catch(e){}
+    doc.setTextColor(21,128,61); doc.setFont("helvetica","bold"); doc.setFontSize(7);
+    doc.text("✓ Signé — Jordan Montanaro",col1X+4,y+35);
+  } else {
+    doc.text("Date : ___________________",col1X+4,y+17);
+    doc.setDrawColor(180,180,175); doc.setLineWidth(0.5);
+    doc.line(col1X+4,y+32,col1X+sigColW-4,y+32);
+    doc.setFont("helvetica","normal"); doc.setFontSize(7); doc.setTextColor(160,160,160);
+    doc.text("Signature",col1X+4,y+36);
+  }
 
   // Colonne Partenaire (droite)
   const hasSig = !!offre.signClient;
@@ -7754,6 +7763,7 @@ const [modal, setModal] = useState(null);
 const [viewId, setViewId] = useState(null);
 const [form, setForm] = useState<any>(null);
 const [recoveryToken, setRecoveryToken] = useState("");
+const [sigJordanMode, setSigJordanMode] = useState(false);
 
 const offres = st.offres || [];
 const view = viewId ? offres.find(o=>o.id===viewId) : null;
@@ -7977,6 +7987,19 @@ if(view) return (
   <button onClick={()=>creerContactDepuisOffre(view)} style={{width:"100%",marginBottom:8,background:"#EFF6FF",border:"1.5px solid #BFDBFE",borderRadius:10,padding:"10px",fontWeight:600,fontSize:12,color:"#1E40AF",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
     👤 Créer un contact depuis cette offre
   </button>
+
+  {/* Signature Jordan */}
+  {sigJordanMode
+    ? <div style={{marginBottom:10}}>
+        <p style={{fontWeight:700,fontSize:12,marginBottom:6}}>✍️ Ma signature (Goûtstoso)</p>
+        <SignaturePad
+          onSave={sig=>{setSt(p=>({...p,offres:p.offres.map(o=>o.id===view.id?{...o,signJordan:sig}:o)}));setSigJordanMode(false);}}
+          onCancel={()=>setSigJordanMode(false)}/>
+      </div>
+    : <button onClick={()=>setSigJordanMode(true)} style={{width:"100%",marginBottom:8,background:view.signJordan?"#DCFCE7":"#F9F9F6",border:view.signJordan?"1.5px solid #86EFAC":"1px solid #E5E7EB",borderRadius:10,padding:"10px",fontWeight:600,fontSize:12,color:view.signJordan?"#166534":"#374151",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+        {view.signJordan?"✅ Ma signature enregistrée (modifier)":"✍️ Apposer ma signature (Goûtstoso)"}
+      </button>}
+
   <button onClick={async()=>{const enriched={...view,lignes:(view.lignes||[]).map(l=>{const prod=(st.produits||[]).find(p=>p.id===l.produitId);return {...l,designation:prod?`${prod.nom}${prod.format?" · "+prod.format:""}`:l.produitId,prixUnitaire:prod?.prixRevendeur||0};})};const token=await envoyerPourSignature("offre","Offre "+view.numero,enriched,view.clientEmail||"");if(token)setSt(p=>({...p,offres:p.offres.map(o=>o.id===view.id?{...o,signingToken:token}:o)}));}} style={{width:"100%",marginBottom:view.signingToken?4:10,background:"linear-gradient(135deg,#0a0a0a,#1a1a1a)",border:"none",borderRadius:10,padding:"11px",fontWeight:700,fontSize:12,color:"#F2C94C",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
     🔏 Envoyer pour signature
   </button>
