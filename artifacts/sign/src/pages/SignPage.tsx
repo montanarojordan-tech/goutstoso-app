@@ -53,8 +53,14 @@ function DocumentPreview({ req }: { req: SigningRequest }) {
     });
   }
 
-  const items: Array<{ designation: string; quantite: number; prixUnitaire: number }> =
-    d.items || d.lignes || d.produits || [];
+  const rawItems: any[] = d.items || d.lignes || d.produits || [];
+  const items = rawItems
+    .map((item: any) => ({
+      designation: item.designation || item.nom || item.produitId || "",
+      quantite: item.quantite || item.qte || 0,
+      prixUnitaire: item.prixUnitaire || item.prix || 0,
+    }))
+    .filter(item => item.designation && item.quantite > 0);
 
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">

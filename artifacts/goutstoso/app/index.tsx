@@ -2289,7 +2289,7 @@ return (
       <button onClick={()=>envoyerContrat(view)} style={{background:"#FEF9E7",color:"#92400E",border:"1.5px solid #F2C94C",borderRadius:10,padding:"11px 4px",fontWeight:700,fontSize:11,cursor:"pointer"}}>✉️ Email</button>
       <button onClick={()=>{setForm({...view});setModal("form");setViewId(null);}} style={{background:"#F5F5F0",border:"none",borderRadius:10,padding:"11px 4px",fontWeight:600,fontSize:11,cursor:"pointer"}}>✏️ Modifier</button>
     </div>
-    <button onClick={()=>envoyerPourSignature("contrat","Contrat "+view.numero,view)} style={{width:"100%",marginBottom:8,background:"linear-gradient(135deg,#0a0a0a,#1a1a1a)",border:"none",borderRadius:10,padding:"11px",fontWeight:700,fontSize:12,color:"#F2C94C",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+    <button onClick={()=>{const pvLocal=(st.partenaires||[]).find(p=>p.id===view.partenaireId);const enriched={...view,partenaireNom:view.partenaireNom||pvLocal?.nom||"",lignes:(view.lignes||[]).map(l=>{const prod=(st.produits||[]).find(p=>p.id===l.produitId);return {...l,designation:prod?`${prod.nom}${prod.format?" · "+prod.format:""}`:l.produitId};})};envoyerPourSignature("contrat","Contrat "+view.numero,enriched,pvLocal?.email||view.partenaireEmail||"");}} style={{width:"100%",marginBottom:8,background:"linear-gradient(135deg,#0a0a0a,#1a1a1a)",border:"none",borderRadius:10,padding:"11px",fontWeight:700,fontSize:12,color:"#F2C94C",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
       🔏 Envoyer pour signature
     </button>
     {/* CONVERSION pour offre → commande */}
@@ -3422,7 +3422,7 @@ return (
         </>
       );
     })()}
-    <button onClick={()=>envoyerPourSignature("facture","Facture "+view.numero,view)} style={{width:"100%",marginBottom:8,background:"linear-gradient(135deg,#0a0a0a,#1a1a1a)",border:"none",borderRadius:10,padding:"11px",fontWeight:700,fontSize:12,color:"#F2C94C",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+    <button onClick={()=>{const pvLocal=(st.partenaires||[]).find(p=>p.id===view.partenaireId);const enriched={...view,clientNom:view.clientNom||pvLocal?.nom||"",lignes:(view.lignes||[]).map(l=>{const prod=(st.produits||[]).find(p=>p.id===l.produitId);return {...l,designation:prod?`${prod.nom}${prod.format?" · "+prod.format:""}`:l.produitId,prixUnitaire:prod?.prixRevendeur||0};})};envoyerPourSignature("facture","Facture "+view.numero,enriched,enriched.clientNom?pvLocal?.email||view.clientEmail||"":"");}} style={{width:"100%",marginBottom:8,background:"linear-gradient(135deg,#0a0a0a,#1a1a1a)",border:"none",borderRadius:10,padding:"11px",fontWeight:700,fontSize:12,color:"#F2C94C",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
       🔏 Envoyer pour signature
     </button>
     {view.statut!=="payée"&&(
@@ -7799,7 +7799,7 @@ const saveOffre = () => {
   setViewId(saved.id);
 };
 
-const envoyerPourSignature = async (documentType, documentTitle, documentData) => {
+const envoyerPourSignature = async (documentType, documentTitle, documentData, email="") => {
   try {
     const r = await fetch("/api/sign", {
       method: "POST",
@@ -7809,8 +7809,13 @@ const envoyerPourSignature = async (documentType, documentTitle, documentData) =
     if(!r.ok) throw new Error("Erreur serveur");
     const {signingUrl} = await r.json();
     try { await navigator.clipboard.writeText(signingUrl); } catch(_){}
-    const msg = `✅ Lien de signature créé !\n\n${signingUrl}\n\n(Copié dans le presse-papier)`;
-    alert(msg);
+    const sujet = encodeURIComponent(`Signature requise : ${documentTitle}`);
+    const corps = encodeURIComponent(`Bonjour,\n\nVeuillez trouver ci-dessous le lien pour signer électroniquement le document "${documentTitle}" de Goûtstoso :\n\n${signingUrl}\n\nCe lien est valable 30 jours. Il vous suffit de cliquer, vérifier le document, puis signer avec votre doigt ou la souris.\n\nCordialement,\nJordan Montanaro\nGoûtstoso — Liqueurs artisanales\nadmin@goutstoso.ch`);
+    const mailtoLink = `mailto:${email}?subject=${sujet}&body=${corps}`;
+    const msg = `✅ Lien créé et copié !\n\n${signingUrl}\n\nOuvrir l'app email pour envoyer ?`;
+    if(window.confirm(msg)) {
+      window.open(mailtoLink, "_blank");
+    }
   } catch(e) {
     alert("Erreur lors de la création du lien : " + e.message);
   }
@@ -7922,7 +7927,7 @@ if(view) return (
   <button onClick={()=>creerContactDepuisOffre(view)} style={{width:"100%",marginBottom:8,background:"#EFF6FF",border:"1.5px solid #BFDBFE",borderRadius:10,padding:"10px",fontWeight:600,fontSize:12,color:"#1E40AF",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
     👤 Créer un contact depuis cette offre
   </button>
-  <button onClick={()=>envoyerPourSignature("offre","Offre "+view.numero,view)} style={{width:"100%",marginBottom:10,background:"linear-gradient(135deg,#0a0a0a,#1a1a1a)",border:"none",borderRadius:10,padding:"11px",fontWeight:700,fontSize:12,color:"#F2C94C",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+  <button onClick={()=>{const enriched={...view,lignes:(view.lignes||[]).map(l=>{const prod=(st.produits||[]).find(p=>p.id===l.produitId);return {...l,designation:prod?`${prod.nom}${prod.format?" · "+prod.format:""}`:l.produitId,prixUnitaire:prod?.prixRevendeur||0};})};envoyerPourSignature("offre","Offre "+view.numero,enriched,view.clientEmail||"");}} style={{width:"100%",marginBottom:10,background:"linear-gradient(135deg,#0a0a0a,#1a1a1a)",border:"none",borderRadius:10,padding:"11px",fontWeight:700,fontSize:12,color:"#F2C94C",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
     🔏 Envoyer pour signature
   </button>
 
