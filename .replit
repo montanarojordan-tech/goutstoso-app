@@ -61,3 +61,10 @@ externalPort = 3001
 
 [nix]
 channel = "stable-25_05"
+
+[userenv]
+
+[userenv.shared]
+SMTP_HOST = "mail.infomaniak.com"
+SMTP_PORT = "587"
+SMTP_FROM = "admin@goutstoso.ch"

@@ -7841,38 +7841,28 @@ const envoyerPourSignature = async (documentType, documentTitle, documentData, e
     const r = await fetch(`${SIGN_API}/sign`, {
       method: "POST",
       headers: {"Content-Type":"application/json"},
-      body: JSON.stringify({documentType, documentTitle, documentData, expiresInDays:30}),
+      body: JSON.stringify({documentType, documentTitle, documentData, expiresInDays:30, recipientEmail: email||undefined}),
     });
     if(!r.ok) throw new Error("Erreur serveur");
-    const {token, signingUrl} = await r.json();
+    const {token, signingUrl, emailSent, emailError} = await r.json();
     try { await navigator.clipboard.writeText(signingUrl); } catch(_){}
-    const sujet = encodeURIComponent(`Signature requise — ${documentTitle}`);
-    const corps = encodeURIComponent(
-`────────────────────────────────────
-  GOÛTSTOSO — SIGNATURE ÉLECTRONIQUE
-────────────────────────────────────
-
-Bonjour,
-
-Vous êtes invité(e) à signer électroniquement :
-
-  📄  ${documentTitle}
-
-Accédez au document et signez en quelques secondes :
-
-  ➜  ${signingUrl}
-
-Ce lien est valable 30 jours. Il suffit de cliquer,
-vérifier le document, puis signer avec votre doigt.
-
-────────────────────────────────────
-Jordan Montanaro · Goûtstoso
-admin@goutstoso.ch · www.goutstoso.ch
-────────────────────────────────────`);
-    const mailtoLink = `mailto:${email}?subject=${sujet}&body=${corps}`;
-    const msg = `✅ Lien créé et copié !\n\n${signingUrl}\n\nOuvrir l'app email pour envoyer ?`;
-    if(window.confirm(msg)) {
-      window.open(mailtoLink, "_blank");
+    if(emailSent) {
+      alert(`✅ Email envoyé à ${email} !\n\nLe destinataire recevra un email avec un bouton pour signer directement.\n\nLe lien a aussi été copié dans le presse-papiers.`);
+    } else if(email && emailError) {
+      const sujet = encodeURIComponent(`Signature requise — ${documentTitle}`);
+      const corps = encodeURIComponent(`Bonjour,\n\nVeuillez signer électroniquement : ${documentTitle}\n\n➜ ${signingUrl}\n\nCe lien est valable 30 jours.\n\n—\nJordan Montanaro · Goûtstoso`);
+      const mailtoLink = `mailto:${email}?subject=${sujet}&body=${corps}`;
+      const msg = `⚠️ Envoi automatique échoué (${emailError}).\n\nLe lien a été copié dans le presse-papiers.\n\nOuvrir l'app email à la place ?`;
+      if(window.confirm(msg)) window.open(mailtoLink, "_blank");
+    } else {
+      const msg = `✅ Lien créé et copié !\n\n${signingUrl}\n\nOuvrir l'app email pour envoyer ?`;
+      if(email && window.confirm(msg)) {
+        const sujet = encodeURIComponent(`Signature requise — ${documentTitle}`);
+        const corps = encodeURIComponent(`Bonjour,\n\nVeuillez signer électroniquement : ${documentTitle}\n\n➜ ${signingUrl}\n\nCe lien est valable 30 jours.\n\n—\nJordan Montanaro · Goûtstoso`);
+        window.open(`mailto:${email}?subject=${sujet}&body=${corps}`, "_blank");
+      } else if(!email) {
+        alert(`✅ Lien créé et copié !\n\n${signingUrl}`);
+      }
     }
     return token;
   } catch(e) {
