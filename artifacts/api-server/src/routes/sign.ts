@@ -78,17 +78,29 @@ function buildEmailHtml(documentTitle: string, signingUrl: string): string {
             </td>
           </tr>
 
-          <!-- Footer -->
+          <!-- Footer / Signature -->
           <tr>
-            <td style="background:#F4F4F2;padding:20px 36px;border-top:1px solid #EAE7E0;">
-              <table width="100%" cellpadding="0" cellspacing="0">
+            <td style="background:#FFFFFF;padding:28px 36px 32px;border-top:1px solid #EAE7E0;">
+              <p style="margin:0 0 20px;font-size:13px;color:#6B7280;">L'équipe Goûtstoso</p>
+              <table cellpadding="0" cellspacing="0">
                 <tr>
-                  <td>
-                    <p style="margin:0;font-size:12px;color:#6B7280;font-weight:600;">Jordan Montanaro · Goûtstoso</p>
-                    <p style="margin:2px 0 0;font-size:12px;color:#9CA3AF;">admin@goutstoso.ch · www.goutstoso.ch</p>
+                  <td style="padding-right:16px;vertical-align:middle;">
+                    <div style="width:48px;height:48px;border-radius:8px;overflow:hidden;">
+                      <img src="https://goutstoso.replit.app/sign/logo-email.png" alt="Goûtstoso" width="48" height="48" style="display:block;" onerror="this.style.display='none'">
+                    </div>
+                  </td>
+                  <td style="vertical-align:middle;">
+                    <p style="margin:0;font-size:22px;font-weight:700;color:#0A0A0A;letter-spacing:-0.02em;">Goûtstoso</p>
                   </td>
                 </tr>
               </table>
+              <p style="margin:10px 0 12px;font-size:13px;color:#6B7280;">Administratif</p>
+              <hr style="border:none;border-top:1px solid #EAE7E0;margin:0 0 14px;">
+              <p style="margin:0 0 8px;font-size:13px;color:#374151;">T :&nbsp;&nbsp;<a href="tel:+41795220656" style="color:#374151;text-decoration:underline;font-weight:600;">+41 79 522 06 56</a></p>
+              <p style="margin:0 0 8px;font-size:13px;"><a href="mailto:admin@goutstoso.ch" style="color:#1D4ED8;text-decoration:underline;">admin@goutstoso.ch</a></p>
+              <p style="margin:0 0 2px;font-size:13px;color:#374151;">Rue des Sources 19</p>
+              <p style="margin:0 0 8px;font-size:13px;color:#374151;">2613 Villeret - SWITZERLAND</p>
+              <p style="margin:0;font-size:13px;"><a href="https://www.goutstoso.ch" style="color:#1D4ED8;text-decoration:underline;">www.goutstoso.ch</a></p>
             </td>
           </tr>
 
@@ -96,7 +108,6 @@ function buildEmailHtml(documentTitle: string, signingUrl: string): string {
 
         <!-- Anti-phishing note -->
         <p style="margin:20px 0 0;font-size:11px;color:#9CA3AF;text-align:center;max-width:480px;">
-          Cet email a été envoyé par Goûtstoso, Rue des Sources 19, 2613 Villeret, Suisse.<br>
           Si vous n'attendiez pas ce message, vous pouvez l'ignorer.
         </p>
       </td>
