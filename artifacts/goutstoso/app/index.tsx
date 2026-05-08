@@ -7850,7 +7850,8 @@ const envoyerPourSignature = async (documentType, documentTitle, documentData, e
       alert(`✅ Email envoyé à ${email} !\n\nLe destinataire recevra un email avec un bouton pour signer directement.\n\nLe lien a aussi été copié dans le presse-papiers.`);
     } else if(email && emailError) {
       const sujet = encodeURIComponent(`Signature requise — ${documentTitle}`);
-      const corps = encodeURIComponent(`Bonjour,\n\nVeuillez signer électroniquement : ${documentTitle}\n\n➜ ${signingUrl}\n\nCe lien est valable 30 jours.\n\n—\nJordan Montanaro · Goûtstoso`);
+      const signature = `L'équipe Goûtstoso\n\nGoûtstoso\nAdministratif\n\nT : +41 79 522 06 56\nadmin@goutstoso.ch\nRue des Sources 19\n2613 Villeret - SWITZERLAND\nwww.goutstoso.ch`;
+      const corps = encodeURIComponent(`Bonjour,\n\nVeuillez consulter et signer électroniquement le document suivant :\n\n${documentTitle}\n\nCliquez sur le lien ci-dessous pour accéder au document et signer en quelques secondes :\n\n${signingUrl}\n\nCe lien est valable 30 jours.\n\n—\n${signature}`);
       const mailtoLink = `mailto:${email}?subject=${sujet}&body=${corps}`;
       const msg = `⚠️ Envoi automatique échoué (${emailError}).\n\nLe lien a été copié dans le presse-papiers.\n\nOuvrir l'app email à la place ?`;
       if(window.confirm(msg)) window.open(mailtoLink, "_blank");
@@ -7858,7 +7859,8 @@ const envoyerPourSignature = async (documentType, documentTitle, documentData, e
       const msg = `✅ Lien créé et copié !\n\n${signingUrl}\n\nOuvrir l'app email pour envoyer ?`;
       if(email && window.confirm(msg)) {
         const sujet = encodeURIComponent(`Signature requise — ${documentTitle}`);
-        const corps = encodeURIComponent(`Bonjour,\n\nVeuillez signer électroniquement : ${documentTitle}\n\n➜ ${signingUrl}\n\nCe lien est valable 30 jours.\n\n—\nJordan Montanaro · Goûtstoso`);
+        const signature = `L'équipe Goûtstoso\n\nGoûtstoso\nAdministratif\n\nT : +41 79 522 06 56\nadmin@goutstoso.ch\nRue des Sources 19\n2613 Villeret - SWITZERLAND\nwww.goutstoso.ch`;
+        const corps = encodeURIComponent(`Bonjour,\n\nVeuillez consulter et signer électroniquement le document suivant :\n\n${documentTitle}\n\nCliquez sur le lien ci-dessous pour accéder au document et signer en quelques secondes :\n\n${signingUrl}\n\nCe lien est valable 30 jours.\n\n—\n${signature}`);
         window.open(`mailto:${email}?subject=${sujet}&body=${corps}`, "_blank");
       } else if(!email) {
         alert(`✅ Lien créé et copié !\n\n${signingUrl}`);
