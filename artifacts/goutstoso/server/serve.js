@@ -63,11 +63,18 @@ const server = http.createServer((req, res) => {
 
   const ext = path.extname(filePath).toLowerCase();
   const contentType = MIME_TYPES[ext] || "application/octet-stream";
-  const content = fs.readFileSync(filePath);
+  let content = fs.readFileSync(filePath);
 
   const headers = { "content-type": contentType };
   if (ext === ".html") {
     headers["cache-control"] = "no-cache, no-store, must-revalidate";
+    // Rewrite absolute asset paths to include the basePath prefix
+    // so the browser requests /goutstoso/_expo/... instead of /_expo/...
+    if (basePath) {
+      let html = content.toString("utf-8");
+      html = html.replace(/(src|href)="\//g, `$1="${basePath}/`);
+      content = Buffer.from(html, "utf-8");
+    }
   } else if ([".js", ".css", ".png", ".jpg", ".ico", ".woff", ".woff2"].includes(ext)) {
     headers["cache-control"] = "public, max-age=31536000, immutable";
   }
