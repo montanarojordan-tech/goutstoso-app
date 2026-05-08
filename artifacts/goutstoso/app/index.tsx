@@ -7851,7 +7851,8 @@ const envoyerPourSignature = async (documentType, documentTitle, documentData, e
     } else if(email && emailError) {
       const sujet = encodeURIComponent(`Signature requise — ${documentTitle}`);
       const signature = `L'équipe Goûtstoso\n\nGoûtstoso\nAdministratif\n\nT : +41 79 522 06 56\nadmin@goutstoso.ch\nRue des Sources 19\n2613 Villeret - SWITZERLAND\nwww.goutstoso.ch`;
-      const corps = encodeURIComponent(`Bonjour,\n\nVeuillez consulter et signer électroniquement le document suivant :\n\n${documentTitle}\n\nCliquez sur le lien ci-dessous pour accéder au document et signer en quelques secondes :\n\n${signingUrl}\n\nCe lien est valable 30 jours.\n\n—\n${signature}`);
+      const emailBody = `Madame, Monsieur,\n\nNous avons le plaisir de vous faire parvenir notre ${documentTitle} relative à la vente de nos liqueurs artisanales Goûtstoso.\n\nVeuillez trouver ci-dessous le lien vous permettant de consulter l'offre dans son intégralité. Si celle-ci vous convient et que vous souhaitez la valider, nous vous invitons à apposer votre signature électronique directement en ligne :\n\n${signingUrl}\n\nCe lien est valable 30 jours. La signature est simple et rapide — aucune application n'est nécessaire.\n\nNous demeurons bien entendu à votre disposition pour tout renseignement complémentaire.\n\nCordialement,\n\n${signature}`;
+      const corps = encodeURIComponent(emailBody);
       const mailtoLink = `mailto:${email}?subject=${sujet}&body=${corps}`;
       const msg = `⚠️ Envoi automatique échoué (${emailError}).\n\nLe lien a été copié dans le presse-papiers.\n\nOuvrir l'app email à la place ?`;
       if(window.confirm(msg)) window.open(mailtoLink, "_blank");
@@ -7860,7 +7861,8 @@ const envoyerPourSignature = async (documentType, documentTitle, documentData, e
       if(email && window.confirm(msg)) {
         const sujet = encodeURIComponent(`Signature requise — ${documentTitle}`);
         const signature = `L'équipe Goûtstoso\n\nGoûtstoso\nAdministratif\n\nT : +41 79 522 06 56\nadmin@goutstoso.ch\nRue des Sources 19\n2613 Villeret - SWITZERLAND\nwww.goutstoso.ch`;
-        const corps = encodeURIComponent(`Bonjour,\n\nVeuillez consulter et signer électroniquement le document suivant :\n\n${documentTitle}\n\nCliquez sur le lien ci-dessous pour accéder au document et signer en quelques secondes :\n\n${signingUrl}\n\nCe lien est valable 30 jours.\n\n—\n${signature}`);
+        const emailBody = `Madame, Monsieur,\n\nNous avons le plaisir de vous faire parvenir notre ${documentTitle} relative à la vente de nos liqueurs artisanales Goûtstoso.\n\nVeuillez trouver ci-dessous le lien vous permettant de consulter l'offre dans son intégralité. Si celle-ci vous convient et que vous souhaitez la valider, nous vous invitons à apposer votre signature électronique directement en ligne :\n\n${signingUrl}\n\nCe lien est valable 30 jours. La signature est simple et rapide — aucune application n'est nécessaire.\n\nNous demeurons bien entendu à votre disposition pour tout renseignement complémentaire.\n\nCordialement,\n\n${signature}`;
+        const corps = encodeURIComponent(emailBody);
         window.open(`mailto:${email}?subject=${sujet}&body=${corps}`, "_blank");
       } else if(!email) {
         alert(`✅ Lien créé et copié !\n\n${signingUrl}`);
