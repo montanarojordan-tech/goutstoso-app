@@ -9,8 +9,6 @@ import {
   SubmitSignatureBody,
   SubmitSignatureParams,
 } from "@workspace/api-zod";
-import { z } from "zod";
-
 const router: IRouter = Router();
 
 function getSigningUrl(req: any, token: string): string {
@@ -136,7 +134,7 @@ async function sendSigningEmail(to: string, documentTitle: string, signingUrl: s
 }
 
 const CreateSigningRequestWithEmail = CreateSigningRequestBody.extend({
-  recipientEmail: z.email().optional(),
+  recipientEmail: CreateSigningRequestBody.shape.documentType.optional(),
 });
 
 router.post("/sign", async (req, res) => {
