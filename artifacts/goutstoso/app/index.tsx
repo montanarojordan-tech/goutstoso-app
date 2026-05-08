@@ -7801,7 +7801,7 @@ const saveOffre = () => {
 
 const envoyerPourSignature = async (documentType, documentTitle, documentData) => {
   try {
-    const r = await fetch("https://goutstoso.replit.app/api/sign", {
+    const r = await fetch("/api/sign", {
       method: "POST",
       headers: {"Content-Type":"application/json"},
       body: JSON.stringify({documentType, documentTitle, documentData, expiresInDays:30}),
