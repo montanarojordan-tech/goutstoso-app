@@ -7841,32 +7841,19 @@ const envoyerPourSignature = async (documentType, documentTitle, documentData, e
     const r = await fetch(`${SIGN_API}/sign`, {
       method: "POST",
       headers: {"Content-Type":"application/json"},
-      body: JSON.stringify({documentType, documentTitle, documentData, expiresInDays:30, recipientEmail: email||undefined}),
+      body: JSON.stringify({documentType, documentTitle, documentData, expiresInDays:30}),
     });
     if(!r.ok) throw new Error("Erreur serveur");
-    const {token, signingUrl, emailSent, emailError} = await r.json();
+    const {token, signingUrl} = await r.json();
     try { await navigator.clipboard.writeText(signingUrl); } catch(_){}
-    if(emailSent) {
-      alert(`✅ Email envoyé à ${email} !\n\nLe destinataire recevra un email avec un bouton pour signer directement.\n\nLe lien a aussi été copié dans le presse-papiers.`);
-    } else if(email && emailError) {
+    const signature = `L'équipe Goûtstoso\n\nGoûtstoso · Administratif\nT : +41 79 522 06 56\nadmin@goutstoso.ch\nRue des Sources 19 · 2613 Villeret - SWITZERLAND\nwww.goutstoso.ch`;
+    const emailBody = `Madame, Monsieur,\n\nNous avons le plaisir de vous faire parvenir notre ${documentTitle} relative à la vente de nos liqueurs artisanales Goûtstoso.\n\nVeuillez trouver ci-dessous le lien vous permettant de consulter l'offre dans son intégralité. Si celle-ci vous convient et que vous souhaitez la valider, nous vous invitons à apposer votre signature électronique directement en ligne :\n\n${signingUrl}\n\nCe lien est valable 30 jours. La signature est simple et rapide — aucune application n'est nécessaire.\n\nNous demeurons bien entendu à votre disposition pour tout renseignement complémentaire.\n\nCordialement,\n\n${signature}`;
+    if(email) {
       const sujet = encodeURIComponent(`Signature requise — ${documentTitle}`);
-      const signature = `L'équipe Goûtstoso\n\nGoûtstoso\nAdministratif\n\nT : +41 79 522 06 56\nadmin@goutstoso.ch\nRue des Sources 19\n2613 Villeret - SWITZERLAND\nwww.goutstoso.ch`;
-      const emailBody = `Madame, Monsieur,\n\nNous avons le plaisir de vous faire parvenir notre ${documentTitle} relative à la vente de nos liqueurs artisanales Goûtstoso.\n\nVeuillez trouver ci-dessous le lien vous permettant de consulter l'offre dans son intégralité. Si celle-ci vous convient et que vous souhaitez la valider, nous vous invitons à apposer votre signature électronique directement en ligne :\n\n${signingUrl}\n\nCe lien est valable 30 jours. La signature est simple et rapide — aucune application n'est nécessaire.\n\nNous demeurons bien entendu à votre disposition pour tout renseignement complémentaire.\n\nCordialement,\n\n${signature}`;
       const corps = encodeURIComponent(emailBody);
-      const mailtoLink = `mailto:${email}?subject=${sujet}&body=${corps}`;
-      const msg = `⚠️ Envoi automatique échoué (${emailError}).\n\nLe lien a été copié dans le presse-papiers.\n\nOuvrir l'app email à la place ?`;
-      if(window.confirm(msg)) window.open(mailtoLink, "_blank");
+      window.open(`mailto:${email}?subject=${sujet}&body=${corps}`, "_blank");
     } else {
-      const msg = `✅ Lien créé et copié !\n\n${signingUrl}\n\nOuvrir l'app email pour envoyer ?`;
-      if(email && window.confirm(msg)) {
-        const sujet = encodeURIComponent(`Signature requise — ${documentTitle}`);
-        const signature = `L'équipe Goûtstoso\n\nGoûtstoso\nAdministratif\n\nT : +41 79 522 06 56\nadmin@goutstoso.ch\nRue des Sources 19\n2613 Villeret - SWITZERLAND\nwww.goutstoso.ch`;
-        const emailBody = `Madame, Monsieur,\n\nNous avons le plaisir de vous faire parvenir notre ${documentTitle} relative à la vente de nos liqueurs artisanales Goûtstoso.\n\nVeuillez trouver ci-dessous le lien vous permettant de consulter l'offre dans son intégralité. Si celle-ci vous convient et que vous souhaitez la valider, nous vous invitons à apposer votre signature électronique directement en ligne :\n\n${signingUrl}\n\nCe lien est valable 30 jours. La signature est simple et rapide — aucune application n'est nécessaire.\n\nNous demeurons bien entendu à votre disposition pour tout renseignement complémentaire.\n\nCordialement,\n\n${signature}`;
-        const corps = encodeURIComponent(emailBody);
-        window.open(`mailto:${email}?subject=${sujet}&body=${corps}`, "_blank");
-      } else if(!email) {
-        alert(`✅ Lien créé et copié !\n\n${signingUrl}`);
-      }
+      alert(`✅ Lien de signature créé et copié !\n\n${signingUrl}`);
     }
     return token;
   } catch(e) {
