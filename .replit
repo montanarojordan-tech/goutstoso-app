@@ -66,5 +66,5 @@ channel = "stable-25_05"
 
 [userenv.shared]
 SMTP_HOST = "mail.infomaniak.com"
-SMTP_PORT = "587"
+SMTP_PORT = "465"
 SMTP_FROM = "admin@goutstoso.ch"
