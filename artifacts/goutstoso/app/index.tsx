@@ -417,6 +417,27 @@ action: "contrats",
 }
 });
 
+// Offres à relancer (envoyées il y a 7j+ sans réponse)
+(st.contrats||[]).filter(c=>
+  c.type==="offre" &&
+  c.statut!=="signé" && c.statut!=="accepté" && c.statut!=="brouillon" &&
+  c.dateDebut
+).forEach(c=>{
+const joursDepuis = Math.floor((now - new Date(c.dateDebut))/86400000);
+if(joursDepuis >= 7) {
+  const pv = st.partenaires.find(p=>p.id===c.partenaireId);
+  alertes.push({
+    type:"offre_relance",
+    priorite: joursDepuis >= 14 ? "haute" : "moyenne",
+    icone: joursDepuis >= 14 ? "📣" : "🔁",
+    titre:"Relancer — Offre "+c.numero+" sans réponse depuis "+joursDepuis+"j",
+    desc:(pv?.nom||"Partenaire inconnu")+" · Envoyée le "+fmt(c.dateDebut),
+    action:"contrats",
+    id: c.id,
+  });
+}
+});
+
 // Stock bas chez partenaires
 const stocksBas = {};
 (st.depotStocks||[]).filter(ds=>{
