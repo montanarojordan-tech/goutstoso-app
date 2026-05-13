@@ -5419,12 +5419,8 @@ try {
   const doc=new jsPDF({unit:"mm",format:"a4"});
   const W=210; const mg=16;
   // En-tête
-  doc.setFillColor(242,201,76); doc.rect(0,0,W,7,"F");
-  doc.setFont("helvetica","bold"); doc.setFontSize(18); doc.setTextColor(10,10,10);
-  doc.text("GOUT STOSO",mg,20);
-  doc.setFont("helvetica","normal"); doc.setFontSize(8); doc.setTextColor(120,120,120);
-  doc.text("Liqueurs artisanales · Jordan Montanaro · Rue des Sources 19 · 2613 Villeret",mg,26);
-  doc.text("admin@goutstoso.ch · www.goutstoso.ch",mg,30);
+  doc.setFillColor(242,201,76); doc.rect(0,0,W,6,"F");
+  pdfLogo(doc,mg);
   // Titre document
   doc.setFillColor(10,10,10); doc.roundedRect(W-86,12,72,24,3,3,"F");
   doc.setFont("helvetica","bold"); doc.setFontSize(10); doc.setTextColor(242,201,76);
@@ -5432,8 +5428,8 @@ try {
   doc.setFontSize(8); doc.setTextColor(255,255,255);
   doc.text(cmd.confirmationNumero||cmd.numero,W-50,27,{align:"center"});
   doc.text("Du "+fmt(cmd.date),W-50,32,{align:"center"});
-  doc.setDrawColor(220,220,215); doc.setLineWidth(0.3); doc.line(mg,40,W-mg,40);
-  let y=50;
+  doc.setDrawColor(220,220,215); doc.setLineWidth(0.3); doc.line(mg,42,W-mg,42);
+  let y=52;
   // Client
   doc.setFont("helvetica","bold"); doc.setFontSize(8); doc.setTextColor(150,150,150);
   doc.text("DESTINATAIRE",mg,y);
@@ -8005,15 +8001,9 @@ try {
   const clientSite = offre.clientSite || "";
   const clientLogo = offre.clientLogo || "";
 
-  // Bande jaune top
-  doc.setFillColor(242,201,76); doc.rect(0,0,W,8,"F");
-
-  // Logo text
-  doc.setFont("helvetica","bold"); doc.setFontSize(20); doc.setTextColor(10,10,10);
-  doc.text("GOÛTSTOSO",mg,22);
-  doc.setFont("helvetica","normal"); doc.setFontSize(8); doc.setTextColor(100,100,100);
-  doc.text("Liqueurs artisanales · Jordan Montanaro",mg,28);
-  doc.text("Rue des Sources 19 · 2613 Villeret · admin@goutstoso.ch",mg,33);
+  // Bande jaune top + logo
+  doc.setFillColor(242,201,76); doc.rect(0,0,W,6,"F");
+  pdfLogo(doc,mg);
 
   // Bloc OFFRE
   doc.setFillColor(10,10,10); doc.roundedRect(W-90,12,76,28,3,3,"F");
@@ -8227,12 +8217,8 @@ try {
   const {jsPDF}=(window as any).jspdf;
   const doc=new jsPDF({unit:"mm",format:"a4"});
   const W=210; const mg=14;
-  doc.setFillColor(242,201,76); doc.rect(0,0,W,8,"F");
-  doc.setFont("helvetica","bold"); doc.setFontSize(20); doc.setTextColor(10,10,10);
-  doc.text("GOÛTSTOSO",mg,22);
-  doc.setFont("helvetica","normal"); doc.setFontSize(8); doc.setTextColor(100,100,100);
-  doc.text("Liqueurs artisanales · Jordan Montanaro",mg,28);
-  doc.text("Rue des Sources 19 · 2613 Villeret · admin@goutstoso.ch",mg,33);
+  doc.setFillColor(242,201,76); doc.rect(0,0,W,6,"F");
+  pdfLogo(doc,mg);
   doc.setFillColor(10,10,10); doc.roundedRect(W-90,12,76,28,3,3,"F");
   doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.setTextColor(242,201,76);
   doc.text("FICHE DE PROSPECTION",W-52,22,{align:"center"});
