@@ -8275,11 +8275,11 @@ const RECETTES_DEFAULT = [
       {nom:"Eau filtrée",quantite:1.4,unite:"L",parLitre:true},
       {nom:"Sucre blanc",quantite:550,unite:"g",parLitre:true},
     ],
-    dureeMacerationJours:7,
+    dureeMacerationJours:15,
     rendementBouteilles:5,
     volumeBouteille:500,
     titreAlcool:30,
-    notes:"Max 7j de macération (au-delà : amertume). Agiter 1x/jour les 3 premiers jours. Sirop refroidi impérativement avant assemblage. Vieillissement 15j minimum avant commercialisation. Coût matière : ~3.20 CHF/btl.",
+    notes:"Macération 15j. Agiter 1x/jour les 3 premiers jours. Sirop refroidi impérativement avant assemblage. Vieillissement 15j minimum avant commercialisation. Coût matière : ~3.20 CHF/btl.",
   },
   {
     id:"limelo",
@@ -8294,11 +8294,11 @@ const RECETTES_DEFAULT = [
       {nom:"Eau filtrée",quantite:1.4,unite:"L",parLitre:true},
       {nom:"Sucre blanc",quantite:480,unite:"g",parLitre:true},
     ],
-    dureeMacerationJours:6,
+    dureeMacerationJours:15,
     rendementBouteilles:5,
     volumeBouteille:500,
     titreAlcool:30,
-    notes:"Max 6j de macération (lime libère vite ses huiles). Ajouter feuilles de combava les 2 derniers jours. Ajouter jus citron vert à l'assemblage. Vieillissement 1 mois minimum (adoucit l'amertume). Coût : ~3.50 CHF/btl.",
+    notes:"Macération 15j. Ajouter feuilles de combava les 2 derniers jours. Ajouter jus citron vert à l'assemblage. Vieillissement 1 mois minimum (adoucit l'amertume). Coût : ~3.50 CHF/btl.",
   },
   {
     id:"clementino",
@@ -8311,11 +8311,11 @@ const RECETTES_DEFAULT = [
       {nom:"Eau filtrée",quantite:1.4,unite:"L",parLitre:true},
       {nom:"Sucre blanc",quantite:600,unite:"g",parLitre:true},
     ],
-    dureeMacerationJours:7,
+    dureeMacerationJours:15,
     rendementBouteilles:5,
     volumeBouteille:500,
     titreAlcool:30,
-    notes:"50% zestes purs + 50% écorces (un peu de blanc pour équilibrer la douceur). Agiter quotidiennement les 3 premiers jours. Vieillissement 3 semaines minimum. Saison optimale : déc–janv. Coût : ~3.80 CHF/btl.",
+    notes:"Macération 15j. 50% zestes purs + 50% écorces. Agiter quotidiennement les 3 premiers jours. Vieillissement 3 semaines minimum. Saison optimale : déc–janv. Coût : ~3.80 CHF/btl.",
   },
   {
     id:"pescato",
@@ -8329,11 +8329,11 @@ const RECETTES_DEFAULT = [
       {nom:"Eau filtrée",quantite:1.4,unite:"L",parLitre:true},
       {nom:"Sucre blanc",quantite:520,unite:"g",parLitre:true},
     ],
-    dureeMacerationJours:13,
+    dureeMacerationJours:10,
     rendementBouteilles:5,
     volumeBouteille:500,
     titreAlcool:30,
-    notes:"Garder la peau des pêches. Concasser les noyaux au marteau (notes d'amande douce). Agiter tous les 2 jours. Presser légèrement les fruits à la filtration. Repos 1 semaine après assemblage. Coût : ~3.50 CHF/btl.",
+    notes:"Macération 10j. Garder la peau des pêches. Concasser les noyaux au marteau (notes d'amande douce). Agiter tous les 2 jours. Presser légèrement les fruits à la filtration. Repos 1 semaine après assemblage. Coût : ~3.50 CHF/btl.",
   },
   {
     id:"fraisetta",
@@ -8347,11 +8347,11 @@ const RECETTES_DEFAULT = [
       {nom:"Eau filtrée",quantite:1.4,unite:"L",parLitre:true},
       {nom:"Sucre blanc",quantite:500,unite:"g",parLitre:true},
     ],
-    dureeMacerationJours:11,
+    dureeMacerationJours:10,
     rendementBouteilles:5,
     volumeBouteille:500,
     titreAlcool:30,
-    notes:"Max 12j de macération (au-delà : goût confit). Agiter quotidiennement. Presser les fraises dans un linge. Repos 2 semaines minimum après assemblage. Option : +50g fraises lyophilisées en poudre pour intensifier. Coût : ~4.50 CHF/btl.",
+    notes:"Macération 10j. Agiter quotidiennement. Presser les fraises dans un linge. Repos 2 semaines minimum après assemblage. Option : +50g fraises lyophilisées en poudre pour intensifier. Coût : ~4.50 CHF/btl.",
   },
   {
     id:"lamponia",
@@ -8364,11 +8364,11 @@ const RECETTES_DEFAULT = [
       {nom:"Eau filtrée",quantite:1.4,unite:"L",parLitre:true},
       {nom:"Sucre blanc",quantite:530,unite:"g",parLitre:true},
     ],
-    dureeMacerationJours:9,
+    dureeMacerationJours:10,
     rendementBouteilles:5,
     volumeBouteille:500,
     titreAlcool:30,
-    notes:"Framboises surgelées idéales (cellules éclatées libèrent mieux les arômes). Écraser grossièrement à la fourchette. Agiter quotidiennement. Attention aux pépins à la filtration (ne pas presser fort = amertume). Astuce : 1 cuillère de vinaigre balsamique blanc dans le sirop. Coût : ~5 CHF/btl.",
+    notes:"Macération 10j. Framboises surgelées idéales (cellules éclatées libèrent mieux les arômes). Écraser grossièrement à la fourchette. Agiter quotidiennement. Attention aux pépins à la filtration (ne pas presser fort = amertume). Coût : ~5 CHF/btl.",
   },
   {
     id:"caffetto",
@@ -8512,7 +8512,7 @@ const Production = ({st, setSt}) => {
 
   // ── LOGIQUE PLANIFICATION ──
   const produits = st.produits || [];
-  const prodActifs = produits.filter((p:any) => p.actif && !p.nom.includes("Coffret") && !p.format.includes("×"));
+  const prodActifs = produits.filter((p:any) => p.actif && !p.nom.includes("Coffret") && !p.format?.includes("×"));
 
   // Ventes par produit sur 90 derniers jours (commandes livrées)
   const maintenant = Date.now();
@@ -8524,7 +8524,7 @@ const Production = ({st, setSt}) => {
       if(l.produitId) ventesQteParProd[l.produitId] = (ventesQteParProd[l.produitId]||0) + (l.qte||0);
     });
   });
-  // Si aucune commande livrée : fallback sur transactions (inférer qté depuis prix)
+  // Si aucune commande livrée : fallback sur transactions
   const hasVentesData = Object.keys(ventesQteParProd).length > 0;
   if(!hasVentesData) {
     const txRecentes = (st.transactions||[]).filter((t:any)=>t.type==="recette" && t.categorie?.startsWith("Vente ") && (t.date||"")>=debut90j);
@@ -8534,16 +8534,17 @@ const Production = ({st, setSt}) => {
       prodActifs.forEach((p:any)=>{
         const match = p.nom.toLowerCase()===nomLiqueur || p.nom.toLowerCase().includes(nomLiqueur) || nomLiqueur.includes(p.nom.toLowerCase());
         if(match && montant>0) {
-          const px = p.typeClient==="revendeur" ? p.prixRevendeur : p.prixClient;
+          const px = parseFloat(p.prixClient||p.prixRevendeur)||0;
           const qteEstimee = px>0 ? Math.round(montant/px) : 0;
           if(qteEstimee>0) ventesQteParProd[p.id] = (ventesQteParProd[p.id]||0) + qteEstimee;
         }
       });
     });
   }
+  // Ventes hebdo moyennes sur 13 semaines
   const ventesHebdo = (id:string) => (ventesQteParProd[id]||0) / 13;
 
-  // Stock effectif par produit
+  // Stock effectif par produit (propre + dépôt net)
   const stockEffectif = (id:string) => {
     const propre = sum((st.stocks||[]).filter((s:any)=>s.produitId===id).map((s:any)=>s.qte));
     const depot = sum((st.depotStocks||[]).filter((d:any)=>d.produitId===id).map((d:any)=>(d.qteDeposee||0)-(d.qteVendue||0)-(d.qteRetournee||0)));
@@ -8559,55 +8560,85 @@ const Production = ({st, setSt}) => {
     });
   });
 
-  // Analyse par groupe de liqueur (Limonta, Limelo, Clementino)
-  const nomGroupes = [...new Set(prodActifs.map((p:any)=>p.nom))];
-  const semCible = 8; // semaines de stock cible
-  const marge = 1.2;  // 20% de marge
+  // Groupes de liqueurs — on regroupe par nom de liqueur en croisant recettes et produits
+  const nomGroupes:string[] = [];
+  recettes.forEach((r:any)=>{
+    // cherche si au moins un produit actif correspond à cette recette
+    const match = prodActifs.find((p:any)=>
+      p.nom.toLowerCase()===r.nom.toLowerCase() ||
+      p.nom.toLowerCase().includes(r.nom.toLowerCase()) ||
+      r.nom.toLowerCase().includes(p.nom.toLowerCase())
+    );
+    if(match && !nomGroupes.includes(match.nom)) nomGroupes.push(match.nom);
+  });
+  // ajoute les produits actifs sans recette correspondante
+  prodActifs.forEach((p:any)=>{
+    const hasGroup = nomGroupes.some(n=>n===p.nom);
+    if(!hasGroup && !nomGroupes.includes(p.nom)) nomGroupes.push(p.nom);
+  });
+
+  const semCible = 8;  // 8 semaines de stock cible
+  const marge = 1.20; // 20% de marge de sécurité
 
   const analyses = nomGroupes.map(nom=>{
     const prods = prodActifs.filter((p:any)=>p.nom===nom);
-    const p25 = prods.find((p:any)=>p.format?.includes("25"));
-    const p50 = prods.find((p:any)=>p.format?.includes("50"));
-    const recette = recettes.find(r=>r.nom.toLowerCase()===nom.toLowerCase() || nom.toLowerCase().includes(r.nom.toLowerCase()) || r.nom.toLowerCase().includes(nom.toLowerCase()));
+    const p25 = prods.find((p:any)=>p.format?.includes("25")||p.format?.includes("250"));
+    const p50 = prods.find((p:any)=>p.format?.includes("50")||p.format?.includes("500")) || (p25 ? undefined : prods[0]);
+    const recette = recettes.find((r:any)=>r.nom.toLowerCase()===nom.toLowerCase() || nom.toLowerCase().includes(r.nom.toLowerCase()) || r.nom.toLowerCase().includes(nom.toLowerCase()));
     const couleur = recette?.couleur || "#F2C94C";
 
+    // Stocks actuels
     const stock25 = p25 ? stockEffectif(p25.id) : 0;
     const stock50 = p50 ? stockEffectif(p50.id) : 0;
+    // Commandes en cours à déduire
     const cmd25 = p25 ? (cmdEnCoursParProd[p25.id]||0) : 0;
     const cmd50 = p50 ? (cmdEnCoursParProd[p50.id]||0) : 0;
+    // Stock net disponible (après commandes à livrer)
     const stockNet25 = Math.max(0, stock25 - cmd25);
     const stockNet50 = Math.max(0, stock50 - cmd50);
 
+    // Ventes hebdo par format
     const hebdo25 = p25 ? ventesHebdo(p25.id) : 0;
     const hebdo50 = p50 ? ventesHebdo(p50.id) : 0;
-    const hebdoTotal = hebdo25 + hebdo50;
 
-    // Semaines restantes (basé sur stock net combiné et ventes hebdo)
-    const vol25cl = (stockNet25 * 0.25) + (stockNet50 * 0.5); // total en litres
-    const volHebdo = (hebdo25 * 0.25) + (hebdo50 * 0.5);
-    const semainesRestantes = volHebdo > 0 ? vol25cl / volHebdo : (vol25cl > 0 ? 99 : 0);
+    // Semaines de stock restantes par format (indépendantes)
+    const sem25 = hebdo25 > 0 ? stockNet25 / hebdo25 : (stockNet25 > 0 ? 99 : 0);
+    const sem50 = hebdo50 > 0 ? stockNet50 / hebdo50 : (stockNet50 > 0 ? 99 : 0);
+    // Semaines restantes globales = minimum des deux formats présents
+    const formatsPresents = [p25?sem25:null, p50?sem50:null].filter(x=>x!==null) as number[];
+    const semainesRestantes = formatsPresents.length > 0 ? Math.min(...formatsPresents) : 0;
 
-    // Niveau d'alerte
+    // Niveau d'alerte basé sur le format le plus critique
     const alerte = semainesRestantes < 4 ? "rouge" : semainesRestantes < 6 ? "orange" : "vert";
 
-    // Quantités à produire (cible semCible semaines + marge)
-    const cibleVol = volHebdo * semCible * marge;
-    const aproduireVol = Math.max(0, cibleVol - vol25cl); // litres à produire
+    // ── STOCK PARFAIT : cible par format indépendante ──
+    // Cible = (ventes hebdo × semaines cible × marge) - stock net actuel
+    const cible25 = Math.ceil(hebdo25 * semCible * marge);
+    const cible50 = Math.ceil(hebdo50 * semCible * marge);
+    // Si pas d'historique de ventes : stock minimal de départ (20 × 250ml + 20 × 500ml)
+    const aproduire25 = p25 ? Math.max(0, (hebdo25 > 0 ? cible25 : 20) - stockNet25) : 0;
+    const aproduire50 = p50 ? Math.max(0, (hebdo50 > 0 ? cible50 : 20) - stockNet50) : 0;
 
-    // Ratio format basé sur ventes (ou 60/40 par défaut)
-    const total = hebdo25 + hebdo50;
-    const ratio25 = total > 0 ? hebdo25 / total : 0.4;
-    const ratio50 = total > 0 ? hebdo50 / total : 0.6;
-    const aproduire25 = Math.ceil(aproduireVol / 0.25 * ratio25);
-    const aproduire50 = Math.ceil(aproduireVol / 0.5 * ratio50);
+    // Volume total à produire en litres
+    const aproduireVol = (aproduire25 * 0.25) + (aproduire50 * 0.5);
 
-    // Litres d'alcool nécessaires
-    const litresAlcoolNecessaires = recette ? aproduireVol / ((recette.rendementBouteilles||10) * (recette.volumeBouteille||500)/1000) : aproduireVol * 2;
+    // Litres d'alcool nécessaires (rendement = btl par litre d'alcool)
+    const rendement = recette?.rendementBouteilles || 5;
+    const volBtl = (recette?.volumeBouteille || 500) / 1000; // en L
+    // 1 L alcool → rendement bouteilles de volBtl L → rendement * volBtl L produit
+    const litresAlcoolNecessaires = aproduireVol > 0 ? aproduireVol / (rendement * volBtl) : 0;
 
-    // Délai macération
-    const dureeMac = recette?.dureeMacerationJours || 30;
+    const dureeMac = recette?.dureeMacerationJours || 15;
 
-    return {nom, couleur, p25, p50, recette, stock25, stock50, stockNet25, stockNet50, hebdo25, hebdo50, hebdoTotal, semainesRestantes, alerte, aproduire25, aproduire50, aproduireVol, litresAlcoolNecessaires, dureeMac, cmd25, cmd50};
+    return {
+      nom, couleur, p25, p50, recette,
+      stock25, stock50, stockNet25, stockNet50,
+      hebdo25, hebdo50,
+      sem25, sem50, semainesRestantes, alerte,
+      cible25, cible50, aproduire25, aproduire50, aproduireVol,
+      litresAlcoolNecessaires, dureeMac,
+      cmd25, cmd50,
+    };
   });
 
   const alertesUrgentes = analyses.filter(a=>a.alerte==="rouge");
@@ -8675,64 +8706,81 @@ const Production = ({st, setSt}) => {
       {analyses.map(a=>{
         const sem = a.semainesRestantes;
         const semAff = sem>=99 ? "∞" : sem.toFixed(1);
-        const alertBg = a.alerte==="rouge"?"#FEF2F2":a.alerte==="orange"?"#FFFBEB":"#F0FDF4";
         const alertBorder = a.alerte==="rouge"?"#FECACA":a.alerte==="orange"?"#FDE68A":"#BBF7D0";
         const alertEmoji = a.alerte==="rouge"?"🔴":a.alerte==="orange"?"🟡":"🟢";
         const besoins = a.aproduire25 + a.aproduire50;
+        const colorAlerte = a.alerte==="rouge"?"#B91C1C":a.alerte==="orange"?"#92400E":"#15803D";
+
+        const FormatCard = ({label, stockNet, cible, aproduire, hebdo, cmd, sem: semF}:{label:string,stockNet:number,cible:number,aproduire:number,hebdo:number,cmd:number,sem:number}) => {
+          const pct = cible > 0 ? Math.min(100, (stockNet/cible)*100) : 100;
+          const fAlerte = semF < 4 ? "rouge" : semF < 6 ? "orange" : "vert";
+          const fColor = fAlerte==="rouge"?"#EF4444":fAlerte==="orange"?"#F59E0B":"#22C55E";
+          const fBg = fAlerte==="rouge"?"#FEF2F2":fAlerte==="orange"?"#FFFBEB":"#F0FDF4";
+          return (
+            <div style={{background:fBg,borderRadius:10,padding:"10px 12px",border:`1px solid ${fAlerte==="rouge"?"#FECACA":fAlerte==="orange"?"#FDE68A":"#BBF7D0"}`}}>
+              <p style={{fontSize:10,fontWeight:700,color:"#6B7280",textTransform:"uppercase",letterSpacing:".05em",marginBottom:4}}>{label}</p>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:6}}>
+                <span style={{fontSize:22,fontWeight:800,color:"#0A0A0A"}}>{stockNet}</span>
+                <span style={{fontSize:11,color:"#9CA3AF"}}>/ {cible} btl cible</span>
+              </div>
+              {/* Barre de remplissage */}
+              <div style={{background:"#E5E7EB",borderRadius:4,height:6,overflow:"hidden",marginBottom:6}}>
+                <div style={{height:"100%",borderRadius:4,background:fColor,width:`${pct}%`,transition:"width .4s"}}/>
+              </div>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                <span style={{fontSize:10,color:"#9CA3AF"}}>{hebdo>0?`${hebdo.toFixed(1)} btl/sem.`:"Pas de données"}</span>
+                {cmd>0&&<span style={{fontSize:10,color:"#F59E0B",fontWeight:600}}>⚠ {cmd} en cmd</span>}
+              </div>
+              {aproduire > 0 && (
+                <div style={{marginTop:6,background:"#0A0A0A",borderRadius:6,padding:"5px 10px",display:"inline-flex",alignItems:"center",gap:6}}>
+                  <span style={{fontSize:12,fontWeight:800,color:"#F2C94C"}}>+ {aproduire} à produire</span>
+                </div>
+              )}
+            </div>
+          );
+        };
+
         return (
         <div key={a.nom} style={{background:"#fff",borderRadius:14,border:`1.5px solid ${alertBorder}`,padding:14,marginBottom:10,borderLeft:`5px solid ${a.couleur}`}}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+          {/* En-tête */}
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
             <div style={{display:"flex",alignItems:"center",gap:8}}>
               <span style={{fontSize:18}}>{alertEmoji}</span>
-              <p style={{fontWeight:700,fontSize:16,color:"#0A0A0A"}}>{a.nom}</p>
+              <div>
+                <p style={{fontWeight:700,fontSize:16,color:"#0A0A0A",lineHeight:1.1}}>{a.nom}</p>
+                <p style={{fontSize:10,color:"#9CA3AF"}}>{a.dureeMac}j macération</p>
+              </div>
             </div>
             <div style={{textAlign:"right"}}>
-              <p style={{fontSize:11,color:"#737373"}}>Stock restant pour</p>
-              <p style={{fontSize:20,fontWeight:800,color:a.alerte==="rouge"?"#B91C1C":a.alerte==="orange"?"#92400E":"#15803D"}}>{semAff} sem.</p>
+              <p style={{fontSize:10,color:"#9CA3AF"}}>Stock restant</p>
+              <p style={{fontSize:20,fontWeight:800,color:colorAlerte}}>{semAff} sem.</p>
             </div>
           </div>
 
-          {/* Barre de stock */}
-          <div style={{background:"#F4F4F2",borderRadius:6,height:8,overflow:"hidden",marginBottom:10}}>
-            <div style={{height:"100%",borderRadius:6,background:a.alerte==="rouge"?"#EF4444":a.alerte==="orange"?"#F59E0B":"#22C55E",width:`${Math.min(100,(sem/8)*100)}%`,transition:"width .4s"}}/>
+          {/* Cartes stock par format */}
+          <div style={{display:"grid",gridTemplateColumns:a.p25&&a.p50?"1fr 1fr":"1fr",gap:8,marginBottom:10}}>
+            {a.p25 && <FormatCard label="250 ml" stockNet={a.stockNet25} cible={a.cible25||20} aproduire={a.aproduire25} hebdo={a.hebdo25} cmd={a.cmd25} sem={a.sem25}/>}
+            {a.p50 && <FormatCard label="500 ml" stockNet={a.stockNet50} cible={a.cible50||20} aproduire={a.aproduire50} hebdo={a.hebdo50} cmd={a.cmd50} sem={a.sem50}/>}
           </div>
 
-          {/* Stock détaillé */}
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginBottom:10}}>
-            {a.p25 && (
-              <div style={{background:"#FAFAF7",borderRadius:8,padding:"8px 10px"}}>
-                <p style={{fontSize:10,color:"#9CA3AF",fontWeight:600}}>250 ML — Stock net</p>
-                <p style={{fontSize:18,fontWeight:700,color:"#0A0A0A"}}>{a.stockNet25} btl</p>
-                {a.cmd25>0&&<p style={{fontSize:10,color:"#F59E0B"}}>⚠ {a.cmd25} btl en commande</p>}
-                <p style={{fontSize:10,color:"#9CA3AF"}}>{a.hebdo25.toFixed(1)} btl/sem. vendues</p>
-              </div>
-            )}
-            {a.p50 && (
-              <div style={{background:"#FAFAF7",borderRadius:8,padding:"8px 10px"}}>
-                <p style={{fontSize:10,color:"#9CA3AF",fontWeight:600}}>500 ML — Stock net</p>
-                <p style={{fontSize:18,fontWeight:700,color:"#0A0A0A"}}>{a.stockNet50} btl</p>
-                {a.cmd50>0&&<p style={{fontSize:10,color:"#F59E0B"}}>⚠ {a.cmd50} btl en commande</p>}
-                <p style={{fontSize:10,color:"#9CA3AF"}}>{a.hebdo50.toFixed(1)} btl/sem. vendues</p>
-              </div>
-            )}
-          </div>
-
-          {/* Recommandation de production */}
+          {/* Recommandation production */}
           {besoins > 0 ? (
-            <div style={{background:a.alerte==="rouge"?"#FEF2F2":"#FFFBEB",borderRadius:10,padding:"10px 12px"}}>
-              <p style={{fontSize:11,fontWeight:700,color:"#374151",marginBottom:6}}>🏭 À PRODUIRE (objectif {semCible} semaines de stock)</p>
-              <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:6}}>
-                {a.p25&&a.aproduire25>0&&<span style={{background:"#0A0A0A",color:"#F2C94C",fontSize:13,fontWeight:700,padding:"4px 12px",borderRadius:8}}>{a.aproduire25} × 250ml</span>}
-                {a.p50&&a.aproduire50>0&&<span style={{background:"#0A0A0A",color:"#F2C94C",fontSize:13,fontWeight:700,padding:"4px 12px",borderRadius:8}}>{a.aproduire50} × 500ml</span>}
+            <div style={{background:"#0A0A0A",borderRadius:10,padding:"10px 12px"}}>
+              <p style={{fontSize:10,fontWeight:700,color:"#9CA3AF",marginBottom:6,textTransform:"uppercase",letterSpacing:".05em"}}>🏭 Production recommandée — objectif {semCible} semaines</p>
+              <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:8}}>
+                {a.p25&&a.aproduire25>0&&<span style={{background:"#F2C94C",color:"#0A0A0A",fontSize:14,fontWeight:800,padding:"5px 14px",borderRadius:8}}>{a.aproduire25} × 250ml</span>}
+                {a.p50&&a.aproduire50>0&&<span style={{background:"#F2C94C",color:"#0A0A0A",fontSize:14,fontWeight:800,padding:"5px 14px",borderRadius:8}}>{a.aproduire50} × 500ml</span>}
               </div>
-              <p style={{fontSize:11,color:"#6B7280"}}>≈ {a.litresAlcoolNecessaires.toFixed(1)}L alcool à mettre en macération · Durée : {a.dureeMac}j</p>
-              {a.alerte==="rouge" && <p style={{fontSize:11,color:"#B91C1C",fontWeight:600,marginTop:4}}>⚡ Démarrer la macération immédiatement !</p>}
-              <button style={{marginTop:8,background:"#0A0A0A",color:"#F2C94C",border:"none",borderRadius:7,padding:"7px 14px",fontSize:11,fontWeight:700,cursor:"pointer"}} onClick={()=>{
+              <p style={{fontSize:11,color:"#9CA3AF",marginBottom:4}}>
+                ≈ <strong style={{color:"#F2C94C"}}>{a.litresAlcoolNecessaires.toFixed(1)} L d'alcool</strong> à mettre en macération · <strong style={{color:"#F2C94C"}}>{a.dureeMac}j</strong>
+              </p>
+              {a.alerte==="rouge" && <p style={{fontSize:11,color:"#EF4444",fontWeight:700}}>⚡ Macération à démarrer immédiatement !</p>}
+              <button style={{marginTop:8,background:"#F2C94C",color:"#0A0A0A",border:"none",borderRadius:7,padding:"7px 14px",fontSize:11,fontWeight:700,cursor:"pointer"}} onClick={()=>{
                 if(a.recette){setCalcRecetteId(a.recette.id);setCalcLitres(a.litresAlcoolNecessaires.toFixed(1));setOnglet("calculateur");}
               }}>🧮 Ouvrir le calculateur</button>
             </div>
           ) : (
-            <p style={{fontSize:12,color:"#15803D",fontWeight:600}}>✅ Aucune production nécessaire pour le moment</p>
+            <p style={{fontSize:12,color:"#15803D",fontWeight:600,background:"#F0FDF4",padding:"8px 12px",borderRadius:8}}>✅ Stock parfait — aucune production nécessaire</p>
           )}
         </div>
         );
