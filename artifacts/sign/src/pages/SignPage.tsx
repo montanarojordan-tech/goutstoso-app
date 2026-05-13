@@ -45,6 +45,13 @@ function DocumentPreview({ req }: { req: SigningRequest }) {
     if (d.partenaireNom || d.clientNom) rows.push(["Partenaire", d.partenaireNom || d.clientNom]);
     if (d.type) rows.push(["Type", d.type]);
     if (d.statut) rows.push(["Statut", d.statut]);
+  } else if (type === "prospection") {
+    if (d.clientNom) rows.push(["Établissement", d.clientNom]);
+    if (d.clientContact) rows.push(["Contact", d.clientContact]);
+    if (d.clientEmail || d.email) rows.push(["Email", d.clientEmail || d.email]);
+    if (d.clientTel) rows.push(["Téléphone", d.clientTel]);
+    if (d.clientAdresse) rows.push(["Adresse", d.clientAdresse]);
+    if (d.date) rows.push(["Date", formatDate(d.date)]);
   } else {
     Object.entries(d).forEach(([k, v]) => {
       if (typeof v === "string" || typeof v === "number") {
@@ -319,7 +326,9 @@ export default function SignPage() {
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-lg mx-auto px-4 py-8 space-y-6">
         <div className="text-center space-y-1">
-          <p className="text-xs text-gray-400 uppercase tracking-widest">Signature électronique</p>
+          <p className="text-xs text-gray-400 uppercase tracking-widest">
+            {req.documentType === "prospection" ? "Confirmation d'intérêt" : "Signature électronique"}
+          </p>
           <h1 className="text-xl font-bold text-gray-900">{req.documentTitle}</h1>
           <p className="text-xs text-gray-400">Valable jusqu'au {formatDate(req.expiresAt)}</p>
         </div>
@@ -328,7 +337,9 @@ export default function SignPage() {
 
         {step === "view" && (
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 space-y-4">
-            <h2 className="font-semibold text-gray-900">Votre identité</h2>
+            <h2 className="font-semibold text-gray-900">
+              {req.documentType === "prospection" ? "Vos coordonnées" : "Votre identité"}
+            </h2>
             <div>
               <label className="text-sm text-gray-600 block mb-1">Nom complet *</label>
               <input
@@ -344,7 +355,7 @@ export default function SignPage() {
               disabled={!signerName.trim()}
               className="w-full py-3 bg-[#0a0a0a] text-[#f2c94c] font-bold rounded-xl hover:bg-gray-900 disabled:opacity-40 disabled:cursor-not-allowed transition-colors text-sm"
             >
-              Continuer → Signer
+              {req.documentType === "prospection" ? "Continuer → Confirmer mon intérêt" : "Continuer → Signer"}
             </button>
           </div>
         )}
@@ -352,11 +363,15 @@ export default function SignPage() {
         {step === "sign" && (
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 space-y-4">
             <div className="flex items-center justify-between">
-              <h2 className="font-semibold text-gray-900">Signature</h2>
+              <h2 className="font-semibold text-gray-900">
+                {req.documentType === "prospection" ? "Confirmation" : "Signature"}
+              </h2>
               <button onClick={() => setStep("view")} className="text-xs text-gray-400 hover:text-gray-600">← Retour</button>
             </div>
             <p className="text-sm text-gray-600">
-              En signant, <strong>{signerName}</strong> confirme avoir lu et accepté le document ci-dessus.
+              {req.documentType === "prospection"
+                ? <>En signant, <strong>{signerName}</strong> confirme son intérêt pour la gamme Goûtstoso et accepte d'être recontacté(e) par Jordan Montanaro.</>
+                : <>En signant, <strong>{signerName}</strong> confirme avoir lu et accepté le document ci-dessus.</>}
             </p>
             {submitting ? (
               <div className="text-center py-4">

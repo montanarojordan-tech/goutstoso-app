@@ -8761,6 +8761,7 @@ const [modal, setModal] = useState(null);
 const [viewId, setViewId] = useState(null);
 const [form, setForm] = useState<any>(null);
 const [recoveryToken, setRecoveryToken] = useState("");
+const [recoveryTokenProspect, setRecoveryTokenProspect] = useState("");
 const [sigJordanMode, setSigJordanMode] = useState(false);
 
 const offres = st.offres || [];
@@ -9040,6 +9041,30 @@ if(view) return (
           ✉️ Envoyer la fiche par email
         </button>
       )}
+      <div style={{marginTop:10,paddingTop:10,borderTop:"1px solid #BFDBFE"}}>
+        <p style={{fontSize:11,color:"#374151",marginBottom:6,fontWeight:600}}>📲 Validation en ligne</p>
+        <button onClick={async()=>{
+          const enriched={...view,clientNom:view.clientNom||"",email:view.clientEmail||""};
+          const titre="Fiche de prospection Goûtstoso"+(view.clientNom?" — "+view.clientNom:"");
+          const token=await envoyerPourSignature("prospection",titre,enriched,view.clientEmail||"");
+          if(token) setSt(p=>({...p,offres:p.offres.map(o=>o.id===view.id?{...o,signingToken:token}:o)}));
+        }} style={{width:"100%",background:"linear-gradient(135deg,#1E40AF,#1D4ED8)",color:"#fff",border:"none",borderRadius:9,padding:"10px",fontWeight:700,fontSize:12,cursor:"pointer",marginBottom:6,display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+          🔏 Envoyer le lien de validation
+        </button>
+        {view.signingToken&&(
+          <button onClick={async()=>{try{const r=await fetch(`${SIGN_API}/sign/${view.signingToken}`);const d=await r.json();if(d.status!=="signed"){alert("Pas encore validé. Relancez une fois que le prospect a cliqué le lien.");return;}setSt(p=>({...p,offres:p.offres.map(o=>o.id===view.id?{...o,signClient:d.signatureData,statut:"intérêt",signerNom:d.signerName,signingToken:null}:o)}));alert(`✅ ${d.signerName} a confirmé son intérêt !\nStatut passé à "Intérêt confirmé".`);}catch(e){alert("Erreur : "+e.message);}}}
+            style={{width:"100%",marginBottom:6,background:"#DCFCE7",border:"1.5px solid #86EFAC",borderRadius:9,padding:"9px",fontWeight:700,fontSize:12,color:"#166534",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+            🔄 Vérifier la validation
+          </button>
+        )}
+        {!view.signingToken&&(
+          <div style={{display:"flex",gap:6,marginBottom:6,alignItems:"center"}}>
+            <input value={recoveryTokenProspect} onChange={e=>setRecoveryTokenProspect(e.target.value)} placeholder="Token existant…" style={{flex:1,padding:"7px 10px",borderRadius:8,border:"1px solid #BFDBFE",fontSize:11,outline:"none",color:"#374151"}}/>
+            <button onClick={async()=>{const t=recoveryTokenProspect.trim();if(!t)return;try{const r=await fetch(`${SIGN_API}/sign/${t}`);const d=await r.json();if(d.status!=="signed"){alert("Ce token n'est pas encore validé.");return;}setSt(p=>({...p,offres:p.offres.map(o=>o.id===view.id?{...o,signClient:d.signatureData,statut:"intérêt",signerNom:d.signerName}:o)}));setRecoveryTokenProspect("");alert(`✅ Intérêt de ${d.signerName} enregistré !`);}catch(e){alert("Erreur : "+e.message);}}}
+              style={{padding:"7px 10px",borderRadius:8,background:"#EFF6FF",border:"1px solid #BFDBFE",fontSize:11,fontWeight:600,cursor:"pointer",whiteSpace:"nowrap",color:"#1E40AF"}}>🔍 Récupérer</button>
+          </div>
+        )}
+      </div>
       <div style={{marginTop:10,paddingTop:10,borderTop:"1px solid #BFDBFE"}}>
         <p style={{fontSize:11,color:"#374151",marginBottom:8}}>Le partenaire a confirmé son intérêt ?</p>
         <button onClick={()=>setSt(p=>({...p,offres:p.offres.map(o=>o.id===view.id?{...o,statut:"intérêt",interetConfirme:true}:o)}))}
