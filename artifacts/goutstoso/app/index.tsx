@@ -1772,7 +1772,8 @@ const [modal,setModal] = useState(null);
 const [selected,setSelected] = useState(null);
 const [view,setView] = useState(null);
 const [sigMode,setSigMode] = useState(false);
-const [form,setForm] = useState({nom:"",adresse:"",contact:"",tel:"",email:"",type:"depot-vente",commission:0,statut:"actif"});
+const [subTab,setSubTab] = useState<"partenaire"|"prive">("partenaire");
+const [form,setForm] = useState({nom:"",adresse:"",npa:"",ville:"",contact:"",tel:"",email:"",site:"",type:"depot-vente",commission:0,statut:"actif",typeContact:"partenaire"});
 const [livForm,setLivForm] = useState({type:"depot-vente",date:today(),lignes:[{produitId:"",qte:1}],notes:""});
 const [signingBulletin,setSigningBulletin] = useState(null);
 const [showContratDetail,setShowContratDetail] = useState(false);
@@ -2257,98 +2258,150 @@ return (
 
 return (
 <div className="fade">
-<SectionTitle action={<Btn icon="plus" onClick={()=>{setForm({nom:"",adresse:"",contact:"",tel:"",email:"",type:"depot-vente",commission:0,statut:"actif",id:null});setModal("form");}}>Nouveau</Btn>}>
-Dépôts-vente
+<SectionTitle action={<Btn icon="plus" onClick={()=>{
+  if(subTab==="prive") setForm({nom:"",prenom:"",adresse:"",npa:"",ville:"",tel:"",email:"",notes:"",statut:"actif",typeContact:"prive",id:null});
+  else setForm({nom:"",adresse:"",npa:"",ville:"",contact:"",tel:"",email:"",site:"",type:"depot-vente",commission:0,statut:"actif",typeContact:"partenaire",id:null,logo:null});
+  setModal("form");
+}}>Nouveau</Btn>}>
+Clients
 </SectionTitle>
 
-  {st.partenaires.length===0
-    ? <div style={{textAlign:"center",padding:"40px 20px",color:"#9CA3AF"}}>
-        <p style={{fontSize:40,marginBottom:12}}>🏪</p>
-        <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:20,fontWeight:600,color:"#374151"}}>Aucun dépôt-vente</p>
-        <p style={{fontSize:13,marginTop:6}}>Ajoute ton premier point de vente pour commencer.</p>
-      </div>
-    : st.partenaires.map(pv=>{
-        const depots = (st.depotStocks||[]).filter(d=>d.partenaireId===pv.id);
-        const totalProduits = sum(depots.map(d=>d.qteDeposee-d.qteVendue-d.qteRetournee));
-        const caGenere = sum(depots.map(d=>{
-          const p = st.produits.find(x=>x.id===d.produitId);
-          return d.qteVendue*(p?.prixRevendeur||0);
-        }));
-        return (
-          <Card key={pv.id} style={{marginBottom:10,cursor:"pointer"}} >
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:10}}>
-              <div onClick={()=>setView(pv)} style={{flex:1}}>
-                <p style={{fontWeight:700,fontSize:14}}>{pv.nom}</p>
-                <p style={{fontSize:11,color:"#6B7280",marginTop:2}}>{pv.adresse}</p>
-              </div>
-              <div style={{display:"flex",gap:6,alignItems:"center"}}>
-                <Badge c={pv.statut==="actif"?"green":"gray"}>{pv.statut}</Badge>
-                <button onClick={()=>{setForm({...pv});setModal("form");}} style={{background:"#F5F5F0",border:"none",borderRadius:8,padding:6,cursor:"pointer",display:"flex"}}><Ic n="edit" s={14}/></button>
-              </div>
-            </div>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}} onClick={()=>setView(pv)}>
-              {[
-                {l:"En dépôt",v:totalProduits+" u.",c:"#1E3A5F",bg:"#DBEAFE"},
-                {l:"CA généré",v:chf(caGenere),c:"#166534",bg:"#DCFCE7"},
-                {l:"Type",v:pv.type==="depot-vente"?"Dépôt":"Livraison",c:"#92400E",bg:"#FEF9E7"},
-              ].map((k,i)=>(
-                <div key={i} style={{background:k.bg,borderRadius:8,padding:"7px 8px",textAlign:"center"}}>
-                  <p style={{fontSize:9,color:"#9CA3AF",fontWeight:600,textTransform:"uppercase"}}>{k.l}</p>
-                  <p style={{fontSize:12,fontWeight:700,color:k.c,marginTop:2}}>{k.v}</p>
-                </div>
-              ))}
-            </div>
-            <button onClick={()=>{setSelected(pv);setModal("livraison");}} style={{width:"100%",marginTop:10,background:"#F2C94C",border:"none",borderRadius:10,padding:"10px",fontWeight:700,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
-              📦 Nouvelle livraison
-            </button>
-          </Card>
-        );
-      })
-  }
+  {/* Sous-onglets */}
+  <div style={{display:"flex",gap:0,marginBottom:16,background:"#F3F4F6",borderRadius:10,padding:3}}>
+    {([["partenaire","🏪 Partenaires"],["prive","👤 Contacts privés"]] as const).map(([id,label])=>(
+      <button key={id} onClick={()=>setSubTab(id)} style={{flex:1,padding:"8px 0",border:"none",borderRadius:8,background:subTab===id?"#fff":"transparent",fontWeight:subTab===id?700:400,fontSize:12,color:subTab===id?"#0A0A0A":"#6B7280",cursor:"pointer",boxShadow:subTab===id?"0 1px 3px rgba(0,0,0,.1)":"none",transition:"all .15s"}}>{label}</button>
+    ))}
+  </div>
 
-  {/* Modal nouveau partenaire */}
+  {(()=>{
+    const liste = (st.partenaires||[]).filter(pv=> subTab==="prive" ? pv.typeContact==="prive" : pv.typeContact!=="prive");
+    if(liste.length===0) return (
+      <div style={{textAlign:"center",padding:"40px 20px",color:"#9CA3AF"}}>
+        <p style={{fontSize:40,marginBottom:12}}>{subTab==="prive"?"👤":"🏪"}</p>
+        <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:20,fontWeight:600,color:"#374151"}}>{subTab==="prive"?"Aucun contact privé":"Aucun partenaire"}</p>
+        <p style={{fontSize:13,marginTop:6}}>{subTab==="prive"?"Ajoute ton premier contact.":"Ajoute ton premier partenaire commercial."}</p>
+      </div>
+    );
+    return liste.map(pv=>{
+      if(subTab==="prive") return (
+        <Card key={pv.id} style={{marginBottom:10}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+            <div onClick={()=>setView(pv)} style={{flex:1,cursor:"pointer"}}>
+              <p style={{fontWeight:700,fontSize:14}}>{[pv.prenom,pv.nom].filter(Boolean).join(" ")||pv.nom}</p>
+              {(pv.npa||pv.ville)&&<p style={{fontSize:11,color:"#6B7280",marginTop:2}}>{[pv.npa,pv.ville].filter(Boolean).join(" ")}</p>}
+              {pv.email&&<p style={{fontSize:11,color:"#6B7280"}}>{pv.email}</p>}
+              {pv.tel&&<p style={{fontSize:11,color:"#6B7280"}}>{pv.tel}</p>}
+              {pv.notes&&<p style={{fontSize:11,color:"#9CA3AF",fontStyle:"italic",marginTop:4}}>{pv.notes}</p>}
+            </div>
+            <div style={{display:"flex",gap:6,alignItems:"center"}}>
+              <Badge c={pv.statut==="actif"?"green":"gray"}>{pv.statut||"actif"}</Badge>
+              <button onClick={()=>{setForm({...pv});setModal("form");}} style={{background:"#F5F5F0",border:"none",borderRadius:8,padding:6,cursor:"pointer",display:"flex"}}><Ic n="edit" s={14}/></button>
+            </div>
+          </div>
+        </Card>
+      );
+      const depots = (st.depotStocks||[]).filter(d=>d.partenaireId===pv.id);
+      const totalProduits = sum(depots.map(d=>d.qteDeposee-d.qteVendue-d.qteRetournee));
+      const caGenere = sum(depots.map(d=>{
+        const p = st.produits.find(x=>x.id===d.produitId);
+        return d.qteVendue*(p?.prixRevendeur||0);
+      }));
+      return (
+        <Card key={pv.id} style={{marginBottom:10,cursor:"pointer"}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:10}}>
+            <div onClick={()=>setView(pv)} style={{flex:1}}>
+              <p style={{fontWeight:700,fontSize:14}}>{pv.nom}</p>
+              <p style={{fontSize:11,color:"#6B7280",marginTop:2}}>{pv.adresse}</p>
+            </div>
+            <div style={{display:"flex",gap:6,alignItems:"center"}}>
+              <Badge c={pv.statut==="actif"?"green":"gray"}>{pv.statut}</Badge>
+              <button onClick={()=>{setForm({...pv});setModal("form");}} style={{background:"#F5F5F0",border:"none",borderRadius:8,padding:6,cursor:"pointer",display:"flex"}}><Ic n="edit" s={14}/></button>
+            </div>
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}} onClick={()=>setView(pv)}>
+            {[
+              {l:"En dépôt",v:totalProduits+" u.",c:"#1E3A5F",bg:"#DBEAFE"},
+              {l:"CA généré",v:chf(caGenere),c:"#166534",bg:"#DCFCE7"},
+              {l:"Type",v:pv.type==="depot-vente"?"Dépôt":"Livraison",c:"#92400E",bg:"#FEF9E7"},
+            ].map((k,i)=>(
+              <div key={i} style={{background:k.bg,borderRadius:8,padding:"7px 8px",textAlign:"center"}}>
+                <p style={{fontSize:9,color:"#9CA3AF",fontWeight:600,textTransform:"uppercase"}}>{k.l}</p>
+                <p style={{fontSize:12,fontWeight:700,color:k.c,marginTop:2}}>{k.v}</p>
+              </div>
+            ))}
+          </div>
+          <button onClick={()=>{setSelected(pv);setModal("livraison");}} style={{width:"100%",marginTop:10,background:"#F2C94C",border:"none",borderRadius:10,padding:"10px",fontWeight:700,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+            📦 Nouvelle livraison
+          </button>
+        </Card>
+      );
+    });
+  })()}
+
+  {/* Modal nouveau partenaire / contact privé */}
   {modal==="form"&&(
-    <Modal title={form.id?"Modifier partenaire":"Nouveau partenaire"} onClose={()=>setModal(null)}>
+    <Modal title={form.typeContact==="prive"?(form.id?"Modifier contact":"Nouveau contact privé"):(form.id?"Modifier partenaire":"Nouveau partenaire")} onClose={()=>setModal(null)}>
       <div style={{display:"grid",gap:14}}>
 
-        {/* Logo */}
-        <div>
-          <p style={{fontSize:11,fontWeight:600,color:"#374151",marginBottom:8}}>Logo du partenaire</p>
-          <div style={{display:"flex",alignItems:"center",gap:12}}>
-            {form.logo && (
-              <img src={form.logo} alt="logo" style={{height:50,maxWidth:100,objectFit:"contain",borderRadius:8,border:"1px solid #EAE7E0",background:"#fff",padding:4}}/>
-            )}
-            <label style={{background:"#F5F5F0",border:"1.5px dashed #D1D5DB",borderRadius:10,padding:"8px 14px",fontSize:12,fontWeight:600,cursor:"pointer",color:"#374151"}}>
-              {form.logo ? "🔄 Remplacer" : "📷 Ajouter un logo"}
-              <input type="file" accept="image/*" style={{display:"none"}} onChange={e=>{
-                const file=e.target.files?.[0]; if(!file) return;
-                if(file.size>500000){alert("Image trop lourde (max 500 Ko)");return;}
-                const r=new FileReader(); r.onload=ev=>setForm(p=>({...p,logo:ev.target?.result as string})); r.readAsDataURL(file);
-              }}/>
-            </label>
-            {form.logo && <button onClick={()=>setForm(p=>({...p,logo:null}))} style={{background:"#FEE2E2",border:"none",borderRadius:8,padding:"6px 10px",fontSize:11,color:"#991B1B",cursor:"pointer"}}>✕ Retirer</button>}
+        {form.typeContact==="prive" ? (<>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+            <F label="Prénom" value={form.prenom||""} onChange={v=>setForm(p=>({...p,prenom:v}))}/>
+            <F label="Nom *" value={form.nom} onChange={v=>setForm(p=>({...p,nom:v}))} required/>
           </div>
-        </div>
-
-        <F label="Nom de l'entreprise" value={form.nom} onChange={v=>setForm(p=>({...p,nom:v}))} required/>
-        <F label="Adresse (rue)" value={form.adresse||""} onChange={v=>setForm(p=>({...p,adresse:v}))}/>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 2fr",gap:10}}>
-          <F label="NPA" value={form.npa||""} onChange={v=>setForm(p=>({...p,npa:v}))} placeholder="2610"/>
-          <F label="Ville" value={form.ville||""} onChange={v=>setForm(p=>({...p,ville:v}))} placeholder="Saint-Imier"/>
-        </div>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-          <F label="Contact (personne)" value={form.contact||""} onChange={v=>setForm(p=>({...p,contact:v}))}/>
-          <F label="Téléphone" value={form.tel||""} onChange={v=>setForm(p=>({...p,tel:v}))}/>
-        </div>
-        <F label="Email" value={form.email||""} onChange={v=>setForm(p=>({...p,email:v}))}/>
-        <F label="Site web" value={form.site||""} onChange={v=>setForm(p=>({...p,site:v}))} placeholder="www.exemple.ch"/>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-          <Sel label="Type" value={form.type} onChange={v=>setForm(p=>({...p,type:v}))}
-            options={[{v:"depot-vente",l:"Dépôt-vente"},{v:"livraison",l:"Livraison ferme"}]}/>
-          <F label="Commission (%)" type="number" value={form.commission||""} onChange={v=>setForm(p=>({...p,commission:v}))}/>
-        </div>
-        <Sel label="Statut" value={form.statut} onChange={v=>setForm(p=>({...p,statut:v}))}
-          options={[{v:"actif",l:"Actif"},{v:"inactif",l:"Inactif"}]}/>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+            <F label="Téléphone" value={form.tel||""} onChange={v=>setForm(p=>({...p,tel:v}))}/>
+            <F label="Email" value={form.email||""} onChange={v=>setForm(p=>({...p,email:v}))}/>
+          </div>
+          <F label="Adresse (rue)" value={form.adresse||""} onChange={v=>setForm(p=>({...p,adresse:v}))}/>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 2fr",gap:10}}>
+            <F label="NPA" value={form.npa||""} onChange={v=>setForm(p=>({...p,npa:v}))} placeholder="2610"/>
+            <F label="Ville" value={form.ville||""} onChange={v=>setForm(p=>({...p,ville:v}))} placeholder="Saint-Imier"/>
+          </div>
+          <div>
+            <label style={{fontSize:11,fontWeight:600,color:"#9CA3AF",textTransform:"uppercase",letterSpacing:".06em",display:"block",marginBottom:5}}>Notes</label>
+            <textarea value={form.notes||""} onChange={e=>setForm(p=>({...p,notes:e.target.value}))}
+              style={{width:"100%",minHeight:60,padding:"8px 10px",fontSize:12,border:"1.5px solid #D1D5DB",borderRadius:10,resize:"vertical",fontFamily:"inherit",boxSizing:"border-box"}}
+              placeholder="Informations utiles..."/>
+          </div>
+          <Sel label="Statut" value={form.statut||"actif"} onChange={v=>setForm(p=>({...p,statut:v}))}
+            options={[{v:"actif",l:"Actif"},{v:"inactif",l:"Inactif"}]}/>
+        </>) : (<>
+          {/* Logo partenaire */}
+          <div>
+            <p style={{fontSize:11,fontWeight:600,color:"#374151",marginBottom:8}}>Logo du partenaire</p>
+            <div style={{display:"flex",alignItems:"center",gap:12}}>
+              {form.logo&&<img src={form.logo} alt="logo" style={{height:50,maxWidth:100,objectFit:"contain",borderRadius:8,border:"1px solid #EAE7E0",background:"#fff",padding:4}}/>}
+              <label style={{background:"#F5F5F0",border:"1.5px dashed #D1D5DB",borderRadius:10,padding:"8px 14px",fontSize:12,fontWeight:600,cursor:"pointer",color:"#374151"}}>
+                {form.logo?"🔄 Remplacer":"📷 Ajouter un logo"}
+                <input type="file" accept="image/*" style={{display:"none"}} onChange={e=>{
+                  const file=e.target.files?.[0]; if(!file) return;
+                  if(file.size>500000){alert("Image trop lourde (max 500 Ko)");return;}
+                  const r=new FileReader(); r.onload=ev=>setForm(p=>({...p,logo:ev.target?.result as string})); r.readAsDataURL(file);
+                }}/>
+              </label>
+              {form.logo&&<button onClick={()=>setForm(p=>({...p,logo:null}))} style={{background:"#FEE2E2",border:"none",borderRadius:8,padding:"6px 10px",fontSize:11,color:"#991B1B",cursor:"pointer"}}>✕ Retirer</button>}
+            </div>
+          </div>
+          <F label="Nom de l'entreprise *" value={form.nom} onChange={v=>setForm(p=>({...p,nom:v}))} required/>
+          <F label="Adresse (rue)" value={form.adresse||""} onChange={v=>setForm(p=>({...p,adresse:v}))}/>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 2fr",gap:10}}>
+            <F label="NPA" value={form.npa||""} onChange={v=>setForm(p=>({...p,npa:v}))} placeholder="2610"/>
+            <F label="Ville" value={form.ville||""} onChange={v=>setForm(p=>({...p,ville:v}))} placeholder="Saint-Imier"/>
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+            <F label="Contact (personne)" value={form.contact||""} onChange={v=>setForm(p=>({...p,contact:v}))}/>
+            <F label="Téléphone" value={form.tel||""} onChange={v=>setForm(p=>({...p,tel:v}))}/>
+          </div>
+          <F label="Email" value={form.email||""} onChange={v=>setForm(p=>({...p,email:v}))}/>
+          <F label="Site web" value={form.site||""} onChange={v=>setForm(p=>({...p,site:v}))} placeholder="www.exemple.ch"/>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+            <Sel label="Type" value={form.type||"depot-vente"} onChange={v=>setForm(p=>({...p,type:v}))}
+              options={[{v:"depot-vente",l:"Dépôt-vente"},{v:"livraison",l:"Livraison ferme"}]}/>
+            <F label="Commission (%)" type="number" value={form.commission||""} onChange={v=>setForm(p=>({...p,commission:v}))}/>
+          </div>
+          <Sel label="Statut" value={form.statut} onChange={v=>setForm(p=>({...p,statut:v}))}
+            options={[{v:"actif",l:"Actif"},{v:"inactif",l:"Inactif"}]}/>
+        </>)}
       </div>
       <div style={{display:"flex",gap:10,marginTop:20}}>
         <Btn onClick={savePV} full icon="check">Enregistrer</Btn>
@@ -8901,8 +8954,8 @@ return (
             const pv=(st.partenaires||[]).find(p=>p.id===v);
             setForm(p=>({...p,
               partenaireId:v,
-              clientNom:pv?.nom||"",
-              clientContact:pv?.contact||"",
+              clientNom:pv ? (pv.typeContact==="prive"?[pv.prenom,pv.nom].filter(Boolean).join(" "):pv.nom) : "",
+              clientContact:pv?.contact||pv?.prenom||"",
               clientAdresse:pv?.adresse||"",
               clientNpa:pv?.npa||"",
               clientVille:pv?.ville||"",
@@ -8913,7 +8966,18 @@ return (
             }));
           }} style={{width:"100%",padding:"10px 12px",fontSize:13,borderRadius:10,border:"1.5px solid #D1D5DB",background:"#fff",fontFamily:"inherit",color:"#111",boxSizing:"border-box" as any}}>
             <option value="">— Nouveau client / saisie manuelle —</option>
-            {(st.partenaires||[]).map(p=><option key={p.id} value={p.id}>{p.nom}{p.ville?" · "+p.ville:""}{p.contact?" ("+p.contact+")":""}</option>)}
+            {(()=>{
+              const partenaires=(st.partenaires||[]).filter(p=>p.typeContact!=="prive");
+              const prives=(st.partenaires||[]).filter(p=>p.typeContact==="prive");
+              return (<>
+                {partenaires.length>0&&<optgroup label="🏪 Partenaires">
+                  {partenaires.map(p=><option key={p.id} value={p.id}>{p.nom}{p.ville?" · "+p.ville:""}{p.contact?" ("+p.contact+")":""}</option>)}
+                </optgroup>}
+                {prives.length>0&&<optgroup label="👤 Contacts privés">
+                  {prives.map(p=><option key={p.id} value={p.id}>{[p.prenom,p.nom].filter(Boolean).join(" ")}{p.ville?" · "+p.ville:""}{p.tel?" · "+p.tel:""}</option>)}
+                </optgroup>}
+              </>);
+            })()}
           </select>
         </div>
 
