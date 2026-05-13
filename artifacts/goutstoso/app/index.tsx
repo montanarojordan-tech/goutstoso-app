@@ -8682,9 +8682,9 @@ const Production = ({st, setSt}) => {
   const historique = prod.historique || [];
 
   // ── RECETTE FORM ──
-  const emptyRecette = () => ({id:uid(),nom:"",description:"",couleur:"#8B5CF6",ingredients:[{nom:"",quantite:0,unite:"g",parLitre:true}],dureeMacerationJours:30,rendementBouteilles:10,volumeBouteille:500,titreAlcool:30,notes:""});
+  const emptyRecette = () => ({id:uid(),nom:"",description:"",couleur:"#8B5CF6",ingredients:[{nom:"",quantite:0,unite:"g",parLitre:true}],dureeMacerationJours:30,rendementBouteilles:10,volumeBouteille:500,titreAlcool:30,notes:"",marcheASuivre:[]});
   const [rForm, setRForm] = useState<any>(emptyRecette());
-  const openRecette = (r=null) => { setRForm(r?{...r,ingredients:r.ingredients.map(i=>({...i}))}:emptyRecette()); setRecetteModal(r||"new"); };
+  const openRecette = (r=null) => { setRForm(r?{...r,ingredients:r.ingredients.map(i=>({...i})),marcheASuivre:r.marcheASuivre?[...r.marcheASuivre]:[]}:emptyRecette()); setRecetteModal(r||"new"); };
   const saveRecette = () => {
     if(!rForm.nom.trim()){alert("Nom de recette requis");return;}
     setProd(p=>{
@@ -9500,6 +9500,41 @@ const Production = ({st, setSt}) => {
           <label style={labelStyle}>Notes / Conseils</label>
           <textarea style={{...inputStyle,resize:"vertical",minHeight:60}} value={rForm.notes} onChange={e=>setRForm(p=>({...p,notes:e.target.value}))} placeholder="Notes de production..."/>
         </div>
+
+        {/* ── Marche à suivre ── */}
+        <div>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+            <label style={{...labelStyle,marginBottom:0}}>Marche à suivre (étapes PDF)</label>
+            <button style={btnSecondary} onClick={()=>setRForm(p=>({...p,marcheASuivre:[...(p.marcheASuivre||[]),""]}))} >+ Étape</button>
+          </div>
+          {(rForm.marcheASuivre||[]).length===0 && (
+            <p style={{fontSize:11,color:"#9CA3AF",fontStyle:"italic",textAlign:"center",padding:"10px 0"}}>
+              Aucune étape — cliquez "+ Étape" pour commencer
+            </p>
+          )}
+          {(rForm.marcheASuivre||[]).map((etape:string,i:number)=>(
+            <div key={i} style={{display:"flex",gap:6,marginBottom:6,alignItems:"flex-start"}}>
+              <div style={{background:"#F2C94C",color:"#0A0A0A",borderRadius:"50%",width:22,height:22,display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,fontWeight:800,flexShrink:0,marginTop:8}}>
+                {i+1}
+              </div>
+              <textarea
+                style={{...inputStyle,flex:1,resize:"vertical",minHeight:40,fontSize:12}}
+                value={etape}
+                onChange={e=>setRForm(p=>({...p,marcheASuivre:(p.marcheASuivre||[]).map((x:string,j:number)=>j===i?e.target.value:x)}))}
+                placeholder={`Étape ${i+1}...`}
+              />
+              <div style={{display:"flex",flexDirection:"column",gap:4,flexShrink:0}}>
+                <button style={{...btnSecondary,padding:"2px 7px",fontSize:12}} disabled={i===0}
+                  onClick={()=>setRForm(p=>{const a=[...(p.marcheASuivre||[])];[a[i-1],a[i]]=[a[i],a[i-1]];return {...p,marcheASuivre:a};})}>↑</button>
+                <button style={{...btnSecondary,padding:"2px 7px",fontSize:12}} disabled={i===(rForm.marcheASuivre||[]).length-1}
+                  onClick={()=>setRForm(p=>{const a=[...(p.marcheASuivre||[])];[a[i],a[i+1]]=[a[i+1],a[i]];return {...p,marcheASuivre:a};})}>↓</button>
+                <button style={{...btnDanger,padding:"2px 7px",fontSize:12}}
+                  onClick={()=>setRForm(p=>({...p,marcheASuivre:(p.marcheASuivre||[]).filter((_:string,j:number)=>j!==i)}))}>✕</button>
+              </div>
+            </div>
+          ))}
+        </div>
+
         <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:4}}>
           <button style={btnSecondary} onClick={()=>setRecetteModal(null)}>Annuler</button>
           <button style={btnPrimary} onClick={saveRecette}>Enregistrer</button>
