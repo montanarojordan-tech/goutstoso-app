@@ -5938,7 +5938,7 @@ const dateOp = c.date || today();
     type:"recette",
     categorie:cat,
     montant,
-    description:"Shopify "+c.numero+" - "+p.nom+" "+p.variante+" x"+l.qte,
+    description:(c.source==="shopify"?"Shopify":c.source==="prestataire"?"Pro":"Direct")+" "+c.numero+" - "+p.nom+" "+p.variante+" x"+l.qte,
     postfinance:true,
   });
 });
@@ -5954,7 +5954,7 @@ if(parseFloat(c.fraisPort)>0) {
     type:"recette",
     categorie:"Frais expédition facturés",
     montant:parseFloat(c.fraisPort),
-    description:"Shopify "+c.numero+" - Port facturé",
+    description:(c.source==="shopify"?"Shopify":c.source==="prestataire"?"Pro":"Direct")+" "+c.numero+" - Port facturé",
     postfinance:true,
   });
 }
@@ -5970,7 +5970,7 @@ if(parseFloat(c.commissionShopify)>0) {
     type:"depense",
     categorie:"Commissions",
     montant:parseFloat(c.commissionShopify),
-    description:"Shopify "+c.numero+" - Commission",
+    description:(c.source==="shopify"?"Shopify":c.source==="prestataire"?"Pro":"Direct")+" "+c.numero+" - Commission",
     postfinance:true,
   });
 }
@@ -5986,7 +5986,7 @@ if(parseFloat(c.rabais)>0) {
     type:"depense",
     categorie:"Autres",
     montant:parseFloat(c.rabais),
-    description:"Shopify "+c.numero+" - Rabais",
+    description:(c.source==="shopify"?"Shopify":c.source==="prestataire"?"Pro":"Direct")+" "+c.numero+" - Rabais",
     postfinance:false,
   });
 }
@@ -6114,7 +6114,7 @@ return (
     <div style={{background:"#111",borderRadius:14,padding:"14px 16px",marginBottom:12}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
         <div>
-          <p style={{fontSize:10,color:"#F2C94C",fontWeight:700,textTransform:"uppercase",letterSpacing:".08em"}}>{view.source==="direct"?"🤝 Commande directe":"🛒 Shopify"}</p>
+          <p style={{fontSize:10,color:"#F2C94C",fontWeight:700,textTransform:"uppercase",letterSpacing:".08em"}}>{view.source==="direct"?"🤝 Commande directe":view.source==="shopify"?"🛒 Shopify":"🏢 Pro / Prestataire"}</p>
           <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:22,fontWeight:700,color:"#fff",marginTop:2}}>{view.numero}</p>
           <p style={{fontSize:11,color:"#aaa",marginTop:4}}>{fmt(view.date)}</p>
         </div>
@@ -6358,7 +6358,7 @@ Commandes
             <div style={{flex:1,minWidth:0}}>
               <div style={{display:"flex",alignItems:"center",gap:6}}>
                 <p style={{fontWeight:700,fontSize:13}}>{c.numero}</p>
-                <span style={{fontSize:9,fontWeight:700,padding:"2px 6px",borderRadius:4,background:c.source==="direct"?"#EFF6FF":"#FFF7ED",color:c.source==="direct"?"#1D4ED8":"#9A3412"}}>{c.source==="direct"?"DIRECT":"SHOPIFY"}</span>
+                <span style={{fontSize:9,fontWeight:700,padding:"2px 6px",borderRadius:4,background:c.source==="direct"?"#EFF6FF":c.source==="shopify"?"#FFF7ED":"#F0FDF4",color:c.source==="direct"?"#1D4ED8":c.source==="shopify"?"#9A3412":"#15803D"}}>{c.source==="direct"?"DIRECT":c.source==="shopify"?"SHOPIFY":"PRO"}</span>
               </div>
               <p style={{fontSize:12,color:"#6B7280",marginTop:1}}>{c.client}</p>
               <p style={{fontSize:11,color:"#9CA3AF",marginTop:1}}>{fmt(c.date)} · {(c.lignes||[]).length} produit{c.lignes?.length>1?"s":""}</p>
