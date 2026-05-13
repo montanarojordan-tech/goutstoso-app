@@ -5407,6 +5407,119 @@ return (
 );
 };
 
+const genererConfirmationCommandePDF = async (cmd, st) => {
+try {
+  await new Promise((res,rej)=>{
+    if((window as any).jspdf){res(null);return;}
+    const s=document.createElement("script");
+    s.src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";
+    s.onload=res;s.onerror=rej;document.head.appendChild(s);
+  });
+  const {jsPDF}=(window as any).jspdf;
+  const doc=new jsPDF({unit:"mm",format:"a4"});
+  const W=210; const mg=16;
+  // En-tête
+  doc.setFillColor(242,201,76); doc.rect(0,0,W,7,"F");
+  doc.setFont("helvetica","bold"); doc.setFontSize(18); doc.setTextColor(10,10,10);
+  doc.text("GOUT STOSO",mg,20);
+  doc.setFont("helvetica","normal"); doc.setFontSize(8); doc.setTextColor(120,120,120);
+  doc.text("Liqueurs artisanales · Jordan Montanaro · Rue des Sources 19 · 2613 Villeret",mg,26);
+  doc.text("admin@goutstoso.ch · www.goutstoso.ch",mg,30);
+  // Titre document
+  doc.setFillColor(10,10,10); doc.roundedRect(W-86,12,72,24,3,3,"F");
+  doc.setFont("helvetica","bold"); doc.setFontSize(10); doc.setTextColor(242,201,76);
+  doc.text("CONFIRMATION DE COMMANDE",W-50,21,{align:"center"});
+  doc.setFontSize(8); doc.setTextColor(255,255,255);
+  doc.text(cmd.confirmationNumero||cmd.numero,W-50,27,{align:"center"});
+  doc.text("Du "+fmt(cmd.date),W-50,32,{align:"center"});
+  doc.setDrawColor(220,220,215); doc.setLineWidth(0.3); doc.line(mg,40,W-mg,40);
+  let y=50;
+  // Client
+  doc.setFont("helvetica","bold"); doc.setFontSize(8); doc.setTextColor(150,150,150);
+  doc.text("DESTINATAIRE",mg,y);
+  doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.setTextColor(10,10,10);
+  doc.text(cmd.client||"",mg,y+7);
+  doc.setFont("helvetica","normal"); doc.setFontSize(8); doc.setTextColor(100,100,100);
+  if(cmd.email) doc.text(cmd.email,mg,y+12);
+  if(cmd.adresse) doc.text([cmd.adresse,[cmd.npa,cmd.ville].filter(Boolean).join(" ")].filter(Boolean).join(", "),mg,y+17);
+  y+=28;
+  // Tableau produits
+  const cols=[{l:"Produit",w:80},{l:"Format",w:22},{l:"Qte",w:14},{l:"Prix unit.",w:28},{l:"Total",w:28}];
+  const tW=cols.reduce((s,c)=>s+c.w,0);
+  const sx=(W-tW)/2;
+  doc.setFillColor(10,10,10); doc.rect(sx,y,tW,8,"F");
+  let cx=sx;
+  cols.forEach(c=>{doc.setFont("helvetica","bold");doc.setFontSize(7);doc.setTextColor(242,201,76);doc.text(c.l,cx+c.w/2,y+5.5,{align:"center"});cx+=c.w;});
+  y+=8;
+  let grandTotal=0;
+  (cmd.lignes||[]).filter(l=>l.produitId&&l.qte>0).forEach((l,i)=>{
+    const prod=(st.produits||[]).find(p=>p.id===l.produitId);
+    const pu=prod?.prixRevendeur||0;
+    const tot=pu*(l.qte||0);
+    grandTotal+=tot;
+    const bg=i%2===0?[255,255,255]:[248,248,245];
+    doc.setFillColor(bg[0],bg[1],bg[2]); doc.rect(sx,y,tW,9,"F");
+    const vals=[prod?.nom+" "+(prod?.variante||""),prod?.format||"",String(l.qte),"CHF "+pu.toFixed(2),"CHF "+tot.toFixed(2)];
+    cx=sx;
+    vals.forEach((v,vi)=>{
+      doc.setFont("helvetica",vi===0?"bold":"normal");doc.setFontSize(7.5);doc.setTextColor(vi===0?10:60,vi===0?10:60,vi===0?10:60);
+      doc.text(v,cx+cols[vi].w/2,y+6,{align:"center"});cx+=cols[vi].w;
+    });
+    y+=9;
+  });
+  y+=4;
+  doc.setFillColor(10,10,10); doc.rect(sx,y,tW,10,"F");
+  doc.setFont("helvetica","bold");doc.setFontSize(10);doc.setTextColor(242,201,76);
+  doc.text("TOTAL COMMANDE : CHF "+grandTotal.toFixed(2),W/2,y+7,{align:"center"});
+  y+=18;
+  // Conditions
+  doc.setFillColor(254,249,231); doc.rect(mg,y,W-mg*2,18,"F");
+  doc.setFont("helvetica","bold"); doc.setFontSize(8); doc.setTextColor(146,64,14);
+  doc.text("CONDITIONS",mg+4,y+5);
+  doc.setFont("helvetica","normal"); doc.setFontSize(7); doc.setTextColor(100,100,100);
+  doc.text("Prix partenaire HT · Paiement par virement : IBAN CH23 0900 0000 1565 1485 8 (PostFinance)",mg+4,y+11);
+  doc.text("Livraison dans les 5-7 jours ouvrables apres confirmation · Retour sous 14 jours en etat d'origine",mg+4,y+16);
+  y+=24;
+  // Signature
+  doc.setFillColor(248,248,245); doc.rect(mg,y,W-mg*2,22,"F");
+  doc.setFont("helvetica","normal"); doc.setFontSize(8); doc.setTextColor(100,100,100);
+  doc.text("Confirmee par Goûtstoso le "+fmt(cmd.date)+"    Signature :",mg+4,y+8);
+  doc.setFont("helvetica","normal"); doc.setFontSize(7); doc.setTextColor(150,150,150);
+  doc.text("Nom : ___________________________   Date : _______________   Signature client : ___________________________",mg+4,y+16);
+  // Pied
+  doc.setDrawColor(220,220,215); doc.setLineWidth(0.3); doc.line(mg,280,W-mg,280);
+  doc.setFont("helvetica","normal"); doc.setFontSize(7); doc.setTextColor(150,150,150);
+  doc.text("Goûtstoso · Jordan Montanaro · Rue des Sources 19 · 2613 Villeret · admin@goutstoso.ch",W/2,284,{align:"center"});
+  doc.setFillColor(242,201,76); doc.rect(0,291,W,5,"F");
+  const fname="Confirmation-Commande-"+cmd.numero+".pdf";
+  doc.save(fname);
+} catch(e){ alert("Erreur PDF : "+(e as any).message); }
+};
+
+const genererFactureDepuisCommande = (cmd, st, setSt) => {
+  const y = new Date().getFullYear();
+  const existing = (st.factures||[]).map(f=>f.numero);
+  let n=1; while(existing.includes("FAC-"+y+"-"+String(n).padStart(3,"0"))) n++;
+  const numero = "FAC-"+y+"-"+String(n).padStart(3,"0");
+  const lignesOk = (cmd.lignes||[]).filter(l=>l.produitId&&l.qte>0).map(l=>{
+    const prod=(st.produits||[]).find(p=>p.id===l.produitId);
+    return {produitId:l.produitId,designation:prod?prod.nom+" "+(prod.variante||""):l.produitId,qte:l.qte,prix:prod?.prixRevendeur||0};
+  });
+  const total = lignesOk.reduce((s,l)=>s+l.qte*l.prix,0);
+  const newFac = {
+    id:uid(), numero, date:today(), dateEcheance:"", statut:"en attente",
+    clientNom:cmd.client, clientEmail:cmd.email||"",
+    clientAdresse:cmd.adresse||"", clientNpa:cmd.npa||"", clientVille:cmd.ville||"",
+    lignes:lignesOk, total, notes:"Issue de la commande "+cmd.numero, commandeId:cmd.id,
+  };
+  setSt((p:any)=>({
+    ...p,
+    factures:[...(p.factures||[]),newFac],
+    commandes:p.commandes.map((c:any)=>c.id===cmd.id?{...c,factureNumero:numero}:c),
+  }));
+  alert("✅ Facture "+numero+" créée ! Retrouve-la dans Comptabilité → Factures.");
+};
+
 // ══════════════════════════════════════════════════════════════
 // PAGE: COMMANDES (ventes en ligne Shopify)
 // ══════════════════════════════════════════════════════════════
@@ -5710,6 +5823,42 @@ return (
           </div>
         )
     }
+
+    {/* ── Flux achat ferme (si issue d'une offre) ── */}
+    {view.offreId && (
+      <Card style={{padding:"12px 14px",marginBottom:12,background:"#0F172A",border:"none"}}>
+        <p style={{fontSize:11,fontWeight:700,color:"#F2C94C",marginBottom:8}}>📦 Flux achat ferme · Documents</p>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6,marginBottom:8}}>
+          {[
+            {ic:"📦",l:"Commande",v:view.numero,ok:true},
+            {ic:"✅",l:"Confirmation",v:view.confirmationNumero||"—",ok:!!view.confirmationNumero},
+            {ic:"🧾",l:"Facture",v:view.factureNumero||"—",ok:!!view.factureNumero},
+          ].map((s,i)=>(
+            <div key={i} style={{background:s.ok?"#1E3A8A":"#1E293B",borderRadius:8,padding:"8px",textAlign:"center",border:s.ok?"1px solid #3B82F6":"1px solid #334155"}}>
+              <p style={{fontSize:12}}>{s.ic}</p>
+              <p style={{fontSize:8,color:"#94A3B8",marginBottom:2}}>{s.l}</p>
+              <p style={{fontSize:9,fontWeight:700,color:s.ok?"#fff":"#475569"}}>{s.v}</p>
+            </div>
+          ))}
+        </div>
+        <div style={{display:"flex",flexDirection:"column",gap:6}}>
+          <button onClick={async()=>{
+            const y2=new Date().getFullYear();
+            const ex=(st.commandes||[]).filter(c=>c.confirmationNumero).map(c=>c.confirmationNumero);
+            let n=1; while(ex.includes("CONF-"+y2+"-"+String(n).padStart(3,"0"))) n++;
+            const confNum="CONF-"+y2+"-"+String(n).padStart(3,"0");
+            setSt((p:any)=>({...p,commandes:p.commandes.map(c=>c.id===view.id?{...c,confirmationNumero:confNum}:c)}));
+            await genererConfirmationCommandePDF({...view,confirmationNumero:confNum},st);
+          }} style={{background:"#1E40AF",color:"#fff",border:"none",borderRadius:8,padding:"9px",fontWeight:700,fontSize:11,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+            ✅ {view.confirmationNumero?"Retélécharger la confirmation":"Générer confirmation de commande"}
+          </button>
+          <button onClick={()=>!view.factureNumero?genererFactureDepuisCommande(view,st,setSt):alert("Facture "+view.factureNumero+" déjà créée dans Comptabilité → Factures")}
+            style={{background:view.factureNumero?"#166534":"#0A0A0A",color:view.factureNumero?"#fff":"#F2C94C",border:"none",borderRadius:8,padding:"9px",fontWeight:700,fontSize:11,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+            🧾 {view.factureNumero?"Facture "+view.factureNumero+" créée":"Créer la facture"}
+          </button>
+        </div>
+      </Card>
+    )}
 
     {view.email && (view.statut==="livrée"||view.statut==="retirée"||view.statut==="expédiée") && (
       <button onClick={()=>envoyerEmailSatisfaction(view)} style={{width:"100%",background:view.emailSatisfactionEnvoye?"#F5F5F0":"linear-gradient(135deg,#E8B64C,#D4A017)",color:view.emailSatisfactionEnvoye?"#525252":"#fff",border:"none",borderRadius:10,padding:"12px",fontWeight:600,fontSize:12,cursor:"pointer",marginBottom:12}}>
@@ -8202,6 +8351,9 @@ const emptyForm = () => ({
   notes:"",
   statut:"prospection",
   interetConfirme:false,
+  typeContrat:"",
+  contratId:"",
+  commandeId:"",
 });
 
 const saveOffre = () => {
@@ -8291,27 +8443,66 @@ const supprimerOffre = (id) => {
   setViewId(null);
 };
 
-const convertirEnCommande = (offre) => {
-  if(!window.confirm("Convertir cette offre en commande ?")) return;
+const creerContratDepotVente = (offre) => {
+  if(!window.confirm("Créer un contrat de dépôt-vente depuis cette offre ?")) return;
+  const y = new Date().getFullYear();
+  const existing = (st.contrats||[]).filter(c=>c.numero?.startsWith("OFF-DEP-")).map(c=>c.numero);
+  let n=1; while(existing.includes("OFF-DEP-"+y+"-"+String(n).padStart(3,"0"))) n++;
+  const numero = "OFF-DEP-"+y+"-"+String(n).padStart(3,"0");
+  const cid = uid();
+  const newContrat = {
+    id:cid, numero, type:"depot-vente",
+    partenaireId:offre.partenaireId||"",
+    clientNom:offre.clientNom, clientEmail:offre.clientEmail||"",
+    clientAdresse:offre.clientAdresse||"", clientNpa:offre.clientNpa||"", clientVille:offre.clientVille||"",
+    clientContact:offre.clientContact||"",
+    dateDebut:today(), dateFin:"",
+    commission:0,
+    lignes:(offre.lignes||[]).filter(l=>l.qte>0).map(l=>({produitId:l.produitId,qte:l.qte,prixUnitaire:0})),
+    notes:"Issu de l'offre "+offre.numero,
+    statut:"brouillon",
+    signFournisseur:null, signClient:null,
+    lieuSignature:"Villeret",
+    modeAcceptation:"signature",
+    offreId:offre.id,
+  };
+  setSt(p=>({
+    ...p,
+    contrats:[...(p.contrats||[]),newContrat],
+    offres:(p.offres||[]).map(o=>o.id===offre.id?{...o,typeContrat:"depot-vente",contratId:cid}:o),
+  }));
+  alert("✅ Contrat "+numero+" créé ! Va dans Partenaires → Contrats pour l'envoyer à la signature.");
+};
+
+const creerCommandeAchat = (offre) => {
+  if(!window.confirm("Créer une commande achat ferme depuis cette offre ?")) return;
   const y = new Date().getFullYear();
   const existing = (st.commandes||[]).map(c=>c.numero);
   let n=1; while(existing.includes("CMD-"+y+"-"+String(n).padStart(3,"0"))) n++;
   const numero = "CMD-"+y+"-"+String(n).padStart(3,"0");
+  const cid = uid();
   const newCmd = {
-    id:uid(), numero, date:today(),
+    id:cid, numero, date:today(),
     clientId:"", client:offre.clientNom,
-    email:offre.clientEmail, telephone:"", adresse:offre.clientAdresse, npa:"", ville:"",
-    lignes:offre.lignes.map(l=>({produitId:l.produitId,qte:l.qte})),
+    email:offre.clientEmail||"", telephone:"", adresse:offre.clientAdresse||"",
+    npa:offre.clientNpa||"", ville:offre.clientVille||"",
+    lignes:(offre.lignes||[]).filter(l=>l.qte>0).map(l=>({produitId:l.produitId,qte:l.qte})),
     rabais:0, fraisPort:0, commissionShopify:0,
+    source:"partenaire",
     statut:"en attente", envoyeeCompta:false,
-    notes:"Issue de l'offre "+offre.numero,
+    notes:"Issue de l'offre "+offre.numero+" (achat ferme)",
+    offreId:offre.id,
   };
   setSt(p=>({
     ...p,
     commandes:[...(p.commandes||[]),newCmd],
-    offres:(p.offres||[]).map(o=>o.id===offre.id?{...o,statut:"acceptée"}:o),
+    offres:(p.offres||[]).map(o=>o.id===offre.id?{...o,typeContrat:"achat",commandeId:cid}:o),
   }));
-  alert("✅ Commande "+numero+" créée ! Retrouve-la dans Ventes → Commandes.");
+  alert("✅ Commande "+numero+" créée ! Retrouve-la dans Ventes → Commandes pour générer la confirmation et la facture.");
+};
+
+const convertirEnCommande = (offre) => {
+  creerCommandeAchat(offre);
 };
 
 const setStatut = (id, statut) => setSt(p=>({...p,offres:(p.offres||[]).map(o=>o.id===id?{...o,statut}:o)}));
@@ -8423,10 +8614,90 @@ if(view) return (
     </Card>
   )}
 
-  {/* ── OFFRE SIGNÉE ── */}
-  {view.statut==="acceptée" && (
-    <Card style={{padding:"12px 14px",marginBottom:12,background:"#F0FDF4",border:"1.5px solid #86EFAC"}}>
-      <p style={{fontSize:12,fontWeight:700,color:"#166534"}}>🎉 Offre signée et acceptée</p>
+  {/* ── OFFRE SIGNÉE : choisir le flux ── */}
+  {view.statut==="acceptée" && !view.typeContrat && (
+    <Card style={{padding:"14px",marginBottom:12,background:"#F0FDF4",border:"1.5px solid #86EFAC"}}>
+      <p style={{fontSize:12,fontWeight:700,color:"#166534",marginBottom:4}}>🎉 Offre signée — Choisis le flux :</p>
+      <p style={{fontSize:11,color:"#374151",marginBottom:12}}>Ce choix détermine les documents générés et le processus de facturation.</p>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+        <button onClick={()=>creerContratDepotVente(view)}
+          style={{background:"#0A0A0A",color:"#F2C94C",border:"none",borderRadius:10,padding:"14px 8px",fontWeight:700,fontSize:12,cursor:"pointer",textAlign:"center",lineHeight:1.5}}>
+          🏪 Dépôt-vente<br/>
+          <span style={{fontSize:10,fontWeight:400,color:"#D4A017"}}>Contrat OFF-DEP-…<br/>+ signature par lien</span>
+        </button>
+        <button onClick={()=>creerCommandeAchat(view)}
+          style={{background:"#1E40AF",color:"#fff",border:"none",borderRadius:10,padding:"14px 8px",fontWeight:700,fontSize:12,cursor:"pointer",textAlign:"center",lineHeight:1.5}}>
+          💳 Achat ferme<br/>
+          <span style={{fontSize:10,fontWeight:400,color:"#93C5FD"}}>Commande CMD-…<br/>+ confirmation + facture</span>
+        </button>
+      </div>
+    </Card>
+  )}
+
+  {/* ── FLUX DÉPÔT-VENTE ACTIF ── */}
+  {view.statut==="acceptée" && view.typeContrat==="depot-vente" && (
+    <Card style={{padding:"12px 14px",marginBottom:12,background:"#0A0A0A",border:"none"}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+        <p style={{fontSize:12,fontWeight:700,color:"#F2C94C"}}>🏪 Flux dépôt-vente</p>
+        <button onClick={()=>setSt(p=>({...p,offres:p.offres.map(o=>o.id===view.id?{...o,typeContrat:"",contratId:""}:o)}))}
+          style={{background:"none",border:"none",fontSize:10,color:"#6B7280",cursor:"pointer"}}>changer</button>
+      </div>
+      {view.contratId ? (
+        <div>
+          <p style={{fontSize:11,color:"#D1D5DB",marginBottom:8}}>Contrat créé — va dans <strong style={{color:"#F2C94C"}}>Partenaires → Contrats</strong> pour l'envoyer à la signature.</p>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
+            <div style={{background:"#1F1F1F",borderRadius:8,padding:"8px",textAlign:"center"}}>
+              <p style={{fontSize:9,color:"#9CA3AF",marginBottom:2}}>CONTRAT</p>
+              <p style={{fontSize:11,fontWeight:700,color:"#F2C94C"}}>{(st.contrats||[]).find(c=>c.id===view.contratId)?.numero||"—"}</p>
+            </div>
+            <div style={{background:"#1F1F1F",borderRadius:8,padding:"8px",textAlign:"center"}}>
+              <p style={{fontSize:9,color:"#9CA3AF",marginBottom:2}}>STATUT</p>
+              <p style={{fontSize:11,fontWeight:700,color:"#D4A017"}}>{(st.contrats||[]).find(c=>c.id===view.contratId)?.statut||"brouillon"}</p>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <button onClick={()=>creerContratDepotVente(view)}
+          style={{width:"100%",background:"#F2C94C",color:"#0A0A0A",border:"none",borderRadius:8,padding:"10px",fontWeight:700,fontSize:12,cursor:"pointer"}}>
+          📋 Générer le contrat OFF-DEP
+        </button>
+      )}
+    </Card>
+  )}
+
+  {/* ── FLUX ACHAT FERME ACTIF ── */}
+  {view.statut==="acceptée" && view.typeContrat==="achat" && (
+    <Card style={{padding:"12px 14px",marginBottom:12,background:"#1E3A8A",border:"none"}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+        <p style={{fontSize:12,fontWeight:700,color:"#fff"}}>💳 Flux achat ferme</p>
+        <button onClick={()=>setSt(p=>({...p,offres:p.offres.map(o=>o.id===view.id?{...o,typeContrat:"",commandeId:""}:o)}))}
+          style={{background:"none",border:"none",fontSize:10,color:"#93C5FD",cursor:"pointer"}}>changer</button>
+      </div>
+      {(()=>{
+        const cmd = (st.commandes||[]).find(c=>c.id===view.commandeId);
+        if(!cmd) return (
+          <button onClick={()=>creerCommandeAchat(view)}
+            style={{width:"100%",background:"#F2C94C",color:"#0A0A0A",border:"none",borderRadius:8,padding:"10px",fontWeight:700,fontSize:12,cursor:"pointer"}}>
+            📦 Créer la commande client
+          </button>
+        );
+        const steps=[
+          {l:"Commande",v:cmd.numero,ok:true,ic:"📦"},
+          {l:"Confirmation",v:cmd.confirmationNumero||"—",ok:!!cmd.confirmationNumero,ic:"✅"},
+          {l:"Facture",v:cmd.factureNumero||"—",ok:!!cmd.factureNumero,ic:"🧾"},
+        ];
+        return (
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6}}>
+            {steps.map((s,i)=>(
+              <div key={i} style={{background:s.ok?"#1E40AF":"#172554",borderRadius:8,padding:"8px",textAlign:"center",border:s.ok?"1px solid #3B82F6":"1px solid #1E3A8A"}}>
+                <p style={{fontSize:13}}>{s.ic}</p>
+                <p style={{fontSize:8,color:"#93C5FD",marginBottom:2}}>{s.l}</p>
+                <p style={{fontSize:9,fontWeight:700,color:s.ok?"#fff":"#4B5563"}}>{s.v}</p>
+              </div>
+            ))}
+          </div>
+        );
+      })()}
     </Card>
   )}
 
