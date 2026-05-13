@@ -1784,6 +1784,21 @@ else setSt(p=>({...p,partenaires:[...p.partenaires,{...form,id:uid()}]}));
 setModal(null);
 };
 
+const supprimerPV = (pv) => {
+const hasStock = (st.depotStocks||[]).some(d=>d.partenaireId===pv.id&&(d.qteDeposee>0||d.qteVendue>0));
+const hasContrats = (st.contrats||[]).some(c=>c.partenaireId===pv.id);
+let msg = `Supprimer "${pv.nom}" définitivement ?`;
+if(hasStock||hasContrats) msg += "\n\n⚠️ Attention : les bulletins et stocks associés seront aussi supprimés.";
+if(!window.confirm(msg)) return;
+setSt(p=>({
+  ...p,
+  partenaires:p.partenaires.filter(x=>x.id!==pv.id),
+  depotStocks:(p.depotStocks||[]).filter(d=>d.partenaireId!==pv.id),
+  contrats:(p.contrats||[]).filter(c=>c.partenaireId!==pv.id),
+}));
+setView(null);
+};
+
 const addLigne = () => setLivForm(p=>({...p,lignes:[...p.lignes,{produitId:"",qte:1}]}));
 const updLigne = (i,k,v) => setLivForm(p=>({...p,lignes:p.lignes.map((l,j)=>j===i?{...l,[k]:v}:l)}));
 const delLigne = i => setLivForm(p=>({...p,lignes:p.lignes.filter((_,j)=>j!==i)}));
@@ -2124,12 +2139,20 @@ return (
     </Card>
 
     {/* Actions */}
-    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:16}}>
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
       <button onClick={()=>{setSelected(pv);setModal("livraison");}} style={{background:"#F2C94C",border:"none",borderRadius:12,padding:"12px",fontWeight:700,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
         📦 Nouvelle livraison
       </button>
       <button onClick={()=>doInventaire(pv)} style={{background:"#DCFCE7",border:"none",borderRadius:12,padding:"12px",fontWeight:600,fontSize:13,color:"#166534",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
         📋 Faire l'inventaire
+      </button>
+    </div>
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:16}}>
+      <button onClick={()=>{setForm({...pv});setView(null);setModal("form");}} style={{background:"#F5F5F0",border:"none",borderRadius:12,padding:"12px",fontWeight:600,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+        <Ic n="edit" s={14}/> Modifier
+      </button>
+      <button onClick={()=>supprimerPV(pv)} style={{background:"#FEE2E2",color:"#991B1B",border:"none",borderRadius:12,padding:"12px",fontWeight:600,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+        <Ic n="trash" s={14}/> Supprimer
       </button>
     </div>
 
