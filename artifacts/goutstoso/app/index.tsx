@@ -436,21 +436,6 @@ if(joursDepuis >= 7) {
 }
 });
 
-// Rappel facturation dépôt-vente le 20 de chaque mois
-const jourDuMois = now.getDate();
-if(jourDuMois >= 20) {
-  (st.offres||[]).filter(o=>o.statut==="acceptée" && o.typeContrat==="depot-vente").forEach(o=>{
-    alertes.push({
-      type:"depot_vente_facturation",
-      priorite: jourDuMois >= 25 ? "haute" : "moyenne",
-      icone: "🧾",
-      titre:"Facturer dépôt-vente — "+( o.clientNom||o.numero),
-      desc:"Rappel facturation mensuelle (le 20) · Offre "+o.numero,
-      action:"offres",
-      id: o.id,
-    });
-  });
-}
 
 // Stock bas chez partenaires
 const stocksBas = {};
@@ -8144,22 +8129,23 @@ try {
     });
     y+=10;
   });
-  y+=8;
-  doc.setFillColor(254,249,231); doc.rect(mg,y,W-mg*2,28,"F");
-  doc.setFont("helvetica","bold"); doc.setFontSize(8); doc.setTextColor(146,64,14);
-  doc.text("CONDITIONS PARTENAIRES",mg+4,y+5);
-  doc.setFont("helvetica","normal"); doc.setFontSize(7.5); doc.setTextColor(100,100,100);
-  doc.text("• Prix en CHF, hors TVA (Goûtstoso non assujetti à la TVA)",mg+4,y+11);
-  doc.text("• Formule DÉPÔT-VENTE : mise en rayon sans avance de fonds, facturation le 20 de chaque mois",mg+4,y+17);
-  doc.text("• Formule ACHAT FERME : commande et facturation globale, tarif dégressif selon volume",mg+4,y+23);
-  y+=34;
+  y+=10;
   doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.setTextColor(10,10,10);
-  doc.text("RETOUR D'INTÉRÊT",mg,y); y+=8;
+  doc.text("RETOUR D'INTERET",mg,y); y+=8;
   doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.setTextColor(60,60,60);
-  doc.text("Veuillez cocher votre choix et retourner ce document à admin@goutstoso.ch",mg,y); y+=10;
-  const checks=["☐  Intéressé(e) par une collaboration en DÉPÔT-VENTE","☐  Intéressé(e) par une collaboration en ACHAT FERME","☐  Pas intéressé(e) pour le moment"];
-  checks.forEach(c=>{doc.setFont("helvetica","normal");doc.setFontSize(10);doc.setTextColor(10,10,10);doc.text(c,mg,y);y+=9;});
-  y+=6;
+  doc.text("Veuillez cocher votre choix et retourner ce document a admin@goutstoso.ch",mg,y); y+=10;
+  const checks=[
+    {label:"Interesse(e) — je souhaite referencer vos produits",checked:false},
+    {label:"Pas interesse(e) pour le moment",checked:false},
+  ];
+  checks.forEach(c=>{
+    doc.setDrawColor(80,80,80); doc.setLineWidth(0.5);
+    doc.rect(mg,y-4,5,5);
+    doc.setFont("helvetica","normal");doc.setFontSize(10);doc.setTextColor(10,10,10);
+    doc.text(c.label,mg+8,y);
+    y+=10;
+  });
+  y+=4;
   doc.setFillColor(240,240,238); doc.rect(mg,y,W-mg*2,20,"F");
   doc.setFont("helvetica","normal"); doc.setFontSize(8); doc.setTextColor(100,100,100);
   doc.text("Nom & prénom : ___________________________   Fonction : ___________________________",mg+4,y+6);
@@ -8216,7 +8202,6 @@ const emptyForm = () => ({
   notes:"",
   statut:"prospection",
   interetConfirme:false,
-  typeContrat:"",
 });
 
 const saveOffre = () => {
@@ -8358,29 +8343,27 @@ if(view) return (
   {(()=>{
     const pipeline=[
       {key:"prospection",label:"Prospection",emoji:"🔍"},
-      {key:"intérêt",label:"Intérêt",emoji:"✅"},
+      {key:"intérêt",label:"Intérêt",emoji:"💬"},
       {key:"offre",label:"Offre",emoji:"📋"},
       {key:"signée",label:"Signée",emoji:"✍️"},
-      {key:"contrat",label:"Contrat",emoji:"📄"},
     ];
     const ordre=["prospection","intérêt","brouillon","envoyée","acceptée"];
     const ci=ordre.indexOf(view.statut);
     const step=ci<=1?ci:ci<=3?2:3;
-    const contratOk=!!view.typeContrat;
     return (
-      <div style={{display:"flex",alignItems:"center",gap:0,marginBottom:16,background:"#F9F9F6",borderRadius:12,padding:"10px 8px",overflowX:"auto"}}>
+      <div style={{display:"flex",alignItems:"center",gap:0,marginBottom:16,background:"#F9F9F6",borderRadius:12,padding:"10px 8px"}}>
         {pipeline.map((s,i)=>{
-          const done=(i<step)||(i===4&&contratOk);
-          const active=(i===step&&!contratOk&&i<4)||(i===4&&contratOk);
+          const done=i<step;
+          const active=i===step;
           return (
             <React.Fragment key={s.key}>
-              <div style={{display:"flex",flexDirection:"column",alignItems:"center",minWidth:54,opacity:done||active?1:0.4}}>
-                <div style={{width:28,height:28,borderRadius:"50%",background:done?"#166534":active?"#0A0A0A":"#E5E7EB",display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,marginBottom:3,flexShrink:0}}>
-                  {done?<span style={{color:"#fff",fontSize:11,fontWeight:700}}>✓</span>:<span>{s.emoji}</span>}
+              <div style={{display:"flex",flexDirection:"column",alignItems:"center",flex:1,opacity:done||active?1:0.35}}>
+                <div style={{width:30,height:30,borderRadius:"50%",background:done?"#166534":active?"#0A0A0A":"#E5E7EB",display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,marginBottom:4,flexShrink:0}}>
+                  {done?<span style={{color:"#fff",fontSize:12,fontWeight:700}}>✓</span>:<span>{s.emoji}</span>}
                 </div>
-                <p style={{fontSize:8,fontWeight:active||done?700:400,color:done?"#166534":active?"#0A0A0A":"#9CA3AF",textAlign:"center",whiteSpace:"nowrap"}}>{s.label}</p>
+                <p style={{fontSize:9,fontWeight:active||done?700:400,color:done?"#166534":active?"#0A0A0A":"#9CA3AF",textAlign:"center"}}>{s.label}</p>
               </div>
-              {i<4&&<div style={{flex:1,height:2,background:done?"#166534":"#E5E7EB",minWidth:8,maxWidth:24,marginBottom:12,flexShrink:0}}/>}
+              {i<3&&<div style={{height:2,background:done?"#166534":"#E5E7EB",width:20,marginBottom:14,flexShrink:0}}/>}
             </React.Fragment>
           );
         })}
@@ -8440,37 +8423,10 @@ if(view) return (
     </Card>
   )}
 
-  {/* ── TYPE DE CONTRAT (après signature) ── */}
-  {view.statut==="acceptée" && !view.typeContrat && (
-    <Card style={{padding:"14px",marginBottom:12,background:"#F0FDF4",border:"1.5px solid #86EFAC"}}>
-      <p style={{fontSize:12,fontWeight:700,color:"#166534",marginBottom:6}}>🎉 Offre signée ! Choisis le type de contrat :</p>
-      <p style={{fontSize:11,color:"#374151",marginBottom:12}}>Ce choix détermine comment tu vas facturer ce partenaire.</p>
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-        <button onClick={()=>setSt(p=>({...p,offres:p.offres.map(o=>o.id===view.id?{...o,typeContrat:"depot-vente"}:o)}))}
-          style={{background:"#0A0A0A",color:"#F2C94C",border:"none",borderRadius:10,padding:"14px 8px",fontWeight:700,fontSize:12,cursor:"pointer",textAlign:"center"}}>
-          🏪 Dépôt-vente<br/><span style={{fontSize:10,fontWeight:400,color:"#E8B64C"}}>Facture le 20/mois</span>
-        </button>
-        <button onClick={()=>setSt(p=>({...p,offres:p.offres.map(o=>o.id===view.id?{...o,typeContrat:"achat-avance"}:o)}))}
-          style={{background:"#1E40AF",color:"#fff",border:"none",borderRadius:10,padding:"14px 8px",fontWeight:700,fontSize:12,cursor:"pointer",textAlign:"center"}}>
-          💳 Achat en avance<br/><span style={{fontSize:10,fontWeight:400,color:"#93C5FD"}}>Facture globale</span>
-        </button>
-      </div>
-    </Card>
-  )}
-
-  {/* ── CONTRAT ACTIF ── */}
-  {view.statut==="acceptée" && view.typeContrat && (
-    <Card style={{padding:"12px 14px",marginBottom:12,background:view.typeContrat==="depot-vente"?"#0A0A0A":"#EFF6FF",border:"none"}}>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-        <div>
-          <p style={{fontSize:11,fontWeight:700,color:view.typeContrat==="depot-vente"?"#F2C94C":"#1E40AF"}}>
-            {view.typeContrat==="depot-vente"?"🏪 Dépôt-vente · Facturation le 20/mois":"💳 Achat en avance · Facture globale"}
-          </p>
-          {view.typeContrat==="depot-vente"&&<p style={{fontSize:10,color:"#9CA3AF",marginTop:2}}>Un rappel s'affiche dans le tableau de bord chaque 20 du mois</p>}
-        </div>
-        <button onClick={()=>setSt(p=>({...p,offres:p.offres.map(o=>o.id===view.id?{...o,typeContrat:""}:o)}))}
-          style={{background:"none",border:"none",fontSize:10,color:"#9CA3AF",cursor:"pointer",padding:0}}>changer</button>
-      </div>
+  {/* ── OFFRE SIGNÉE ── */}
+  {view.statut==="acceptée" && (
+    <Card style={{padding:"12px 14px",marginBottom:12,background:"#F0FDF4",border:"1.5px solid #86EFAC"}}>
+      <p style={{fontSize:12,fontWeight:700,color:"#166534"}}>🎉 Offre signée et acceptée</p>
     </Card>
   )}
 
@@ -8600,8 +8556,6 @@ return (
   const interets=offres.filter(o=>o.statut==="intérêt").length;
   const envoyees=offres.filter(o=>o.statut==="envoyée").length;
   const acceptees=offres.filter(o=>o.statut==="acceptée").length;
-  const depotVente=offres.filter(o=>o.statut==="acceptée"&&o.typeContrat==="depot-vente").length;
-  const achatAvance=offres.filter(o=>o.statut==="acceptée"&&o.typeContrat==="achat-avance").length;
   const caPotentiel=sum(offres.filter(o=>o.statut!=="refusée").map(o=>totalOffre(o)));
   return (
     <>
@@ -8618,19 +8572,9 @@ return (
         </div>
       ))}
     </div>
-    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:18}}>
-      <div style={{background:"#0A0A0A",borderRadius:12,padding:"10px 6px",textAlign:"center"}}>
-        <p style={{fontSize:13,fontWeight:700,color:"#F2C94C"}}>{depotVente}</p>
-        <p style={{fontSize:8,color:"#E8B64C",marginTop:2,fontWeight:600}}>DÉPÔT-VENTE</p>
-      </div>
-      <div style={{background:"#1E40AF",borderRadius:12,padding:"10px 6px",textAlign:"center"}}>
-        <p style={{fontSize:13,fontWeight:700,color:"#fff"}}>{achatAvance}</p>
-        <p style={{fontSize:8,color:"#93C5FD",marginTop:2,fontWeight:600}}>ACHAT AVANCE</p>
-      </div>
-      <div style={{background:"#0A0A0A",borderRadius:12,padding:"10px 6px",textAlign:"center"}}>
-        <p style={{fontSize:13,fontWeight:700,color:"#F2C94C"}}>{chf(caPotentiel)}</p>
-        <p style={{fontSize:8,color:"#E8B64C",marginTop:2,fontWeight:600}}>CA POTENTIEL</p>
-      </div>
+    <div style={{background:"#0A0A0A",borderRadius:12,padding:"10px",textAlign:"center",marginBottom:18}}>
+      <p style={{fontSize:14,fontWeight:700,color:"#F2C94C",fontFamily:"'Cormorant Garamond',serif"}}>{chf(caPotentiel)}</p>
+      <p style={{fontSize:8,color:"#E8B64C",marginTop:2,fontWeight:600,textTransform:"uppercase"}}>CA potentiel total</p>
     </div>
     </>
   );
