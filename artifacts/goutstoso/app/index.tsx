@@ -436,6 +436,22 @@ if(joursDepuis >= 7) {
 }
 });
 
+// Rappel facturation dépôt-vente le 20 de chaque mois
+const jourDuMois = now.getDate();
+if(jourDuMois >= 20) {
+  (st.offres||[]).filter(o=>o.statut==="acceptée" && o.typeContrat==="depot-vente").forEach(o=>{
+    alertes.push({
+      type:"depot_vente_facturation",
+      priorite: jourDuMois >= 25 ? "haute" : "moyenne",
+      icone: "🧾",
+      titre:"Facturer dépôt-vente — "+( o.clientNom||o.numero),
+      desc:"Rappel facturation mensuelle (le 20) · Offre "+o.numero,
+      action:"offres",
+      id: o.id,
+    });
+  });
+}
+
 // Stock bas chez partenaires
 const stocksBas = {};
 (st.depotStocks||[]).filter(ds=>{
@@ -8065,6 +8081,98 @@ try {
 } catch(e){ alert("Erreur PDF : "+e.message); }
 };
 
+// PDF fiche de prospection (catalogue sans quantités + cases à cocher intérêt)
+const genererProspectionPDF = async (offre, produits) => {
+try {
+  await new Promise((res,rej)=>{
+    if((window as any).jspdf){res(null);return;}
+    const s=document.createElement("script");
+    s.src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";
+    s.onload=res;s.onerror=rej;document.head.appendChild(s);
+  });
+  const {jsPDF}=(window as any).jspdf;
+  const doc=new jsPDF({unit:"mm",format:"a4"});
+  const W=210; const mg=14;
+  doc.setFillColor(242,201,76); doc.rect(0,0,W,8,"F");
+  doc.setFont("helvetica","bold"); doc.setFontSize(20); doc.setTextColor(10,10,10);
+  doc.text("GOÛTSTOSO",mg,22);
+  doc.setFont("helvetica","normal"); doc.setFontSize(8); doc.setTextColor(100,100,100);
+  doc.text("Liqueurs artisanales · Jordan Montanaro",mg,28);
+  doc.text("Rue des Sources 19 · 2613 Villeret · admin@goutstoso.ch",mg,33);
+  doc.setFillColor(10,10,10); doc.roundedRect(W-90,12,76,28,3,3,"F");
+  doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.setTextColor(242,201,76);
+  doc.text("FICHE DE PROSPECTION",W-52,22,{align:"center"});
+  doc.setFontSize(8); doc.setTextColor(255,255,255);
+  doc.text("Tarifs partenaires "+new Date().getFullYear(),W-52,28,{align:"center"});
+  doc.text("Confidentiel · Réservé revendeurs",W-52,33,{align:"center"});
+  doc.setDrawColor(230,230,228); doc.setLineWidth(0.4); doc.line(mg,42,W-mg,42);
+  let y=50;
+  if(offre.clientNom){
+    doc.setFillColor(249,249,246); doc.rect(mg,y-4,90,20,"F");
+    doc.setFont("helvetica","bold"); doc.setFontSize(8); doc.setTextColor(115,115,115);
+    doc.text("DESTINATAIRE",mg+4,y+1);
+    doc.setFont("helvetica","bold"); doc.setFontSize(10); doc.setTextColor(10,10,10);
+    doc.text(offre.clientNom,mg+4,y+8);
+    if(offre.clientContact){doc.setFont("helvetica","normal");doc.setFontSize(8);doc.setTextColor(80,80,80);doc.text(offre.clientContact,mg+4,y+14);}
+    y+=28;
+  }
+  doc.setFont("helvetica","italic"); doc.setFontSize(9); doc.setTextColor(60,60,60);
+  const intro="Madame, Monsieur,\n\nNous avons le plaisir de vous présenter notre gamme de liqueurs artisanales Goûtstoso. Vous trouverez ci-dessous nos produits et tarifs préférentiels réservés aux partenaires revendeurs et dépositaires agréés.";
+  const introLines=doc.splitTextToSize(intro,W-mg*2);
+  doc.text(introLines,mg,y); y+=introLines.length*5+8;
+  const cols=[{l:"Produit",w:58},{l:"Format",w:18},{l:"Alcool",w:16},{l:"Description",w:58},{l:"Prix public",w:22},{l:"Prix partenaire",w:28}];
+  const tableW=cols.reduce((s,c)=>s+c.w,0);
+  const startX=(W-tableW)/2;
+  doc.setFillColor(10,10,10); doc.rect(startX,y,tableW,8,"F");
+  let cx=startX;
+  cols.forEach(c=>{doc.setFont("helvetica","bold");doc.setFontSize(7);doc.setTextColor(242,201,76);doc.text(c.l,cx+c.w/2,y+5.5,{align:"center"});cx+=c.w;});
+  y+=8;
+  const prodActifs=(produits||[]).filter(p=>p.actif&&!p.nom.includes("Coffret"));
+  prodActifs.forEach((prod,i)=>{
+    const bg=i%2===0?[255,255,255]:[249,249,246];
+    doc.setFillColor(bg[0],bg[1],bg[2]); doc.rect(startX,y,tableW,10,"F");
+    doc.setDrawColor(235,235,230); doc.setLineWidth(0.2); doc.line(startX,y+10,startX+tableW,y+10);
+    const desc=(prod.description||"").substring(0,34);
+    const vals=[prod.nom+" "+prod.variante,prod.format,prod.alcool||"30% vol.",desc+"…","CHF "+(prod.prixClient||0).toFixed(2),"CHF "+(prod.prixRevendeur||0).toFixed(2)];
+    cx=startX;
+    vals.forEach((v,vi)=>{
+      doc.setFont("helvetica",vi===0?"bold":"normal"); doc.setFontSize(7.5);
+      doc.setTextColor(vi===0?10:60,vi===0?10:60,vi===0?10:60);
+      const mw=cols[vi].w-2;
+      const fitted=doc.getTextWidth(v)>mw?doc.splitTextToSize(v,mw)[0]+"…":v;
+      doc.text(fitted,cx+cols[vi].w/2,y+6.5,{align:"center"}); cx+=cols[vi].w;
+    });
+    y+=10;
+  });
+  y+=8;
+  doc.setFillColor(254,249,231); doc.rect(mg,y,W-mg*2,28,"F");
+  doc.setFont("helvetica","bold"); doc.setFontSize(8); doc.setTextColor(146,64,14);
+  doc.text("CONDITIONS PARTENAIRES",mg+4,y+5);
+  doc.setFont("helvetica","normal"); doc.setFontSize(7.5); doc.setTextColor(100,100,100);
+  doc.text("• Prix en CHF, hors TVA (Goûtstoso non assujetti à la TVA)",mg+4,y+11);
+  doc.text("• Formule DÉPÔT-VENTE : mise en rayon sans avance de fonds, facturation le 20 de chaque mois",mg+4,y+17);
+  doc.text("• Formule ACHAT FERME : commande et facturation globale, tarif dégressif selon volume",mg+4,y+23);
+  y+=34;
+  doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.setTextColor(10,10,10);
+  doc.text("RETOUR D'INTÉRÊT",mg,y); y+=8;
+  doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.setTextColor(60,60,60);
+  doc.text("Veuillez cocher votre choix et retourner ce document à admin@goutstoso.ch",mg,y); y+=10;
+  const checks=["☐  Intéressé(e) par une collaboration en DÉPÔT-VENTE","☐  Intéressé(e) par une collaboration en ACHAT FERME","☐  Pas intéressé(e) pour le moment"];
+  checks.forEach(c=>{doc.setFont("helvetica","normal");doc.setFontSize(10);doc.setTextColor(10,10,10);doc.text(c,mg,y);y+=9;});
+  y+=6;
+  doc.setFillColor(240,240,238); doc.rect(mg,y,W-mg*2,20,"F");
+  doc.setFont("helvetica","normal"); doc.setFontSize(8); doc.setTextColor(100,100,100);
+  doc.text("Nom & prénom : ___________________________   Fonction : ___________________________",mg+4,y+6);
+  doc.text("Date : ___________________   Signature / cachet : ___________________________",mg+4,y+14);
+  doc.setDrawColor(230,230,228); doc.setLineWidth(0.3); doc.line(mg,282,W-mg,282);
+  doc.setFont("helvetica","normal"); doc.setFontSize(7); doc.setTextColor(150,150,150);
+  doc.text("Goûtstoso - Jordan Montanaro · Rue des Sources 19 · 2613 Villeret · admin@goutstoso.ch · www.goutstoso.ch",W/2,286,{align:"center"});
+  doc.setFillColor(242,201,76); doc.rect(0,292,W,5,"F");
+  const fname=offre.clientNom?"Prospection-"+offre.clientNom.replace(/\s+/g,"-")+".pdf":"Fiche-Prospection-Goutstoso.pdf";
+  doc.save(fname);
+} catch(e){ alert("Erreur PDF : "+e.message); }
+};
+
 const Offres = ({st, setSt}) => {
 const [modal, setModal] = useState(null);
 const [viewId, setViewId] = useState(null);
@@ -8106,13 +8214,16 @@ const emptyForm = () => ({
   introText:"Nous avons le plaisir de vous soumettre notre offre commerciale pour nos liqueurs artisanales Goûtstoso. Vous trouverez ci-dessous notre tarification partenaire ainsi que le détail de nos produits disponibles.",
   lignes:(st.produits||[]).filter(p=>p.actif&&!p.nom.includes("Coffret")).map(p=>({produitId:p.id,qte:0})),
   notes:"",
-  statut:"brouillon",
+  statut:"prospection",
+  interetConfirme:false,
+  typeContrat:"",
 });
 
 const saveOffre = () => {
   if(!form.clientNom && !form.partenaireId){ alert("Renseigne au moins le nom du destinataire ou un partenaire"); return; }
   const lignesOk = (form.lignes||[]).filter(l=>l.produitId&&l.qte>0);
-  if(!lignesOk.length){ alert("Ajoute au moins un produit avec une quantité"); return; }
+  const needsLignes = !["prospection","intérêt"].includes(form.statut);
+  if(needsLignes && !lignesOk.length){ alert("Ajoute au moins un produit avec une quantité"); return; }
   const pv = (st.partenaires||[]).find(p=>p.id===form.partenaireId);
   const saved = {
     ...form,
@@ -8228,10 +8339,12 @@ const totalOffre = (offre) => {
 };
 
 const statutConfig = {
-  "brouillon":{color:"#6B7280",bg:"#F3F4F6",label:"Brouillon"},
-  "envoyée":{color:"#92400E",bg:"#FEF9E7",label:"Envoyée"},
-  "acceptée":{color:"#166534",bg:"#DCFCE7",label:"Acceptée ✓"},
-  "refusée":{color:"#991B1B",bg:"#FEE2E2",label:"Refusée"},
+  "prospection":{color:"#1E40AF",bg:"#DBEAFE",label:"🔍 Prospection"},
+  "intérêt":{color:"#6D28D9",bg:"#EDE9FE",label:"✅ Intérêt confirmé"},
+  "brouillon":{color:"#6B7280",bg:"#F3F4F6",label:"📝 Offre rédigée"},
+  "envoyée":{color:"#92400E",bg:"#FEF9E7",label:"✉️ Offre envoyée"},
+  "acceptée":{color:"#166534",bg:"#DCFCE7",label:"✍️ Signée ✓"},
+  "refusée":{color:"#991B1B",bg:"#FEE2E2",label:"❌ Refusée"},
 };
 
 const updLigne = (i,v) => setForm(p=>({...p,lignes:p.lignes.map((l,j)=>j===i?{...l,qte:+v}:l)}));
@@ -8239,7 +8352,41 @@ const updLigne = (i,v) => setForm(p=>({...p,lignes:p.lignes.map((l,j)=>j===i?{..
 // Vue détail
 if(view) return (
 <div className="fade">
-  <button onClick={()=>setViewId(null)} style={{display:"flex",alignItems:"center",gap:6,background:"none",border:"none",color:"#9CA3AF",fontSize:13,marginBottom:16,padding:0,cursor:"pointer"}}>← Retour</button>
+  <button onClick={()=>setViewId(null)} style={{display:"flex",alignItems:"center",gap:6,background:"none",border:"none",color:"#9CA3AF",fontSize:13,marginBottom:12,padding:0,cursor:"pointer"}}>← Retour</button>
+
+  {/* ── PIPELINE ── */}
+  {(()=>{
+    const pipeline=[
+      {key:"prospection",label:"Prospection",emoji:"🔍"},
+      {key:"intérêt",label:"Intérêt",emoji:"✅"},
+      {key:"offre",label:"Offre",emoji:"📋"},
+      {key:"signée",label:"Signée",emoji:"✍️"},
+      {key:"contrat",label:"Contrat",emoji:"📄"},
+    ];
+    const ordre=["prospection","intérêt","brouillon","envoyée","acceptée"];
+    const ci=ordre.indexOf(view.statut);
+    const step=ci<=1?ci:ci<=3?2:3;
+    const contratOk=!!view.typeContrat;
+    return (
+      <div style={{display:"flex",alignItems:"center",gap:0,marginBottom:16,background:"#F9F9F6",borderRadius:12,padding:"10px 8px",overflowX:"auto"}}>
+        {pipeline.map((s,i)=>{
+          const done=(i<step)||(i===4&&contratOk);
+          const active=(i===step&&!contratOk&&i<4)||(i===4&&contratOk);
+          return (
+            <React.Fragment key={s.key}>
+              <div style={{display:"flex",flexDirection:"column",alignItems:"center",minWidth:54,opacity:done||active?1:0.4}}>
+                <div style={{width:28,height:28,borderRadius:"50%",background:done?"#166534":active?"#0A0A0A":"#E5E7EB",display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,marginBottom:3,flexShrink:0}}>
+                  {done?<span style={{color:"#fff",fontSize:11,fontWeight:700}}>✓</span>:<span>{s.emoji}</span>}
+                </div>
+                <p style={{fontSize:8,fontWeight:active||done?700:400,color:done?"#166534":active?"#0A0A0A":"#9CA3AF",textAlign:"center",whiteSpace:"nowrap"}}>{s.label}</p>
+              </div>
+              {i<4&&<div style={{flex:1,height:2,background:done?"#166534":"#E5E7EB",minWidth:8,maxWidth:24,marginBottom:12,flexShrink:0}}/>}
+            </React.Fragment>
+          );
+        })}
+      </div>
+    );
+  })()}
 
   <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:4}}>
     <div style={{flex:1,minWidth:0}}>
@@ -8255,6 +8402,78 @@ if(view) return (
   </div>
   <p style={{fontSize:11,color:"#9CA3AF",marginBottom:10}}>Émise le {fmt(view.date)} · Valable jusqu'au {fmt(view.dateValidite||view.date)}</p>
 
+  {/* ── ÉTAPE 1 : PROSPECTION ── */}
+  {(view.statut==="prospection") && (
+    <Card style={{padding:"14px",marginBottom:12,background:"#EFF6FF",border:"1.5px solid #BFDBFE"}}>
+      <p style={{fontSize:12,fontWeight:700,color:"#1E40AF",marginBottom:10}}>🔍 Étape 1 — Prospection</p>
+      <button onClick={()=>genererProspectionPDF(view,st.produits)} style={{width:"100%",background:"#1E40AF",color:"#fff",border:"none",borderRadius:9,padding:"10px",fontWeight:700,fontSize:12,cursor:"pointer",marginBottom:8,display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+        📋 Télécharger la fiche produits (PDF)
+      </button>
+      {view.clientEmail&&(
+        <button onClick={()=>{
+          const sujet=encodeURIComponent("Goûtstoso · Fiche de prospection");
+          const corps=encodeURIComponent(`Madame, Monsieur,\n\nNous avons le plaisir de vous faire parvenir notre fiche de prospection présentant la gamme Goûtstoso et nos tarifs partenaires.\n\nNous vous invitons à consulter le document joint et à nous retourner la fiche complétée (intérêt et type de collaboration souhaité) par retour d'email.\n\nNous sommes à votre disposition pour tout renseignement.\n\nCordialement,\nJordan Montanaro\nGoûtstoso\nadmin@goutstoso.ch · +41 79 522 06 56`);
+          window.open(`mailto:${view.clientEmail}?subject=${sujet}&body=${corps}`,"_blank");
+        }} style={{width:"100%",background:"#fff",border:"1.5px solid #BFDBFE",borderRadius:9,padding:"9px",fontWeight:600,fontSize:12,color:"#1E40AF",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+          ✉️ Envoyer la fiche par email
+        </button>
+      )}
+      <div style={{marginTop:10,paddingTop:10,borderTop:"1px solid #BFDBFE"}}>
+        <p style={{fontSize:11,color:"#374151",marginBottom:8}}>Le partenaire a confirmé son intérêt ?</p>
+        <button onClick={()=>setSt(p=>({...p,offres:p.offres.map(o=>o.id===view.id?{...o,statut:"intérêt",interetConfirme:true}:o)}))}
+          style={{width:"100%",background:"#6D28D9",color:"#fff",border:"none",borderRadius:9,padding:"10px",fontWeight:700,fontSize:12,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+          ✅ Oui — Passer à l'étape Offre
+        </button>
+      </div>
+    </Card>
+  )}
+
+  {/* ── ÉTAPE 2 : INTÉRÊT CONFIRMÉ → rédiger offre ── */}
+  {(view.statut==="intérêt") && (
+    <Card style={{padding:"14px",marginBottom:12,background:"#F5F3FF",border:"1.5px solid #DDD6FE"}}>
+      <p style={{fontSize:12,fontWeight:700,color:"#6D28D9",marginBottom:10}}>✅ Étape 2 — Intérêt confirmé · Rédiger l'offre</p>
+      <p style={{fontSize:11,color:"#374151",marginBottom:10}}>L'établissement est intéressé. Rédige maintenant l'offre commerciale avec les quantités souhaitées, puis envoie-la pour signature.</p>
+      <button onClick={()=>{setForm({...view,statut:"brouillon"});setModal("form");setViewId(null);}}
+        style={{width:"100%",background:"#6D28D9",color:"#fff",border:"none",borderRadius:9,padding:"10px",fontWeight:700,fontSize:12,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+        📝 Rédiger l'offre commerciale
+      </button>
+    </Card>
+  )}
+
+  {/* ── TYPE DE CONTRAT (après signature) ── */}
+  {view.statut==="acceptée" && !view.typeContrat && (
+    <Card style={{padding:"14px",marginBottom:12,background:"#F0FDF4",border:"1.5px solid #86EFAC"}}>
+      <p style={{fontSize:12,fontWeight:700,color:"#166534",marginBottom:6}}>🎉 Offre signée ! Choisis le type de contrat :</p>
+      <p style={{fontSize:11,color:"#374151",marginBottom:12}}>Ce choix détermine comment tu vas facturer ce partenaire.</p>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+        <button onClick={()=>setSt(p=>({...p,offres:p.offres.map(o=>o.id===view.id?{...o,typeContrat:"depot-vente"}:o)}))}
+          style={{background:"#0A0A0A",color:"#F2C94C",border:"none",borderRadius:10,padding:"14px 8px",fontWeight:700,fontSize:12,cursor:"pointer",textAlign:"center"}}>
+          🏪 Dépôt-vente<br/><span style={{fontSize:10,fontWeight:400,color:"#E8B64C"}}>Facture le 20/mois</span>
+        </button>
+        <button onClick={()=>setSt(p=>({...p,offres:p.offres.map(o=>o.id===view.id?{...o,typeContrat:"achat-avance"}:o)}))}
+          style={{background:"#1E40AF",color:"#fff",border:"none",borderRadius:10,padding:"14px 8px",fontWeight:700,fontSize:12,cursor:"pointer",textAlign:"center"}}>
+          💳 Achat en avance<br/><span style={{fontSize:10,fontWeight:400,color:"#93C5FD"}}>Facture globale</span>
+        </button>
+      </div>
+    </Card>
+  )}
+
+  {/* ── CONTRAT ACTIF ── */}
+  {view.statut==="acceptée" && view.typeContrat && (
+    <Card style={{padding:"12px 14px",marginBottom:12,background:view.typeContrat==="depot-vente"?"#0A0A0A":"#EFF6FF",border:"none"}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+        <div>
+          <p style={{fontSize:11,fontWeight:700,color:view.typeContrat==="depot-vente"?"#F2C94C":"#1E40AF"}}>
+            {view.typeContrat==="depot-vente"?"🏪 Dépôt-vente · Facturation le 20/mois":"💳 Achat en avance · Facture globale"}
+          </p>
+          {view.typeContrat==="depot-vente"&&<p style={{fontSize:10,color:"#9CA3AF",marginTop:2}}>Un rappel s'affiche dans le tableau de bord chaque 20 du mois</p>}
+        </div>
+        <button onClick={()=>setSt(p=>({...p,offres:p.offres.map(o=>o.id===view.id?{...o,typeContrat:""}:o)}))}
+          style={{background:"none",border:"none",fontSize:10,color:"#9CA3AF",cursor:"pointer",padding:0}}>changer</button>
+      </div>
+    </Card>
+  )}
+
   {/* Bloc infos partenaire */}
   <Card style={{padding:"10px 14px",marginBottom:14,background:"#F9F9F6",border:"1px solid #EAE7E0"}}>
     <div style={{display:"grid",gridTemplateColumns:"auto 1fr",gap:"4px 12px",fontSize:11}}>
@@ -8268,7 +8487,7 @@ if(view) return (
 
   {/* Actions */}
   <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:8}}>
-    <button onClick={()=>genererOffrePDF(view,st)} style={{background:"#111",color:"#F2C94C",border:"none",borderRadius:10,padding:"11px 4px",fontWeight:700,fontSize:11,cursor:"pointer"}}>📄 PDF</button>
+    <button onClick={()=>genererOffrePDF(view,st)} style={{background:"#111",color:"#F2C94C",border:"none",borderRadius:10,padding:"11px 4px",fontWeight:700,fontSize:11,cursor:"pointer"}}>📄 PDF offre</button>
     <button onClick={()=>{setForm({...view});setModal("form");setViewId(null);}} style={{background:"#FEF9E7",border:"1.5px solid #F2C94C",borderRadius:10,padding:"11px 4px",fontWeight:600,fontSize:11,cursor:"pointer",color:"#92400E"}}>✏️ Modifier</button>
     <button onClick={()=>supprimerOffre(view.id)} style={{background:"#FEE2E2",border:"none",borderRadius:10,padding:"11px 4px",fontWeight:600,fontSize:11,cursor:"pointer",color:"#991B1B"}}>🗑 Suppr.</button>
   </div>
@@ -8299,12 +8518,12 @@ if(view) return (
 
   {/* Statut */}
   <div style={{display:"flex",gap:6,marginBottom:14,flexWrap:"wrap"}}>
-    {["brouillon","envoyée","acceptée","refusée"].map(s=>(
+    {["prospection","intérêt","brouillon","envoyée","acceptée","refusée"].map(s=>(
       <button key={s} onClick={()=>setStatut(view.id,s)}
-        style={{padding:"5px 12px",borderRadius:20,fontSize:11,fontWeight:700,cursor:"pointer",
+        style={{padding:"5px 10px",borderRadius:20,fontSize:10,fontWeight:700,cursor:"pointer",
           background:view.statut===s?"#111":"#F3F4F6",color:view.statut===s?"#F2C94C":"#6B7280",
           border:view.statut===s?"none":"1px solid #E5E7EB"}}>
-        {statutConfig[s].label}
+        {statutConfig[s]?.label||s}
       </button>
     ))}
   </div>
@@ -8373,28 +8592,47 @@ if(view) return (
 
 return (
 <div className="fade">
-<SectionTitle action={<Btn icon="plus" onClick={()=>{setForm(emptyForm());setModal("form");}}>Nouvelle offre</Btn>}>Offres</SectionTitle>
+<SectionTitle action={<Btn icon="plus" onClick={()=>{setForm(emptyForm());setModal("form");}}>+ Prospection</Btn>}>Pipeline Offres</SectionTitle>
 
-{/* Stats */}
+{/* Stats pipeline */}
 {(()=>{
-  const total=offres.length;
+  const prospections=offres.filter(o=>o.statut==="prospection").length;
+  const interets=offres.filter(o=>o.statut==="intérêt").length;
   const envoyees=offres.filter(o=>o.statut==="envoyée").length;
   const acceptees=offres.filter(o=>o.statut==="acceptée").length;
+  const depotVente=offres.filter(o=>o.statut==="acceptée"&&o.typeContrat==="depot-vente").length;
+  const achatAvance=offres.filter(o=>o.statut==="acceptée"&&o.typeContrat==="achat-avance").length;
   const caPotentiel=sum(offres.filter(o=>o.statut!=="refusée").map(o=>totalOffre(o)));
   return (
-    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:8,marginBottom:18}}>
+    <>
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:8,marginBottom:8}}>
       {[
-        {l:"Total",v:total,bg:"#F9F9F6",txt:"#374151",sub:""},
-        {l:"Envoyées",v:envoyees,bg:"#FEF9E7",txt:"#92400E",sub:""},
-        {l:"Acceptées",v:acceptees,bg:"#F0FDF4",txt:"#166534",sub:""},
-        {l:"CA potentiel",v:chf(caPotentiel),bg:"#0A0A0A",txt:"#F2C94C",sub:""},
+        {l:"Prospections",v:prospections,bg:"#DBEAFE",txt:"#1E40AF"},
+        {l:"Intérêt",v:interets,bg:"#EDE9FE",txt:"#6D28D9"},
+        {l:"Offres env.",v:envoyees,bg:"#FEF9E7",txt:"#92400E"},
+        {l:"Signées",v:acceptees,bg:"#F0FDF4",txt:"#166534"},
       ].map((k,i)=>(
-        <div key={i} style={{background:k.bg,borderRadius:12,padding:"10px 6px",textAlign:"center",border:"1px solid "+(i<3?"#EAE7E0":"#0A0A0A")}}>
-          <p style={{fontSize:16,fontWeight:700,fontFamily:"'Cormorant Garamond',serif",color:k.txt}}>{k.v}</p>
-          <p style={{fontSize:9,color:i===3?"#E8B64C":k.txt,opacity:i===3?1:.8,marginTop:2,fontWeight:600,textTransform:"uppercase"}}>{k.l}</p>
+        <div key={i} style={{background:k.bg,borderRadius:12,padding:"10px 6px",textAlign:"center",border:"1px solid #EAE7E0"}}>
+          <p style={{fontSize:18,fontWeight:700,fontFamily:"'Cormorant Garamond',serif",color:k.txt}}>{k.v}</p>
+          <p style={{fontSize:8,color:k.txt,opacity:.8,marginTop:2,fontWeight:600,textTransform:"uppercase"}}>{k.l}</p>
         </div>
       ))}
     </div>
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:18}}>
+      <div style={{background:"#0A0A0A",borderRadius:12,padding:"10px 6px",textAlign:"center"}}>
+        <p style={{fontSize:13,fontWeight:700,color:"#F2C94C"}}>{depotVente}</p>
+        <p style={{fontSize:8,color:"#E8B64C",marginTop:2,fontWeight:600}}>DÉPÔT-VENTE</p>
+      </div>
+      <div style={{background:"#1E40AF",borderRadius:12,padding:"10px 6px",textAlign:"center"}}>
+        <p style={{fontSize:13,fontWeight:700,color:"#fff"}}>{achatAvance}</p>
+        <p style={{fontSize:8,color:"#93C5FD",marginTop:2,fontWeight:600}}>ACHAT AVANCE</p>
+      </div>
+      <div style={{background:"#0A0A0A",borderRadius:12,padding:"10px 6px",textAlign:"center"}}>
+        <p style={{fontSize:13,fontWeight:700,color:"#F2C94C"}}>{chf(caPotentiel)}</p>
+        <p style={{fontSize:8,color:"#E8B64C",marginTop:2,fontWeight:600}}>CA POTENTIEL</p>
+      </div>
+    </div>
+    </>
   );
 })()}
 
@@ -8555,7 +8793,7 @@ return (
 
       {/* Statut */}
       <Sel label="Statut" value={form.statut} onChange={v=>setForm(p=>({...p,statut:v}))}
-        options={[{v:"brouillon",l:"Brouillon"},{v:"envoyée",l:"Envoyée"},{v:"acceptée",l:"Acceptée"},{v:"refusée",l:"Refusée"}]}/>
+        options={[{v:"prospection",l:"🔍 Prospection"},{v:"intérêt",l:"✅ Intérêt confirmé"},{v:"brouillon",l:"📝 Offre rédigée"},{v:"envoyée",l:"✉️ Offre envoyée"},{v:"acceptée",l:"✍️ Signée"},{v:"refusée",l:"❌ Refusée"}]}/>
 
       <Btn onClick={saveOffre} full icon="check">Enregistrer l'offre</Btn>
     </div>
