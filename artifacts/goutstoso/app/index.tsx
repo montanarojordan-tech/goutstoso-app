@@ -154,6 +154,7 @@ contrats:[
 ],
 factures:[],
 offres:[],
+production:{recettes:[], macerations:[], historique:[]},
 transactions:[
 // Journal comptable réel - extrait des images
 {id:"t1",date:"2026-04-27",compte:"4200",libelle:"Bouteilles / Bouchons",type:"depense",categorie:"Emballages",montant:289.90,description:"Bouteilles et bouchons"},
@@ -8259,6 +8260,500 @@ return (
 };
 
 // ══════════════════════════════════════════════════════════════
+// PAGE: PRODUCTION — Recettes, calculateur, macérations, historique
+// ══════════════════════════════════════════════════════════════
+
+const RECETTES_DEFAULT = [
+  {
+    id:"limonta",
+    nom:"Limonta",
+    description:"Liqueur de citron jaune",
+    couleur:"#F2C94C",
+    ingredients:[
+      {nom:"Zestes de citron jaune",quantite:320,unite:"g",parLitre:true},
+      {nom:"Alcool pur 96°",quantite:1,unite:"L",parLitre:false},
+      {nom:"Eau osmosée",quantite:0.85,unite:"L",parLitre:true},
+      {nom:"Sucre cristal",quantite:780,unite:"g",parLitre:true},
+    ],
+    dureeMacerationJours:30,
+    rendementBouteilles:10,
+    volumeBouteille:500,
+    titreAlcool:30,
+    notes:"Macération à l'obscurité, filtration fine avant sucrage.",
+  },
+  {
+    id:"limelo",
+    nom:"Limelo",
+    description:"Liqueur de citron vert",
+    couleur:"#6DBE45",
+    ingredients:[
+      {nom:"Zestes de citron vert",quantite:300,unite:"g",parLitre:true},
+      {nom:"Alcool pur 96°",quantite:1,unite:"L",parLitre:false},
+      {nom:"Eau osmosée",quantite:0.85,unite:"L",parLitre:true},
+      {nom:"Sucre cristal",quantite:750,unite:"g",parLitre:true},
+    ],
+    dureeMacerationJours:25,
+    rendementBouteilles:10,
+    volumeBouteille:500,
+    titreAlcool:29,
+    notes:"Zestes pressés délicatement, ne pas inclure le ziste blanc.",
+  },
+  {
+    id:"clementino",
+    nom:"Clementino",
+    description:"Liqueur de clémentine",
+    couleur:"#F97316",
+    ingredients:[
+      {nom:"Zestes de clémentine",quantite:380,unite:"g",parLitre:true},
+      {nom:"Alcool pur 96°",quantite:1,unite:"L",parLitre:false},
+      {nom:"Eau osmosée",quantite:0.9,unite:"L",parLitre:true},
+      {nom:"Sucre cristal",quantite:820,unite:"g",parLitre:true},
+    ],
+    dureeMacerationJours:28,
+    rendementBouteilles:10,
+    volumeBouteille:500,
+    titreAlcool:31,
+    notes:"Saison optimale : décembre–janvier. Préférer des clémentines corses.",
+  },
+];
+
+const Production = ({st, setSt}) => {
+  const prod = st.production || {recettes: RECETTES_DEFAULT, macerations:[], historique:[]};
+  const setProd = (fn) => setSt(p=>{
+    const next = typeof fn === "function" ? fn(p.production||{recettes:RECETTES_DEFAULT,macerations:[],historique:[]}) : fn;
+    return {...p, production: next};
+  });
+
+  const [onglet, setOnglet] = useState<"recettes"|"calculateur"|"macerations"|"historique">("recettes");
+  const [recetteModal, setRecetteModal] = useState<null|"new"|any>(null);
+  const [macerationModal, setMacerationModal] = useState<null|"new"|any>(null);
+  const [batchModal, setBatchModal] = useState<null|any>(null);
+  const [calcRecetteId, setCalcRecetteId] = useState(prod.recettes?.[0]?.id || "limonta");
+  const [calcLitres, setCalcLitres] = useState("10");
+
+  const recettes = prod.recettes || RECETTES_DEFAULT;
+  const macerations = prod.macerations || [];
+  const historique = prod.historique || [];
+
+  // ── RECETTE FORM ──
+  const emptyRecette = () => ({id:uid(),nom:"",description:"",couleur:"#8B5CF6",ingredients:[{nom:"",quantite:0,unite:"g",parLitre:true}],dureeMacerationJours:30,rendementBouteilles:10,volumeBouteille:500,titreAlcool:30,notes:""});
+  const [rForm, setRForm] = useState<any>(emptyRecette());
+  const openRecette = (r=null) => { setRForm(r?{...r,ingredients:r.ingredients.map(i=>({...i}))}:emptyRecette()); setRecetteModal(r||"new"); };
+  const saveRecette = () => {
+    if(!rForm.nom.trim()){alert("Nom de recette requis");return;}
+    setProd(p=>{
+      const existing = (p.recettes||[]).find(r=>r.id===rForm.id);
+      const recettes = existing ? (p.recettes||[]).map(r=>r.id===rForm.id?rForm:r) : [...(p.recettes||[]),rForm];
+      return {...p,recettes};
+    });
+    setRecetteModal(null);
+  };
+  const deleteRecette = (id) => {
+    if(!window.confirm("Supprimer cette recette ?")) return;
+    setProd(p=>({...p,recettes:(p.recettes||[]).filter(r=>r.id!==id)}));
+  };
+
+  // ── CALCULATEUR ──
+  const calcRecette = recettes.find(r=>r.id===calcRecetteId) || recettes[0];
+  const litres = parseFloat(calcLitres)||0;
+  const calcIngredients = calcRecette ? calcRecette.ingredients.map(ing=>({
+    ...ing,
+    total: ing.parLitre ? ing.quantite * litres : ing.quantite,
+    totalDisplay: ing.parLitre ? (ing.quantite * litres) : ing.quantite,
+  })) : [];
+  const bouteilles = calcRecette ? Math.floor(litres * calcRecette.rendementBouteilles) : 0;
+
+  // ── MACERATION FORM ──
+  const emptyMaceration = () => ({id:uid(),recetteId:recettes[0]?.id||"",litresAlcool:"",dateDebut:today(),statut:"en_cours",notes:""});
+  const [mForm, setMForm] = useState<any>(emptyMaceration());
+  const openMaceration = (m=null) => { setMForm(m?{...m}:emptyMaceration()); setMacerationModal(m||"new"); };
+  const saveMaceration = () => {
+    if(!mForm.litresAlcool||!mForm.recetteId){alert("Recette et quantité requises");return;}
+    setProd(p=>{
+      const existing = (p.macerations||[]).find(m=>m.id===mForm.id);
+      const macerations = existing ? (p.macerations||[]).map(m=>m.id===mForm.id?mForm:m) : [...(p.macerations||[]),mForm];
+      return {...p,macerations};
+    });
+    setMacerationModal(null);
+  };
+  const terminerMaceration = (mac) => {
+    const recette = recettes.find(r=>r.id===mac.recetteId);
+    const litres = parseFloat(mac.litresAlcool)||0;
+    const bouteilles = recette ? Math.floor(litres * recette.rendementBouteilles) : 0;
+    const batch = {
+      id:uid(),
+      recetteId:mac.recetteId,
+      recetteNom:recette?.nom||"",
+      litresAlcool:litres,
+      bouteilles,
+      dateDebut:mac.dateDebut,
+      dateFin:today(),
+      notes:mac.notes||"",
+    };
+    setProd(p=>({
+      ...p,
+      macerations:(p.macerations||[]).filter(m=>m.id!==mac.id),
+      historique:[batch,...(p.historique||[])],
+    }));
+  };
+  const supprimerMaceration = (id) => {
+    if(!window.confirm("Supprimer cette macération ?")) return;
+    setProd(p=>({...p,macerations:(p.macerations||[]).filter(m=>m.id!==id)}));
+  };
+
+  // ── DATE PRÊTE ──
+  const datePreteStr = (dateDebut, jours) => {
+    try {
+      const d = new Date(dateDebut);
+      d.setDate(d.getDate()+jours);
+      return d.toLocaleDateString("fr-CH",{day:"2-digit",month:"2-digit",year:"numeric"});
+    } catch(e){ return "?"; }
+  };
+  const joursRestants = (dateDebut, jours) => {
+    try {
+      const fin = new Date(dateDebut);
+      fin.setDate(fin.getDate()+jours);
+      const diff = Math.ceil((fin.getTime()-Date.now())/(1000*60*60*24));
+      return diff;
+    } catch(e){ return 0; }
+  };
+
+  const COULEURS = ["#F2C94C","#6DBE45","#F97316","#8B5CF6","#EC4899","#14B8A6","#3B82F6","#EF4444"];
+
+  const cardStyle:any = {background:"#fff",borderRadius:14,padding:16,marginBottom:12,border:"1px solid #EAE7E0",boxShadow:"0 1px 4px rgba(0,0,0,.04)"};
+  const btnPrimary:any = {background:"#0A0A0A",color:"#F2C94C",border:"none",borderRadius:9,padding:"10px 18px",fontWeight:700,fontSize:13,cursor:"pointer"};
+  const btnSecondary:any = {background:"#F4F4F2",color:"#374151",border:"none",borderRadius:9,padding:"9px 14px",fontWeight:500,fontSize:12,cursor:"pointer"};
+  const btnDanger:any = {background:"#FEF2F2",color:"#B91C1C",border:"none",borderRadius:9,padding:"9px 14px",fontWeight:500,fontSize:12,cursor:"pointer"};
+  const inputStyle:any = {width:"100%",border:"1px solid #EAE7E0",borderRadius:8,padding:"9px 11px",fontSize:13,fontFamily:"inherit",background:"#FAFAF7",boxSizing:"border-box"};
+  const labelStyle:any = {fontSize:11,fontWeight:600,color:"#737373",textTransform:"uppercase",letterSpacing:"0.05em",display:"block",marginBottom:4};
+
+  const tabs = [
+    {id:"recettes",l:"📖 Recettes"},
+    {id:"calculateur",l:"🧮 Calculateur"},
+    {id:"macerations",l:"🫙 Macérations"},
+    {id:"historique",l:"📦 Historique"},
+  ];
+
+  return (
+  <div style={{maxWidth:700,margin:"0 auto",paddingBottom:40}}>
+    <SectionTitle>🏭 Production</SectionTitle>
+
+    {/* Tabs */}
+    <div style={{display:"flex",gap:6,overflowX:"auto",paddingBottom:4,marginBottom:18,flexWrap:"nowrap"}}>
+      {tabs.map(t=>(
+        <button key={t.id} onClick={()=>setOnglet(t.id as any)} style={{
+          background:onglet===t.id?"#0A0A0A":"#fff",
+          color:onglet===t.id?"#F2C94C":"#525252",
+          border:onglet===t.id?"none":"1px solid #EAE7E0",
+          borderRadius:8,padding:"7px 13px",fontSize:11.5,fontWeight:onglet===t.id?700:500,
+          cursor:"pointer",whiteSpace:"nowrap",flexShrink:0,
+        }}>{t.l}</button>
+      ))}
+    </div>
+
+    {/* ── RECETTES ── */}
+    {onglet==="recettes" && (
+    <div>
+      <div style={{display:"flex",justifyContent:"flex-end",marginBottom:12}}>
+        <button style={btnPrimary} onClick={()=>openRecette()}>+ Nouvelle recette</button>
+      </div>
+      {recettes.length===0 && <p style={{color:"#9CA3AF",textAlign:"center",padding:24}}>Aucune recette. Crée-en une !</p>}
+      {recettes.map(r=>(
+        <div key={r.id} style={{...cardStyle,borderLeft:`4px solid ${r.couleur||"#F2C94C"}`}}>
+          <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:8}}>
+            <div>
+              <p style={{fontWeight:700,fontSize:16,color:"#0A0A0A",marginBottom:2}}>{r.nom}</p>
+              <p style={{fontSize:12,color:"#737373",marginBottom:8}}>{r.description}</p>
+            </div>
+            <div style={{display:"flex",gap:6,flexShrink:0}}>
+              <button style={btnSecondary} onClick={()=>openRecette(r)}>Modifier</button>
+              <button style={btnDanger} onClick={()=>deleteRecette(r.id)}>✕</button>
+            </div>
+          </div>
+          <div style={{background:"#FAFAF7",borderRadius:8,padding:"10px 12px",marginBottom:8}}>
+            <p style={{fontSize:10,fontWeight:700,color:"#9CA3AF",textTransform:"uppercase",letterSpacing:".05em",marginBottom:6}}>Ingrédients (base 1 L alcool)</p>
+            {r.ingredients.map((ing,i)=>(
+              <div key={i} style={{display:"flex",justifyContent:"space-between",fontSize:12,color:"#374151",marginBottom:3}}>
+                <span>{ing.nom}</span>
+                <span style={{fontWeight:600}}>{ing.parLitre?`${ing.quantite} ${ing.unite}/L`:`${ing.quantite} ${ing.unite}`}</span>
+              </div>
+            ))}
+          </div>
+          <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+            <span style={{background:"#F0FDF4",color:"#15803D",fontSize:11,fontWeight:600,padding:"3px 8px",borderRadius:6}}>⏱ {r.dureeMacerationJours}j de macération</span>
+            <span style={{background:"#FFF7ED",color:"#C2410C",fontSize:11,fontWeight:600,padding:"3px 8px",borderRadius:6}}>🍶 {r.titreAlcool}° alc.</span>
+            <span style={{background:"#EFF6FF",color:"#1D4ED8",fontSize:11,fontWeight:600,padding:"3px 8px",borderRadius:6}}>🍾 {r.rendementBouteilles} btl/{r.volumeBouteille}ml/L</span>
+          </div>
+          {r.notes&&<p style={{fontSize:11,color:"#737373",marginTop:8,fontStyle:"italic"}}>💬 {r.notes}</p>}
+        </div>
+      ))}
+    </div>
+    )}
+
+    {/* ── CALCULATEUR ── */}
+    {onglet==="calculateur" && (
+    <div>
+      <div style={{...cardStyle,background:"#0A0A0A",color:"#fff"}}>
+        <p style={{fontSize:11,fontWeight:700,color:"#E8B64C",textTransform:"uppercase",letterSpacing:".06em",marginBottom:12}}>Calculateur de batch</p>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
+          <div>
+            <label style={{...labelStyle,color:"#9CA3AF"}}>Recette</label>
+            <select value={calcRecetteId} onChange={e=>setCalcRecetteId(e.target.value)} style={{...inputStyle,background:"#1A1A1A",color:"#fff",border:"1px solid #374151"}}>
+              {recettes.map(r=><option key={r.id} value={r.id}>{r.nom}</option>)}
+            </select>
+          </div>
+          <div>
+            <label style={{...labelStyle,color:"#9CA3AF"}}>Litres d'alcool mis en macération</label>
+            <input type="number" value={calcLitres} onChange={e=>setCalcLitres(e.target.value)} style={{...inputStyle,background:"#1A1A1A",color:"#fff",border:"1px solid #374151"}} min="0" step="0.5"/>
+          </div>
+        </div>
+        {calcRecette && litres>0 && (
+          <div style={{background:"#1A1A1A",borderRadius:10,padding:12}}>
+            <p style={{fontSize:10,fontWeight:700,color:"#9CA3AF",textTransform:"uppercase",letterSpacing:".05em",marginBottom:8}}>Quantités nécessaires</p>
+            {calcIngredients.map((ing,i)=>(
+              <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6,fontSize:13}}>
+                <span style={{color:"#D1D5DB"}}>{ing.nom}</span>
+                <span style={{fontWeight:700,color:"#F2C94C",fontSize:15}}>
+                  {ing.totalDisplay >= 1000 && ing.unite==="g"
+                    ? `${(ing.totalDisplay/1000).toFixed(2)} kg`
+                    : ing.unite==="L"
+                    ? `${ing.totalDisplay.toFixed(1)} L`
+                    : `${ing.totalDisplay % 1 === 0 ? ing.totalDisplay : ing.totalDisplay.toFixed(1)} ${ing.unite}`}
+                </span>
+              </div>
+            ))}
+            <div style={{borderTop:"1px solid #374151",marginTop:10,paddingTop:10,display:"flex",gap:16,flexWrap:"wrap"}}>
+              <div style={{textAlign:"center"}}>
+                <p style={{fontSize:10,color:"#9CA3AF"}}>Bouteilles estimées</p>
+                <p style={{fontSize:26,fontWeight:800,color:"#F2C94C"}}>{bouteilles}</p>
+                <p style={{fontSize:10,color:"#6B7280"}}>× {calcRecette.volumeBouteille}ml</p>
+              </div>
+              <div style={{textAlign:"center"}}>
+                <p style={{fontSize:10,color:"#9CA3AF"}}>Durée macération</p>
+                <p style={{fontSize:26,fontWeight:800,color:"#6DBE45"}}>{calcRecette.dureeMacerationJours}j</p>
+              </div>
+              <div style={{textAlign:"center"}}>
+                <p style={{fontSize:10,color:"#9CA3AF"}}>Titre alcoométrique</p>
+                <p style={{fontSize:26,fontWeight:800,color:"#60A5FA"}}>{calcRecette.titreAlcool}°</p>
+              </div>
+            </div>
+          </div>
+        )}
+        {litres<=0 && <p style={{color:"#6B7280",textAlign:"center",fontSize:13,marginTop:8}}>Saisis la quantité d'alcool pour calculer automatiquement.</p>}
+        {calcRecette && litres>0 && (
+          <button style={{...btnPrimary,width:"100%",marginTop:12,background:"#F2C94C",color:"#0A0A0A"}} onClick={()=>{
+            openMaceration();
+            setMForm(m=>({...m,recetteId:calcRecetteId,litresAlcool:calcLitres}));
+            setOnglet("macerations");
+          }}>🫙 Démarrer cette macération</button>
+        )}
+      </div>
+    </div>
+    )}
+
+    {/* ── MACÉRATIONS EN COURS ── */}
+    {onglet==="macerations" && (
+    <div>
+      <div style={{display:"flex",justifyContent:"flex-end",marginBottom:12}}>
+        <button style={btnPrimary} onClick={()=>openMaceration()}>+ Nouvelle macération</button>
+      </div>
+      {macerations.length===0 && <p style={{color:"#9CA3AF",textAlign:"center",padding:24}}>Aucune macération en cours.</p>}
+      {macerations.map(mac=>{
+        const recette = recettes.find(r=>r.id===mac.recetteId);
+        const jours = recette?.dureeMacerationJours||30;
+        const reste = joursRestants(mac.dateDebut, jours);
+        const prete = reste<=0;
+        const litres = parseFloat(mac.litresAlcool)||0;
+        const btl = recette ? Math.floor(litres*recette.rendementBouteilles) : 0;
+        return (
+          <div key={mac.id} style={{...cardStyle,borderLeft:`4px solid ${prete?"#15803D":"#F2C94C"}`}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8}}>
+              <div>
+                <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
+                  <p style={{fontWeight:700,fontSize:15,color:"#0A0A0A"}}>{recette?.nom||"Recette inconnue"}</p>
+                  <span style={{background:prete?"#F0FDF4":"#FFFBEB",color:prete?"#15803D":"#B45309",fontSize:10,fontWeight:700,padding:"2px 7px",borderRadius:10}}>
+                    {prete?"✅ PRÊTE":"🫙 EN COURS"}
+                  </span>
+                </div>
+                <p style={{fontSize:12,color:"#737373"}}>Démarré le {mac.dateDebut} · {litres}L alcool · ~{btl} bouteilles</p>
+              </div>
+              <div style={{display:"flex",gap:5,flexShrink:0}}>
+                <button style={btnSecondary} onClick={()=>openMaceration(mac)}>✏️</button>
+                <button style={btnDanger} onClick={()=>supprimerMaceration(mac.id)}>✕</button>
+              </div>
+            </div>
+            {!prete && (
+              <div style={{background:"#FAFAF7",borderRadius:8,padding:"8px 12px",marginTop:8,display:"flex",alignItems:"center",gap:12}}>
+                <div style={{flex:1,background:"#EAE7E0",borderRadius:4,height:6,overflow:"hidden"}}>
+                  <div style={{height:"100%",background:"#F2C94C",borderRadius:4,width:`${Math.min(100,Math.max(0,((jours-reste)/jours)*100))}%`,transition:"width .4s"}}/>
+                </div>
+                <span style={{fontSize:12,fontWeight:700,color:"#374151",flexShrink:0}}>{reste}j restants</span>
+              </div>
+            )}
+            <div style={{display:"flex",gap:6,marginTop:8,flexWrap:"wrap",alignItems:"center"}}>
+              <span style={{fontSize:11,color:"#737373"}}>Prête le : <strong>{datePreteStr(mac.dateDebut,jours)}</strong></span>
+              {mac.notes&&<span style={{fontSize:11,color:"#737373",fontStyle:"italic"}}>· {mac.notes}</span>}
+            </div>
+            {prete && (
+              <button style={{...btnPrimary,background:"#15803D",width:"100%",marginTop:10}} onClick={()=>terminerMaceration(mac)}>
+                ✅ Marquer comme terminée et archiver
+              </button>
+            )}
+          </div>
+        );
+      })}
+    </div>
+    )}
+
+    {/* ── HISTORIQUE ── */}
+    {onglet==="historique" && (
+    <div>
+      {historique.length===0 && <p style={{color:"#9CA3AF",textAlign:"center",padding:24}}>Aucun batch terminé pour l'instant.</p>}
+      {historique.map((b,i)=>(
+        <div key={b.id||i} style={cardStyle}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+            <div>
+              <p style={{fontWeight:700,fontSize:15,color:"#0A0A0A",marginBottom:3}}>{b.recetteNom||"—"}</p>
+              <p style={{fontSize:12,color:"#737373"}}>Du {b.dateDebut} au {b.dateFin}</p>
+            </div>
+            <div style={{textAlign:"right"}}>
+              <p style={{fontSize:22,fontWeight:800,color:"#0A0A0A"}}>{b.bouteilles}</p>
+              <p style={{fontSize:11,color:"#737373"}}>bouteilles</p>
+            </div>
+          </div>
+          <div style={{display:"flex",gap:8,marginTop:8,flexWrap:"wrap"}}>
+            <span style={{background:"#EFF6FF",color:"#1D4ED8",fontSize:11,fontWeight:600,padding:"3px 8px",borderRadius:6}}>🍺 {b.litresAlcool}L alcool</span>
+            {b.notes&&<span style={{fontSize:11,color:"#737373",fontStyle:"italic"}}>💬 {b.notes}</span>}
+          </div>
+        </div>
+      ))}
+      {historique.length>0 && (
+        <div style={{...cardStyle,background:"#0A0A0A",color:"#fff",marginTop:16}}>
+          <p style={{fontSize:11,fontWeight:700,color:"#E8B64C",textTransform:"uppercase",letterSpacing:".06em",marginBottom:8}}>Total historique</p>
+          <div style={{display:"flex",gap:24}}>
+            <div>
+              <p style={{fontSize:10,color:"#9CA3AF"}}>Batchs réalisés</p>
+              <p style={{fontSize:28,fontWeight:800,color:"#F2C94C"}}>{historique.length}</p>
+            </div>
+            <div>
+              <p style={{fontSize:10,color:"#9CA3AF"}}>Bouteilles produites</p>
+              <p style={{fontSize:28,fontWeight:800,color:"#F2C94C"}}>{historique.reduce((s,b)=>s+(b.bouteilles||0),0)}</p>
+            </div>
+            <div>
+              <p style={{fontSize:10,color:"#9CA3AF"}}>Litres alcool utilisés</p>
+              <p style={{fontSize:28,fontWeight:800,color:"#F2C94C"}}>{historique.reduce((s,b)=>s+(parseFloat(b.litresAlcool)||0),0).toFixed(1)}L</p>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+    )}
+
+    {/* ── MODAL RECETTE ── */}
+    {recetteModal && (
+    <Modal title={recetteModal==="new"?"Nouvelle recette":"Modifier la recette"} onClose={()=>setRecetteModal(null)}>
+      <div style={{display:"flex",flexDirection:"column",gap:10}}>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+          <div>
+            <label style={labelStyle}>Nom *</label>
+            <input style={inputStyle} value={rForm.nom} onChange={e=>setRForm(p=>({...p,nom:e.target.value}))} placeholder="ex: Limonta"/>
+          </div>
+          <div>
+            <label style={labelStyle}>Description</label>
+            <input style={inputStyle} value={rForm.description} onChange={e=>setRForm(p=>({...p,description:e.target.value}))} placeholder="ex: Liqueur de citron jaune"/>
+          </div>
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10}}>
+          <div>
+            <label style={labelStyle}>Macération (jours)</label>
+            <input type="number" style={inputStyle} value={rForm.dureeMacerationJours} onChange={e=>setRForm(p=>({...p,dureeMacerationJours:parseInt(e.target.value)||0}))}/>
+          </div>
+          <div>
+            <label style={labelStyle}>Rendement (btl/L)</label>
+            <input type="number" style={inputStyle} value={rForm.rendementBouteilles} onChange={e=>setRForm(p=>({...p,rendementBouteilles:parseFloat(e.target.value)||0}))} step="0.5"/>
+          </div>
+          <div>
+            <label style={labelStyle}>Titre alc. (°)</label>
+            <input type="number" style={inputStyle} value={rForm.titreAlcool} onChange={e=>setRForm(p=>({...p,titreAlcool:parseFloat(e.target.value)||0}))} step="0.5"/>
+          </div>
+        </div>
+        <div>
+          <label style={labelStyle}>Volume bouteille (ml)</label>
+          <input type="number" style={inputStyle} value={rForm.volumeBouteille} onChange={e=>setRForm(p=>({...p,volumeBouteille:parseInt(e.target.value)||500}))}/>
+        </div>
+        <div>
+          <label style={labelStyle}>Couleur</label>
+          <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+            {COULEURS.map(c=>(
+              <button key={c} onClick={()=>setRForm(p=>({...p,couleur:c}))} style={{width:28,height:28,borderRadius:"50%",background:c,border:rForm.couleur===c?"3px solid #0A0A0A":"2px solid #EAE7E0",cursor:"pointer"}}/>
+            ))}
+          </div>
+        </div>
+        <div>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
+            <label style={labelStyle}>Ingrédients (par litre d'alcool)</label>
+            <button style={btnSecondary} onClick={()=>setRForm(p=>({...p,ingredients:[...p.ingredients,{nom:"",quantite:0,unite:"g",parLitre:true}]}))}>+ Ajouter</button>
+          </div>
+          {rForm.ingredients.map((ing,i)=>(
+            <div key={i} style={{display:"grid",gridTemplateColumns:"1fr auto auto auto",gap:6,marginBottom:6,alignItems:"center"}}>
+              <input style={inputStyle} value={ing.nom} onChange={e=>setRForm(p=>({...p,ingredients:p.ingredients.map((x,j)=>j===i?{...x,nom:e.target.value}:x)}))} placeholder="Ingrédient"/>
+              <input type="number" style={{...inputStyle,width:70}} value={ing.quantite} onChange={e=>setRForm(p=>({...p,ingredients:p.ingredients.map((x,j)=>j===i?{...x,quantite:parseFloat(e.target.value)||0}:x)}))} placeholder="Qté"/>
+              <select style={{...inputStyle,width:60}} value={ing.unite} onChange={e=>setRForm(p=>({...p,ingredients:p.ingredients.map((x,j)=>j===i?{...x,unite:e.target.value}:x)}))}>
+                <option>g</option><option>kg</option><option>L</option><option>ml</option><option>pcs</option>
+              </select>
+              <button style={btnDanger} onClick={()=>setRForm(p=>({...p,ingredients:p.ingredients.filter((_,j)=>j!==i)}))}>✕</button>
+            </div>
+          ))}
+          <p style={{fontSize:10,color:"#9CA3AF",marginTop:4}}>* Les quantités sont automatiquement multipliées par le nombre de litres d'alcool.</p>
+        </div>
+        <div>
+          <label style={labelStyle}>Notes / Conseils</label>
+          <textarea style={{...inputStyle,resize:"vertical",minHeight:60}} value={rForm.notes} onChange={e=>setRForm(p=>({...p,notes:e.target.value}))} placeholder="Notes de production..."/>
+        </div>
+        <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:4}}>
+          <button style={btnSecondary} onClick={()=>setRecetteModal(null)}>Annuler</button>
+          <button style={btnPrimary} onClick={saveRecette}>Enregistrer</button>
+        </div>
+      </div>
+    </Modal>
+    )}
+
+    {/* ── MODAL MACERATION ── */}
+    {macerationModal && (
+    <Modal title={macerationModal==="new"?"Nouvelle macération":"Modifier la macération"} onClose={()=>setMacerationModal(null)}>
+      <div style={{display:"flex",flexDirection:"column",gap:10}}>
+        <div>
+          <label style={labelStyle}>Recette *</label>
+          <select style={inputStyle} value={mForm.recetteId} onChange={e=>setMForm(p=>({...p,recetteId:e.target.value}))}>
+            {recettes.map(r=><option key={r.id} value={r.id}>{r.nom}</option>)}
+          </select>
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+          <div>
+            <label style={labelStyle}>Litres d'alcool *</label>
+            <input type="number" style={inputStyle} value={mForm.litresAlcool} onChange={e=>setMForm(p=>({...p,litresAlcool:e.target.value}))} min="0" step="0.5" placeholder="ex: 10"/>
+          </div>
+          <div>
+            <label style={labelStyle}>Date de début</label>
+            <input type="date" style={inputStyle} value={mForm.dateDebut} onChange={e=>setMForm(p=>({...p,dateDebut:e.target.value}))}/>
+          </div>
+        </div>
+        <div>
+          <label style={labelStyle}>Notes</label>
+          <textarea style={{...inputStyle,resize:"vertical",minHeight:50}} value={mForm.notes} onChange={e=>setMForm(p=>({...p,notes:e.target.value}))} placeholder="Notes..."/>
+        </div>
+        <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:4}}>
+          <button style={btnSecondary} onClick={()=>setMacerationModal(null)}>Annuler</button>
+          <button style={btnPrimary} onClick={saveMaceration}>Enregistrer</button>
+        </div>
+      </div>
+    </Modal>
+    )}
+  </div>
+  );
+};
+
+// ══════════════════════════════════════════════════════════════
 // APP SHELL - Navigation mobile en bas
 // ══════════════════════════════════════════════════════════════
 
@@ -8278,6 +8773,7 @@ const NAV_MORE = [
 {id:"commandes",label:"Commandes",icon:"facture"},
 {id:"produits",label:"Produits",icon:"prod"},
 {id:"stocks",label:"Stocks",icon:"stock"},
+{id:"production",label:"Production",icon:"prod"},
 {id:"documents",label:"Documents",icon:"contrat"},
 {id:"sauvegardes",label:"Sauvegardes",icon:"stock"},
 ];
@@ -8826,6 +9322,7 @@ contrats: data.contrats||INIT.contrats,
 factures: data.factures||INIT.factures,
 transactions: data.transactions||INIT.transactions,
 soldeBancaire: data.soldeBancaire ?? INIT.soldeBancaire,
+production: data.production||INIT.production,
 };
 };
 
@@ -8901,6 +9398,7 @@ documents:<Documents st={st} setSt={setSt}/>,
 sauvegardes:<Sauvegardes authUser={authUser}/>,
 compta:<Comptabilite st={st} setSt={setSt}/>,
 offres:<Offres st={st} setSt={setSt}/>,
+production:<Production st={st} setSt={setSt}/>,
 };
 
 const allTabs = [...NAV_MAIN.filter(t=>t.id!=="more"), ...NAV_MORE];
@@ -8945,6 +9443,7 @@ return (
           {groupe:"Stock & Produits", items:[
             {id:"produits",label:"Produits",emoji:"🍋"},
             {id:"stocks",label:"Stocks",emoji:"📊"},
+            {id:"production",label:"Production",emoji:"🏭"},
           ]},
           {groupe:"Gestion", items:[
             {id:"contrats",label:"Contrats",emoji:"📋"},
@@ -9113,6 +9612,7 @@ return (
           {groupe:"Stock & Produits", items:[
             {id:"produits",label:"Produits",icon:"prod",emoji:"🍋"},
             {id:"stocks",label:"Stocks",icon:"stock",emoji:"📊"},
+            {id:"production",label:"Production",icon:"prod",emoji:"🏭"},
           ]},
           {groupe:"Gestion", items:[
             {id:"contrats",label:"Contrats",icon:"contrat",emoji:"📋"},
