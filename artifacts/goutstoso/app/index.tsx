@@ -532,7 +532,53 @@ const stockDepot = sum((st.depotStocks||[]).filter(d=>d.produitId===p.id).map(d=
 return (stockPropre+stockDepot)*(p.coutRevient||0);
 }));
 
-const goPage = (p) => {
+// === SUGGESTIONS DE PRODUCTION ===
+const prodRecettesDash = (st.production?.recettes || []) as any[];
+const prodActifsDash = (st.produits||[]).filter((p:any)=>p.actif && !p.nom.includes("Coffret"));
+
+// Ventes hebdo moyennes sur 13 semaines (depuis transactions)
+const treizeSemAgo = new Date(now.getTime() - 13*7*24*3600*1000).toISOString().slice(0,10);
+const ventesQteParProdDash:{[id:string]:number} = {};
+(st.transactions||[]).filter((t:any)=>t.type==="recette" && t.date>=treizeSemAgo).forEach((t:any)=>{
+  prodActifsDash.forEach((p:any)=>{
+    const nomL = p.nom.toLowerCase();
+    const descL = (t.description||t.categorie||"").toLowerCase();
+    if(descL.includes(nomL.split(" ")[0]) || nomL.includes(descL.split(" ")[0])) {
+      const px = parseFloat(p.prixClient||p.prixRevendeur)||0;
+      const qte = px>0 ? Math.round(parseFloat(t.montant)/px) : 0;
+      if(qte>0) ventesQteParProdDash[p.id] = (ventesQteParProdDash[p.id]||0)+qte;
+    }
+  });
+});
+const ventesHebdoDash = (id:string) => (ventesQteParProdDash[id]||0)/13;
+
+const stockEffectifDash = (id:string) => {
+  const propre = (st.stocks||[]).filter((s:any)=>s.produitId===id).reduce((a:number,s:any)=>a+(s.qte||0),0);
+  const depot = (st.depotStocks||[]).filter((d:any)=>d.produitId===id).reduce((a:number,d:any)=>a+Math.max(0,(d.qteDeposee||0)-(d.qteVendue||0)-(d.qteRetournee||0)),0);
+  return propre + depot;
+};
+
+const suggestionsProduction = prodRecettesDash.map((r:any)=>{
+  const nomR = r.nom.toLowerCase();
+  const p25 = prodActifsDash.find((p:any)=>(p.nom.toLowerCase().includes(nomR)||nomR.includes(p.nom.toLowerCase()))&&(p.format?.includes("25")||p.format?.includes("250")));
+  const p50 = prodActifsDash.find((p:any)=>(p.nom.toLowerCase().includes(nomR)||nomR.includes(p.nom.toLowerCase()))&&(p.format?.includes("50")||p.format?.includes("500")));
+  const stock25 = p25 ? stockEffectifDash(p25.id) : 0;
+  const stock50 = p50 ? stockEffectifDash(p50.id) : 0;
+  const totalStock = stock25 + stock50;
+  const hebdo25 = p25 ? ventesHebdoDash(p25.id) : 0;
+  const hebdo50 = p50 ? ventesHebdoDash(p50.id) : 0;
+  const hebdoTotal = hebdo25 + hebdo50;
+  // Cible = max(10, 8 semaines de ventes × 1.2 marge)
+  const cibleStock = Math.max(10, Math.ceil(hebdoTotal * 8 * 1.2));
+  const niveau = totalStock < 10 ? "rouge" : totalStock < cibleStock ? "orange" : "vert";
+  // Litres à produire pour remonter à cible
+  const manque = Math.max(0, cibleStock - totalStock);
+  const rendement = r.rendementBouteilles || 5;
+  const litresNecessaires = manque > 0 ? Math.ceil(manque / rendement) : 0;
+  return {nom:r.nom, couleur:r.couleur||"#F2C94C", totalStock, cibleStock, hebdoTotal, niveau, manque, litresNecessaires, dureeMac: r.dureeMacerationJours||30};
+}).filter((s:any)=>s.niveau!=="vert");
+
+const goPage = (p:string) => {
 if(setTab) setTab(p);
 };
 
@@ -584,6 +630,40 @@ Bonjour {authUser.display_name||authUser.username}
     </div>
   )}
   
+  {/* SUGGESTIONS DE PRODUCTION */}
+  {suggestionsProduction.length > 0 && (
+    <div style={{marginBottom:18}}>
+      <p style={{fontSize:10,fontWeight:600,color:"#737373",textTransform:"uppercase",letterSpacing:"0.04em",marginBottom:10}}>
+        ⚡ Production à lancer ({suggestionsProduction.length})
+      </p>
+      {suggestionsProduction.map((s:any,i:number)=>{
+        const isRouge = s.niveau==="rouge";
+        const bg = isRouge ? "#FEF2F2" : "#FFF9EC";
+        const border = isRouge ? "#FECACA" : "#FCD34D";
+        const textColor = isRouge ? "#991B1B" : "#92400E";
+        const icone = isRouge ? "🔴" : "🟡";
+        return (
+          <div key={i} onClick={()=>goPage("production")} style={{background:bg,border:"1px solid "+border,borderRadius:10,padding:"10px 12px",marginBottom:6,cursor:"pointer"}}>
+            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
+              <div style={{width:10,height:10,borderRadius:"50%",background:s.couleur,flexShrink:0}}/>
+              <p style={{fontSize:13,fontWeight:700,color:"#0A0A0A",flex:1}}>{s.nom}</p>
+              <span style={{fontSize:12}}>{icone}</span>
+            </div>
+            <p style={{fontSize:11,color:textColor,fontWeight:600,marginBottom:2}}>
+              {isRouge ? "🚨 Stock critique" : "⚠️ Stock à renouveler"} — {s.totalStock} btl restantes
+            </p>
+            <p style={{fontSize:11,color:textColor}}>
+              → Lancer <strong>{s.litresNecessaires}L d'alcool</strong> ({s.dureeMac}j de macération) pour atteindre {s.cibleStock} btl
+            </p>
+            {s.hebdoTotal > 0 && (
+              <p style={{fontSize:10,color:"#9CA3AF",marginTop:2}}>Vitesse de vente : ~{s.hebdoTotal.toFixed(1)} btl/sem.</p>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  )}
+
   {/* SITUATION FINANCIÈRE */}
   <div style={{background:"#0A0A0A",borderRadius:14,padding:"16px",marginBottom:14,color:"#fff"}}>
     <p style={{fontSize:10,color:"#E8B64C",fontWeight:600,textTransform:"uppercase",letterSpacing:"0.04em",marginBottom:4}}>Situation financière</p>
@@ -8893,11 +8973,10 @@ const Production = ({st, setSt}) => {
     // Volume total à produire en litres
     const aproduireVol = (aproduire25 * 0.25) + (aproduire50 * 0.5);
 
-    // Litres d'alcool nécessaires (rendement = btl par litre d'alcool)
+    // Litres d'alcool nécessaires (rendement = btl 500ml par litre d'alcool)
     const rendement = recette?.rendementBouteilles || 5;
-    const volBtl = (recette?.volumeBouteille || 500) / 1000; // en L
-    // 1 L alcool → rendement bouteilles de volBtl L → rendement * volBtl L produit
-    const litresAlcoolNecessaires = aproduireVol > 0 ? aproduireVol / (rendement * volBtl) : 0;
+    // 1 L alcool → rendement × 0.5L = rendement/2 litres de produit fini
+    const litresAlcoolNecessaires = aproduireVol > 0 ? aproduireVol / (rendement * 0.5) : 0;
 
     const dureeMac = recette?.dureeMacerationJours || 15;
 
@@ -9121,8 +9200,7 @@ const Production = ({st, setSt}) => {
           </div>
           <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
             <span style={{background:"#F0FDF4",color:"#15803D",fontSize:11,fontWeight:600,padding:"3px 8px",borderRadius:6}}>⏱ {r.dureeMacerationJours}j de macération</span>
-            <span style={{background:"#FFF7ED",color:"#C2410C",fontSize:11,fontWeight:600,padding:"3px 8px",borderRadius:6}}>🍶 {r.titreAlcool}° alc.</span>
-            <span style={{background:"#EFF6FF",color:"#1D4ED8",fontSize:11,fontWeight:600,padding:"3px 8px",borderRadius:6}}>🍾 {r.rendementBouteilles} btl/{r.volumeBouteille}ml/L</span>
+            <span style={{background:"#EFF6FF",color:"#1D4ED8",fontSize:11,fontWeight:600,padding:"3px 8px",borderRadius:6}}>🍾 {r.rendementBouteilles} btl·500ml / L alcool</span>
           </div>
           {r.notes&&<p style={{fontSize:11,color:"#737373",marginTop:8,fontStyle:"italic"}}>💬 {r.notes}</p>}
         </div>
@@ -9453,31 +9531,17 @@ const Production = ({st, setSt}) => {
             <input style={inputStyle} value={rForm.description} onChange={e=>setRForm(p=>({...p,description:e.target.value}))} placeholder="ex: Liqueur de citron jaune"/>
           </div>
         </div>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10}}>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
           <div>
             <label style={labelStyle}>Macération (jours)</label>
             <input type="number" style={inputStyle} value={rForm.dureeMacerationJours} onChange={e=>setRForm(p=>({...p,dureeMacerationJours:parseInt(e.target.value)||0}))}/>
           </div>
           <div>
-            <label style={labelStyle}>Rendement (btl/L)</label>
-            <input type="number" style={inputStyle} value={rForm.rendementBouteilles} onChange={e=>setRForm(p=>({...p,rendementBouteilles:parseFloat(e.target.value)||0}))} step="0.5"/>
-          </div>
-          <div>
-            <label style={labelStyle}>Titre alc. (°)</label>
-            <input type="number" style={inputStyle} value={rForm.titreAlcool} onChange={e=>setRForm(p=>({...p,titreAlcool:parseFloat(e.target.value)||0}))} step="0.5"/>
+            <label style={labelStyle}>Bouteilles 500ml / litre d'alcool</label>
+            <input type="number" style={inputStyle} value={rForm.rendementBouteilles} onChange={e=>setRForm(p=>({...p,rendementBouteilles:parseFloat(e.target.value)||0}))} step="0.5" placeholder="ex: 10"/>
           </div>
         </div>
-        <div>
-          <label style={labelStyle}>Format bouteille</label>
-          <select style={inputStyle} value={rForm.volumeBouteille} onChange={e=>setRForm(p=>({...p,volumeBouteille:parseInt(e.target.value)}))}>
-            <option value={250}>250 ml</option>
-            <option value={500}>500 ml</option>
-            <option value={375}>375 ml</option>
-            <option value={700}>700 ml</option>
-            <option value={750}>750 ml</option>
-            <option value={1000}>1 L</option>
-          </select>
-        </div>
+        <p style={{fontSize:10,color:"#9CA3AF",marginTop:-4}}>ex: si 1L d'alcool pur donne 10 bouteilles de 500ml → mettre 10</p>
         <div>
           <label style={labelStyle}>Couleur</label>
           <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
