@@ -1324,8 +1324,7 @@ doc.setFontSize(11);doc.setFont("helvetica","bold");doc.setTextColor(17,17,17);
 doc.text("Goûtstoso",mg,y);doc.text(pv?.nom||"",W/2+2,y);
 doc.setFontSize(9);doc.setFont("helvetica","normal");doc.setTextColor(107,114,128);
 ["Jordan Montanaro","Rue des Sources 19","2613 Villeret","admin@goutstoso.ch"].forEach((l,i)=>doc.text(l,mg,y+5+i*4.5));
-(pv?.adresse||"").split(", ").forEach((l,i)=>doc.text(l,W/2+2,y+5+i*4.5));
-if(pv?.contact) doc.text(pv.contact,W/2+2,y+5+3*4.5);
+{const pvAddrLines=(pv?.npa||pv?.ville)?[pv?.adresse||"",[pv?.npa,pv?.ville].filter(Boolean).join(" ")].filter(Boolean):(pv?.adresse||"").split(", ").filter(Boolean);pvAddrLines.forEach((l,i)=>doc.text(l,W/2+2,y+5+i*4.5));if(pv?.contact)doc.text(pv.contact,W/2+2,y+5+pvAddrLines.length*4.5);}
 
 // Tableau produits
 y+=32;
@@ -1488,7 +1487,7 @@ doc.setFontSize(11);doc.setFont("helvetica","bold");doc.setTextColor(17,17,17);
 doc.text("Goûtstoso",mg,y);doc.text(pv?.nom||"",W/2+2,y);
 doc.setFontSize(9);doc.setFont("helvetica","normal");doc.setTextColor(107,114,128);
 ["Jordan Montanaro","Rue des Sources 19","2613 Villeret","admin@goutstoso.ch"].forEach((l,i)=>doc.text(l,mg,y+5+i*4.5));
-(pv?.adresse||"").split(", ").forEach((l,i)=>doc.text(l,W/2+2,y+5+i*4.5));
+{const pvAddrLines=(pv?.npa||pv?.ville)?[pv?.adresse||"",[pv?.npa,pv?.ville].filter(Boolean).join(" ")].filter(Boolean):(pv?.adresse||"").split(", ").filter(Boolean);pvAddrLines.forEach((l,i)=>doc.text(l,W/2+2,y+5+i*4.5));}
 
 y+=32;
 if(c.commission>0) {
@@ -3366,7 +3365,7 @@ const echeance=new Date(new Date(f.date).getTime()+30*86400000).toISOString().sl
   doc.text("Goûtstoso",mg,y);doc.text(pv?.nom||"",W/2+2,y);
   doc.setFontSize(8.5);doc.setFont("helvetica","normal");doc.setTextColor(107,114,128);
   ["Jordan Montanaro","Rue des Sources 19","2613 Villeret","admin@goutstoso.ch"].forEach((l,i)=>doc.text(l,mg,y+5+i*4.5));
-  (pv?.adresse||"").split(", ").forEach((l,i)=>doc.text(l,W/2+2,y+5+i*4.5));
+  {const pvAddrLines=(pv?.npa||pv?.ville)?[pv?.adresse||"",[pv?.npa,pv?.ville].filter(Boolean).join(" ")].filter(Boolean):(pv?.adresse||"").split(", ").filter(Boolean);pvAddrLines.forEach((l,i)=>doc.text(l,W/2+2,y+5+i*4.5));}
 
   // Tableau
   y+=30;
@@ -3555,7 +3554,7 @@ try {
   doc.text("Goûtstoso",mg,y);doc.text(pv?.nom||"",W/2+2,y);
   doc.setFontSize(8.5);doc.setFont("helvetica","normal");doc.setTextColor(107,114,128);
   ["Jordan Montanaro","Rue des Sources 19","2613 Villeret","admin@goutstoso.ch"].forEach((l,i)=>doc.text(l,mg,y+5+i*4.5));
-  [(pv?.adresse||""),pv?.email||""].filter(Boolean).forEach((l,i)=>doc.text(l,W/2+2,y+5+i*4.5));
+  {const pvAddrLines=(pv?.npa||pv?.ville)?[pv?.adresse||"",[pv?.npa,pv?.ville].filter(Boolean).join(" ")].filter(Boolean):(pv?.adresse||"").split(", ").filter(Boolean);[...pvAddrLines,pv?.email||""].filter(Boolean).forEach((l,i)=>doc.text(l,W/2+2,y+5+i*4.5));}
   y+=32;
 
   // Tableau récap facture
@@ -5651,17 +5650,24 @@ try {
   doc.text(prixLabel+"Paiement par virement : IBAN CH23 0900 0000 1565 1485 8 (PostFinance)",mg+4,y+11);
   doc.text("Livraison dans les 5-7 jours ouvrables apres confirmation · Retour sous 14 jours en etat d'origine",mg+4,y+16);
   y+=24;
-  // Signature
-  doc.setFillColor(248,248,245); doc.rect(mg,y,W-mg*2,22,"F");
-  doc.setFont("helvetica","normal"); doc.setFontSize(8); doc.setTextColor(100,100,100);
-  doc.text("Confirmee par Goûtstoso le "+fmt(cmd.date)+"    Signature :",mg+4,y+8);
+  // Signature Goûtstoso (pas de signature client sur une confirmation)
+  doc.setFillColor(248,248,245); doc.rect(mg,y,W-mg*2,28,"F");
+  doc.setFont("helvetica","bold"); doc.setFontSize(8); doc.setTextColor(80,80,80);
+  doc.text("Pour Goûtstoso — Jordan Montanaro",mg+4,y+6);
   doc.setFont("helvetica","normal"); doc.setFontSize(7); doc.setTextColor(150,150,150);
-  doc.text("Nom : ___________________________   Date : _______________   Signature client : ___________________________",mg+4,y+16);
+  doc.text("Confirmée le "+fmt(cmd.date),mg+4,y+11);
+  if(cmd.signJordan) {
+    try { doc.addImage(cmd.signJordan,"PNG",mg+4,y+13,52,13); } catch(e){}
+  } else {
+    doc.text("_____________________________",mg+4,y+23);
+  }
   // Pied
   doc.setDrawColor(220,220,215); doc.setLineWidth(0.3); doc.line(mg,280,W-mg,280);
   doc.setFont("helvetica","normal"); doc.setFontSize(7); doc.setTextColor(150,150,150);
   doc.text("Goûtstoso · Jordan Montanaro · Rue des Sources 19 · 2613 Villeret · admin@goutstoso.ch",W/2,284,{align:"center"});
   doc.setFillColor(242,201,76); doc.rect(0,291,W,5,"F");
+  // CGV en annexe
+  ajouterDocAnnexe(doc, "cgv", st);
   const fname="Confirmation-Commande-"+cmd.numero+".pdf";
   doc.save(fname);
 } catch(e){ alert("Erreur PDF : "+(e as any).message); }
@@ -5785,6 +5791,7 @@ const [modal,setModal] = useState(null);
 const [viewId,setViewId] = useState(null);
 const [filtre,setFiltre] = useState("toutes");
 const [signingBL,setSigningBL] = useState(false);
+const [sigJordanCmd,setSigJordanCmd] = useState(false);
 
 const genBLNumero = () => {
   const y = new Date().getFullYear();
@@ -6143,6 +6150,17 @@ return (
           {view.confirmationEnvoyee ? "✓ Email envoyé" : "✉️ Envoyer email"}
         </button>
       </div>
+      {sigJordanCmd
+        ? <div style={{marginTop:8}}>
+            <p style={{fontWeight:700,fontSize:11,marginBottom:6,color:"#1E40AF"}}>✍️ Ma signature (Goûtstoso)</p>
+            <SignaturePad
+              onSave={sig=>{setSt((p:any)=>({...p,commandes:p.commandes.map((c:any)=>c.id===view.id?{...c,signJordan:sig}:c)}));setSigJordanCmd(false);}}
+              onCancel={()=>setSigJordanCmd(false)}/>
+          </div>
+        : <button onClick={()=>setSigJordanCmd(true)} style={{width:"100%",marginTop:6,background:view.signJordan?"#DCFCE7":"#F0F9FF",border:view.signJordan?"1.5px solid #86EFAC":"1.5px solid #BAE6FD",borderRadius:8,padding:"8px",fontWeight:600,fontSize:11,color:view.signJordan?"#166534":"#0369A1",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:5}}>
+            {view.signJordan?"✅ Ma signature enregistrée (modifier)":"✍️ Signer en tant que Goûtstoso"}
+          </button>
+      }
       {view.confirmationNumero && <p style={{fontSize:10,color:"#3B82F6",marginTop:6,textAlign:"center"}}>{view.confirmationNumero}</p>}
     </div>
 
