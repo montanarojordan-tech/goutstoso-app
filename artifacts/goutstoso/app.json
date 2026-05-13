@@ -31,6 +31,7 @@
       "expo-web-browser"
     ],
     "experiments": {
+      "baseUrl": "/goutstoso",
       "typedRoutes": true,
       "reactCompiler": true
     }
