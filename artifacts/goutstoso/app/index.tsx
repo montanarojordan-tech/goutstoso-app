@@ -8428,11 +8428,11 @@ const Production = ({st, setSt}) => {
   const labelStyle:any = {fontSize:11,fontWeight:600,color:"#737373",textTransform:"uppercase",letterSpacing:"0.05em",display:"block",marginBottom:4};
 
   const tabs = [
-    {id:"planification",l:"📊 Planification"},
+    {id:"planification",l:"📊 Planif."},
     {id:"recettes",l:"📖 Recettes"},
-    {id:"calculateur",l:"🧮 Calculateur"},
-    {id:"macerations",l:"🫙 Macérations"},
-    {id:"historique",l:"📦 Historique"},
+    {id:"calculateur",l:"🧮 Calcul"},
+    {id:"macerations",l:"🫙 Macér."},
+    {id:"historique",l:"📦 Histor."},
   ];
 
   // ── LOGIQUE PLANIFICATION ──
@@ -8554,14 +8554,14 @@ const Production = ({st, setSt}) => {
     <SectionTitle>🏭 Production</SectionTitle>
 
     {/* Tabs */}
-    <div style={{display:"flex",gap:6,overflowX:"auto",paddingBottom:4,marginBottom:18,flexWrap:"nowrap"}}>
+    <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:4,marginBottom:16}}>
       {tabs.map(t=>(
         <button key={t.id} onClick={()=>setOnglet(t.id as any)} style={{
           background:onglet===t.id?"#0A0A0A":"#fff",
           color:onglet===t.id?"#F2C94C":"#525252",
           border:onglet===t.id?"none":"1px solid #EAE7E0",
-          borderRadius:8,padding:"7px 13px",fontSize:11.5,fontWeight:onglet===t.id?700:500,
-          cursor:"pointer",whiteSpace:"nowrap",flexShrink:0,
+          borderRadius:8,padding:"6px 2px",fontSize:10,fontWeight:onglet===t.id?700:500,
+          cursor:"pointer",whiteSpace:"nowrap",textAlign:"center",lineHeight:1.3,
         }}>{t.l}</button>
       ))}
     </div>
