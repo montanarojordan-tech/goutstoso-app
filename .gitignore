@@ -2,6 +2,7 @@
 
 # compiled output
 dist
+!artifacts/goutstoso/dist
 tmp
 out-tsc
 *.tsbuildinfo
