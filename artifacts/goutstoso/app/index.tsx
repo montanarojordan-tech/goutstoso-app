@@ -533,8 +533,14 @@ return (stockPropre+stockDepot)*(p.coutRevient||0);
 }));
 
 // === SUGGESTIONS DE PRODUCTION ===
-const prodRecettesDash = (st.production?.recettes || []) as any[];
 const prodActifsDash = (st.produits||[]).filter((p:any)=>p.actif && !p.nom.includes("Coffret"));
+const prodRecettesDash = (st.production?.recettes || []) as any[];
+
+// Groupes de produits (par nom, sans tenir compte du format)
+const nomGroupesDash:string[] = [];
+prodActifsDash.forEach((p:any)=>{
+  if(!nomGroupesDash.includes(p.nom)) nomGroupesDash.push(p.nom);
+});
 
 // Ventes hebdo moyennes sur 13 semaines (depuis transactions)
 const treizeSemAgo = new Date(now.getTime() - 13*7*24*3600*1000).toISOString().slice(0,10);
@@ -558,24 +564,25 @@ const stockEffectifDash = (id:string) => {
   return propre + depot;
 };
 
-const suggestionsProduction = prodRecettesDash.map((r:any)=>{
-  const nomR = r.nom.toLowerCase();
-  const p25 = prodActifsDash.find((p:any)=>(p.nom.toLowerCase().includes(nomR)||nomR.includes(p.nom.toLowerCase()))&&(p.format?.includes("25")||p.format?.includes("250")));
-  const p50 = prodActifsDash.find((p:any)=>(p.nom.toLowerCase().includes(nomR)||nomR.includes(p.nom.toLowerCase()))&&(p.format?.includes("50")||p.format?.includes("500")));
+const suggestionsProduction = nomGroupesDash.map((nom:string)=>{
+  const nomL = nom.toLowerCase();
+  const prods = prodActifsDash.filter((p:any)=>p.nom===nom);
+  const p25 = prods.find((p:any)=>p.format?.includes("25")||p.format?.includes("250"));
+  const p50 = prods.find((p:any)=>p.format?.includes("50")||p.format?.includes("500")) || (p25?undefined:prods[0]);
+  const recette = prodRecettesDash.find((r:any)=>r.nom.toLowerCase()===nomL||nomL.includes(r.nom.toLowerCase())||r.nom.toLowerCase().includes(nomL));
+  const couleur = recette?.couleur || "#F2C94C";
   const stock25 = p25 ? stockEffectifDash(p25.id) : 0;
   const stock50 = p50 ? stockEffectifDash(p50.id) : 0;
   const totalStock = stock25 + stock50;
   const hebdo25 = p25 ? ventesHebdoDash(p25.id) : 0;
   const hebdo50 = p50 ? ventesHebdoDash(p50.id) : 0;
   const hebdoTotal = hebdo25 + hebdo50;
-  // Cible = max(10, 8 semaines de ventes × 1.2 marge)
   const cibleStock = Math.max(10, Math.ceil(hebdoTotal * 8 * 1.2));
   const niveau = totalStock < 10 ? "rouge" : totalStock < cibleStock ? "orange" : "vert";
-  // Litres à produire pour remonter à cible
   const manque = Math.max(0, cibleStock - totalStock);
-  const rendement = r.rendementBouteilles || 5;
+  const rendement = recette?.rendementBouteilles || 5;
   const litresNecessaires = manque > 0 ? Math.ceil(manque / rendement) : 0;
-  return {nom:r.nom, couleur:r.couleur||"#F2C94C", totalStock, cibleStock, hebdoTotal, niveau, manque, litresNecessaires, dureeMac: r.dureeMacerationJours||30};
+  return {nom, couleur, totalStock, cibleStock, hebdoTotal, niveau, manque, litresNecessaires, dureeMac: recette?.dureeMacerationJours||30};
 }).filter((s:any)=>s.niveau!=="vert");
 
 const goPage = (p:string) => {
