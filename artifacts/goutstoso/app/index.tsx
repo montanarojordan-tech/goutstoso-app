@@ -499,15 +499,15 @@ action: "fournisseurs",
 }
 });
 
-// Commandes non envoyées en compta
-const cmdNonCompta = (st.commandes||[]).filter(c=>!c.envoyeeCompta && (c.statut==="livrée"||c.statut==="retirée"));
-if(cmdNonCompta.length > 0) {
+// Commandes livrées sans facture
+const cmdSansFacture = (st.commandes||[]).filter(c=>!c.factureNumero && (c.statut==="livrée"||c.statut==="retirée"));
+if(cmdSansFacture.length > 0) {
 alertes.push({
 type: "compta",
 priorite: "moyenne",
-icone: "📊",
-titre: cmdNonCompta.length+" commande(s) à envoyer en compta",
-desc: "Commandes livrées non comptabilisées",
+icone: "🧾",
+titre: cmdSansFacture.length+" commande(s) livrée(s) sans facture",
+desc: "Générer les factures pour les passer en comptabilité",
 action: "commandes",
 });
 }
@@ -3069,8 +3069,10 @@ return (l.qte||0)*pu;
 );
 const calcTotalNet = (f, produits) => {
 const brut = calcTotal(f.lignes, f.typeClient, produits);
-const rabais = calcTotal((f.lignesOffertes||[]).filter(l=>l.produitId&&l.qte>0), f.typeClient, produits);
-return brut - rabais;
+const rabProduits = calcTotal((f.lignesOffertes||[]).filter(l=>l.produitId&&l.qte>0), f.typeClient, produits);
+// Si pas de lignesOffertes produits, utiliser le totalRabais stocké (ex: rabais flat depuis commande)
+const rab = rabProduits > 0 ? rabProduits : (parseFloat(f.totalRabais)||0);
+return brut - rab;
 };
 
 const Factures = ({st,setSt}) => {
@@ -4847,8 +4849,8 @@ return (
           };
         });
 
-        // Entrées prévues : commandes directes non encore encaissées
-        const cmdEntrees = (st.commandes||[]).filter(c=>!c.envoyeeCompta && c.statut!=="payée").map(c=>{
+        // Entrées prévues : commandes directes sans facture encore encaissée
+        const cmdEntrees = (st.commandes||[]).filter(c=>!c.factureNumero && c.statut!=="payée").map(c=>{
           const produitsTotal = sum((c.lignes||[]).filter(l=>l.produitId).map(l=>{
             const p2 = st.produits.find(x=>x.id===l.produitId);
             return (c.typeClient==="revendeur"?(p2?.prixRevendeur||0):(p2?.prixClient||0))*(l.qte||0);
@@ -4993,7 +4995,7 @@ return (
           const margeP = p.prixClient-cout;
           const margePro = p.prixRevendeur-cout;
           const uCmd = (st.commandes||[]).filter(cmd=>{
-            if(!cmd.envoyeeCompta) return false;
+            if(!cmd.factureNumero) return false;
             if(periode==="tout") return true;
             return (cmd.date||"").startsWith(periode);
           }).reduce((a,cmd)=>{
@@ -5771,23 +5773,31 @@ const genererFactureDepuisCommande = (cmd, st, setSt) => {
   const existing = (st.factures||[]).map(f=>f.numero);
   let n=1; while(existing.includes("FAC-"+y+"-"+String(n).padStart(3,"0"))) n++;
   const numero = "FAC-"+y+"-"+String(n).padStart(3,"0");
+  const typeClient = cmd.typeClient||"revendeur";
   const lignesOk = (cmd.lignes||[]).filter(l=>l.produitId&&l.qte>0).map(l=>{
     const prod=(st.produits||[]).find(p=>p.id===l.produitId);
-    return {produitId:l.produitId,designation:prod?prod.nom+" "+(prod.variante||""):l.produitId,qte:l.qte,prix:prod?.prixRevendeur||0};
+    const pu = prod?(typeClient==="revendeur"?(prod.prixRevendeur||0):(prod.prixClient||0)):0;
+    return {produitId:l.produitId,designation:prod?prod.nom+" "+(prod.variante||""):l.produitId,qte:l.qte,prix:pu};
   });
-  const total = lignesOk.reduce((s,l)=>s+l.qte*l.prix,0);
+  const brut = lignesOk.reduce((s,l)=>s+l.qte*l.prix,0);
+  const rabais = parseFloat(cmd.rabais)||0;
+  const total = Math.max(0, brut - rabais);
   const newFac = {
     id:uid(), numero, date:today(), dateEcheance:"", statut:"en attente",
+    typeClient,
     clientNom:cmd.client, clientEmail:cmd.email||"",
     clientAdresse:cmd.adresse||"", clientNpa:cmd.npa||"", clientVille:cmd.ville||"",
-    lignes:lignesOk, total, notes:"Issue de la commande "+cmd.numero, commandeId:cmd.id,
+    partenaireId:cmd.partenaireId||"",
+    lignes:lignesOk, lignesOffertes:[], total,
+    totalRabais:rabais, comptOffert:"3800",
+    notes:"Issue de la commande "+cmd.numero, commandeId:cmd.id,
   };
   setSt((p:any)=>({
     ...p,
     factures:[...(p.factures||[]),newFac],
     commandes:p.commandes.map((c:any)=>c.id===cmd.id?{...c,factureNumero:numero}:c),
   }));
-  alert("✅ Facture "+numero+" créée ! Retrouve-la dans Comptabilité → Factures.");
+  alert("✅ Facture "+numero+" créée ! Retrouve-la dans Comptabilité → Factures.\n\nUne fois marquée payée, les écritures comptables seront générées automatiquement.");
 };
 
 // ══════════════════════════════════════════════════════════════
@@ -6082,11 +6092,11 @@ const delLigne = (i) => setForm(p=>({...p,lignes:p.lignes.filter((_,j)=>j!==i)})
 const commandes = (st.commandes||[]).slice().reverse();
 const filtrees = commandes.filter(c=>{
 if(filtre==="toutes") return true;
-if(filtre==="non-envoyees") return !c.envoyeeCompta;
-if(filtre==="envoyees") return c.envoyeeCompta;
+if(filtre==="sans-facture") return !c.factureNumero;
+if(filtre==="avec-facture") return !!c.factureNumero;
 return true;
 });
-const nbNonEnvoyees = commandes.filter(c=>!c.envoyeeCompta).length;
+const nbSansFacture = commandes.filter(c=>!c.factureNumero && (c.statut==="livrée"||c.statut==="retirée")).length;
 
 const badgeStatut = (s) => s==="en attente"?"yellow":s==="en attente retrait"?"yellow":s==="expédiée"?"blue":s==="livrée"?"green":s==="retirée"?"green":s==="payée"?"green":"gray";
 
@@ -6187,7 +6197,7 @@ return (
         </div>
         <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:6}}>
           <Badge c={badgeStatut(view.statut)}>{view.statut}</Badge>
-          {view.envoyeeCompta && <span style={{fontSize:9,color:"#F2C94C",background:"#ffffff15",borderRadius:6,padding:"3px 7px",fontWeight:700}}>✓ En compta</span>}
+          {view.factureNumero && <span style={{fontSize:9,color:"#F2C94C",background:"#ffffff15",borderRadius:6,padding:"3px 7px",fontWeight:700}}>🧾 {view.factureNumero}</span>}
         </div>
       </div>
     </div>
@@ -6243,18 +6253,17 @@ return (
     </div>
 
     {/* Actions */}
-    <div style={{display:"grid",gridTemplateColumns:view.envoyeeCompta?"1fr 1fr":"1fr",gap:6,marginBottom:8}}>
-      <button onClick={()=>envoyerCompta(view)} style={{background:view.envoyeeCompta?"#F5F5F0":"#166534",color:view.envoyeeCompta?"#6B7280":"#fff",border:"none",borderRadius:10,padding:"11px",fontWeight:700,fontSize:12,cursor:"pointer"}}>
-        {view.envoyeeCompta?"↻ Renvoyer en compta":"📊 Envoyer en compta"}
-      </button>
-      {view.envoyeeCompta && <button onClick={()=>toggleStatut(view)} style={{background:"#F5F5F0",border:"none",borderRadius:10,padding:"11px",fontWeight:600,fontSize:12,cursor:"pointer"}}>
-        Statut: {view.statut}
-      </button>}
-    </div>
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginBottom:8}}>
       <button onClick={()=>{setForm({...view,typeClient:view.typeClient||"revendeur"});setModal("form");setViewId(null);}} style={{background:"#F5F5F0",border:"none",borderRadius:10,padding:"10px",fontWeight:600,fontSize:12,cursor:"pointer"}}>✏️ Modifier</button>
       <button onClick={()=>supprimer(view.id)} style={{background:"#FEE2E2",color:"#991B1B",border:"none",borderRadius:10,padding:"10px",fontWeight:600,fontSize:12,cursor:"pointer"}}>🗑 Supprimer</button>
     </div>
+    {/* Créer la facture (pour commandes sans offreId) */}
+    {!view.offreId && (
+      <button onClick={()=>!view.factureNumero?genererFactureDepuisCommande(view,st,setSt):alert("Facture "+view.factureNumero+" déjà créée dans Comptabilité → Factures")}
+        style={{width:"100%",background:view.factureNumero?"#166534":"#0A0A0A",color:view.factureNumero?"#fff":"#F2C94C",border:"none",borderRadius:10,padding:"11px",fontWeight:700,fontSize:12,cursor:"pointer",marginBottom:8,display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+        🧾 {view.factureNumero?"Facture "+view.factureNumero+" créée ✓":"Créer la facture"}
+      </button>
+    )}
     {/* Indicateur stock déduit */}
     {view.stockDeduit
       ? <div style={{background:"#F0FDF4",border:"1px solid #BBF7D0",borderRadius:8,padding:"7px 12px",marginBottom:8,display:"flex",alignItems:"center",gap:6,fontSize:11,color:"#15803D",fontWeight:600}}>
@@ -6388,17 +6397,17 @@ return (
 Commandes
 </SectionTitle>
 
-  {nbNonEnvoyees>0 && (
+  {nbSansFacture>0 && (
     <div style={{background:"#FEF9E7",border:"1px solid #F2C94C",borderRadius:12,padding:"10px 14px",marginBottom:14}}>
-      <p style={{fontWeight:700,color:"#92400E",fontSize:12}}>💡 {nbNonEnvoyees} commande{nbNonEnvoyees>1?"s":""} à envoyer en compta</p>
+      <p style={{fontWeight:700,color:"#92400E",fontSize:12}}>🧾 {nbSansFacture} commande{nbSansFacture>1?"s":""} livrée{nbSansFacture>1?"s":""} sans facture</p>
     </div>
   )}
 
   <div style={{display:"flex",gap:6,marginBottom:14,overflowX:"auto"}}>
     {[
       {id:"toutes",l:"Toutes"},
-      {id:"non-envoyees",l:`À envoyer${nbNonEnvoyees>0?" ("+nbNonEnvoyees+")":""}`},
-      {id:"envoyees",l:"En compta"},
+      {id:"sans-facture",l:`Sans facture${nbSansFacture>0?" ("+nbSansFacture+")":""}`},
+      {id:"avec-facture",l:"Facturées"},
     ].map(f=>(
       <button key={f.id} onClick={()=>setFiltre(f.id)} style={{
         background:filtre===f.id?"#111":"#F5F5F0",
@@ -6422,7 +6431,7 @@ Commandes
   ) : filtrees.map(c=>{
     const calc = calcCommande(c);
     return (
-      <Card key={c.id} style={{marginBottom:10,padding:"12px 14px",borderLeft:c.envoyeeCompta?"3px solid #22C55E":"3px solid #F2C94C"}}>
+      <Card key={c.id} style={{marginBottom:10,padding:"12px 14px",borderLeft:c.factureNumero?"3px solid #22C55E":"3px solid #F2C94C"}}>
         <div onClick={()=>setViewId(c.id)} style={{cursor:"pointer"}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:6}}>
             <div style={{flex:1,minWidth:0}}>
@@ -6437,14 +6446,14 @@ Commandes
               <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:18,fontWeight:700,color:"#D4A017"}}>{chf(calc.totalClient)}</p>
               <div style={{marginTop:4,display:"flex",flexDirection:"column",alignItems:"flex-end",gap:3}}>
                 <Badge c={badgeStatut(c.statut)}>{c.statut}</Badge>
-                {c.envoyeeCompta && <span style={{fontSize:9,color:"#166534",background:"#DCFCE7",borderRadius:4,padding:"2px 6px",fontWeight:700}}>✓ compta</span>}
+                {c.factureNumero && <span style={{fontSize:9,color:"#166534",background:"#DCFCE7",borderRadius:4,padding:"2px 6px",fontWeight:700}}>🧾 {c.factureNumero}</span>}
               </div>
             </div>
           </div>
         </div>
         <div style={{display:"flex",gap:6,marginTop:8}}>
-          {!c.envoyeeCompta && (
-            <button onClick={()=>envoyerCompta(c)} style={{flex:1,background:"#166534",color:"#fff",border:"none",borderRadius:8,padding:"7px",fontSize:11,fontWeight:700,cursor:"pointer"}}>📊 Envoyer en compta</button>
+          {!c.factureNumero && (
+            <button onClick={()=>genererFactureDepuisCommande(c,st,setSt)} style={{flex:1,background:"#0A0A0A",color:"#F2C94C",border:"none",borderRadius:8,padding:"7px",fontSize:11,fontWeight:700,cursor:"pointer"}}>🧾 Créer la facture</button>
           )}
           <button onClick={()=>setViewId(c.id)} style={{flex:1,background:"#F5F5F0",border:"none",borderRadius:8,padding:"7px",fontSize:11,fontWeight:600,cursor:"pointer"}}>👁 Voir</button>
           <button onClick={()=>supprimer(c.id)} style={{background:"#FEE2E2",border:"none",borderRadius:8,padding:"7px 10px",cursor:"pointer",display:"flex"}}><Ic n="trash" s={13}/></button>
