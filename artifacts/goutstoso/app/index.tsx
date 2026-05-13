@@ -1570,8 +1570,39 @@ const affQte=(val,unite)=>{
 });
 y+=8;
 
+// Marche à suivre
+const etapes = recette?.marcheASuivre||[];
+if(etapes.length>0){
+  // Vérifier si on a besoin d'une nouvelle page
+  if(y+10+(etapes.length*8)>270){doc.addPage();doc.setFillColor(242,201,76);doc.rect(0,0,W,6,"F");y=18;}
+  y+=6;
+  doc.setFillColor(17,17,17);doc.rect(mg,y,W-mg*2,9,"F");
+  doc.setFontSize(8);doc.setFont("helvetica","bold");doc.setTextColor(242,201,76);
+  doc.text("MARCHE À SUIVRE",mg+3,y+6);
+  y+=9;
+  etapes.forEach((etape,i)=>{
+    const lignes=doc.splitTextToSize(`${i+1}. ${etape}`,W-mg*2-12);
+    const h=Math.max(8,lignes.length*5+4);
+    doc.setFillColor(i%2===0?250:255,i%2===0?250:255,i%2===0?248:255);
+    doc.rect(mg,y,W-mg*2,h,"F");
+    doc.setDrawColor(240,240,238);doc.setLineWidth(0.2);doc.rect(mg,y,W-mg*2,h,"S");
+    // Numéro en doré
+    doc.setFillColor(242,201,76);doc.circle(mg+5,y+h/2,3,"F");
+    doc.setFontSize(7);doc.setFont("helvetica","bold");doc.setTextColor(17,17,17);
+    doc.text(String(i+1),mg+5,y+h/2+2.5,{align:"center"});
+    // Texte
+    doc.setFontSize(8.5);doc.setFont("helvetica","normal");doc.setTextColor(30,30,30);
+    doc.text(lignes,mg+11,y+5);
+    y+=h;
+    // Saut de page si nécessaire
+    if(y>265&&i<etapes.length-1){doc.addPage();doc.setFillColor(242,201,76);doc.rect(0,0,W,6,"F");y=18;}
+  });
+  y+=4;
+}
+
 // Notes
 if(notes){
+  y+=2;
   doc.setFontSize(8);doc.setFont("helvetica","bold");doc.setTextColor(156,163,175);
   doc.text("NOTES",mg,y);
   doc.setDrawColor(242,201,76);doc.setLineWidth(0.5);doc.line(mg,y+1,mg+12,y+1);
@@ -1583,6 +1614,7 @@ if(notes){
 
 // Ligne signature
 y+=10;
+if(y>270){doc.addPage();doc.setFillColor(242,201,76);doc.rect(0,0,W,6,"F");y=30;}
 doc.setDrawColor(200,200,200);doc.setLineWidth(0.3);
 doc.line(mg,y,mg+55,y);doc.line(W-mg-55,y,W-mg,y);
 doc.setFontSize(8);doc.setTextColor(150,150,150);
@@ -8416,6 +8448,20 @@ const RECETTES_DEFAULT = [
     volumeBouteille:500,
     titreAlcool:30,
     notes:"Macération 15j. Agiter 1x/jour les 3 premiers jours. Sirop refroidi impérativement avant assemblage. Vieillissement 15j minimum avant commercialisation. Coût matière : ~3.20 CHF/btl.",
+    marcheASuivre:[
+      "Laver soigneusement les citrons à l'eau froide. Sécher.",
+      "Prélever les zestes à l'économe ou râpe fine — sans la partie blanche amère.",
+      "Placer les zestes dans un grand bocal en verre stérilisé et hermétique.",
+      "Verser l'alcool pur 80° sur les zestes. Fermer hermétiquement.",
+      "Macérer 15 jours à température ambiante, à l'abri de la lumière.",
+      "Agiter le bocal 1× par jour les 3 premiers jours, puis tous les 2–3 jours.",
+      "Filtrer l'alcool coloré avec une étamine fine. Ne pas presser les zestes.",
+      "Préparer le sirop : chauffer l'eau filtrée, dissoudre le sucre. Laisser refroidir complètement.",
+      "Assembler l'alcool macéré avec le sirop froid. Mélanger doucement.",
+      "Filtrer une seconde fois si nécessaire pour clarifier.",
+      "Embouteiller, étiqueter avec le numéro de lot, fermer hermétiquement.",
+      "Laisser vieillir minimum 15 jours à l'abri de la lumière avant commercialisation.",
+    ],
   },
   {
     id:"limelo",
@@ -8435,6 +8481,20 @@ const RECETTES_DEFAULT = [
     volumeBouteille:500,
     titreAlcool:30,
     notes:"Macération 15j. Ajouter feuilles de combava les 2 derniers jours. Ajouter jus citron vert à l'assemblage. Vieillissement 1 mois minimum (adoucit l'amertume). Coût : ~3.50 CHF/btl.",
+    marcheASuivre:[
+      "Laver soigneusement les citrons verts à l'eau froide. Sécher.",
+      "Prélever les zestes à l'économe — sans la partie blanche amère.",
+      "Placer les zestes dans un grand bocal en verre stérilisé et hermétique.",
+      "Verser l'alcool pur 80° sur les zestes. Fermer hermétiquement.",
+      "Macérer 13 jours à température ambiante, à l'abri de la lumière.",
+      "Au 13e jour : ajouter les feuilles de combava dans le bocal pour les 2 derniers jours.",
+      "Agiter le bocal tous les 2–3 jours.",
+      "Filtrer l'alcool avec une étamine fine. Ne pas presser les zestes.",
+      "Préparer le sirop : chauffer l'eau filtrée, dissoudre le sucre. Laisser refroidir complètement.",
+      "Assembler l'alcool macéré + sirop froid + jus de citron vert. Mélanger doucement.",
+      "Filtrer une seconde fois pour clarifier.",
+      "Embouteiller, étiqueter avec le numéro de lot. Vieillissement minimum 1 mois recommandé.",
+    ],
   },
   {
     id:"clementino",
@@ -8452,6 +8512,19 @@ const RECETTES_DEFAULT = [
     volumeBouteille:500,
     titreAlcool:30,
     notes:"Macération 15j. 50% zestes purs + 50% écorces. Agiter quotidiennement les 3 premiers jours. Vieillissement 3 semaines minimum. Saison optimale : déc–janv. Coût : ~3.80 CHF/btl.",
+    marcheASuivre:[
+      "Laver soigneusement les clémentines à l'eau froide. Sécher.",
+      "Prélever 50% en zestes fins (économe), 50% en écorces plus épaisses (paring knife).",
+      "Placer zestes et écorces dans un grand bocal en verre stérilisé et hermétique.",
+      "Verser l'alcool pur 80°. Fermer hermétiquement.",
+      "Macérer 15 jours à température ambiante, à l'abri de la lumière.",
+      "Agiter le bocal 1× par jour les 3 premiers jours, puis tous les 2–3 jours.",
+      "Filtrer l'alcool coloré avec une étamine fine. Ne pas presser les écorces.",
+      "Préparer le sirop : chauffer l'eau, dissoudre le sucre. Laisser refroidir complètement.",
+      "Assembler l'alcool macéré avec le sirop froid. Mélanger doucement.",
+      "Filtrer une seconde fois si nécessaire.",
+      "Embouteiller, étiqueter avec le numéro de lot. Repos minimum 3 semaines.",
+    ],
   },
   {
     id:"pescato",
@@ -8470,6 +8543,20 @@ const RECETTES_DEFAULT = [
     volumeBouteille:500,
     titreAlcool:30,
     notes:"Macération 10j. Garder la peau des pêches. Concasser les noyaux au marteau (notes d'amande douce). Agiter tous les 2 jours. Presser légèrement les fruits à la filtration. Repos 1 semaine après assemblage. Coût : ~3.50 CHF/btl.",
+    marcheASuivre:[
+      "Laver les pêches. Conserver la peau — elle apporte arôme et couleur.",
+      "Dénoyauter et couper les pêches en quartiers (env. 150 g/pièce).",
+      "Concasser les noyaux au marteau (attention : amande intérieure uniquement).",
+      "Placer les quartiers de pêche et les noyaux concassés dans un bocal stérilisé.",
+      "Verser l'alcool pur 80°. Fermer hermétiquement.",
+      "Macérer 10 jours à température ambiante, à l'abri de la lumière.",
+      "Agiter délicatement tous les 2 jours.",
+      "Filtrer avec étamine. Presser légèrement les fruits pour extraire les jus.",
+      "Préparer le sirop de sucre avec l'eau filtrée. Laisser refroidir complètement.",
+      "Assembler l'alcool macéré et le sirop froid. Mélanger doucement.",
+      "Filtrer une seconde fois pour clarifier.",
+      "Embouteiller avec numéro de lot. Repos minimum 1 semaine après assemblage.",
+    ],
   },
   {
     id:"fraisetta",
@@ -8488,6 +8575,20 @@ const RECETTES_DEFAULT = [
     volumeBouteille:500,
     titreAlcool:30,
     notes:"Macération 10j. Agiter quotidiennement. Presser les fraises dans un linge. Repos 2 semaines minimum après assemblage. Option : +50g fraises lyophilisées en poudre pour intensifier. Coût : ~4.50 CHF/btl.",
+    marcheASuivre:[
+      "Laver et équeuter délicatement les fraises. Sécher sur papier absorbant.",
+      "Couper les fraises en deux ou en quartiers selon la taille.",
+      "Fendre la gousse de vanille en deux et gratter les graines.",
+      "Placer fraises, gousse et graines de vanille dans un bocal stérilisé.",
+      "Verser l'alcool pur 80°. Fermer hermétiquement.",
+      "Macérer 10 jours à température ambiante, à l'abri de la lumière.",
+      "Agiter délicatement le bocal tous les jours.",
+      "Filtrer avec étamine en pressant les fraises dans un linge propre.",
+      "Préparer le sirop de sucre avec l'eau filtrée. Laisser refroidir complètement.",
+      "Assembler l'alcool macéré + sirop froid. Mélanger doucement.",
+      "Filtrer une seconde fois pour clarifier.",
+      "Embouteiller avec numéro de lot. Repos minimum 2 semaines avant dégustation.",
+    ],
   },
   {
     id:"lamponia",
@@ -8505,6 +8606,19 @@ const RECETTES_DEFAULT = [
     volumeBouteille:500,
     titreAlcool:30,
     notes:"Macération 10j. Framboises surgelées idéales (cellules éclatées libèrent mieux les arômes). Écraser grossièrement à la fourchette. Agiter quotidiennement. Attention aux pépins à la filtration (ne pas presser fort = amertume). Coût : ~5 CHF/btl.",
+    marcheASuivre:[
+      "Utiliser des framboises surgelées de préférence (les cellules éclatées libèrent mieux les arômes).",
+      "Laisser décongeler partiellement, puis écraser grossièrement à la fourchette.",
+      "Placer les framboises écrasées dans un bocal en verre stérilisé.",
+      "Verser l'alcool pur 80°. Fermer hermétiquement.",
+      "Macérer 10 jours à température ambiante, à l'abri de la lumière.",
+      "Agiter délicatement tous les jours.",
+      "Filtrer avec étamine SANS presser les framboises — les pépins donnent de l'amertume.",
+      "Préparer le sirop de sucre avec l'eau filtrée. Laisser refroidir complètement.",
+      "Assembler l'alcool macéré + sirop froid. Mélanger doucement.",
+      "Filtrer une seconde fois (papier filtre si besoin pour clarifier).",
+      "Embouteiller avec numéro de lot. Repos minimum 2 semaines avant dégustation.",
+    ],
   },
   {
     id:"caffetto",
@@ -8525,6 +8639,20 @@ const RECETTES_DEFAULT = [
     volumeBouteille:500,
     titreAlcool:30,
     notes:"Café arabica de spécialité, concassé grossièrement (pas en poudre). Agiter 1x/semaine. Goûter à J15, J18, J21 pour arrêter au moment optimal (15-21j). Assemblage avec sirop à 40°C (aide à dissoudre les huiles). Repos 2-3 semaines minimum. Coût : ~4 CHF/btl.",
+    marcheASuivre:[
+      "Concasser grossièrement les grains de café arabica (pas en poudre — trop d'amertume).",
+      "Fendre la gousse de vanille et gratter les graines. Râper la fève tonka si utilisée.",
+      "Placer café, vanille et tonka dans un bocal en verre stérilisé.",
+      "Verser l'alcool pur 80°. Fermer hermétiquement.",
+      "Macérer 15 à 21 jours à température ambiante, à l'abri de la lumière.",
+      "Agiter le bocal 1× par semaine.",
+      "Goûter à J15, J18 et J21 pour arrêter à l'intensité souhaitée.",
+      "Filtrer avec étamine puis papier filtre pour clarifier (les huiles de café troublent le liquide).",
+      "Préparer le sirop : chauffer l'eau, dissoudre sucre roux + sucre blanc. Laisser tiédir à 40°C.",
+      "Assembler l'alcool macéré + sirop à 40°C (aide à dissoudre les huiles résiduelles).",
+      "Laisser refroidir complètement, filtrer une dernière fois.",
+      "Embouteiller avec numéro de lot. Repos minimum 2–3 semaines avant dégustation.",
+    ],
   },
 ];
 
