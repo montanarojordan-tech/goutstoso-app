@@ -533,7 +533,12 @@ return (stockPropre+stockDepot)*(p.coutRevient||0);
 }));
 
 // === SUGGESTIONS DE PRODUCTION ===
-const prodActifsDash = (st.produits||[]).filter((p:any)=>p.actif && !p.nom.includes("Coffret"));
+const prodActifsDash = (st.produits||[]).filter((p:any)=>
+  !p.nom.includes("Coffret") && (
+    (st.stocks||[]).some((s:any)=>s.produitId===p.id) ||
+    (st.depotStocks||[]).some((d:any)=>d.produitId===p.id)
+  )
+);
 const prodRecettesDash = (st.production?.recettes || []) as any[];
 
 // Groupes de produits (par nom, sans tenir compte du format)
