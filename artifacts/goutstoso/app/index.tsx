@@ -9468,8 +9468,15 @@ const Production = ({st, setSt}) => {
           </div>
         </div>
         <div>
-          <label style={labelStyle}>Volume bouteille (ml)</label>
-          <input type="number" style={inputStyle} value={rForm.volumeBouteille} onChange={e=>setRForm(p=>({...p,volumeBouteille:parseInt(e.target.value)||500}))}/>
+          <label style={labelStyle}>Format bouteille</label>
+          <select style={inputStyle} value={rForm.volumeBouteille} onChange={e=>setRForm(p=>({...p,volumeBouteille:parseInt(e.target.value)}))}>
+            <option value={250}>250 ml</option>
+            <option value={500}>500 ml</option>
+            <option value={375}>375 ml</option>
+            <option value={700}>700 ml</option>
+            <option value={750}>750 ml</option>
+            <option value={1000}>1 L</option>
+          </select>
         </div>
         <div>
           <label style={labelStyle}>Couleur</label>
