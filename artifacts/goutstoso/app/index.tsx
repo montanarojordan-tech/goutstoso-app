@@ -4400,6 +4400,9 @@ const categorie = prod?.nom==="Limonta"?"Vente Limonta":
 prod?.nom==="Limelo"?"Vente Limelo":
 prod?.nom==="Clementino"?"Vente Clementino":
 prod?.nom?.includes("Coffret")?"Vente Coffrets":"Vente Limonta";
+// Utiliser f.total (net après rabais) si disponible, sinon recalculer
+const montantNet = (f.total !== undefined && f.total !== null) ? f.total : total;
+const rabaisDesc = (f.totalRabais && f.totalRabais>0) ? ` (dont rabais -CHF ${f.totalRabais.toFixed(2)})` : "";
 nouvelles.push({
 id:uid(),
 factureId:f.id,
@@ -4408,8 +4411,8 @@ compte,
 libelle:`Paiement ${f.numero}`,
 type:"recette",
 categorie,
-montant:total,
-description:`Facture ${f.numero} - ${pv?.nom||""}`,
+montant:montantNet,
+description:`Facture ${f.numero} - ${pv?.nom||""}${rabaisDesc}`,
 postfinance:true,
 });
 });
