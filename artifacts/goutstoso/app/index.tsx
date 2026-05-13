@@ -3077,7 +3077,7 @@ const [sigMode,setSigMode] = useState(false);
 const [pjModal,setPjModal] = useState(false);
 const [recoveryTokenF, setRecoveryTokenF] = useState("");
 
-const emptyF = {partenaireId:st.partenaires[0]?.id||"",typeClient:"revendeur",lignes:[{produitId:"",qte:1}],notes:"",date:today(),envoyee:false};
+const emptyF = {partenaireId:st.partenaires[0]?.id||"",typeClient:"revendeur",lignes:[{produitId:"",qte:1}],lignesOffertes:[],notes:"",date:today(),envoyee:false};
 const [form,setForm] = useState(emptyF);
 const [modalRegroup,setModalRegroup] = useState(false);
 const [selectedForRegroup,setSelectedForRegroup] = useState([]);
@@ -3179,11 +3179,12 @@ const save = () => {
 const lignesOk = form.lignes.filter(l=>l.produitId&&l.qte>0);
 if(!form.partenaireId||!lignesOk.length) return;
 const total = calcTotal(lignesOk, form.typeClient, st.produits);
+const lignesOffertes = (form.lignesOffertes||[]).filter(l=>l.produitId&&l.qte>0);
 if(form.id) {
-setSt(p=>({...p,factures:p.factures.map(f=>f.id===form.id?{...form,lignes:lignesOk,total}:f)}));
+setSt(p=>({...p,factures:p.factures.map(f=>f.id===form.id?{...form,lignes:lignesOk,lignesOffertes,total}:f)}));
 } else {
 const numero = genNumero();
-setSt(p=>({...p,factures:[...(p.factures||[]),{...form,id:uid(),numero,statut:"en attente",lignes:lignesOk,total,datePaiement:""}]}));
+setSt(p=>({...p,factures:[...(p.factures||[]),{...form,id:uid(),numero,statut:"en attente",lignes:lignesOk,lignesOffertes,total,datePaiement:""}]}));
 }
 setModal(null);
 };
@@ -3218,6 +3219,9 @@ const del = id => setSt(p=>({...p,factures:p.factures.filter(f=>f.id!==id)}));
 
 const addLigne = () => setForm(p=>({...p,lignes:[...p.lignes,{produitId:"",qte:1}]}));
 const updLigne = (i,k,v) => setForm(p=>({...p,lignes:p.lignes.map((l,j)=>j===i?{...l,[k]:v}:l)}));
+const addLigneOfferte = () => setForm(p=>({...p,lignesOffertes:[...(p.lignesOffertes||[]),{produitId:"",qte:1,texte:"Offert avec votre commande"}]}));
+const updLigneOfferte = (i,k,v) => setForm(p=>({...p,lignesOffertes:(p.lignesOffertes||[]).map((l,j)=>j===i?{...l,[k]:v}:l)}));
+const delLigneOfferte = (i) => setForm(p=>({...p,lignesOffertes:(p.lignesOffertes||[]).filter((_,j)=>j!==i)}));
 
 const getInfosRetard = (f) => {
 if(f.statut==="payée") return null;
@@ -3388,6 +3392,32 @@ const echeance=new Date(new Date(f.date).getTime()+30*86400000).toISOString().sl
     doc.text("CHF "+(pu*l.qte).toFixed(2),W-mg-2,y+6,{align:"right"});
     y+=11;
   });
+
+  // Bouteilles offertes
+  const offerts=(f.lignesOffertes||[]).filter(l=>l.produitId);
+  if(offerts.length>0){
+    y+=3;
+    doc.setFillColor(232,245,232);doc.setDrawColor(76,175,80);doc.setLineWidth(0.4);
+    doc.roundedRect(mg,y,W-mg*2,7,1.5,1.5,"FD");
+    doc.setFontSize(7);doc.setFont("helvetica","bold");doc.setTextColor(46,125,50);
+    doc.text("BOUTEILLES OFFERTES",mg+3,y+4.5);
+    y+=7;
+    offerts.forEach((l,i)=>{
+      const p2=st.produits.find(x=>x.id===l.produitId);
+      doc.setFillColor(i%2===0?240:248,i%2===0?249:252,i%2===0?240:248);
+      doc.rect(mg,y,W-mg*2,13,"F");
+      doc.setDrawColor(200,235,200);doc.setLineWidth(0.2);doc.rect(mg,y,W-mg*2,13,"S");
+      doc.setFontSize(9);doc.setFont("helvetica","bold");doc.setTextColor(17,17,17);
+      doc.text((p2?.nom||"")+" "+(p2?.variante||""),mg+3,y+5);
+      doc.setFontSize(7.5);doc.setFont("helvetica","normal");doc.setTextColor(100,100,100);
+      doc.text(l.texte||"Offert",mg+3,y+10);
+      doc.setFontSize(9);doc.setTextColor(107,114,128);
+      doc.text(String(l.qte),130,y+6,{align:"center"});
+      doc.setFont("helvetica","bold");doc.setTextColor(46,125,50);
+      doc.text("OFFERT",W-mg-2,y+6,{align:"right"});
+      y+=13;
+    });
+  }
   y+=4;
 
   // Totaux
@@ -4107,6 +4137,34 @@ return {Numero:f.numero,Date:f.date,Client:pv?.nom,Total:total,Statut:f.statut};
             + Ajouter un produit
           </button>
         </div>
+
+        {/* Bouteilles offertes */}
+        <div>
+          <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
+            <span style={{fontSize:11,fontWeight:600,color:"#16A34A",textTransform:"uppercase",letterSpacing:".06em"}}>🎁 Bouteilles offertes</span>
+            <span style={{fontSize:10,color:"#9CA3AF"}}>(n'affecte pas le total)</span>
+          </div>
+          {(form.lignesOffertes||[]).map((l,i)=>(
+            <div key={i} style={{background:"#F0FDF4",border:"1px solid #BBF7D0",borderRadius:10,padding:"10px",marginBottom:8}}>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 50px auto",gap:8,marginBottom:6,alignItems:"flex-end"}}>
+                <Sel label="" value={l.produitId} onChange={v=>updLigneOfferte(i,"produitId",v)}
+                  options={[{v:"",l:"- Produit -"},...st.produits.filter(p=>p.actif).map(p=>({v:p.id,l:`${p.nom} ${p.variante} ${p.format}`}))]}/>
+                <input type="number" value={l.qte} min={1} onChange={e=>updLigneOfferte(i,"qte",+e.target.value)}
+                  style={{padding:"11px 8px",fontSize:16,border:"1.5px solid #BBF7D0",borderRadius:10,textAlign:"center",width:50,background:"#fff"}}/>
+                <button onClick={()=>delLigneOfferte(i)} style={{background:"#FEE2E2",border:"none",borderRadius:8,padding:"10px 8px",cursor:"pointer",display:"flex"}}>
+                  <Ic n="trash" s={13}/>
+                </button>
+              </div>
+              <input value={l.texte||""} onChange={e=>updLigneOfferte(i,"texte",e.target.value)}
+                placeholder="Texte à faire figurer sur la facture…"
+                style={{width:"100%",padding:"8px 10px",fontSize:13,border:"1.5px solid #BBF7D0",borderRadius:8,background:"#fff",boxSizing:"border-box",color:"#374151"}}/>
+            </div>
+          ))}
+          <button onClick={addLigneOfferte} style={{background:"none",border:"1.5px dashed #BBF7D0",borderRadius:10,padding:"8px",width:"100%",color:"#16A34A",fontSize:13,cursor:"pointer"}}>
+            + Ajouter une bouteille offerte
+          </button>
+        </div>
+
         {/* Total preview */}
         {(form.lignes||[]).some(l=>l.produitId)&&(
           <div style={{background:"#FEF9E7",border:"1px solid #F2C94C",borderRadius:10,padding:"10px 14px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
