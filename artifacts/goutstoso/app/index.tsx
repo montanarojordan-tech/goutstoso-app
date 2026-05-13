@@ -1460,6 +1460,142 @@ doc.save(c.numero+".pdf");
 } catch(e){alert("Erreur PDF : "+e.message);}
 };
 
+const genererFicheMacerationPDF = async ({recette, litres, btl25, btl50, numLot, dateDebut, notes}) => {
+try {
+await new Promise((res,rej)=>{
+if((window as any).jspdf){res(null);return;}
+const s=document.createElement("script");
+s.src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";
+s.onload=res;s.onerror=rej;document.head.appendChild(s);
+});
+const {jsPDF}=(window as any).jspdf;
+const doc=new jsPDF("p","mm","a4");
+const W=210,mg=18;
+
+// Bande jaune
+doc.setFillColor(242,201,76);doc.rect(0,0,W,6,"F");
+
+// Logo
+pdfLogo(doc,mg);
+
+// Titre + numéro de lot
+doc.setFontSize(20);doc.setFont("helvetica","bold");doc.setTextColor(17,17,17);
+doc.text("FICHE DE MACÉRATION",W-mg,20,{align:"right"});
+doc.setFontSize(14);doc.setTextColor(212,160,23);
+doc.text("LOT : "+(numLot||genLot(dateDebut)),W-mg,29,{align:"right"});
+doc.setFontSize(9);doc.setTextColor(120,120,120);doc.setFont("helvetica","normal");
+doc.text("Date de début : "+fmt(dateDebut),W-mg,35,{align:"right"});
+
+// Ligne séparatrice
+doc.setDrawColor(230,230,228);doc.setLineWidth(0.3);doc.line(mg,42,W-mg,42);
+
+// Infos recette
+let y=50;
+doc.setFontSize(8);doc.setFont("helvetica","bold");doc.setTextColor(156,163,175);
+doc.text("PRODUCTEUR",mg,y);
+doc.setDrawColor(242,201,76);doc.setLineWidth(0.5);doc.line(mg,y+1,mg+22,y+1);
+y+=7;
+doc.setFontSize(11);doc.setFont("helvetica","bold");doc.setTextColor(17,17,17);
+doc.text("Goûtstoso — Jordan Montanaro",mg,y);
+y+=5;
+doc.setFontSize(9);doc.setFont("helvetica","normal");doc.setTextColor(107,114,128);
+doc.text("Rue des Sources 19 · 2613 Villeret",mg,y);
+y+=4;doc.text("admin@goutstoso.ch",mg,y);
+
+// Encadré recette
+y+=12;
+doc.setFillColor(17,17,17);doc.rect(mg,y,W-mg*2,10,"F");
+doc.setFontSize(9);doc.setFont("helvetica","bold");doc.setTextColor(242,201,76);
+doc.text("RECETTE",mg+3,y+7);
+doc.setTextColor(180,180,180);
+doc.text((recette?.nom||"").toUpperCase()+" — "+(recette?.description||""),mg+30,y+7);
+y+=10;
+
+// Résumé batch
+doc.setFillColor(250,250,248);doc.rect(mg,y,W-mg*2,22,"F");
+doc.setDrawColor(230,230,228);doc.setLineWidth(0.2);doc.rect(mg,y,W-mg*2,22,"S");
+y+=6;
+const col=[(W-mg*2)/4,0,0,0];
+col[1]=mg+col[0];col[2]=mg+col[0]*2;col[3]=mg+col[0]*3;
+const vals=[
+  {l:"Litres d'alcool 80°",v:litres.toFixed(1)+" L"},
+  {l:"Bouteilles 250 ml",v:String(btl25||0)+" btl"},
+  {l:"Bouteilles 500 ml",v:String(btl50||0)+" btl"},
+  {l:"Durée macération",v:(recette?.dureeMacerationJours||"?")+"j"},
+];
+vals.forEach((item,i)=>{
+  const x=mg+i*col[0];
+  doc.setFontSize(7);doc.setFont("helvetica","normal");doc.setTextColor(156,163,175);
+  doc.text(item.l,x+3,y);
+  doc.setFontSize(11);doc.setFont("helvetica","bold");doc.setTextColor(17,17,17);
+  doc.text(item.v,x+3,y+7);
+});
+y+=22;
+
+// Prête le
+doc.setFontSize(9);doc.setFont("helvetica","normal");doc.setTextColor(107,114,128);
+const datePrete = dateDebut && recette?.dureeMacerationJours
+  ? fmt(new Date(new Date(dateDebut).getTime()+recette.dureeMacerationJours*86400000).toISOString().slice(0,10))
+  : "—";
+doc.text("Date de fin prévue : "+datePrete,mg,y+6);
+doc.setFontSize(9);doc.setTextColor(17,17,17);
+if(recette?.titreAlcool) doc.text("Titre alcoométrique : "+recette.titreAlcool+"°",mg+85,y+6);
+y+=16;
+
+// Tableau ingrédients
+doc.setFillColor(17,17,17);doc.rect(mg,y,W-mg*2,9,"F");
+doc.setFontSize(8);doc.setFont("helvetica","bold");doc.setTextColor(242,201,76);
+doc.text("INGRÉDIENT",mg+3,y+6);
+doc.setTextColor(180,180,180);
+doc.text("QUANTITÉ POUR "+litres.toFixed(1)+" L",W-mg-2,y+6,{align:"right"});
+y+=9;
+
+const affQte=(val,unite)=>{
+  if(unite==="g"&&val>=1000) return `${(val/1000).toFixed(2)} kg`;
+  if(unite==="L") return `${val.toFixed(2)} L`;
+  if(unite==="ml") return `${val.toFixed(0)} ml`;
+  return `${val%1===0?val:val.toFixed(1)} ${unite}`;
+};
+
+(recette?.ingredients||[]).forEach((ing,i)=>{
+  const val = ing.parLitre ? ing.quantite*litres : ing.quantite;
+  doc.setFillColor(i%2===0?250:255,i%2===0?250:255,i%2===0?248:255);
+  doc.rect(mg,y,W-mg*2,10,"F");
+  doc.setDrawColor(240,240,238);doc.setLineWidth(0.2);doc.rect(mg,y,W-mg*2,10,"S");
+  doc.setFontSize(10);doc.setFont("helvetica","normal");doc.setTextColor(17,17,17);
+  doc.text(ing.nom,mg+3,y+7);
+  doc.setFont("helvetica","bold");doc.setFontSize(11);
+  doc.text(affQte(val,ing.unite),W-mg-2,y+7,{align:"right"});
+  y+=10;
+});
+y+=8;
+
+// Notes
+if(notes){
+  doc.setFontSize(8);doc.setFont("helvetica","bold");doc.setTextColor(156,163,175);
+  doc.text("NOTES",mg,y);
+  doc.setDrawColor(242,201,76);doc.setLineWidth(0.5);doc.line(mg,y+1,mg+12,y+1);
+  y+=6;
+  doc.setFontSize(9);doc.setFont("helvetica","normal");doc.setTextColor(17,17,17);
+  doc.text(notes,mg,y,{maxWidth:W-mg*2});
+  y+=12;
+}
+
+// Ligne signature
+y+=10;
+doc.setDrawColor(200,200,200);doc.setLineWidth(0.3);
+doc.line(mg,y,mg+55,y);doc.line(W-mg-55,y,W-mg,y);
+doc.setFontSize(8);doc.setTextColor(150,150,150);
+doc.text("Préparé par",mg,y+4);doc.text("Contrôlé par",W-mg-55,y+4);
+
+// Bande jaune bas
+doc.setFillColor(242,201,76);doc.rect(0,291,W,6,"F");
+
+const nomFichier = "Fiche_maceration_"+(numLot||genLot(dateDebut)).replace(/[^a-zA-Z0-9]/g,"_")+".pdf";
+doc.save(nomFichier);
+} catch(e:any){alert("Erreur PDF : "+e.message);}
+};
+
 const Partenaires = ({st,setSt}) => {
 const [modal,setModal] = useState(null);
 const [selected,setSelected] = useState(null);
@@ -8407,6 +8543,7 @@ const Production = ({st, setSt}) => {
   const [calcLitres, setCalcLitres] = useState("10");
   const [calcBtl25, setCalcBtl25] = useState(""); // vide = auto depuis litres
   const [calcBtl50, setCalcBtl50] = useState(""); // vide = auto depuis litres
+  const [calcNumLot, setCalcNumLot] = useState("");
 
   // Merge: garder les recettes sauvegardées + ajouter les recettes par défaut manquantes
   const savedRecettes = prod.recettes && prod.recettes.length > 0 ? prod.recettes : [];
@@ -9042,11 +9179,32 @@ const Production = ({st, setSt}) => {
             </div>
           )}
 
-          <button style={{...btnPrimary,width:"100%",marginTop:4,background:"#F2C94C",color:"#0A0A0A"}} onClick={()=>{
-            openMaceration();
-            setMForm((m:any)=>({...m,recetteId:calcRecetteId,litresAlcool:String(litresEff.toFixed(1))}));
-            setOnglet("macerations");
-          }}>🫙 Démarrer cette macération</button>
+          {/* Numéro de lot + bouton démarrer */}
+          <div style={{...cardStyle,background:"#0A0A0A"}}>
+            <label style={{...labelStyle,color:"#F2C94C",fontSize:12}}>Numéro de lot (ex : LIM-2025-001)</label>
+            <input
+              type="text"
+              value={calcNumLot}
+              onChange={e=>setCalcNumLot(e.target.value)}
+              placeholder={genLot(today())}
+              style={{...inputStyle,background:"#1A1A1A",color:"#fff",border:"2px solid #374151",fontWeight:700,fontSize:15,letterSpacing:".04em",marginBottom:10}}
+            />
+            <button style={{...btnPrimary,width:"100%",background:"#F2C94C",color:"#0A0A0A",fontWeight:900,fontSize:14}} onClick={()=>{
+              const todayStr = today();
+              genererFicheMacerationPDF({
+                recette: calcRecette,
+                litres: litresEff,
+                btl25: eff25,
+                btl50: eff50,
+                numLot: calcNumLot || genLot(todayStr),
+                dateDebut: todayStr,
+                notes: "",
+              });
+              openMaceration();
+              setMForm((m:any)=>({...m,recetteId:calcRecetteId,litresAlcool:String(litresEff.toFixed(1)),numLot:calcNumLot||genLot(todayStr)}));
+              setOnglet("macerations");
+            }}>🫙 Démarrer cette macération + PDF</button>
+          </div>
           </>
           )}
           </>
