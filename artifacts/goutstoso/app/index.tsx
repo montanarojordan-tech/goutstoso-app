@@ -4540,7 +4540,7 @@ const cmdNonPayees = (st.commandes||[]).filter(c=>c.statut!=="payée"&&c.statut!
 const creancesCommandes = sum(cmdNonPayees.map(c=>{
 const t = sum((c.lignes||[]).filter(l=>l.produitId).map(l=>{
 const p = st.produits.find(x=>x.id===l.produitId);
-return (p?.prixClient||0)*(l.qte||0);
+return (c.typeClient==="revendeur"?(p?.prixRevendeur||0):(p?.prixClient||0))*(l.qte||0);
 }));
 return t - (parseFloat(c.rabais)||0) + (parseFloat(c.fraisPort)||0);
 }));
@@ -4847,7 +4847,7 @@ return (
         const cmdEntrees = (st.commandes||[]).filter(c=>!c.envoyeeCompta && c.statut!=="payée").map(c=>{
           const produitsTotal = sum((c.lignes||[]).filter(l=>l.produitId).map(l=>{
             const p2 = st.produits.find(x=>x.id===l.produitId);
-            return (p2?.prixClient||0)*(l.qte||0);
+            return (c.typeClient==="revendeur"?(p2?.prixRevendeur||0):(p2?.prixClient||0))*(l.qte||0);
           }));
           const net = produitsTotal - (parseFloat(c.rabais)||0) + (parseFloat(c.fraisPort)||0) - (parseFloat(c.commissionShopify)||0);
           return {
@@ -5926,7 +5926,7 @@ const dateOp = c.date || today();
 (c.lignes||[]).forEach(l=>{
   const p = st.produits.find(x=>x.id===l.produitId);
   if(!p) return;
-  const montant = (p.prixClient||0)*(l.qte||0);
+  const montant = (c.typeClient==="revendeur"?(p.prixRevendeur||0):(p.prixClient||0))*(l.qte||0);
   const compte = p.nom==="Limonta"?"3001":p.nom==="Limelo"?"3002":p.nom==="Clementino"?"3003":p.nom.includes("Coffret")?"3004":"3001";
   const cat = p.nom==="Limonta"?"Vente Limonta":p.nom==="Limelo"?"Vente Limelo":p.nom==="Clementino"?"Vente Clementino":p.nom.includes("Coffret")?"Vente Coffrets":"Vente Limonta";
   newTrans.push({
@@ -6261,9 +6261,9 @@ return (
           <div key={i} style={{display:"flex",justifyContent:"space-between",padding:"6px 0",borderBottom:"1px solid #F5F5F0"}}>
             <div>
               <p style={{fontSize:12,fontWeight:600}}>{p?.nom} {p?.variante}</p>
-              <p style={{fontSize:10,color:"#9CA3AF"}}>{p?.format} · Qté {l.qte} · {chf(p?.prixClient)}/u</p>
+              <p style={{fontSize:10,color:"#9CA3AF"}}>{p?.format} · Qté {l.qte} · {chf(view.typeClient==="revendeur"?p?.prixRevendeur:p?.prixClient)}/u</p>
             </div>
-            <span style={{fontWeight:700,fontSize:12}}>{chf((p?.prixClient||0)*l.qte)}</span>
+            <span style={{fontWeight:700,fontSize:12}}>{chf((view.typeClient==="revendeur"?(p?.prixRevendeur||0):(p?.prixClient||0))*l.qte)}</span>
           </div>
         );
       })}
@@ -6571,7 +6571,7 @@ const commandes = (st.commandes||[]).filter(c=>c.clientId===clientId);
 const ca = sum(commandes.map(c=>{
 const t = sum((c.lignes||[]).filter(l=>l.produitId).map(l=>{
 const p = st.produits.find(x=>x.id===l.produitId);
-return (p?.prixClient||0)*(l.qte||0);
+return (c.typeClient==="revendeur"?(p?.prixRevendeur||0):(p?.prixClient||0))*(l.qte||0);
 }));
 return t - (parseFloat(c.rabais)||0) + (parseFloat(c.fraisPort)||0);
 }));
@@ -6580,7 +6580,7 @@ const cmdNonPayees = commandes.filter(c=>c.statut!=="payée"&&c.statut!=="livré
 const aEncaisser = sum(cmdNonPayees.map(c=>{
 const t = sum((c.lignes||[]).filter(l=>l.produitId).map(l=>{
 const p = st.produits.find(x=>x.id===l.produitId);
-return (p?.prixClient||0)*(l.qte||0);
+return (c.typeClient==="revendeur"?(p?.prixRevendeur||0):(p?.prixClient||0))*(l.qte||0);
 }));
 return t - (parseFloat(c.rabais)||0) + (parseFloat(c.fraisPort)||0);
 }));
@@ -6650,7 +6650,7 @@ return (
       const totalAttente = sum(cmdNonPayees.map(c=>{
         const t = sum((c.lignes||[]).filter(l=>l.produitId).map(l=>{
           const p = st.produits.find(x=>x.id===l.produitId);
-          return (p?.prixClient||0)*(l.qte||0);
+          return (c.typeClient==="revendeur"?(p?.prixRevendeur||0):(p?.prixClient||0))*(l.qte||0);
         }));
         return t - (parseFloat(c.rabais)||0) + (parseFloat(c.fraisPort)||0);
       }));
@@ -6663,7 +6663,7 @@ return (
           {cmdNonPayees.map(c=>{
             const t = sum((c.lignes||[]).filter(l=>l.produitId).map(l=>{
               const p = st.produits.find(x=>x.id===l.produitId);
-              return (p?.prixClient||0)*(l.qte||0);
+              return (c.typeClient==="revendeur"?(p?.prixRevendeur||0):(p?.prixClient||0))*(l.qte||0);
             })) - (parseFloat(c.rabais)||0) + (parseFloat(c.fraisPort)||0);
             return (
               <div key={c.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 0",borderTop:"1px solid #FECACA"}}>
@@ -6687,7 +6687,7 @@ return (
         : stats.commandes.slice().reverse().map(c=>{
             const t = sum((c.lignes||[]).filter(l=>l.produitId).map(l=>{
               const p = st.produits.find(x=>x.id===l.produitId);
-              return (p?.prixClient||0)*(l.qte||0);
+              return (c.typeClient==="revendeur"?(p?.prixRevendeur||0):(p?.prixClient||0))*(l.qte||0);
             })) - (parseFloat(c.rabais)||0) + (parseFloat(c.fraisPort)||0);
             return (
               <div key={c.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderBottom:"1px solid #F5F5F0"}}>
