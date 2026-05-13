@@ -10821,10 +10821,29 @@ const IcMore = ({s=22}) => (
 );
 
 const CLOUD_URL = "https://hc12z9cbqiy.preview.infomaniak.website/api.php";
-const sendEmail = ({to, subject, body, toName=""}) => {
+const sendEmail = async ({to, subject, body, toName=""}:{to:string,subject:string,body:string,toName?:string}) => {
   if(!to){alert("Adresse email manquante");return;}
-  const mailto = `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-  if(typeof window !== "undefined") window.location.href = mailto;
+  // Convertit le HTML basique (balises <br>) en texte brut pour l'API
+  const bodyText = body.replace(/<br\s*\/?>/gi,"\n").replace(/<[^>]+>/g,"");
+  try {
+    const r = await fetch("/api/email/send",{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({to,toName,subject,bodyText}),
+    });
+    const d = await r.json();
+    if(d.sent) {
+      alert("✅ Email envoyé à "+to);
+    } else {
+      // Fallback mailto si SMTP pas encore configuré
+      const mailto=`mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(bodyText)}`;
+      window.open(mailto,"_blank");
+      alert("⚠️ Envoi SMTP échoué ("+d.error+").\nOuverture du client email en fallback.");
+    }
+  } catch(e:any) {
+    const mailto=`mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(bodyText)}`;
+    window.open(mailto,"_blank");
+  }
 };
 
 // ── AUTH HELPERS ────────────────────────────────────────────────
