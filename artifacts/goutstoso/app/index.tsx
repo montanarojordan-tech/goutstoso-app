@@ -4338,6 +4338,7 @@ const PLAN_COMPTABLE = {
 "3700":"Autres produits d'exploitation",
 "3750":"Frais de rappel encaissés",
 "3800":"Produits divers",
+"3900":"Rabais accordés sur ventes",
 // CHARGES (matières & production)
 "4000":"Achats de matériel",
 "4010":"Achat matières premières (fruits, alcool)",
@@ -4400,9 +4401,7 @@ const categorie = prod?.nom==="Limonta"?"Vente Limonta":
 prod?.nom==="Limelo"?"Vente Limelo":
 prod?.nom==="Clementino"?"Vente Clementino":
 prod?.nom?.includes("Coffret")?"Vente Coffrets":"Vente Limonta";
-// Utiliser f.total (net après rabais) si disponible, sinon recalculer
-const montantNet = (f.total !== undefined && f.total !== null) ? f.total : total;
-const rabaisDesc = (f.totalRabais && f.totalRabais>0) ? ` (dont rabais -CHF ${f.totalRabais.toFixed(2)})` : "";
+// Recette brute (avant rabais)
 nouvelles.push({
 id:uid(),
 factureId:f.id,
@@ -4411,10 +4410,25 @@ compte,
 libelle:`Paiement ${f.numero}`,
 type:"recette",
 categorie,
-montant:montantNet,
-description:`Facture ${f.numero} - ${pv?.nom||""}${rabaisDesc}`,
+montant:total,
+description:`Facture ${f.numero} - ${pv?.nom||""}`,
 postfinance:true,
 });
+// Écriture séparée pour le rabais bouteilles offertes (compte 3900)
+if(f.totalRabais && f.totalRabais>0) {
+  nouvelles.push({
+    id:uid(),
+    factureId:f.id,
+    date:f.datePaiement,
+    compte:"3900",
+    libelle:`Rabais bouteilles offertes ${f.numero}`,
+    type:"depense",
+    categorie:"Rabais accordés sur ventes",
+    montant:f.totalRabais,
+    description:`Rabais bouteilles offertes — Facture ${f.numero} - ${pv?.nom||""}`,
+    postfinance:false,
+  });
+}
 });
 if(nouvelles.length) {
 setSt(p=>({...p,transactions:[...(p.transactions||[]),...nouvelles]}));
