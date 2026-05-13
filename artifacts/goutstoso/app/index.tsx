@@ -8888,9 +8888,13 @@ const envoyerPourSignature = async (documentType, documentTitle, documentData, e
     const {token, signingUrl} = await r.json();
     try { await navigator.clipboard.writeText(signingUrl); } catch(_){}
     const signature = `L'équipe Goûtstoso\n\nGoûtstoso · Administratif\nT : +41 79 522 06 56\nadmin@goutstoso.ch\nRue des Sources 19 · 2613 Villeret - SWITZERLAND\nwww.goutstoso.ch`;
-    const emailBody = `Madame, Monsieur,\n\nNous avons le plaisir de vous faire parvenir notre ${documentTitle} relative à la vente de nos liqueurs artisanales Goûtstoso.\n\nVeuillez trouver ci-dessous le lien vous permettant de consulter l'offre dans son intégralité. Si celle-ci vous convient et que vous souhaitez la valider, nous vous invitons à apposer votre signature électronique directement en ligne :\n\n${signingUrl}\n\nCe lien est valable 30 jours. La signature est simple et rapide — aucune application n'est nécessaire.\n\nNous demeurons bien entendu à votre disposition pour tout renseignement complémentaire.\n\nCordialement,\n\n${signature}`;
+    const emailBody = documentType==="prospection"
+      ? `Madame, Monsieur,\n\nVous trouverez ci-joint notre offre de prospection présentant la gamme Goûtstoso et nos tarifs partenaires.\n\nSi vous êtes d'accord avec celle-ci, veuillez vous rendre sur le lien suivant pour accepter nos prix :\n\n${signingUrl}\n\nSi cela vous intéresse, veuillez nous envoyer votre commande en répondant à cet e-mail.\n\nNous restons à votre disposition pour tout renseignement complémentaire.\n\nCordialement,\n\n${signature}`
+      : `Madame, Monsieur,\n\nNous avons le plaisir de vous faire parvenir notre ${documentTitle} relative à la vente de nos liqueurs artisanales Goûtstoso.\n\nVeuillez trouver ci-dessous le lien vous permettant de consulter l'offre dans son intégralité. Si celle-ci vous convient et que vous souhaitez la valider, nous vous invitons à apposer votre signature électronique directement en ligne :\n\n${signingUrl}\n\nCe lien est valable 30 jours. La signature est simple et rapide — aucune application n'est nécessaire.\n\nNous demeurons bien entendu à votre disposition pour tout renseignement complémentaire.\n\nCordialement,\n\n${signature}`;
+    const sujet = documentType==="prospection"
+      ? encodeURIComponent("Goûtstoso · Offre de prospection")
+      : encodeURIComponent(`Signature requise — ${documentTitle}`);
     if(email) {
-      const sujet = encodeURIComponent(`Signature requise — ${documentTitle}`);
       const corps = encodeURIComponent(emailBody);
       window.open(`mailto:${email}?subject=${sujet}&body=${corps}`, "_blank");
     } else {
@@ -9081,7 +9085,13 @@ if(view) return (
       <div style={{marginTop:10,paddingTop:10,borderTop:"1px solid #BFDBFE"}}>
         <p style={{fontSize:11,color:"#374151",marginBottom:6,fontWeight:600}}>📲 Validation en ligne</p>
         <button onClick={async()=>{
-          const enriched={...view,clientNom:view.clientNom||"",email:view.clientEmail||""};
+          const enriched={...view,clientNom:view.clientNom||"",email:view.clientEmail||"",
+            lignes:(st.produits||[]).filter((p:any)=>p.actif!==false).map((p:any)=>({
+              designation:[p.nom,p.variante,p.format].filter(Boolean).join(" · "),
+              prixUnitaire:p.prixRevendeur||0,
+              qte:1,
+            }))
+          };
           const titre="Fiche de prospection Goûtstoso"+(view.clientNom?" — "+view.clientNom:"");
           const token=await envoyerPourSignature("prospection",titre,enriched,view.clientEmail||"");
           if(token) setSt(p=>({...p,offres:p.offres.map(o=>o.id===view.id?{...o,signingToken:token}:o)}));

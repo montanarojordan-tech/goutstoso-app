@@ -21,6 +21,7 @@ function formatDate(d: string) {
 function DocumentPreview({ req }: { req: SigningRequest }) {
   const d = req.documentData;
   const type = req.documentType;
+  const isProspection = type === "prospection";
 
   const rows: [string, string][] = [];
 
@@ -67,7 +68,7 @@ function DocumentPreview({ req }: { req: SigningRequest }) {
       quantite: item.quantite || item.qte || 0,
       prixUnitaire: item.prixUnitaire || item.prix || 0,
     }))
-    .filter(item => item.designation && item.quantite > 0);
+    .filter(item => item.designation && (isProspection ? item.prixUnitaire > 0 : item.quantite > 0));
 
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
@@ -92,29 +93,40 @@ function DocumentPreview({ req }: { req: SigningRequest }) {
 
         {items.length > 0 && (
           <div className="mt-4">
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Articles</p>
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+              {isProspection ? "Tarifs partenaires (hors TVA)" : "Articles"}
+            </p>
             <div className="rounded-xl overflow-hidden border border-gray-100">
               <table className="w-full text-sm">
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="text-left px-3 py-2 text-gray-500 font-medium">Désignation</th>
-                    <th className="text-center px-3 py-2 text-gray-500 font-medium">Qté</th>
-                    <th className="text-right px-3 py-2 text-gray-500 font-medium">Total CHF</th>
+                    {!isProspection && <th className="text-center px-3 py-2 text-gray-500 font-medium">Qté</th>}
+                    <th className="text-right px-3 py-2 text-gray-500 font-medium">
+                      {isProspection ? "Prix / unité CHF" : "Total CHF"}
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
                   {items.map((item, i) => (
                     <tr key={i} className={i % 2 === 0 ? "bg-white" : "bg-gray-50/50"}>
                       <td className="px-3 py-2 text-gray-800">{item.designation}</td>
-                      <td className="px-3 py-2 text-center text-gray-600">{item.quantite}</td>
+                      {!isProspection && <td className="px-3 py-2 text-center text-gray-600">{item.quantite}</td>}
                       <td className="px-3 py-2 text-right text-gray-800 font-medium">
-                        {((item.quantite || 0) * (item.prixUnitaire || 0)).toFixed(2)}
+                        {isProspection
+                          ? Number(item.prixUnitaire || 0).toFixed(2)
+                          : ((item.quantite || 0) * (item.prixUnitaire || 0)).toFixed(2)}
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
+            {isProspection && (
+              <p className="text-xs text-gray-400 mt-2 text-right">
+                * Prix indicatifs partenaire — commande à envoyer par e-mail
+              </p>
+            )}
           </div>
         )}
 
@@ -311,11 +323,21 @@ export default function SignPage() {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="max-w-md w-full bg-white rounded-2xl shadow-sm border border-green-100 p-8 text-center">
           <div className="text-5xl mb-4">✅</div>
-          <h1 className="text-xl font-bold text-gray-900 mb-2">Document signé</h1>
+          <h1 className="text-xl font-bold text-gray-900 mb-2">
+            {req.documentType === "prospection" ? "Intérêt confirmé !" : "Document signé"}
+          </h1>
           <p className="text-gray-600 text-sm">
-            <strong>{req.signerName}</strong> a signé ce document
+            <strong>{req.signerName}</strong>{" "}
+            {req.documentType === "prospection"
+              ? "a confirmé son intérêt pour la gamme Goûtstoso"
+              : "a signé ce document"}
             {req.signedAt && ` le ${formatDate(req.signedAt)}`}.
           </p>
+          {req.documentType === "prospection" && (
+            <p className="text-gray-500 text-sm mt-3">
+              Pour passer votre commande, répondez simplement à l'e-mail reçu.
+            </p>
+          )}
           <p className="text-gray-400 text-xs mt-4">Goûtstoso a été notifié. Merci !</p>
         </div>
       </div>
@@ -327,18 +349,26 @@ export default function SignPage() {
       <div className="max-w-lg mx-auto px-4 py-8 space-y-6">
         <div className="text-center space-y-1">
           <p className="text-xs text-gray-400 uppercase tracking-widest">
-            {req.documentType === "prospection" ? "Confirmation d'intérêt" : "Signature électronique"}
+            {req.documentType === "prospection" ? "Offre de prospection · Tarifs partenaires" : "Signature électronique"}
           </p>
           <h1 className="text-xl font-bold text-gray-900">{req.documentTitle}</h1>
           <p className="text-xs text-gray-400">Valable jusqu'au {formatDate(req.expiresAt)}</p>
         </div>
+
+        {req.documentType === "prospection" && (
+          <div className="bg-blue-50 border border-blue-200 rounded-xl px-5 py-4 text-sm text-blue-800 leading-relaxed">
+            Vous trouverez ci-dessous notre offre de prospection avec nos tarifs partenaires.
+            Si vous êtes d'accord avec ces prix, veuillez confirmer votre intérêt en bas de page.
+            Pour passer commande, répondez simplement à l'e-mail reçu.
+          </div>
+        )}
 
         <DocumentPreview req={req} />
 
         {step === "view" && (
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 space-y-4">
             <h2 className="font-semibold text-gray-900">
-              {req.documentType === "prospection" ? "Vos coordonnées" : "Votre identité"}
+              {req.documentType === "prospection" ? "Confirmer votre intérêt" : "Votre identité"}
             </h2>
             <div>
               <label className="text-sm text-gray-600 block mb-1">Nom complet *</label>
@@ -355,7 +385,7 @@ export default function SignPage() {
               disabled={!signerName.trim()}
               className="w-full py-3 bg-[#0a0a0a] text-[#f2c94c] font-bold rounded-xl hover:bg-gray-900 disabled:opacity-40 disabled:cursor-not-allowed transition-colors text-sm"
             >
-              {req.documentType === "prospection" ? "Continuer → Confirmer mon intérêt" : "Continuer → Signer"}
+              {req.documentType === "prospection" ? "Continuer → Accepter ces prix" : "Continuer → Signer"}
             </button>
           </div>
         )}
@@ -370,7 +400,7 @@ export default function SignPage() {
             </div>
             <p className="text-sm text-gray-600">
               {req.documentType === "prospection"
-                ? <>En signant, <strong>{signerName}</strong> confirme son intérêt pour la gamme Goûtstoso et accepte d'être recontacté(e) par Jordan Montanaro.</>
+                ? <><strong>{signerName}</strong> confirme son intérêt pour la gamme Goûtstoso et accepte les tarifs partenaires présentés ci-dessus. La commande sera à envoyer par e-mail.</>
                 : <>En signant, <strong>{signerName}</strong> confirme avoir lu et accepté le document ci-dessus.</>}
             </p>
             {submitting ? (
