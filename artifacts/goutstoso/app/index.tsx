@@ -6090,6 +6090,33 @@ const badgeStatut = (s) => s==="en attente"?"yellow":s==="en attente retrait"?"y
 if(view) {
 const calc = calcCommande(view);
 
+// Signature Jordan (confirmation) en plein écran
+if(sigJordanCmd) {
+  return (
+    <div className="fade">
+      <button onClick={()=>setSigJordanCmd(false)} style={{display:"flex",alignItems:"center",gap:6,background:"none",border:"none",color:"#9CA3AF",fontSize:13,marginBottom:16,padding:0,cursor:"pointer"}}>← Retour</button>
+      <div style={{background:"#EFF6FF",borderRadius:12,padding:"12px 14px",marginBottom:16,border:"1.5px solid #BFDBFE"}}>
+        <p style={{fontWeight:700,fontSize:13}}>✍️ Signature Goûtstoso</p>
+        <p style={{fontSize:11,color:"#1E40AF",marginTop:4}}>{view.confirmationNumero||view.numero} — {view.client}</p>
+        <p style={{fontSize:10,color:"#6B7280",marginTop:2}}>Signez ci-dessous pour valider la confirmation de commande</p>
+      </div>
+      <SignaturePad
+        onSave={(sig:any)=>{
+          setSt((p:any)=>({...p,commandes:p.commandes.map((c:any)=>c.id===view.id?{...c,signJordan:sig}:c)}));
+          setSigJordanCmd(false);
+        }}
+        onCancel={()=>setSigJordanCmd(false)}
+      />
+      {view.signJordan && (
+        <div style={{marginTop:12,padding:"10px 12px",background:"#F0FDF4",borderRadius:10,border:"1px solid #BBF7D0"}}>
+          <p style={{fontSize:11,color:"#166534",fontWeight:600,marginBottom:6}}>✓ Signature actuelle :</p>
+          <img src={view.signJordan} alt="signature" style={{height:40,maxWidth:180,objectFit:"contain",display:"block"}}/>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // Signature BL en plein écran
 if(signingBL) {
   const blNum = view.blNumero || genBLNumero();
@@ -6155,17 +6182,9 @@ return (
           {view.confirmationEnvoyee ? "✓ Email envoyé" : "✉️ Envoyer email"}
         </button>
       </div>
-      {sigJordanCmd
-        ? <div style={{marginTop:8}}>
-            <p style={{fontWeight:700,fontSize:11,marginBottom:6,color:"#1E40AF"}}>✍️ Ma signature (Goûtstoso)</p>
-            <SignaturePad
-              onSave={sig=>{setSt((p:any)=>({...p,commandes:p.commandes.map((c:any)=>c.id===view.id?{...c,signJordan:sig}:c)}));setSigJordanCmd(false);}}
-              onCancel={()=>setSigJordanCmd(false)}/>
-          </div>
-        : <button onClick={()=>setSigJordanCmd(true)} style={{width:"100%",marginTop:6,background:view.signJordan?"#DCFCE7":"#F0F9FF",border:view.signJordan?"1.5px solid #86EFAC":"1.5px solid #BAE6FD",borderRadius:8,padding:"8px",fontWeight:600,fontSize:11,color:view.signJordan?"#166534":"#0369A1",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:5}}>
-            {view.signJordan?"✅ Ma signature enregistrée (modifier)":"✍️ Signer en tant que Goûtstoso"}
-          </button>
-      }
+      <button onClick={()=>setSigJordanCmd(true)} style={{width:"100%",marginTop:6,background:view.signJordan?"#DCFCE7":"#F0F9FF",border:view.signJordan?"1.5px solid #86EFAC":"1.5px solid #BAE6FD",borderRadius:8,padding:"8px",fontWeight:600,fontSize:11,color:view.signJordan?"#166534":"#0369A1",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:5}}>
+        {view.signJordan?"✅ Ma signature enregistrée (modifier)":"✍️ Signer en tant que Goûtstoso"}
+      </button>
       {view.confirmationNumero && <p style={{fontSize:10,color:"#3B82F6",marginTop:6,textAlign:"center"}}>{view.confirmationNumero}</p>}
     </div>
 
