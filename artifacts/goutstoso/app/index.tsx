@@ -3178,13 +3178,15 @@ return "FAC-"+new Date().getFullYear()+"-"+String(count).padStart(3,"0");
 const save = () => {
 const lignesOk = form.lignes.filter(l=>l.produitId&&l.qte>0);
 if(!form.partenaireId||!lignesOk.length) return;
-const total = calcTotal(lignesOk, form.typeClient, st.produits);
 const lignesOffertes = (form.lignesOffertes||[]).filter(l=>l.produitId&&l.qte>0);
+const totalBrut = calcTotal(lignesOk, form.typeClient, st.produits);
+const totalRabais = calcTotal(lignesOffertes, form.typeClient, st.produits);
+const total = totalBrut - totalRabais;
 if(form.id) {
-setSt(p=>({...p,factures:p.factures.map(f=>f.id===form.id?{...form,lignes:lignesOk,lignesOffertes,total}:f)}));
+setSt(p=>({...p,factures:p.factures.map(f=>f.id===form.id?{...form,lignes:lignesOk,lignesOffertes,total,totalRabais}:f)}));
 } else {
 const numero = genNumero();
-setSt(p=>({...p,factures:[...(p.factures||[]),{...form,id:uid(),numero,statut:"en attente",lignes:lignesOk,lignesOffertes,total,datePaiement:""}]}));
+setSt(p=>({...p,factures:[...(p.factures||[]),{...form,id:uid(),numero,statut:"en attente",lignes:lignesOk,lignesOffertes,total,totalRabais,datePaiement:""}]}));
 }
 setModal(null);
 };
@@ -3321,7 +3323,9 @@ const {jsPDF}=window.jspdf;
 const doc=new jsPDF("p","mm","a4");
 const W=210,mg=18;
 const pv=st.partenaires.find(p=>p.id===f.partenaireId)||(st.clients||[]).find(c=>c.id===f.partenaireId);
-const total=calcTotal(f.lignes,f.typeClient,st.produits);
+const totalBrutPDF=calcTotal(f.lignes,f.typeClient,st.produits);
+const totalRabaisPDF=calcTotal((f.lignesOffertes||[]).filter(l=>l.produitId&&l.qte>0),f.typeClient,st.produits);
+const total=totalBrutPDF-totalRabaisPDF;
 const retard=getInfosRetard(f);
 const totalFinal=total+(retard?.frais||0);
 const echeance=new Date(new Date(f.date).getTime()+30*86400000).toISOString().slice(0,10);
@@ -3393,53 +3397,64 @@ const echeance=new Date(new Date(f.date).getTime()+30*86400000).toISOString().sl
     y+=11;
   });
 
-  // Bouteilles offertes
+  // Rabais — bouteilles offertes
   const offerts=(f.lignesOffertes||[]).filter(l=>l.produitId);
   if(offerts.length>0){
-    y+=3;
-    doc.setFillColor(232,245,232);doc.setDrawColor(76,175,80);doc.setLineWidth(0.4);
-    doc.roundedRect(mg,y,W-mg*2,7,1.5,1.5,"FD");
-    doc.setFontSize(7);doc.setFont("helvetica","bold");doc.setTextColor(46,125,50);
-    doc.text("BOUTEILLES OFFERTES",mg+3,y+4.5);
+    y+=2;
+    doc.setFillColor(254,242,242);doc.setDrawColor(252,165,165);doc.setLineWidth(0.3);
+    doc.rect(mg,y,W-mg*2,7,"FD");
+    doc.setFontSize(7);doc.setFont("helvetica","bold");doc.setTextColor(185,28,28);
+    doc.text("RABAIS — BOUTEILLES OFFERTES",mg+3,y+4.5);
     y+=7;
     offerts.forEach((l,i)=>{
       const p2=st.produits.find(x=>x.id===l.produitId);
-      doc.setFillColor(i%2===0?240:248,i%2===0?249:252,i%2===0?240:248);
-      doc.rect(mg,y,W-mg*2,13,"F");
-      doc.setDrawColor(200,235,200);doc.setLineWidth(0.2);doc.rect(mg,y,W-mg*2,13,"S");
+      const pu=p2?(f.typeClient==="revendeur"?p2.prixRevendeur:p2.prixClient):0;
+      const rabais=pu*(l.qte||0);
+      doc.setFillColor(i%2===0?255:252,i%2===0?245:248,i%2===0?245:248);
+      doc.rect(mg,y,W-mg*2,11,"F");
+      doc.setDrawColor(254,202,202);doc.setLineWidth(0.2);doc.rect(mg,y,W-mg*2,11,"S");
       doc.setFontSize(9);doc.setFont("helvetica","bold");doc.setTextColor(17,17,17);
       doc.text((p2?.nom||"")+" "+(p2?.variante||""),mg+3,y+5);
       doc.setFontSize(7.5);doc.setFont("helvetica","normal");doc.setTextColor(100,100,100);
-      doc.text(l.texte||"Offert",mg+3,y+10);
+      doc.text(l.texte||"Offert avec votre commande",mg+3,y+9);
       doc.setFontSize(9);doc.setTextColor(107,114,128);
       doc.text(String(l.qte),130,y+6,{align:"center"});
-      doc.setFont("helvetica","bold");doc.setTextColor(46,125,50);
-      doc.text("OFFERT",W-mg-2,y+6,{align:"right"});
-      y+=13;
+      doc.text("CHF "+pu.toFixed(2),155,y+6,{align:"right"});
+      doc.setFont("helvetica","bold");doc.setTextColor(185,28,28);
+      doc.text("- CHF "+rabais.toFixed(2),W-mg-2,y+6,{align:"right"});
+      y+=11;
     });
   }
   y+=4;
 
   // Totaux
   const boxX=W/2+10,boxW=W/2-mg-10;
+  const hasRabais=totalRabaisPDF>0;
+  const hasRetard=retard?.frais>0;
+  const boxRows=(hasRabais?3:2)+(hasRetard?1:0);
+  const boxH=8+boxRows*6+10;
   doc.setFillColor(254,249,231);doc.setDrawColor(242,201,76);
-  doc.roundedRect(boxX,y,boxW,retard?.frais>0?36:28,3,3,"FD");
+  doc.roundedRect(boxX,y,boxW,boxH,3,3,"FD");
   doc.setFontSize(8.5);doc.setFont("helvetica","normal");doc.setTextColor(107,114,128);
-  doc.text("Sous-total",boxX+4,y+8);doc.text("CHF "+total.toFixed(2),boxX+boxW-4,y+8,{align:"right"});
-  doc.text("TVA",boxX+4,y+14);doc.text("Non assujetti",boxX+boxW-4,y+14,{align:"right"});
-  if(retard?.frais>0){
-    doc.setTextColor(153,27,27);
-    doc.text("Frais de rappel",boxX+4,y+20);doc.text("CHF "+retard.frais.toFixed(2),boxX+boxW-4,y+20,{align:"right"});
-    doc.setDrawColor(242,201,76);doc.setLineWidth(0.3);doc.line(boxX+3,y+23,boxX+boxW-3,y+23);
-    doc.setFontSize(11);doc.setFont("helvetica","bold");doc.setTextColor(17,17,17);
-    doc.text("TOTAL DÛ",boxX+4,y+31);doc.setTextColor(212,160,23);
-    doc.text("CHF "+totalFinal.toFixed(2),boxX+boxW-4,y+31,{align:"right"});
-  } else {
-    doc.setDrawColor(242,201,76);doc.setLineWidth(0.3);doc.line(boxX+3,y+17,boxX+boxW-3,y+17);
-    doc.setFontSize(11);doc.setFont("helvetica","bold");doc.setTextColor(17,17,17);
-    doc.text("TOTAL CHF",boxX+4,y+25);doc.setTextColor(212,160,23);
-    doc.text("CHF "+total.toFixed(2),boxX+boxW-4,y+25,{align:"right"});
+  doc.text("Sous-total",boxX+4,y+8);doc.text("CHF "+totalBrutPDF.toFixed(2),boxX+boxW-4,y+8,{align:"right"});
+  let rowY=y+14;
+  if(hasRabais){
+    doc.setTextColor(185,28,28);
+    doc.text("Rabais bouteilles offertes",boxX+4,rowY);doc.text("- CHF "+totalRabaisPDF.toFixed(2),boxX+boxW-4,rowY,{align:"right"});
+    rowY+=6;
+    doc.setTextColor(107,114,128);
   }
+  doc.text("TVA",boxX+4,rowY);doc.text("Non assujetti",boxX+boxW-4,rowY,{align:"right"});
+  rowY+=6;
+  if(hasRetard){
+    doc.setTextColor(153,27,27);
+    doc.text("Frais de rappel",boxX+4,rowY);doc.text("CHF "+retard.frais.toFixed(2),boxX+boxW-4,rowY,{align:"right"});
+    rowY+=6;
+  }
+  doc.setDrawColor(242,201,76);doc.setLineWidth(0.3);doc.line(boxX+3,rowY,boxX+boxW-3,rowY);
+  doc.setFontSize(11);doc.setFont("helvetica","bold");doc.setTextColor(17,17,17);
+  doc.text(hasRetard?"TOTAL DÛ":"TOTAL CHF",boxX+4,rowY+8);doc.setTextColor(212,160,23);
+  doc.text("CHF "+totalFinal.toFixed(2),boxX+boxW-4,rowY+8,{align:"right"});
   y+=retard?.frais>0?48:40;
 
   // IBAN
@@ -3666,7 +3681,9 @@ const nbEchues = factures.filter(f=>f.statut!=="payée"&&getInfosRetard(f)).leng
 // Vue détail facture
 if(view) {
 const pv = st.partenaires.find(p=>p.id===view.partenaireId) || (st.clients||[]).find(c=>c.id===view.partenaireId);
-const total = calcTotal(view.lignes,view.typeClient,st.produits);
+const totalBrutView = calcTotal(view.lignes,view.typeClient,st.produits);
+const totalRabaisView = calcTotal((view.lignesOffertes||[]).filter(l=>l.produitId&&l.qte>0),view.typeClient,st.produits);
+const total = totalBrutView - totalRabaisView;
 const retard = getInfosRetard(view);
 const pr = getProchainRappel(view);
 const totalFinal = total+(retard?.frais||0);
@@ -3882,34 +3899,43 @@ return (
         <div style={{height:2,background:"#F0F0EE",borderRadius:"0 0 6px 6px"}}/>
       </div>
 
-      {/* Bouteilles offertes dans la vue détail */}
+      {/* Rabais — bouteilles offertes dans la vue détail */}
       {(view.lignesOffertes||[]).filter(l=>l.produitId).length>0&&(
         <div style={{margin:"0 16px 12px"}}>
-          <div style={{background:"#DCFCE7",border:"1px solid #86EFAC",borderRadius:"8px 8px 0 0",padding:"6px 10px"}}>
-            <span style={{fontSize:8,fontWeight:700,color:"#166534",textTransform:"uppercase"}}>🎁 Bouteilles offertes</span>
+          <div style={{background:"#FEE2E2",border:"1px solid #FCA5A5",borderRadius:"8px 8px 0 0",padding:"6px 10px"}}>
+            <span style={{fontSize:8,fontWeight:700,color:"#991B1B",textTransform:"uppercase"}}>🏷 Rabais — bouteilles offertes</span>
           </div>
           {(view.lignesOffertes||[]).filter(l=>l.produitId).map((l,i)=>{
             const p=st.produits.find(x=>x.id===l.produitId);
+            const pu=p?(view.typeClient==="revendeur"?p.prixRevendeur:p.prixClient):0;
+            const rabais=pu*(l.qte||0);
             return (
-              <div key={i} style={{background:i%2===0?"#F0FDF4":"#fff",padding:"8px 10px",display:"flex",alignItems:"center",border:"1px solid #D1FAE5",borderTop:"none"}}>
+              <div key={i} style={{background:i%2===0?"#FFF5F5":"#fff",padding:"8px 10px",display:"flex",alignItems:"center",border:"1px solid #FCA5A5",borderTop:"none"}}>
                 <div style={{flex:1}}>
                   <p style={{fontSize:12,fontWeight:600}}>{p?.nom} {p?.variante}</p>
-                  <p style={{fontSize:10,color:"#6B7280"}}>{l.texte||"Offert"}</p>
+                  <p style={{fontSize:10,color:"#9CA3AF"}}>{l.texte||"Offert avec votre commande"}</p>
                 </div>
                 <span style={{width:24,textAlign:"center",fontSize:12,color:"#6B7280"}}>{l.qte}</span>
-                <span style={{width:60,textAlign:"right",fontSize:12,fontWeight:700,color:"#16A34A"}}>OFFERT</span>
+                <span style={{width:54,textAlign:"right",fontSize:11,color:"#9CA3AF"}}>CHF {pu.toFixed(2)}</span>
+                <span style={{width:72,textAlign:"right",fontSize:12,fontWeight:700,color:"#DC2626"}}>- CHF {rabais.toFixed(2)}</span>
               </div>
             );
           })}
-          <div style={{height:2,background:"#D1FAE5",borderRadius:"0 0 6px 6px"}}/>
+          <div style={{height:2,background:"#FCA5A5",borderRadius:"0 0 6px 6px"}}/>
         </div>
       )}
 
       <div style={{padding:"0 16px 12px",display:"flex",justifyContent:"flex-end"}}>
-        <div style={{background:"#FEF9E7",border:"1px solid #F2C94C",borderRadius:10,padding:"10px 14px",minWidth:160}}>
+        <div style={{background:"#FEF9E7",border:"1px solid #F2C94C",borderRadius:10,padding:"10px 14px",minWidth:180}}>
           <div style={{display:"flex",justifyContent:"space-between",gap:14,marginBottom:3}}>
-            <span style={{fontSize:11,color:"#6B7280"}}>Sous-total</span><span style={{fontSize:11}}>CHF {total.toFixed(2)}</span>
+            <span style={{fontSize:11,color:"#6B7280"}}>Sous-total</span><span style={{fontSize:11}}>CHF {totalBrutView.toFixed(2)}</span>
           </div>
+          {totalRabaisView>0&&(
+            <div style={{display:"flex",justifyContent:"space-between",gap:14,marginBottom:3}}>
+              <span style={{fontSize:11,color:"#DC2626",fontWeight:600}}>🏷 Rabais bouteilles</span>
+              <span style={{fontSize:11,color:"#DC2626",fontWeight:600}}>- CHF {totalRabaisView.toFixed(2)}</span>
+            </div>
+          )}
           <div style={{display:"flex",justifyContent:"space-between",gap:14,marginBottom:retard?.frais>0?3:6}}>
             <span style={{fontSize:11,color:"#6B7280"}}>TVA</span><span style={{fontSize:11,color:"#9CA3AF"}}>Non assujetti</span>
           </div>
@@ -5562,7 +5588,7 @@ try {
   let grandTotal=0;
   (cmd.lignes||[]).filter(l=>l.produitId&&l.qte>0).forEach((l,i)=>{
     const prod=(st.produits||[]).find(p=>p.id===l.produitId);
-    const pu=prod?.prixRevendeur||0;
+    const pu=cmd.typeClient==="revendeur"?(prod?.prixRevendeur||0):(prod?.prixClient||0);
     const tot=pu*(l.qte||0);
     grandTotal+=tot;
     const bg=i%2===0?[255,255,255]:[248,248,245];
@@ -5585,7 +5611,8 @@ try {
   doc.setFont("helvetica","bold"); doc.setFontSize(8); doc.setTextColor(146,64,14);
   doc.text("CONDITIONS",mg+4,y+5);
   doc.setFont("helvetica","normal"); doc.setFontSize(7); doc.setTextColor(100,100,100);
-  doc.text("Prix partenaire HT · Paiement par virement : IBAN CH23 0900 0000 1565 1485 8 (PostFinance)",mg+4,y+11);
+  const prixLabel=cmd.typeClient==="revendeur"?"Prix partenaire / pro · ":"Prix public · ";
+  doc.text(prixLabel+"Paiement par virement : IBAN CH23 0900 0000 1565 1485 8 (PostFinance)",mg+4,y+11);
   doc.text("Livraison dans les 5-7 jours ouvrables apres confirmation · Retour sous 14 jours en etat d'origine",mg+4,y+16);
   y+=24;
   // Signature
@@ -5653,7 +5680,8 @@ lignes:[{produitId:"",qte:1}],
 rabais:0,
 fraisPort:0,
 commissionShopify:0,
-source:"shopify",
+source:"direct",
+typeClient:"revendeur",
 statut:"en attente",
 envoyeeCompta:false,
 notes:"",
@@ -5666,6 +5694,35 @@ const existing = (st.commandes||[]).map(c=>c.numero);
 let n=1;
 while(existing.includes("CMD-"+y+"-"+String(n).padStart(3,"0"))) n++;
 return "CMD-"+y+"-"+String(n).padStart(3,"0");
+};
+
+const envoyerConfirmationEmail = (c) => {
+if(!c.email) { alert("Ce client n'a pas d'email enregistré."); return; }
+const calc = calcCommande(c);
+const lignesTxt = (c.lignes||[]).filter(l=>l.produitId).map(l=>{
+const p = st.produits.find(x=>x.id===l.produitId);
+const pu = c.typeClient==="revendeur"?(p?.prixRevendeur||0):(p?.prixClient||0);
+return "  • "+(p?.nom||"")+" "+(p?.variante||"")+" "+(p?.format||"")+" × "+l.qte+" = CHF "+(pu*l.qte).toFixed(2);
+}).join("\n");
+const subject = "Confirmation de commande "+c.numero+" — Goûtstoso";
+const body =
+`Bonjour ${c.client},\n\n`+
+`Nous avons bien reçu votre commande et nous vous en remercions.\n\n`+
+`Voici le récapitulatif :\n\n`+
+`N° de commande : ${c.numero}\n`+
+`Date : ${fmt(c.date)}\n\n`+
+`Produits commandés :\n${lignesTxt}\n\n`+
+(parseFloat(c.rabais)>0?`  Rabais : -CHF ${parseFloat(c.rabais).toFixed(2)}\n`:"")+
+(parseFloat(c.fraisPort)>0?`  Frais de port : +CHF ${parseFloat(c.fraisPort).toFixed(2)}\n`:"")+
+`  ─────────────────────────────\n`+
+`  TOTAL : CHF ${calc.totalClient.toFixed(2)}\n\n`+
+`Conditions de paiement :\n`+
+`IBAN : CH23 0900 0000 1565 1485 8 — PostFinance — Goûtstoso / Jordan Montanaro\n\n`+
+`Nous préparons votre commande et vous tiendrons informé(e) dès l'expédition.\n\n`+
+`Pour toute question, n'hésitez pas à nous contacter à admin@goutstoso.ch.\n\n`+
+`Cordialement,\n\nJordan Montanaro\nGoûtstoso\nadmin@goutstoso.ch · www.goutstoso.ch`;
+setSt(p=>({...p,commandes:(p.commandes||[]).map(x=>x.id===c.id?{...x,confirmationEnvoyee:today()}:x)}));
+sendEmail({to:c.email,toName:c.client,subject,body});
 };
 
 const envoyerEmailSatisfaction = (c) => {
@@ -5696,7 +5753,8 @@ setSt(p=>({...p,commandes:p.commandes.map(x=>x.id===c.id?{...x,emailSatisfaction
 const calcCommande = (c) => {
 const produitsTotal = sum((c.lignes||[]).filter(l=>l.produitId).map(l=>{
 const p = st.produits.find(x=>x.id===l.produitId);
-return (p?.prixClient||0)*(l.qte||0);
+const pu = c.typeClient==="revendeur" ? (p?.prixRevendeur||0) : (p?.prixClient||0);
+return pu*(l.qte||0);
 }));
 const sousTotal = produitsTotal - (parseFloat(c.rabais)||0);
 const totalClient = sousTotal + (parseFloat(c.fraisPort)||0);
@@ -5907,6 +5965,27 @@ return (
       </div>
     </div>
 
+    {/* Confirmation de commande */}
+    <div style={{background:"#EFF6FF",border:"1.5px solid #BFDBFE",borderRadius:12,padding:"12px 14px",marginBottom:12}}>
+      <p style={{fontSize:11,fontWeight:700,color:"#1E40AF",textTransform:"uppercase",letterSpacing:".05em",marginBottom:8}}>✅ Confirmation de commande</p>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
+        <button onClick={async()=>{
+          const y2=new Date().getFullYear();
+          const ex=(st.commandes||[]).filter(c=>c.confirmationNumero).map(c=>c.confirmationNumero);
+          let n=1; while(ex.includes("CONF-"+y2+"-"+String(n).padStart(3,"0"))) n++;
+          const confNum="CONF-"+y2+"-"+String(n).padStart(3,"0");
+          setSt((p:any)=>({...p,commandes:p.commandes.map(c=>c.id===view.id?{...c,confirmationNumero:confNum}:c)}));
+          await genererConfirmationCommandePDF({...view,confirmationNumero:confNum},st);
+        }} style={{background:"#1E40AF",color:"#fff",border:"none",borderRadius:8,padding:"10px",fontWeight:700,fontSize:12,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:5}}>
+          📄 {view.confirmationNumero?"Re-télécharger":"Générer PDF"}
+        </button>
+        <button onClick={()=>envoyerConfirmationEmail(view)} style={{background:view.confirmationEnvoyee?"#F0FDF4":"#fff",color:view.confirmationEnvoyee?"#166534":"#1E40AF",border:"1.5px solid "+(view.confirmationEnvoyee?"#86EFAC":"#BFDBFE"),borderRadius:8,padding:"10px",fontWeight:700,fontSize:12,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:5}}>
+          {view.confirmationEnvoyee ? "✓ Email envoyé" : "✉️ Envoyer email"}
+        </button>
+      </div>
+      {view.confirmationNumero && <p style={{fontSize:10,color:"#3B82F6",marginTop:6,textAlign:"center"}}>{view.confirmationNumero}</p>}
+    </div>
+
     {/* Actions */}
     <div style={{display:"grid",gridTemplateColumns:view.envoyeeCompta?"1fr 1fr":"1fr",gap:6,marginBottom:8}}>
       <button onClick={()=>envoyerCompta(view)} style={{background:view.envoyeeCompta?"#F5F5F0":"#166534",color:view.envoyeeCompta?"#6B7280":"#fff",border:"none",borderRadius:10,padding:"11px",fontWeight:700,fontSize:12,cursor:"pointer"}}>
@@ -5917,7 +5996,7 @@ return (
       </button>}
     </div>
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginBottom:8}}>
-      <button onClick={()=>{setForm({...view});setModal("form");setViewId(null);}} style={{background:"#F5F5F0",border:"none",borderRadius:10,padding:"10px",fontWeight:600,fontSize:12,cursor:"pointer"}}>✏️ Modifier</button>
+      <button onClick={()=>{setForm({...view,typeClient:view.typeClient||"revendeur"});setModal("form");setViewId(null);}} style={{background:"#F5F5F0",border:"none",borderRadius:10,padding:"10px",fontWeight:600,fontSize:12,cursor:"pointer"}}>✏️ Modifier</button>
       <button onClick={()=>supprimer(view.id)} style={{background:"#FEE2E2",color:"#991B1B",border:"none",borderRadius:10,padding:"10px",fontWeight:600,fontSize:12,cursor:"pointer"}}>🗑 Supprimer</button>
     </div>
     {/* Indicateur stock déduit */}
@@ -6123,28 +6202,34 @@ Commandes
     <Modal title={form.id?"Modifier commande":"Nouvelle commande"} onClose={()=>setModal(null)}>
       <div style={{display:"grid",gap:14}}>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-          <Sel label="Source" value={form.source||"shopify"} onChange={v=>setForm(p=>({...p,source:v}))}
-            options={[{v:"shopify",l:"🛒 Shopify"},{v:"direct",l:"🤝 Commande directe"}]}/>
+          <Sel label="Source" value={form.source||"direct"} onChange={v=>setForm(p=>({...p,source:v}))}
+            options={[{v:"direct",l:"🤝 Commande directe"},{v:"prestataire",l:"🏢 Prestataire/Pro"},{v:"shopify",l:"🛒 Shopify"}]}/>
+          <Sel label="Prix" value={form.typeClient||"revendeur"} onChange={v=>setForm(p=>({...p,typeClient:v}))}
+            options={[{v:"revendeur",l:"💼 Prix pro"},{v:"client",l:"🏷 Prix public"}]}/>
           <F label="N° commande" value={form.numero||""} onChange={v=>setForm(p=>({...p,numero:v}))} placeholder="Auto"/>
           <F label="Date" type="date" value={form.date} onChange={v=>setForm(p=>({...p,date:v}))}/>
         </div>
         <div>
-          <label style={{fontSize:11,fontWeight:600,color:"#9CA3AF",textTransform:"uppercase",display:"block",marginBottom:6}}>Client</label>
-          <Sel label="" value={form.clientId||""} onChange={v=>{
+          <label style={{fontSize:11,fontWeight:600,color:"#9CA3AF",textTransform:"uppercase",display:"block",marginBottom:6}}>Client / Prestataire</label>
+          <select value={form.clientId||""} onChange={e=>{
+            const v=e.target.value;
             if(v==="nouveau") {
               setForm(p=>({...p,clientId:"",client:"",email:"",telephone:"",adresse:"",npa:"",ville:""}));
             } else if(v) {
-              const c = (st.clients||[]).find(x=>x.id===v);
-              if(c) setForm(p=>({...p,clientId:v,client:c.nom,email:c.email||"",telephone:c.telephone||"",adresse:c.adresse||"",npa:c.npa||"",ville:c.ville||""}));
+              const pv2 = st.partenaires.find(x=>x.id===v);
+              if(pv2) { setForm(p=>({...p,clientId:v,client:pv2.nom,email:pv2.email||"",telephone:pv2.tel||"",adresse:pv2.adresse||"",npa:"",ville:""})); return; }
+              const cl = (st.clients||[]).find(x=>x.id===v);
+              if(cl) setForm(p=>({...p,clientId:v,client:cl.nom,email:cl.email||"",telephone:cl.telephone||"",adresse:cl.adresse||"",npa:cl.npa||"",ville:cl.ville||""}));
             } else {
               setForm(p=>({...p,clientId:""}));
             }
-          }}
-          options={[
-            {v:"",l:"- Saisir manuellement -"},
-            {v:"nouveau",l:"+ Nouveau client (à enregistrer)"},
-            ...(st.clients||[]).map(c=>({v:c.id,l:"👤 "+c.nom}))
-          ]}/>
+          }} style={{width:"100%",padding:"11px 10px",fontSize:14,border:"1.5px solid #E5E5E0",borderRadius:10,background:"#fff",color:"#111",outline:"none",marginBottom:8}}>
+            <option value="">- Saisir manuellement -</option>
+            <option value="nouveau">+ Nouveau (à enregistrer)</option>
+            {st.partenaires.length>0 && <optgroup label="🏪 Dépôts-vente">{st.partenaires.map(p=><option key={p.id} value={p.id}>{p.nom}</option>)}</optgroup>}
+            {(st.clients||[]).filter(c=>c.categorie==="partenaire").length>0 && <optgroup label="🤝 Partenaires">{(st.clients||[]).filter(c=>c.categorie==="partenaire").map(c=><option key={c.id} value={c.id}>{c.nom}</option>)}</optgroup>}
+            {(st.clients||[]).filter(c=>c.categorie!=="partenaire").length>0 && <optgroup label="👤 Clients">{(st.clients||[]).filter(c=>c.categorie!=="partenaire").map(c=><option key={c.id} value={c.id}>{c.nom}</option>)}</optgroup>}
+          </select>
         </div>
         <F label="Nom / Raison sociale" value={form.client} onChange={v=>setForm(p=>({...p,client:v,clientId:""}))} required/>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
