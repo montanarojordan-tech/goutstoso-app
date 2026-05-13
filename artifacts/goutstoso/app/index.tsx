@@ -417,10 +417,10 @@ action: "contrats",
 }
 });
 
-// Offres à relancer (envoyées il y a 7j+ sans réponse)
+// Offres à relancer (créées il y a 7j+ sans validation)
 (st.contrats||[]).filter(c=>
   c.type==="offre" &&
-  c.statut!=="signé" && c.statut!=="accepté" && c.statut!=="brouillon" &&
+  c.statut!=="signé" && c.statut!=="accepté" &&
   c.dateDebut
 ).forEach(c=>{
 const joursDepuis = Math.floor((now - new Date(c.dateDebut))/86400000);
