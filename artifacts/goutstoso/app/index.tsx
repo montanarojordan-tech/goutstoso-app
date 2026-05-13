@@ -8172,8 +8172,8 @@ const envoyerPourSignature = async (documentType, documentTitle, documentData, e
 const creerContactDepuisOffre = (offre) => {
   const nom = offre.clientNom || offre.clientContact || "";
   if(!nom){ alert("Aucun nom de client renseigné sur cette offre."); return; }
-  const existe = (st.fournisseurs||[]).find((f:any)=>f.nom?.toLowerCase()===nom.toLowerCase());
-  if(existe){ alert(`Le contact "${nom}" existe déjà dans ton carnet.`); return; }
+  const existe = (st.clients||[]).find((f:any)=>f.nom?.toLowerCase()===nom.toLowerCase());
+  if(existe){ alert(`Le contact "${nom}" existe déjà dans les clients.`); return; }
   const nouveau = {
     id: uid(),
     nom,
@@ -8185,8 +8185,8 @@ const creerContactDepuisOffre = (offre) => {
     categorie: "Client",
     notes: offre.clientSite ? "Site : "+offre.clientSite : "",
   };
-  setSt((p:any)=>({...p,fournisseurs:[...(p.fournisseurs||[]),nouveau]}));
-  alert(`✅ Contact "${nom}" créé dans le carnet de contacts.`);
+  setSt((p:any)=>({...p,clients:[...(p.clients||[]),nouveau]}));
+  alert(`✅ Contact "${nom}" créé dans l'onglet Clients.`);
 };
 
 const supprimerOffre = (id) => {
