@@ -2645,8 +2645,8 @@ return (
           email: pv?.email||"",
           telephone: pv?.tel||"",
           adresse: pv?.adresse||"",
-          npa: "",
-          ville: "",
+          npa: pv?.npa||"",
+          ville: pv?.ville||"",
           lignes: (view.lignes||[]).filter(l=>l.produitId).map(l=>({produitId:l.produitId,qte:l.qte})),
           rabais: 0,
           fraisPort: 0,
@@ -6403,7 +6403,7 @@ Commandes
               setForm(p=>({...p,clientId:"",client:"",email:"",telephone:"",adresse:"",npa:"",ville:""}));
             } else if(v) {
               const pv2 = st.partenaires.find(x=>x.id===v);
-              if(pv2) { setForm(p=>({...p,clientId:v,client:pv2.nom,email:pv2.email||"",telephone:pv2.tel||"",adresse:pv2.adresse||"",npa:"",ville:""})); return; }
+              if(pv2) { setForm(p=>({...p,clientId:v,client:pv2.nom,email:pv2.email||"",telephone:pv2.tel||"",adresse:pv2.adresse||"",npa:pv2.npa||"",ville:pv2.ville||""})); return; }
               const cl = (st.clients||[]).find(x=>x.id===v);
               if(cl) setForm(p=>({...p,clientId:v,client:cl.nom,email:cl.email||"",telephone:cl.telephone||"",adresse:cl.adresse||"",npa:cl.npa||"",ville:cl.ville||""}));
             } else {
