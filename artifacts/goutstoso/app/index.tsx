@@ -8540,6 +8540,7 @@ const RECETTES_DEFAULT = [
     volumeBouteille:500,
     titreAlcool:30,
     notes:"Macération 15j. Agiter 1x/jour les 3 premiers jours. Sirop refroidi impérativement avant assemblage. Vieillissement 15j minimum avant commercialisation. Coût matière : ~3.20 CHF/btl.",
+    statut:"fonctionnel",
     marcheASuivre:[
       "Laver soigneusement les citrons à l'eau froide. Sécher.",
       "Prélever les zestes à l'économe ou râpe fine — sans la partie blanche amère.",
@@ -8573,6 +8574,7 @@ const RECETTES_DEFAULT = [
     volumeBouteille:500,
     titreAlcool:30,
     notes:"Macération 15j. Ajouter feuilles de combava les 2 derniers jours. Ajouter jus citron vert à l'assemblage. Vieillissement 1 mois minimum (adoucit l'amertume). Coût : ~3.50 CHF/btl.",
+    statut:"fonctionnel",
     marcheASuivre:[
       "Laver soigneusement les citrons verts à l'eau froide. Sécher.",
       "Prélever les zestes à l'économe — sans la partie blanche amère.",
@@ -8604,6 +8606,7 @@ const RECETTES_DEFAULT = [
     volumeBouteille:500,
     titreAlcool:30,
     notes:"Macération 15j. 50% zestes purs + 50% écorces. Agiter quotidiennement les 3 premiers jours. Vieillissement 3 semaines minimum. Saison optimale : déc–janv. Coût : ~3.80 CHF/btl.",
+    statut:"fonctionnel",
     marcheASuivre:[
       "Laver soigneusement les clémentines à l'eau froide. Sécher.",
       "Prélever 50% en zestes fins (économe), 50% en écorces plus épaisses (paring knife).",
@@ -8635,6 +8638,7 @@ const RECETTES_DEFAULT = [
     volumeBouteille:500,
     titreAlcool:30,
     notes:"Macération 10j. Garder la peau des pêches. Concasser les noyaux au marteau (notes d'amande douce). Agiter tous les 2 jours. Presser légèrement les fruits à la filtration. Repos 1 semaine après assemblage. Coût : ~3.50 CHF/btl.",
+    statut:"en création",
     marcheASuivre:[
       "Laver les pêches. Conserver la peau — elle apporte arôme et couleur.",
       "Dénoyauter et couper les pêches en quartiers (env. 150 g/pièce).",
@@ -8667,6 +8671,7 @@ const RECETTES_DEFAULT = [
     volumeBouteille:500,
     titreAlcool:30,
     notes:"Macération 10j. Agiter quotidiennement. Presser les fraises dans un linge. Repos 2 semaines minimum après assemblage. Option : +50g fraises lyophilisées en poudre pour intensifier. Coût : ~4.50 CHF/btl.",
+    statut:"en création",
     marcheASuivre:[
       "Laver et équeuter délicatement les fraises. Sécher sur papier absorbant.",
       "Couper les fraises en deux ou en quartiers selon la taille.",
@@ -8698,6 +8703,7 @@ const RECETTES_DEFAULT = [
     volumeBouteille:500,
     titreAlcool:30,
     notes:"Macération 10j. Framboises surgelées idéales (cellules éclatées libèrent mieux les arômes). Écraser grossièrement à la fourchette. Agiter quotidiennement. Attention aux pépins à la filtration (ne pas presser fort = amertume). Coût : ~5 CHF/btl.",
+    statut:"en création",
     marcheASuivre:[
       "Utiliser des framboises surgelées de préférence (les cellules éclatées libèrent mieux les arômes).",
       "Laisser décongeler partiellement, puis écraser grossièrement à la fourchette.",
@@ -8731,6 +8737,7 @@ const RECETTES_DEFAULT = [
     volumeBouteille:500,
     titreAlcool:30,
     notes:"Café arabica de spécialité, concassé grossièrement (pas en poudre). Agiter 1x/semaine. Goûter à J15, J18, J21 pour arrêter au moment optimal (15-21j). Assemblage avec sirop à 40°C (aide à dissoudre les huiles). Repos 2-3 semaines minimum. Coût : ~4 CHF/btl.",
+    statut:"en création",
     marcheASuivre:[
       "Concasser grossièrement les grains de café arabica (pas en poudre — trop d'amertume).",
       "Fendre la gousse de vanille et gratter les graines. Râper la fève tonka si utilisée.",
@@ -8756,6 +8763,7 @@ const Production = ({st, setSt}) => {
   });
 
   const [onglet, setOnglet] = useState<"planification"|"recettes"|"calculateur"|"macerations"|"historique">("planification");
+  const [recetteStatutFiltre, setRecetteStatutFiltre] = useState("tous");
   const [recetteModal, setRecetteModal] = useState<null|"new"|any>(null);
   const [macerationModal, setMacerationModal] = useState<null|"new"|any>(null);
   const [batchModal, setBatchModal] = useState<null|any>(null);
@@ -8776,6 +8784,7 @@ const Production = ({st, setSt}) => {
       return {
         ...r,
         marcheASuivre: (r.marcheASuivre && r.marcheASuivre.length>0) ? r.marcheASuivre : (def?.marcheASuivre||[]),
+        statut: r.statut || def?.statut || "en création",
       };
     }),
     ...missingDefaults,
@@ -8784,9 +8793,9 @@ const Production = ({st, setSt}) => {
   const historique = prod.historique || [];
 
   // ── RECETTE FORM ──
-  const emptyRecette = () => ({id:uid(),nom:"",description:"",couleur:"#8B5CF6",ingredients:[{nom:"",quantite:0,unite:"g",parLitre:true}],dureeMacerationJours:30,rendementBouteilles:10,volumeBouteille:500,titreAlcool:30,notes:"",marcheASuivre:[]});
+  const emptyRecette = () => ({id:uid(),nom:"",description:"",couleur:"#8B5CF6",ingredients:[{nom:"",quantite:0,unite:"g",parLitre:true}],dureeMacerationJours:30,rendementBouteilles:10,volumeBouteille:500,titreAlcool:30,notes:"",marcheASuivre:[],statut:"en création"});
   const [rForm, setRForm] = useState<any>(emptyRecette());
-  const openRecette = (r=null) => { setRForm(r?{...r,ingredients:r.ingredients.map(i=>({...i})),marcheASuivre:r.marcheASuivre?[...r.marcheASuivre]:[]}:emptyRecette()); setRecetteModal(r||"new"); };
+  const openRecette = (r=null) => { setRForm(r?{...r,ingredients:r.ingredients.map(i=>({...i})),marcheASuivre:r.marcheASuivre?[...r.marcheASuivre]:[],statut:r.statut||"en création"}:emptyRecette()); setRecetteModal(r||"new"); };
   const saveRecette = () => {
     if(!rForm.nom.trim()){alert("Nom de recette requis");return;}
     setProd(p=>{
@@ -9195,38 +9204,76 @@ const Production = ({st, setSt}) => {
     {/* ── RECETTES ── */}
     {onglet==="recettes" && (
     <div>
-      <div style={{display:"flex",justifyContent:"flex-end",marginBottom:12}}>
-        <button style={btnPrimary} onClick={()=>openRecette()}>+ Nouvelle recette</button>
+      {(() => {
+        const statutCfg:{[k:string]:{bg:string,color:string,label:string}} = {
+          "fonctionnel":      {bg:"#DCFCE7",color:"#15803D",label:"✅ Fonctionnel"},
+          "en création":      {bg:"#FEF9C3",color:"#854D0E",label:"🔧 En création"},
+          "plus d'actualité": {bg:"#F3F4F6",color:"#6B7280",label:"🗄 Archivé"},
+        };
+        const statutOptions = ["tous","fonctionnel","en création","plus d'actualité"];
+        const recettesFiltrees = recettes.filter((r:any)=>
+          recetteStatutFiltre==="tous" || (r.statut||"en création")===recetteStatutFiltre
+        );
+        return null;
+      })()}
+      <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:12,alignItems:"center"}}>
+        {(["tous","fonctionnel","en création","plus d'actualité"] as const).map(s=>{
+          const lbl = s==="tous"?"Toutes":s==="fonctionnel"?"✅ Fonctionnel":s==="en création"?"🔧 En création":"🗄 Archivé";
+          return (
+            <button key={s} onClick={()=>setRecetteStatutFiltre(s)}
+              style={{background:recetteStatutFiltre===s?"#0A0A0A":"#F4F4F2",color:recetteStatutFiltre===s?"#fff":"#525252",border:"none",borderRadius:8,padding:"5px 10px",fontSize:10.5,fontWeight:recetteStatutFiltre===s?700:500,cursor:"pointer"}}>
+              {lbl}
+            </button>
+          );
+        })}
+        <button style={{...btnPrimary,marginLeft:"auto"}} onClick={()=>openRecette()}>+ Nouvelle</button>
       </div>
-      {recettes.length===0 && <p style={{color:"#9CA3AF",textAlign:"center",padding:24}}>Aucune recette. Crée-en une !</p>}
-      {recettes.map(r=>(
-        <div key={r.id} style={{...cardStyle,borderLeft:`4px solid ${r.couleur||"#F2C94C"}`}}>
-          <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:8}}>
-            <div>
-              <p style={{fontWeight:700,fontSize:16,color:"#0A0A0A",marginBottom:2}}>{r.nom}</p>
-              <p style={{fontSize:12,color:"#737373",marginBottom:8}}>{r.description}</p>
-            </div>
-            <div style={{display:"flex",gap:6,flexShrink:0}}>
-              <button style={btnSecondary} onClick={()=>openRecette(r)}>Modifier</button>
-              <button style={btnDanger} onClick={()=>deleteRecette(r.id)}>✕</button>
-            </div>
-          </div>
-          <div style={{background:"#FAFAF7",borderRadius:8,padding:"10px 12px",marginBottom:8}}>
-            <p style={{fontSize:10,fontWeight:700,color:"#9CA3AF",textTransform:"uppercase",letterSpacing:".05em",marginBottom:6}}>Ingrédients (base 1 L alcool)</p>
-            {r.ingredients.map((ing,i)=>(
-              <div key={i} style={{display:"flex",justifyContent:"space-between",fontSize:12,color:"#374151",marginBottom:3}}>
-                <span>{ing.nom}</span>
-                <span style={{fontWeight:600}}>{ing.parLitre?`${ing.quantite} ${ing.unite}/L`:`${ing.quantite} ${ing.unite}`}</span>
+      {(() => {
+        const statutCfg:{[k:string]:{bg:string,color:string,label:string}} = {
+          "fonctionnel":      {bg:"#DCFCE7",color:"#15803D",label:"✅ Fonctionnel"},
+          "en création":      {bg:"#FEF9C3",color:"#854D0E",label:"🔧 En création"},
+          "plus d'actualité": {bg:"#F3F4F6",color:"#6B7280",label:"🗄 Archivé"},
+        };
+        const recettesFiltrees = recettes.filter((r:any)=>
+          recetteStatutFiltre==="tous" || (r.statut||"en création")===recetteStatutFiltre
+        );
+        return (<>
+          {recettesFiltrees.length===0 && <p style={{color:"#9CA3AF",textAlign:"center",padding:24}}>Aucune recette dans cette catégorie.</p>}
+          {recettesFiltrees.map((r:any)=>{
+            const sc = statutCfg[r.statut||"en création"] || statutCfg["en création"];
+            return (
+            <div key={r.id} style={{...cardStyle,borderLeft:`4px solid ${r.couleur||"#F2C94C"}`}}>
+              <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:8}}>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap",marginBottom:2}}>
+                    <p style={{fontWeight:700,fontSize:16,color:"#0A0A0A"}}>{r.nom}</p>
+                    <span style={{background:sc.bg,color:sc.color,fontSize:10,fontWeight:700,padding:"2px 7px",borderRadius:20,whiteSpace:"nowrap"}}>{sc.label}</span>
+                  </div>
+                  <p style={{fontSize:12,color:"#737373",marginBottom:8}}>{r.description}</p>
+                </div>
+                <div style={{display:"flex",gap:6,flexShrink:0}}>
+                  <button style={btnSecondary} onClick={()=>openRecette(r)}>Modifier</button>
+                  <button style={btnDanger} onClick={()=>deleteRecette(r.id)}>✕</button>
+                </div>
               </div>
-            ))}
-          </div>
-          <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-            <span style={{background:"#F0FDF4",color:"#15803D",fontSize:11,fontWeight:600,padding:"3px 8px",borderRadius:6}}>⏱ {r.dureeMacerationJours}j de macération</span>
-            <span style={{background:"#EFF6FF",color:"#1D4ED8",fontSize:11,fontWeight:600,padding:"3px 8px",borderRadius:6}}>🍾 {r.rendementBouteilles} btl·500ml / L alcool</span>
-          </div>
-          {r.notes&&<p style={{fontSize:11,color:"#737373",marginTop:8,fontStyle:"italic"}}>💬 {r.notes}</p>}
-        </div>
-      ))}
+              <div style={{background:"#FAFAF7",borderRadius:8,padding:"10px 12px",marginBottom:8}}>
+                <p style={{fontSize:10,fontWeight:700,color:"#9CA3AF",textTransform:"uppercase",letterSpacing:".05em",marginBottom:6}}>Ingrédients (base 1 L alcool)</p>
+                {r.ingredients.map((ing:any,i:number)=>(
+                  <div key={i} style={{display:"flex",justifyContent:"space-between",fontSize:12,color:"#374151",marginBottom:3}}>
+                    <span>{ing.nom}</span>
+                    <span style={{fontWeight:600}}>{ing.parLitre?`${ing.quantite} ${ing.unite}/L`:`${ing.quantite} ${ing.unite}`}</span>
+                  </div>
+                ))}
+              </div>
+              <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                <span style={{background:"#F0FDF4",color:"#15803D",fontSize:11,fontWeight:600,padding:"3px 8px",borderRadius:6}}>⏱ {r.dureeMacerationJours}j de macération</span>
+                <span style={{background:"#EFF6FF",color:"#1D4ED8",fontSize:11,fontWeight:600,padding:"3px 8px",borderRadius:6}}>🍾 {r.rendementBouteilles} btl·500ml / L alcool</span>
+              </div>
+              {r.notes&&<p style={{fontSize:11,color:"#737373",marginTop:8,fontStyle:"italic"}}>💬 {r.notes}</p>}
+            </div>
+          );})}
+        </>);
+      })()}
     </div>
     )}
 
@@ -9549,9 +9596,17 @@ const Production = ({st, setSt}) => {
             <input style={inputStyle} value={rForm.nom} onChange={e=>setRForm(p=>({...p,nom:e.target.value}))} placeholder="ex: Limonta"/>
           </div>
           <div>
-            <label style={labelStyle}>Description</label>
-            <input style={inputStyle} value={rForm.description} onChange={e=>setRForm(p=>({...p,description:e.target.value}))} placeholder="ex: Liqueur de citron jaune"/>
+            <label style={labelStyle}>Statut</label>
+            <select style={inputStyle} value={rForm.statut||"en création"} onChange={e=>setRForm(p=>({...p,statut:e.target.value}))}>
+              <option value="en création">🔧 En création</option>
+              <option value="fonctionnel">✅ Fonctionnel</option>
+              <option value="plus d'actualité">🗄 Plus d'actualité</option>
+            </select>
           </div>
+        </div>
+        <div>
+          <label style={labelStyle}>Description</label>
+          <input style={inputStyle} value={rForm.description} onChange={e=>setRForm(p=>({...p,description:e.target.value}))} placeholder="ex: Liqueur de citron jaune"/>
         </div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
           <div>
