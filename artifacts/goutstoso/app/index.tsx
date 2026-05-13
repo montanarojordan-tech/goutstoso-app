@@ -8408,7 +8408,11 @@ const Production = ({st, setSt}) => {
   const [calcBtl25, setCalcBtl25] = useState(""); // vide = auto depuis litres
   const [calcBtl50, setCalcBtl50] = useState(""); // vide = auto depuis litres
 
-  const recettes = (prod.recettes && prod.recettes.length > 0) ? prod.recettes : RECETTES_DEFAULT;
+  // Merge: garder les recettes sauvegardées + ajouter les recettes par défaut manquantes
+  const savedRecettes = prod.recettes && prod.recettes.length > 0 ? prod.recettes : [];
+  const savedIds = new Set(savedRecettes.map((r:any)=>r.id));
+  const missingDefaults = RECETTES_DEFAULT.filter(r=>!savedIds.has(r.id));
+  const recettes = [...savedRecettes, ...missingDefaults];
   const macerations = prod.macerations || [];
   const historique = prod.historique || [];
 
