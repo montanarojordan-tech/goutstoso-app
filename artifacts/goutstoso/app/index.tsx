@@ -8406,7 +8406,7 @@ const Production = ({st, setSt}) => {
   const [calcRecetteId, setCalcRecetteId] = useState(prod.recettes?.[0]?.id || "limonta");
   const [calcLitres, setCalcLitres] = useState("10");
 
-  const recettes = prod.recettes || RECETTES_DEFAULT;
+  const recettes = (prod.recettes && prod.recettes.length > 0) ? prod.recettes : RECETTES_DEFAULT;
   const macerations = prod.macerations || [];
   const historique = prod.historique || [];
 
