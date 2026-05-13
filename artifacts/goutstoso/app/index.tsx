@@ -6247,7 +6247,8 @@ return (
       {view.blSignature && (
         <div style={{marginTop:8,padding:"6px 8px",background:"#fff",borderRadius:8,border:"1px solid #D1FAE5",display:"flex",alignItems:"center",gap:8}}>
           <span style={{fontSize:10,color:"#166534",fontWeight:600}}>✓ Signé :</span>
-          <img src={view.blSignature} alt="signature" style={{height:28,maxWidth:120,objectFit:"contain"}}/>
+          <img src={view.blSignature} alt="signature" style={{height:28,maxWidth:120,objectFit:"contain",flex:1}}/>
+          <button onClick={()=>{if(!window.confirm("Supprimer la signature du BL ?"))return;setSt((p:any)=>({...p,commandes:p.commandes.map((c:any)=>c.id===view.id?{...c,blSignature:null,blSigne:false,blReceptionnaire:"",blDate:""}:c)}));}} style={{background:"#FEE2E2",border:"none",borderRadius:6,padding:"4px 7px",cursor:"pointer",fontSize:11,color:"#991B1B",fontWeight:700,flexShrink:0}}>🗑</button>
         </div>
       )}
     </div>
