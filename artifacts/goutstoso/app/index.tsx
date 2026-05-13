@@ -3320,7 +3320,7 @@ s.onload=res;s.onerror=rej;document.head.appendChild(s);
 const {jsPDF}=window.jspdf;
 const doc=new jsPDF("p","mm","a4");
 const W=210,mg=18;
-const pv=st.partenaires.find(p=>p.id===f.partenaireId);
+const pv=st.partenaires.find(p=>p.id===f.partenaireId)||(st.clients||[]).find(c=>c.id===f.partenaireId);
 const total=calcTotal(f.lignes,f.typeClient,st.produits);
 const retard=getInfosRetard(f);
 const totalFinal=total+(retard?.frais||0);
@@ -3665,7 +3665,7 @@ const nbEchues = factures.filter(f=>f.statut!=="payée"&&getInfosRetard(f)).leng
 
 // Vue détail facture
 if(view) {
-const pv = st.partenaires.find(p=>p.id===view.partenaireId);
+const pv = st.partenaires.find(p=>p.id===view.partenaireId) || (st.clients||[]).find(c=>c.id===view.partenaireId);
 const total = calcTotal(view.lignes,view.typeClient,st.produits);
 const retard = getInfosRetard(view);
 const pr = getProchainRappel(view);
@@ -3727,12 +3727,15 @@ return (
     )}
 
     {/* Actions */}
-    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:10}}>
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:10}}>
       <button onClick={()=>genererPDF(view)} style={{background:"#111",color:"#F2C94C",border:"none",borderRadius:12,padding:"13px",fontWeight:700,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
         ⬇️ PDF
       </button>
       <button onClick={()=>setPjModal(true)} style={{background:"#FEF9E7",color:"#92400E",border:"1.5px solid #F2C94C",borderRadius:12,padding:"13px",fontWeight:600,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
         ✉️ Email
+      </button>
+      <button onClick={()=>{setForm({...view,lignesOffertes:view.lignesOffertes||[]});setView(null);setModal("form");}} style={{background:"#F5F5F0",border:"1.5px solid #E5E5E0",borderRadius:12,padding:"13px",fontWeight:600,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+        ✏️ Modifier
       </button>
     </div>
 
@@ -3878,6 +3881,30 @@ return (
         })}
         <div style={{height:2,background:"#F0F0EE",borderRadius:"0 0 6px 6px"}}/>
       </div>
+
+      {/* Bouteilles offertes dans la vue détail */}
+      {(view.lignesOffertes||[]).filter(l=>l.produitId).length>0&&(
+        <div style={{margin:"0 16px 12px"}}>
+          <div style={{background:"#DCFCE7",border:"1px solid #86EFAC",borderRadius:"8px 8px 0 0",padding:"6px 10px"}}>
+            <span style={{fontSize:8,fontWeight:700,color:"#166534",textTransform:"uppercase"}}>🎁 Bouteilles offertes</span>
+          </div>
+          {(view.lignesOffertes||[]).filter(l=>l.produitId).map((l,i)=>{
+            const p=st.produits.find(x=>x.id===l.produitId);
+            return (
+              <div key={i} style={{background:i%2===0?"#F0FDF4":"#fff",padding:"8px 10px",display:"flex",alignItems:"center",border:"1px solid #D1FAE5",borderTop:"none"}}>
+                <div style={{flex:1}}>
+                  <p style={{fontSize:12,fontWeight:600}}>{p?.nom} {p?.variante}</p>
+                  <p style={{fontSize:10,color:"#6B7280"}}>{l.texte||"Offert"}</p>
+                </div>
+                <span style={{width:24,textAlign:"center",fontSize:12,color:"#6B7280"}}>{l.qte}</span>
+                <span style={{width:60,textAlign:"right",fontSize:12,fontWeight:700,color:"#16A34A"}}>OFFERT</span>
+              </div>
+            );
+          })}
+          <div style={{height:2,background:"#D1FAE5",borderRadius:"0 0 6px 6px"}}/>
+        </div>
+      )}
+
       <div style={{padding:"0 16px 12px",display:"flex",justifyContent:"flex-end"}}>
         <div style={{background:"#FEF9E7",border:"1px solid #F2C94C",borderRadius:10,padding:"10px 14px",minWidth:160}}>
           <div style={{display:"flex",justifyContent:"space-between",gap:14,marginBottom:3}}>
@@ -4114,8 +4141,16 @@ return {Numero:f.numero,Date:f.date,Client:pv?.nom,Total:total,Statut:f.statut};
     <Modal title={form.id?"Modifier facture":"Nouvelle facture"} onClose={()=>setModal(null)}>
       <div style={{display:"grid",gap:14}}>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-          <Sel label="Client" value={form.partenaireId} onChange={v=>setForm(p=>({...p,partenaireId:v}))} required
-            options={[{v:"",l:"- Client -"},...st.partenaires.map(p=>({v:p.id,l:p.nom}))]}/>
+          <div>
+            <label style={{fontSize:11,fontWeight:600,color:"#9CA3AF",textTransform:"uppercase",letterSpacing:".06em",display:"block",marginBottom:6}}>Client *</label>
+            <select value={form.partenaireId} onChange={e=>setForm(p=>({...p,partenaireId:e.target.value}))} required
+              style={{width:"100%",padding:"11px 10px",fontSize:14,border:"1.5px solid #E5E5E0",borderRadius:10,background:"#fff",color:"#111",outline:"none"}}>
+              <option value="">- Client -</option>
+              {st.partenaires.length>0&&<optgroup label="🏪 Dépôts-vente">{st.partenaires.map(p=><option key={p.id} value={p.id}>{p.nom}</option>)}</optgroup>}
+              {(st.clients||[]).filter(c=>c.categorie==="partenaire").length>0&&<optgroup label="🤝 Partenaires">{(st.clients||[]).filter(c=>c.categorie==="partenaire").map(c=><option key={c.id} value={c.id}>{c.nom}</option>)}</optgroup>}
+              {(st.clients||[]).filter(c=>c.categorie!=="partenaire").length>0&&<optgroup label="👤 Clients">{(st.clients||[]).filter(c=>c.categorie!=="partenaire").map(c=><option key={c.id} value={c.id}>{c.nom}</option>)}</optgroup>}
+            </select>
+          </div>
           <Sel label="Prix" value={form.typeClient} onChange={v=>setForm(p=>({...p,typeClient:v}))}
             options={[{v:"revendeur",l:"Prix pro"},{v:"client",l:"Prix public"}]}/>
         </div>
