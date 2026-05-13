@@ -10077,7 +10077,7 @@ return isDesktop;
 // ══════════════════════════════════════════════════════════════
 // PAGE: SAUVEGARDES
 // ══════════════════════════════════════════════════════════════
-function Sauvegardes({authUser}:{authUser:any}) {
+function Sauvegardes({authUser,st,setSt}:{authUser:any,st:any,setSt:any}) {
   const [backups, setBackups] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -10156,6 +10156,30 @@ function Sauvegardes({authUser}:{authUser:any}) {
         <p style={{fontSize:12,color:"#374151",marginTop:2}}>Une sauvegarde est créée automatiquement au démarrage de l'app chaque nouveau mois. Les 36 dernières sauvegardes sont conservées.</p>
       </div>
     </div>
+
+    {/* MIGRATION FOURNISSEURS → CLIENTS */}
+    {(()=>{
+      const aDeplacer = (st.fournisseurs||[]).filter((f:any)=>f.categorie==="Client");
+      if(aDeplacer.length===0) return null;
+      return (
+        <div style={{background:"#FFF7ED",border:"1.5px solid #FED7AA",borderRadius:12,padding:"14px 16px",marginBottom:16}}>
+          <p style={{fontSize:13,fontWeight:700,color:"#C2410C",marginBottom:6}}>⚠️ {aDeplacer.length} contact{aDeplacer.length>1?"s":""} client{aDeplacer.length>1?"s":""} dans Fournisseurs</p>
+          <p style={{fontSize:12,color:"#92400E",marginBottom:10}}>Les contacts suivants ont été créés par erreur dans Fournisseurs : <strong>{aDeplacer.map((f:any)=>f.nom).join(", ")}</strong></p>
+          <button onClick={()=>{
+            setSt((p:any)=>{
+              const aDeplacer2 = (p.fournisseurs||[]).filter((f:any)=>f.categorie==="Client");
+              const restants = (p.fournisseurs||[]).filter((f:any)=>f.categorie!=="Client");
+              const clientsExistants = p.clients||[];
+              const nouveauxClients = aDeplacer2.filter((f:any)=>!clientsExistants.some((c:any)=>c.nom?.toLowerCase()===f.nom?.toLowerCase()));
+              return {...p, fournisseurs:restants, clients:[...clientsExistants,...nouveauxClients]};
+            });
+            alert(`✅ ${aDeplacer.length} contact${aDeplacer.length>1?"s":""} déplacé${aDeplacer.length>1?"s":""} vers l'onglet Clients.`);
+          }} style={{background:"#EA580C",color:"#fff",border:"none",borderRadius:8,padding:"9px 16px",fontWeight:600,fontSize:13,cursor:"pointer"}}>
+            👥 Déplacer vers Clients
+          </button>
+        </div>
+      );
+    })()}
 
     {/* BOUTON MANUEL */}
     <button
@@ -10414,7 +10438,7 @@ commandes:<Commandes st={st} setSt={setSt}/>,
 fournisseurs:<Fournisseurs st={st} setSt={setSt}/>,
 clients:<Clients st={st} setSt={setSt}/>,
 documents:<Documents st={st} setSt={setSt}/>,
-sauvegardes:<Sauvegardes authUser={authUser}/>,
+sauvegardes:<Sauvegardes authUser={authUser} st={st} setSt={setSt}/>,
 compta:<Comptabilite st={st} setSt={setSt}/>,
 offres:<Offres st={st} setSt={setSt}/>,
 production:<Production st={st} setSt={setSt}/>,
