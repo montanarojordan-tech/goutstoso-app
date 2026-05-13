@@ -8892,31 +8892,74 @@ return (
       {/* Destinataire */}
       <div style={{background:"#F9F9F6",borderRadius:10,padding:"12px",border:"1px solid #EAE7E0"}}>
         <p style={{fontSize:11,fontWeight:700,color:"#374151",marginBottom:10,textTransform:"uppercase",letterSpacing:".04em"}}>Destinataire</p>
-        <Sel label="Partenaire enregistré" value={form.partenaireId}
-          onChange={v=>{
+
+        {/* Sélecteur client existant */}
+        <div style={{marginBottom:12}}>
+          <label style={{fontSize:11,fontWeight:600,color:"#6B7280",textTransform:"uppercase",letterSpacing:".06em",display:"block",marginBottom:5}}>Choisir un client existant</label>
+          <select value={form.partenaireId||""} onChange={e=>{
+            const v=e.target.value;
             const pv=(st.partenaires||[]).find(p=>p.id===v);
             setForm(p=>({...p,
               partenaireId:v,
-              clientNom:pv?.nom||p.clientNom,
-              clientContact:pv?.contact||p.clientContact||"",
-              clientAdresse:pv?.adresse||p.clientAdresse||"",
-              clientNpa:pv?.npa||p.clientNpa||"",
-              clientVille:pv?.ville||p.clientVille||"",
-              clientEmail:pv?.email||p.clientEmail||"",
-              clientTel:pv?.tel||p.clientTel||"",
-              clientSite:pv?.site||p.clientSite||"",
-              clientLogo:pv?.logo||p.clientLogo||"",
+              clientNom:pv?.nom||"",
+              clientContact:pv?.contact||"",
+              clientAdresse:pv?.adresse||"",
+              clientNpa:pv?.npa||"",
+              clientVille:pv?.ville||"",
+              clientEmail:pv?.email||"",
+              clientTel:pv?.tel||"",
+              clientSite:pv?.site||"",
+              clientLogo:pv?.logo||"",
             }));
-          }}
-          options={[{v:"",l:"— Ou saisir manuellement —"},...(st.partenaires||[]).map(p=>({v:p.id,l:p.nom}))]}/>
+          }} style={{width:"100%",padding:"10px 12px",fontSize:13,borderRadius:10,border:"1.5px solid #D1D5DB",background:"#fff",fontFamily:"inherit",color:"#111",boxSizing:"border-box" as any}}>
+            <option value="">— Nouveau client / saisie manuelle —</option>
+            {(st.partenaires||[]).map(p=><option key={p.id} value={p.id}>{p.nom}{p.ville?" · "+p.ville:""}{p.contact?" ("+p.contact+")":""}</option>)}
+          </select>
+        </div>
+
+        {/* Carte client sélectionné */}
+        {form.partenaireId && (()=>{
+          const pv=(st.partenaires||[]).find(p=>p.id===form.partenaireId);
+          return pv?(
+            <div style={{background:"#fff",borderRadius:10,padding:"10px 12px",border:"1.5px solid #F2C94C",marginBottom:12,display:"flex",alignItems:"center",gap:10}}>
+              {pv.logo&&<img src={pv.logo} alt="" style={{height:40,maxWidth:64,objectFit:"contain",borderRadius:6,border:"1px solid #EAE7E0",background:"#fff",padding:3}}/>}
+              <div style={{flex:1,minWidth:0}}>
+                <p style={{fontSize:13,fontWeight:700,color:"#111",marginBottom:2}}>{pv.nom}</p>
+                {(pv.contact||pv.npa||pv.ville)&&<p style={{fontSize:11,color:"#6B7280"}}>{[pv.contact,[(pv.npa||""),(pv.ville||"")].filter(Boolean).join(" ")].filter(Boolean).join(" · ")}</p>}
+                {(pv.email||pv.tel)&&<p style={{fontSize:11,color:"#6B7280"}}>{[pv.email,pv.tel].filter(Boolean).join(" · ")}</p>}
+              </div>
+              <button onClick={()=>setForm(p=>({...p,partenaireId:"",clientNom:"",clientContact:"",clientAdresse:"",clientNpa:"",clientVille:"",clientEmail:"",clientTel:"",clientSite:"",clientLogo:""}))}
+                style={{background:"#F3F4F6",border:"none",borderRadius:8,padding:"5px 10px",fontSize:12,cursor:"pointer",color:"#374151",flexShrink:0}}>✕</button>
+            </div>
+          ):null;
+        })()}
+
+        {/* Champs manuels (toujours visibles pour ajustement) */}
+        <details open={!form.partenaireId} style={{marginBottom:8}}>
+          <summary style={{fontSize:11,fontWeight:600,color:"#6B7280",cursor:"pointer",userSelect:"none",marginBottom:8,listStyle:"none",display:"flex",alignItems:"center",gap:5}}>
+            <span style={{fontSize:10}}>▸</span>{form.partenaireId?"Modifier les coordonnées manuellement":"Saisir manuellement"}
+          </summary>
+          <div style={{display:"grid",gap:8,marginTop:8}}>
+            <F label="Nom / Entreprise *" value={form.clientNom} onChange={v=>setForm(p=>({...p,clientNom:v}))} placeholder="Ex: Cave Paratte Vins"/>
+            <F label="Personne de contact" value={form.clientContact||""} onChange={v=>setForm(p=>({...p,clientContact:v}))} placeholder="Ex: Marie Dupont"/>
+            <F label="Adresse (rue)" value={form.clientAdresse||""} onChange={v=>setForm(p=>({...p,clientAdresse:v}))}/>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 2fr",gap:8}}>
+              <F label="NPA" value={form.clientNpa||""} onChange={v=>setForm(p=>({...p,clientNpa:v}))} placeholder="2610"/>
+              <F label="Ville" value={form.clientVille||""} onChange={v=>setForm(p=>({...p,clientVille:v}))} placeholder="Saint-Imier"/>
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+              <F label="Email" value={form.clientEmail||""} onChange={v=>setForm(p=>({...p,clientEmail:v}))}/>
+              <F label="Téléphone" value={form.clientTel||""} onChange={v=>setForm(p=>({...p,clientTel:v}))}/>
+            </div>
+            <F label="Site web" value={form.clientSite||""} onChange={v=>setForm(p=>({...p,clientSite:v}))} placeholder="www.exemple.ch"/>
+          </div>
+        </details>
 
         {/* Logo partenaire */}
-        <div>
+        <div style={{marginTop:4}}>
           <p style={{fontSize:11,fontWeight:600,color:"#374151",marginBottom:6}}>Logo du partenaire (optionnel)</p>
           <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
-            {form.clientLogo && (
-              <img src={form.clientLogo} alt="logo" style={{height:44,maxWidth:90,objectFit:"contain",borderRadius:8,border:"1px solid #EAE7E0",background:"#fff",padding:4}}/>
-            )}
+            {form.clientLogo&&<img src={form.clientLogo} alt="logo" style={{height:44,maxWidth:90,objectFit:"contain",borderRadius:8,border:"1px solid #EAE7E0",background:"#fff",padding:4}}/>}
             <label style={{background:"#F5F5F0",border:"1.5px dashed #D1D5DB",borderRadius:10,padding:"7px 12px",fontSize:11,fontWeight:600,cursor:"pointer",color:"#374151"}}>
               {form.clientLogo?"🔄 Remplacer":"📷 Charger un logo"}
               <input type="file" accept="image/*" style={{display:"none"}} onChange={e=>{
@@ -8925,23 +8968,8 @@ return (
                 const r=new FileReader(); r.onload=ev=>setForm(p=>({...p,clientLogo:ev.target?.result as string})); r.readAsDataURL(file);
               }}/>
             </label>
-            {form.clientLogo && <button onClick={()=>setForm(p=>({...p,clientLogo:""}))} style={{background:"#FEE2E2",border:"none",borderRadius:8,padding:"5px 10px",fontSize:11,color:"#991B1B",cursor:"pointer"}}>✕</button>}
+            {form.clientLogo&&<button onClick={()=>setForm(p=>({...p,clientLogo:""}))} style={{background:"#FEE2E2",border:"none",borderRadius:8,padding:"5px 10px",fontSize:11,color:"#991B1B",cursor:"pointer"}}>✕</button>}
           </div>
-        </div>
-
-        <div style={{display:"grid",gap:8,marginTop:4}}>
-          <F label="Nom / Entreprise *" value={form.clientNom} onChange={v=>setForm(p=>({...p,clientNom:v}))} placeholder="Ex: Cave Paratte Vins"/>
-          <F label="Personne de contact" value={form.clientContact||""} onChange={v=>setForm(p=>({...p,clientContact:v}))} placeholder="Ex: Marie Dupont"/>
-          <F label="Adresse (rue)" value={form.clientAdresse||""} onChange={v=>setForm(p=>({...p,clientAdresse:v}))}/>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 2fr",gap:8}}>
-            <F label="NPA" value={form.clientNpa||""} onChange={v=>setForm(p=>({...p,clientNpa:v}))} placeholder="2610"/>
-            <F label="Ville" value={form.clientVille||""} onChange={v=>setForm(p=>({...p,clientVille:v}))} placeholder="Saint-Imier"/>
-          </div>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
-            <F label="Email" value={form.clientEmail||""} onChange={v=>setForm(p=>({...p,clientEmail:v}))}/>
-            <F label="Téléphone" value={form.clientTel||""} onChange={v=>setForm(p=>({...p,clientTel:v}))}/>
-          </div>
-          <F label="Site web" value={form.clientSite||""} onChange={v=>setForm(p=>({...p,clientSite:v}))} placeholder="www.exemple.ch"/>
         </div>
       </div>
 
