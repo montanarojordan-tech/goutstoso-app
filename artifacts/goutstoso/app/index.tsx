@@ -5744,7 +5744,9 @@ try {
   doc.text("RÉCEPTION — SIGNATURE DU DESTINATAIRE",mg+4,y+7);
   doc.setFont("helvetica","normal"); doc.setFontSize(7); doc.setTextColor(150,150,150);
   doc.text("Je soussigné(e) reconnais avoir bien reçu les marchandises listées ci-dessus, en bon état.",mg+4,y+13);
-  doc.text("Nom : ___________________________   Date : _______________",mg+4,y+24);
+  const nomReception = cmd.blReceptionnaire ? "Nom : "+cmd.blReceptionnaire : "Nom : ___________________________";
+  const dateReception = cmd.blDate ? "   Date : "+fmt(cmd.blDate) : "   Date : _______________";
+  doc.text(nomReception+dateReception,mg+4,y+24);
   doc.text("Signature :",mg+4,y+32);
   if(cmd.blSignature) {
     try { doc.addImage(cmd.blSignature,"PNG",mg+30,y+22,60,24); } catch(_){}
@@ -5797,6 +5799,8 @@ const [viewId,setViewId] = useState(null);
 const [filtre,setFiltre] = useState("toutes");
 const [signingBL,setSigningBL] = useState(false);
 const [sigJordanCmd,setSigJordanCmd] = useState(false);
+const [blReceptionnaire,setBlReceptionnaire] = useState("");
+const [blDateSaisie,setBlDateSaisie] = useState(today());
 
 const genBLNumero = () => {
   const y = new Date().getFullYear();
@@ -6128,10 +6132,33 @@ if(signingBL) {
         <p style={{fontSize:11,color:"#92400E",marginTop:4}}>{blNum} — {view.client}</p>
         <p style={{fontSize:10,color:"#6B7280",marginTop:2}}>{view.numero} · {(view.lignes||[]).filter(l=>l.produitId).length} produit(s)</p>
       </div>
+      <div style={{background:"#fff",borderRadius:12,padding:"14px",marginBottom:12,border:"1px solid #E5E7EB"}}>
+        <p style={{fontSize:11,fontWeight:700,color:"#374151",marginBottom:10}}>Informations du réceptionnaire</p>
+        <div style={{marginBottom:10}}>
+          <label style={{fontSize:11,color:"#6B7280",display:"block",marginBottom:4}}>Nom et prénom *</label>
+          <input
+            value={blReceptionnaire}
+            onChange={(e:any)=>setBlReceptionnaire(e.target.value)}
+            placeholder="Ex : Marie Dupont"
+            style={{width:"100%",padding:"9px 12px",borderRadius:8,border:"1.5px solid #E5E7EB",fontSize:13,outline:"none",boxSizing:"border-box"}}
+          />
+        </div>
+        <div>
+          <label style={{fontSize:11,color:"#6B7280",display:"block",marginBottom:4}}>Date de réception</label>
+          <input
+            type="date"
+            value={blDateSaisie}
+            onChange={(e:any)=>setBlDateSaisie(e.target.value)}
+            style={{width:"100%",padding:"9px 12px",borderRadius:8,border:"1.5px solid #E5E7EB",fontSize:13,outline:"none",boxSizing:"border-box"}}
+          />
+        </div>
+      </div>
       <SignaturePad
         onSave={(sig)=>{
           const num = view.blNumero || genBLNumero();
-          setSt((p:any)=>({...p,commandes:p.commandes.map((c:any)=>c.id===view.id?{...c,blSignature:sig,blNumero:num,blDate:today(),blSigne:true}:c)}));
+          const dateRetention = blDateSaisie || today();
+          const receptionnaire = blReceptionnaire.trim();
+          setSt((p:any)=>({...p,commandes:p.commandes.map((c:any)=>c.id===view.id?{...c,blSignature:sig,blNumero:num,blDate:dateRetention,blReceptionnaire:receptionnaire,blSigne:true}:c)}));
           setSigningBL(false);
         }}
         onCancel={()=>setSigningBL(false)}
@@ -6139,6 +6166,7 @@ if(signingBL) {
       {view.blSignature && (
         <div style={{marginTop:12,padding:"10px 12px",background:"#F0FDF4",borderRadius:10,border:"1px solid #BBF7D0"}}>
           <p style={{fontSize:11,color:"#166534",fontWeight:600,marginBottom:6}}>✓ Signature actuelle :</p>
+          {view.blReceptionnaire&&<p style={{fontSize:11,color:"#166534",marginBottom:4}}>{view.blReceptionnaire} · {fmt(view.blDate)}</p>}
           <img src={view.blSignature} alt="signature" style={{height:40,maxWidth:180,objectFit:"contain",display:"block"}}/>
         </div>
       )}
@@ -6201,7 +6229,7 @@ return (
         }} style={{background:"#92400E",color:"#fff",border:"none",borderRadius:8,padding:"10px",fontWeight:700,fontSize:12,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:5}}>
           📄 {view.blNumero?"Re-télécharger":"Générer BL"}
         </button>
-        <button onClick={()=>setSigningBL(true)} style={{background:view.blSigne?"#166534":"#fff",color:view.blSigne?"#fff":"#92400E",border:"1.5px solid "+(view.blSigne?"#166534":"#F2C94C"),borderRadius:8,padding:"10px",fontWeight:700,fontSize:12,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:5}}>
+        <button onClick={()=>{setBlReceptionnaire(view.blReceptionnaire||"");setBlDateSaisie(view.blDate||today());setSigningBL(true);}} style={{background:view.blSigne?"#166534":"#fff",color:view.blSigne?"#fff":"#92400E",border:"1.5px solid "+(view.blSigne?"#166534":"#F2C94C"),borderRadius:8,padding:"10px",fontWeight:700,fontSize:12,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:5}}>
           {view.blSigne?"✍️ Re-signer":"✍️ Signer sur place"}
         </button>
       </div>
