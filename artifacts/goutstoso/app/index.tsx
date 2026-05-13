@@ -8766,10 +8766,20 @@ const Production = ({st, setSt}) => {
   const [calcNumLot, setCalcNumLot] = useState("");
 
   // Merge: garder les recettes sauvegardées + ajouter les recettes par défaut manquantes
+  // Si une recette sauvegardée manque de marcheASuivre, on la récupère depuis le défaut
   const savedRecettes = prod.recettes && prod.recettes.length > 0 ? prod.recettes : [];
   const savedIds = new Set(savedRecettes.map((r:any)=>r.id));
   const missingDefaults = RECETTES_DEFAULT.filter(r=>!savedIds.has(r.id));
-  const recettes = [...savedRecettes, ...missingDefaults];
+  const recettes = [
+    ...savedRecettes.map((r:any)=>{
+      const def = RECETTES_DEFAULT.find((d:any)=>d.id===r.id);
+      return {
+        ...r,
+        marcheASuivre: (r.marcheASuivre && r.marcheASuivre.length>0) ? r.marcheASuivre : (def?.marcheASuivre||[]),
+      };
+    }),
+    ...missingDefaults,
+  ];
   const macerations = prod.macerations || [];
   const historique = prod.historique || [];
 
