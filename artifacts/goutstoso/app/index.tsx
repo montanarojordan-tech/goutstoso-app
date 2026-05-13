@@ -337,7 +337,7 @@ const getProchainRappelFn = (f) => {
 // ══════════════════════════════════════════════════════════════
 // PAGE: TABLEAU DE BORD
 // ══════════════════════════════════════════════════════════════
-const Dashboard = ({st, setTab, authUser}) => {
+const Dashboard = ({st, setTab, authUser, sendEmail}) => {
 const now = new Date();
 const today_str = today();
 
@@ -636,14 +636,43 @@ Bonjour {authUser.display_name||authUser.username}
       {alertes.slice(0,5).map((a,i)=>{
         const bg = a.priorite==="haute"?"#FEF2F2":a.priorite==="moyenne"?"#FDF6E3":"#F4F4F2";
         const border = a.priorite==="haute"?"#FECACA":a.priorite==="moyenne"?"#FCD34D":"#EAE7E0";
+        const isRelance = a.type==="offre_relance";
         return (
-          <div key={i} onClick={()=>goPage(a.action)} style={{background:bg,border:"1px solid "+border,borderRadius:10,padding:"10px 12px",marginBottom:6,cursor:"pointer",display:"flex",alignItems:"center",gap:10}}>
-            <span style={{fontSize:18,flexShrink:0}}>{a.icone}</span>
-            <div style={{flex:1,minWidth:0}}>
-              <p style={{fontSize:12,fontWeight:600,color:"#0A0A0A"}}>{a.titre}</p>
-              <p style={{fontSize:10,color:"#737373",marginTop:2}}>{a.desc}</p>
+          <div key={i} style={{background:bg,border:"1px solid "+border,borderRadius:10,padding:"10px 12px",marginBottom:6}}>
+            <div onClick={()=>goPage(a.action)} style={{cursor:"pointer",display:"flex",alignItems:"center",gap:10}}>
+              <span style={{fontSize:18,flexShrink:0}}>{a.icone}</span>
+              <div style={{flex:1,minWidth:0}}>
+                <p style={{fontSize:12,fontWeight:600,color:"#0A0A0A"}}>{a.titre}</p>
+                <p style={{fontSize:10,color:"#737373",marginTop:2}}>{a.desc}</p>
+              </div>
+              {!isRelance && <span style={{color:"#737373",fontSize:16,flexShrink:0}}>›</span>}
             </div>
-            <span style={{color:"#737373",fontSize:16,flexShrink:0}}>›</span>
+            {isRelance && (
+              <button
+                onClick={(e)=>{
+                  e.stopPropagation();
+                  const c = (st.contrats||[]).find(x=>x.id===a.id);
+                  if(!c){alert("Offre introuvable");return;}
+                  const pv = st.partenaires.find(p=>p.id===c.partenaireId);
+                  if(!pv?.email){alert("Aucun email pour ce partenaire");return;}
+                  const contact = pv.contact||pv.nom||"";
+                  const validite = parseInt(c.validiteOffre||30);
+                  const dateExp = new Date(c.dateDebut);
+                  dateExp.setDate(dateExp.getDate()+validite);
+                  const expStr = dateExp.toLocaleDateString("fr-CH",{day:"numeric",month:"long",year:"numeric"});
+                  const subj = "Relance — Offre "+c.numero+" - Goûtstoso";
+                  const body =
+                    "Bonjour "+contact+",\n\n"+
+                    "Je me permets de revenir vers vous au sujet de notre offre commerciale N° "+c.numero+" que nous vous avons transmise le "+new Date(c.dateDebut).toLocaleDateString("fr-CH",{day:"numeric",month:"long",year:"numeric"})+".\n\n"+
+                    "Cette offre reste valable jusqu'au "+expStr+". Avez-vous eu l'occasion d'en prendre connaissance ? Nous sommes bien entendu disponibles pour répondre à toutes vos questions.\n\n"+
+                    "N'hésitez pas à nous faire part de votre retour.\n\n"+
+                    "Cordialement,\n\nJordan Montanaro\nGoûtstoso\nadmin@goutstoso.ch · www.goutstoso.ch";
+                  sendEmail({to:pv.email, toName:contact, subject:subj, body});
+                }}
+                style={{marginTop:8,width:"100%",background:"#92400E",color:"#FEF9C3",border:"none",borderRadius:8,padding:"7px 12px",fontSize:11,fontWeight:700,cursor:"pointer"}}>
+                ✉️ Envoyer la relance par email
+              </button>
+            )}
           </div>
         );
       })}
@@ -10379,7 +10408,7 @@ return ()=>clearInterval(iv);
 
   const isDesktop = useIsDesktop();
 const pages = {
-dashboard:<Dashboard st={st} setTab={setTab} authUser={authUser}/>,
+dashboard:<Dashboard st={st} setTab={setTab} authUser={authUser} sendEmail={sendEmail}/>,
 produits:<Produits st={st} setSt={setSt}/>,
 stocks:<Stocks st={st} setSt={setSt}/>,
 partenaires:<Partenaires st={st} setSt={setSt}/>,
