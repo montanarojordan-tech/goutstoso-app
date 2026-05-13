@@ -515,7 +515,7 @@ action: "commandes",
 // Factures à envoyer (créées mais pas encore envoyées)
 (st.factures||[]).filter(f=>f.envoyee===false && f.statut!=="payée").forEach(f=>{
 const pv2 = st.partenaires.find(p=>p.id===f.partenaireId);
-const total = calcTotal(f.lignes,f.typeClient,st.produits);
+const total = calcTotalNet(f,st.produits);
 alertes.push({
   type:"facture_a_envoyer",
   priorite:"haute",
@@ -2058,7 +2058,7 @@ return (
           {facturesPV.length===0
             ? <p style={{fontSize:12,color:"#9CA3AF",textAlign:"center",padding:"10px 0"}}>Aucune facture pour ce dépôt</p>
             : facturesPV.slice(0,8).map(f=>{
-                const total = calcTotal(f.lignes,f.typeClient,st.produits);
+                const total = calcTotalNet(f,st.produits);
                 const isPaid = f.statut==="payée";
                 const isToSend = f.envoyee===false && !isPaid;
                 return (
@@ -3067,6 +3067,11 @@ const pu = p?(typeClient==="revendeur"?p.prixRevendeur:p.prixClient):0;
 return (l.qte||0)*pu;
 })
 );
+const calcTotalNet = (f, produits) => {
+const brut = calcTotal(f.lignes, f.typeClient, produits);
+const rabais = calcTotal((f.lignesOffertes||[]).filter(l=>l.produitId&&l.qte>0), f.typeClient, produits);
+return brut - rabais;
+};
 
 const Factures = ({st,setSt}) => {
 const [modal,setModal] = useState(null);
@@ -3248,7 +3253,7 @@ const p = st.produits.find(x=>x.id===l.produitId);
 const pu = p?(f.typeClient==="revendeur"?p.prixRevendeur:p.prixClient):0;
 return "- "+(p?.nom||"")+" "+(p?.variante||"")+" "+(p?.format||"")+" x"+l.qte+" = CHF "+(pu*l.qte).toFixed(2);
 }).join("\n");
-const total = calcTotal(f.lignes,f.typeClient,st.produits);
+const total = calcTotalNet(f,st.produits);
 const fraisDeg = deg===1?0:deg===2?15:deg===3?25:0;
 const totalFinal = total+fraisDeg;
 const echeance = new Date(new Date(f.date).getTime()+30*86400000).toISOString().slice(0,10);
@@ -3499,7 +3504,7 @@ if(!pr || !pr.available) { alert("Aucun rappel disponible pour cette facture.");
 const deg = pr.degree;
 const frais = pr.frais;
 const pv = st.partenaires.find(p=>p.id===f.partenaireId);
-const total = calcTotal(f.lignes,f.typeClient,st.produits);
+const total = calcTotalNet(f,st.produits);
 const totalFinal = total+frais;
 const echeance = new Date(new Date(f.date).getTime()+30*86400000).toISOString().slice(0,10);
 const dateRappel = today();
@@ -3983,7 +3988,7 @@ return (
 <div style={{display:"flex",gap:8}}>
 <Btn icon="export" variant="ghost" small onClick={()=>exportCSV((st.factures||[]).map(f=>{
 const pv=st.partenaires.find(p=>p.id===f.partenaireId);
-const total=calcTotal(f.lignes,f.typeClient,st.produits);
+const total=calcTotalNet(f,st.produits);
 return {Numero:f.numero,Date:f.date,Client:pv?.nom,Total:total,Statut:f.statut};
 }),"goutstoso_factures.csv")}>Export</Btn>
 <Btn icon="plus" variant="ghost" small onClick={()=>{setSelectedForRegroup([]);setModalRegroup(true);}}>Regrouper</Btn>
@@ -4115,7 +4120,7 @@ return {Numero:f.numero,Date:f.date,Client:pv?.nom,Total:total,Statut:f.statut};
       </div>
     : filtrees.map(f=>{
         const pv=st.partenaires.find(p=>p.id===f.partenaireId);
-        const total=calcTotal(f.lignes,f.typeClient,st.produits);
+        const total=calcTotalNet(f,st.produits);
         const retard=getInfosRetard(f);
         const pr=getProchainRappel(f);
         const rappelsEnvoyes=f.rappels||[];
@@ -4290,7 +4295,7 @@ return {Numero:f.numero,Date:f.date,Client:pv?.nom,Total:total,Statut:f.statut};
             <div key={pvId} style={{marginBottom:14,opacity:disabled?0.4:1}}>
               <p style={{fontSize:11,fontWeight:600,color:"#737373",textTransform:"uppercase",marginBottom:6}}>{pv?.nom||"-"}</p>
               {facs.map(f=>{
-                const total = calcTotal(f.lignes, f.typeClient, st.produits);
+                const total = calcTotalNet(f,st.produits);
                 const checked = selectedForRegroup.includes(f.id);
                 return (
                   <label key={f.id} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",background:checked?"#FDF6E3":"#F4F4F2",border:"1px solid "+(checked?"#FCD34D":"#EAE7E0"),borderRadius:8,marginBottom:5,cursor:disabled?"not-allowed":"pointer"}}>
@@ -4316,7 +4321,7 @@ return {Numero:f.numero,Date:f.date,Client:pv?.nom,Total:total,Statut:f.statut};
       
       {selectedForRegroup.length > 0 && (() => {
         const facs = selectedForRegroup.map(id=>(st.factures||[]).find(f=>f.id===id)).filter(Boolean);
-        const totalCombine = sum(facs.map(f=>calcTotal(f.lignes, f.typeClient, st.produits)));
+        const totalCombine = sum(facs.map(f=>calcTotalNet(f,st.produits)));
         return (
           <div style={{background:"#0A0A0A",color:"#fff",borderRadius:10,padding:"12px",marginTop:12}}>
             <p style={{fontSize:11,color:"#E8B64C",fontWeight:600,textTransform:"uppercase"}}>Récapitulatif</p>
@@ -4404,7 +4409,7 @@ const existingIds = (st.transactions||[]).map(t=>t.factureId).filter(Boolean);
 const nouvelles = [];
 facturesPayees.forEach(f=>{
 if(existingIds.includes(f.id)) return;
-const total = calcTotal(f.lignes,f.typeClient,st.produits);
+const total = calcTotalNet(f,st.produits);
 const pv = st.partenaires.find(p=>p.id===f.partenaireId);
 // Déterminer le compte selon le produit principal
 const ligne1 = f.lignes.find(l=>l.produitId);
@@ -4534,7 +4539,7 @@ const catDepenses = Object.values(parCategorie).filter(c=>c.type==="depense").so
 // Bilan simplifié
 const factAttente = (st.factures||[]).filter(f=>f.statut!=="payée");
 // Créances clients = factures en attente + commandes Shopify non payées
-const creancesFactures = sum(factAttente.map(f=>calcTotal(f.lignes,f.typeClient,st.produits)));
+const creancesFactures = sum(factAttente.map(f=>calcTotalNet(f,st.produits)));
 const cmdNonPayees = (st.commandes||[]).filter(c=>c.statut!=="payée"&&c.statut!=="livrée"&&c.statut!=="retirée");
 const creancesCommandes = sum(cmdNonPayees.map(c=>{
 const t = sum((c.lignes||[]).filter(l=>l.produitId).map(l=>{
