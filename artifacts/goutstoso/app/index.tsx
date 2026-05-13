@@ -3077,7 +3077,7 @@ const [sigMode,setSigMode] = useState(false);
 const [pjModal,setPjModal] = useState(false);
 const [recoveryTokenF, setRecoveryTokenF] = useState("");
 
-const emptyF = {partenaireId:st.partenaires[0]?.id||"",typeClient:"revendeur",lignes:[{produitId:"",qte:1}],lignesOffertes:[],notes:"",date:today(),envoyee:false};
+const emptyF = {partenaireId:st.partenaires[0]?.id||"",typeClient:"revendeur",lignes:[{produitId:"",qte:1}],lignesOffertes:[],comptOffert:"3900",notes:"",date:today(),envoyee:false};
 const [form,setForm] = useState(emptyF);
 const [modalRegroup,setModalRegroup] = useState(false);
 const [selectedForRegroup,setSelectedForRegroup] = useState([]);
@@ -3183,10 +3183,10 @@ const totalBrut = calcTotal(lignesOk, form.typeClient, st.produits);
 const totalRabais = calcTotal(lignesOffertes, form.typeClient, st.produits);
 const total = totalBrut - totalRabais;
 if(form.id) {
-setSt(p=>({...p,factures:p.factures.map(f=>f.id===form.id?{...form,lignes:lignesOk,lignesOffertes,total,totalRabais}:f)}));
+setSt(p=>({...p,factures:p.factures.map(f=>f.id===form.id?{...form,lignes:lignesOk,lignesOffertes,total,totalRabais,comptOffert:form.comptOffert||"3900"}:f)}));
 } else {
 const numero = genNumero();
-setSt(p=>({...p,factures:[...(p.factures||[]),{...form,id:uid(),numero,statut:"en attente",lignes:lignesOk,lignesOffertes,total,totalRabais,datePaiement:""}]}));
+setSt(p=>({...p,factures:[...(p.factures||[]),{...form,id:uid(),numero,statut:"en attente",lignes:lignesOk,lignesOffertes,total,totalRabais,comptOffert:form.comptOffert||"3900",datePaiement:""}]}));
 }
 setModal(null);
 };
@@ -4224,6 +4224,23 @@ return {Numero:f.numero,Date:f.date,Client:pv?.nom,Total:total,Statut:f.statut};
           <button onClick={addLigneOfferte} style={{background:"none",border:"1.5px dashed #BBF7D0",borderRadius:10,padding:"8px",width:"100%",color:"#16A34A",fontSize:13,cursor:"pointer"}}>
             + Ajouter une bouteille offerte
           </button>
+          {(form.lignesOffertes||[]).some(l=>l.produitId)&&(
+            <div style={{marginTop:10,background:"#F0FDF4",border:"1px solid #BBF7D0",borderRadius:10,padding:"10px 12px"}}>
+              <label style={{fontSize:11,fontWeight:600,color:"#166534",textTransform:"uppercase",letterSpacing:".05em",display:"block",marginBottom:6}}>Traitement comptable des bouteilles offertes</label>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+                {[
+                  {v:"3900",l:"🏷 Rabais accordé",desc:"Réduit le CA"},
+                  {v:"6610",l:"🍾 Marketing / dégustation",desc:"Charge promo"},
+                ].map(opt=>(
+                  <button key={opt.v} onClick={()=>setForm(p=>({...p,comptOffert:opt.v}))}
+                    style={{background:(form.comptOffert||"3900")===opt.v?"#166534":"#fff",color:(form.comptOffert||"3900")===opt.v?"#fff":"#374151",border:"1.5px solid "+((form.comptOffert||"3900")===opt.v?"#166534":"#D1FAE5"),borderRadius:8,padding:"8px 10px",cursor:"pointer",textAlign:"left"}}>
+                    <p style={{fontSize:12,fontWeight:700,margin:0}}>{opt.l}</p>
+                    <p style={{fontSize:10,opacity:.75,margin:0,marginTop:2}}>{opt.desc} · {opt.v}</p>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Total preview */}
@@ -4414,18 +4431,20 @@ montant:total,
 description:`Facture ${f.numero} - ${pv?.nom||""}`,
 postfinance:true,
 });
-// Écriture séparée pour le rabais bouteilles offertes (compte 3900)
+// Écriture séparée pour les bouteilles offertes selon choix comptable
 if(f.totalRabais && f.totalRabais>0) {
+  const cptOffert = f.comptOffert||"3900";
+  const isMarketing = cptOffert==="6610";
   nouvelles.push({
     id:uid(),
     factureId:f.id,
     date:f.datePaiement,
-    compte:"3900",
-    libelle:`Rabais bouteilles offertes ${f.numero}`,
+    compte:cptOffert,
+    libelle:isMarketing?`Dégustation / promo ${f.numero}`:`Rabais bouteilles offertes ${f.numero}`,
     type:"depense",
-    categorie:"Rabais accordés sur ventes",
+    categorie:isMarketing?"Marketing / réseaux sociaux":"Rabais accordés sur ventes",
     montant:f.totalRabais,
-    description:`Rabais bouteilles offertes — Facture ${f.numero} - ${pv?.nom||""}`,
+    description:(isMarketing?"Dégustation / marketing":"Rabais bouteilles offertes")+` — Facture ${f.numero} - ${pv?.nom||""}`,
     postfinance:false,
   });
 }
