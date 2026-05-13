@@ -8324,7 +8324,7 @@ const Production = ({st, setSt}) => {
     return {...p, production: next};
   });
 
-  const [onglet, setOnglet] = useState<"recettes"|"calculateur"|"macerations"|"historique">("recettes");
+  const [onglet, setOnglet] = useState<"planification"|"recettes"|"calculateur"|"macerations"|"historique">("planification");
   const [recetteModal, setRecetteModal] = useState<null|"new"|any>(null);
   const [macerationModal, setMacerationModal] = useState<null|"new"|any>(null);
   const [batchModal, setBatchModal] = useState<null|any>(null);
@@ -8428,11 +8428,126 @@ const Production = ({st, setSt}) => {
   const labelStyle:any = {fontSize:11,fontWeight:600,color:"#737373",textTransform:"uppercase",letterSpacing:"0.05em",display:"block",marginBottom:4};
 
   const tabs = [
+    {id:"planification",l:"📊 Planification"},
     {id:"recettes",l:"📖 Recettes"},
     {id:"calculateur",l:"🧮 Calculateur"},
     {id:"macerations",l:"🫙 Macérations"},
     {id:"historique",l:"📦 Historique"},
   ];
+
+  // ── LOGIQUE PLANIFICATION ──
+  const produits = st.produits || [];
+  const prodActifs = produits.filter((p:any) => p.actif && !p.nom.includes("Coffret") && !p.format.includes("×"));
+
+  // Ventes par produit sur 90 derniers jours (commandes livrées)
+  const maintenant = Date.now();
+  const debut90j = new Date(maintenant - 90 * 24 * 60 * 60 * 1000).toISOString().slice(0,10);
+  const cmdLivrees = (st.commandes||[]).filter((c:any) => (c.statut==="livrée"||c.statut==="retirée") && (c.date||"")>=debut90j);
+  const ventesQteParProd:{[id:string]:number} = {};
+  cmdLivrees.forEach((c:any) => {
+    (c.lignes||[]).forEach((l:any) => {
+      if(l.produitId) ventesQteParProd[l.produitId] = (ventesQteParProd[l.produitId]||0) + (l.qte||0);
+    });
+  });
+  // Si aucune commande livrée : fallback sur transactions (inférer qté depuis prix)
+  const hasVentesData = Object.keys(ventesQteParProd).length > 0;
+  if(!hasVentesData) {
+    const txRecentes = (st.transactions||[]).filter((t:any)=>t.type==="recette" && t.categorie?.startsWith("Vente ") && (t.date||"")>=debut90j);
+    txRecentes.forEach((t:any) => {
+      const nomLiqueur = (t.categorie||"").replace("Vente ","").toLowerCase();
+      const montant = parseFloat(t.montant)||0;
+      prodActifs.forEach((p:any)=>{
+        const match = p.nom.toLowerCase()===nomLiqueur || p.nom.toLowerCase().includes(nomLiqueur) || nomLiqueur.includes(p.nom.toLowerCase());
+        if(match && montant>0) {
+          const px = p.typeClient==="revendeur" ? p.prixRevendeur : p.prixClient;
+          const qteEstimee = px>0 ? Math.round(montant/px) : 0;
+          if(qteEstimee>0) ventesQteParProd[p.id] = (ventesQteParProd[p.id]||0) + qteEstimee;
+        }
+      });
+    });
+  }
+  const ventesHebdo = (id:string) => (ventesQteParProd[id]||0) / 13;
+
+  // Stock effectif par produit
+  const stockEffectif = (id:string) => {
+    const propre = sum((st.stocks||[]).filter((s:any)=>s.produitId===id).map((s:any)=>s.qte));
+    const depot = sum((st.depotStocks||[]).filter((d:any)=>d.produitId===id).map((d:any)=>(d.qteDeposee||0)-(d.qteVendue||0)-(d.qteRetournee||0)));
+    return propre + Math.max(0,depot);
+  };
+
+  // Commandes en cours (à livrer)
+  const cmdEnCours = (st.commandes||[]).filter((c:any)=>c.statut==="en cours"||c.statut==="confirmée"||c.statut==="nouvelle"||c.statut==="préparée");
+  const cmdEnCoursParProd:{[id:string]:number} = {};
+  cmdEnCours.forEach((c:any)=>{
+    (c.lignes||[]).forEach((l:any)=>{
+      if(l.produitId) cmdEnCoursParProd[l.produitId] = (cmdEnCoursParProd[l.produitId]||0)+(l.qte||0);
+    });
+  });
+
+  // Analyse par groupe de liqueur (Limonta, Limelo, Clementino)
+  const nomGroupes = [...new Set(prodActifs.map((p:any)=>p.nom))];
+  const semCible = 8; // semaines de stock cible
+  const marge = 1.2;  // 20% de marge
+
+  const analyses = nomGroupes.map(nom=>{
+    const prods = prodActifs.filter((p:any)=>p.nom===nom);
+    const p25 = prods.find((p:any)=>p.format?.includes("25"));
+    const p50 = prods.find((p:any)=>p.format?.includes("50"));
+    const recette = recettes.find(r=>r.nom.toLowerCase()===nom.toLowerCase() || nom.toLowerCase().includes(r.nom.toLowerCase()) || r.nom.toLowerCase().includes(nom.toLowerCase()));
+    const couleur = recette?.couleur || "#F2C94C";
+
+    const stock25 = p25 ? stockEffectif(p25.id) : 0;
+    const stock50 = p50 ? stockEffectif(p50.id) : 0;
+    const cmd25 = p25 ? (cmdEnCoursParProd[p25.id]||0) : 0;
+    const cmd50 = p50 ? (cmdEnCoursParProd[p50.id]||0) : 0;
+    const stockNet25 = Math.max(0, stock25 - cmd25);
+    const stockNet50 = Math.max(0, stock50 - cmd50);
+
+    const hebdo25 = p25 ? ventesHebdo(p25.id) : 0;
+    const hebdo50 = p50 ? ventesHebdo(p50.id) : 0;
+    const hebdoTotal = hebdo25 + hebdo50;
+
+    // Semaines restantes (basé sur stock net combiné et ventes hebdo)
+    const vol25cl = (stockNet25 * 0.25) + (stockNet50 * 0.5); // total en litres
+    const volHebdo = (hebdo25 * 0.25) + (hebdo50 * 0.5);
+    const semainesRestantes = volHebdo > 0 ? vol25cl / volHebdo : (vol25cl > 0 ? 99 : 0);
+
+    // Niveau d'alerte
+    const alerte = semainesRestantes < 4 ? "rouge" : semainesRestantes < 6 ? "orange" : "vert";
+
+    // Quantités à produire (cible semCible semaines + marge)
+    const cibleVol = volHebdo * semCible * marge;
+    const aproduireVol = Math.max(0, cibleVol - vol25cl); // litres à produire
+
+    // Ratio format basé sur ventes (ou 60/40 par défaut)
+    const total = hebdo25 + hebdo50;
+    const ratio25 = total > 0 ? hebdo25 / total : 0.4;
+    const ratio50 = total > 0 ? hebdo50 / total : 0.6;
+    const aproduire25 = Math.ceil(aproduireVol / 0.25 * ratio25);
+    const aproduire50 = Math.ceil(aproduireVol / 0.5 * ratio50);
+
+    // Litres d'alcool nécessaires
+    const litresAlcoolNecessaires = recette ? aproduireVol / ((recette.rendementBouteilles||10) * (recette.volumeBouteille||500)/1000) : aproduireVol * 2;
+
+    // Délai macération
+    const dureeMac = recette?.dureeMacerationJours || 30;
+
+    return {nom, couleur, p25, p50, recette, stock25, stock50, stockNet25, stockNet50, hebdo25, hebdo50, hebdoTotal, semainesRestantes, alerte, aproduire25, aproduire50, aproduireVol, litresAlcoolNecessaires, dureeMac, cmd25, cmd50};
+  });
+
+  const alertesUrgentes = analyses.filter(a=>a.alerte==="rouge");
+  const alertesAttention = analyses.filter(a=>a.alerte==="orange");
+
+  // Matières premières totales à commander
+  const mpNecessaires:{[nom:string]:{quantite:number,unite:string}} = {};
+  analyses.filter(a=>a.aproduireVol>0).forEach(a=>{
+    if(!a.recette) return;
+    a.recette.ingredients.forEach((ing:any)=>{
+      const qte = ing.parLitre ? ing.quantite * a.litresAlcoolNecessaires : ing.quantite;
+      if(!mpNecessaires[ing.nom]) mpNecessaires[ing.nom] = {quantite:0, unite:ing.unite};
+      mpNecessaires[ing.nom].quantite += qte;
+    });
+  });
 
   return (
   <div style={{maxWidth:700,margin:"0 auto",paddingBottom:40}}>
@@ -8450,6 +8565,137 @@ const Production = ({st, setSt}) => {
         }}>{t.l}</button>
       ))}
     </div>
+
+    {/* ── PLANIFICATION ── */}
+    {onglet==="planification" && (
+    <div>
+      {/* Résumé alertes */}
+      {alertesUrgentes.length>0 && (
+        <div style={{background:"#FEF2F2",border:"1.5px solid #FECACA",borderRadius:12,padding:"12px 16px",marginBottom:12,display:"flex",alignItems:"center",gap:10}}>
+          <span style={{fontSize:22}}>🔴</span>
+          <div>
+            <p style={{fontWeight:700,fontSize:14,color:"#B91C1C"}}>Production urgente requise</p>
+            <p style={{fontSize:12,color:"#991B1B"}}>{alertesUrgentes.map(a=>a.nom).join(", ")} — stock critique</p>
+          </div>
+        </div>
+      )}
+      {alertesAttention.length>0 && (
+        <div style={{background:"#FFFBEB",border:"1.5px solid #FDE68A",borderRadius:12,padding:"12px 16px",marginBottom:12,display:"flex",alignItems:"center",gap:10}}>
+          <span style={{fontSize:22}}>🟡</span>
+          <div>
+            <p style={{fontWeight:700,fontSize:14,color:"#92400E"}}>Stock à surveiller</p>
+            <p style={{fontSize:12,color:"#78350F"}}>{alertesAttention.map(a=>a.nom).join(", ")} — prévoir la production dans les prochaines semaines</p>
+          </div>
+        </div>
+      )}
+      {alertesUrgentes.length===0 && alertesAttention.length===0 && (
+        <div style={{background:"#F0FDF4",border:"1.5px solid #BBF7D0",borderRadius:12,padding:"12px 16px",marginBottom:12,display:"flex",alignItems:"center",gap:10}}>
+          <span style={{fontSize:22}}>🟢</span>
+          <p style={{fontWeight:600,fontSize:13,color:"#15803D"}}>Stocks suffisants — aucune production urgente nécessaire</p>
+        </div>
+      )}
+
+      {/* Analyse par liqueur */}
+      <p style={{fontSize:11,fontWeight:700,color:"#9CA3AF",textTransform:"uppercase",letterSpacing:".06em",marginBottom:8}}>État par liqueur</p>
+      {analyses.map(a=>{
+        const sem = a.semainesRestantes;
+        const semAff = sem>=99 ? "∞" : sem.toFixed(1);
+        const alertBg = a.alerte==="rouge"?"#FEF2F2":a.alerte==="orange"?"#FFFBEB":"#F0FDF4";
+        const alertBorder = a.alerte==="rouge"?"#FECACA":a.alerte==="orange"?"#FDE68A":"#BBF7D0";
+        const alertEmoji = a.alerte==="rouge"?"🔴":a.alerte==="orange"?"🟡":"🟢";
+        const besoins = a.aproduire25 + a.aproduire50;
+        return (
+        <div key={a.nom} style={{background:"#fff",borderRadius:14,border:`1.5px solid ${alertBorder}`,padding:14,marginBottom:10,borderLeft:`5px solid ${a.couleur}`}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+            <div style={{display:"flex",alignItems:"center",gap:8}}>
+              <span style={{fontSize:18}}>{alertEmoji}</span>
+              <p style={{fontWeight:700,fontSize:16,color:"#0A0A0A"}}>{a.nom}</p>
+            </div>
+            <div style={{textAlign:"right"}}>
+              <p style={{fontSize:11,color:"#737373"}}>Stock restant pour</p>
+              <p style={{fontSize:20,fontWeight:800,color:a.alerte==="rouge"?"#B91C1C":a.alerte==="orange"?"#92400E":"#15803D"}}>{semAff} sem.</p>
+            </div>
+          </div>
+
+          {/* Barre de stock */}
+          <div style={{background:"#F4F4F2",borderRadius:6,height:8,overflow:"hidden",marginBottom:10}}>
+            <div style={{height:"100%",borderRadius:6,background:a.alerte==="rouge"?"#EF4444":a.alerte==="orange"?"#F59E0B":"#22C55E",width:`${Math.min(100,(sem/8)*100)}%`,transition:"width .4s"}}/>
+          </div>
+
+          {/* Stock détaillé */}
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginBottom:10}}>
+            {a.p25 && (
+              <div style={{background:"#FAFAF7",borderRadius:8,padding:"8px 10px"}}>
+                <p style={{fontSize:10,color:"#9CA3AF",fontWeight:600}}>250 ML — Stock net</p>
+                <p style={{fontSize:18,fontWeight:700,color:"#0A0A0A"}}>{a.stockNet25} btl</p>
+                {a.cmd25>0&&<p style={{fontSize:10,color:"#F59E0B"}}>⚠ {a.cmd25} btl en commande</p>}
+                <p style={{fontSize:10,color:"#9CA3AF"}}>{a.hebdo25.toFixed(1)} btl/sem. vendues</p>
+              </div>
+            )}
+            {a.p50 && (
+              <div style={{background:"#FAFAF7",borderRadius:8,padding:"8px 10px"}}>
+                <p style={{fontSize:10,color:"#9CA3AF",fontWeight:600}}>500 ML — Stock net</p>
+                <p style={{fontSize:18,fontWeight:700,color:"#0A0A0A"}}>{a.stockNet50} btl</p>
+                {a.cmd50>0&&<p style={{fontSize:10,color:"#F59E0B"}}>⚠ {a.cmd50} btl en commande</p>}
+                <p style={{fontSize:10,color:"#9CA3AF"}}>{a.hebdo50.toFixed(1)} btl/sem. vendues</p>
+              </div>
+            )}
+          </div>
+
+          {/* Recommandation de production */}
+          {besoins > 0 ? (
+            <div style={{background:a.alerte==="rouge"?"#FEF2F2":"#FFFBEB",borderRadius:10,padding:"10px 12px"}}>
+              <p style={{fontSize:11,fontWeight:700,color:"#374151",marginBottom:6}}>🏭 À PRODUIRE (objectif {semCible} semaines de stock)</p>
+              <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:6}}>
+                {a.p25&&a.aproduire25>0&&<span style={{background:"#0A0A0A",color:"#F2C94C",fontSize:13,fontWeight:700,padding:"4px 12px",borderRadius:8}}>{a.aproduire25} × 250ml</span>}
+                {a.p50&&a.aproduire50>0&&<span style={{background:"#0A0A0A",color:"#F2C94C",fontSize:13,fontWeight:700,padding:"4px 12px",borderRadius:8}}>{a.aproduire50} × 500ml</span>}
+              </div>
+              <p style={{fontSize:11,color:"#6B7280"}}>≈ {a.litresAlcoolNecessaires.toFixed(1)}L alcool à mettre en macération · Durée : {a.dureeMac}j</p>
+              {a.alerte==="rouge" && <p style={{fontSize:11,color:"#B91C1C",fontWeight:600,marginTop:4}}>⚡ Démarrer la macération immédiatement !</p>}
+              <button style={{marginTop:8,background:"#0A0A0A",color:"#F2C94C",border:"none",borderRadius:7,padding:"7px 14px",fontSize:11,fontWeight:700,cursor:"pointer"}} onClick={()=>{
+                if(a.recette){setCalcRecetteId(a.recette.id);setCalcLitres(a.litresAlcoolNecessaires.toFixed(1));setOnglet("calculateur");}
+              }}>🧮 Ouvrir le calculateur</button>
+            </div>
+          ) : (
+            <p style={{fontSize:12,color:"#15803D",fontWeight:600}}>✅ Aucune production nécessaire pour le moment</p>
+          )}
+        </div>
+        );
+      })}
+
+      {/* Section commande matières premières */}
+      {Object.keys(mpNecessaires).length > 0 && (
+        <div style={{marginTop:16}}>
+          <p style={{fontSize:11,fontWeight:700,color:"#9CA3AF",textTransform:"uppercase",letterSpacing:".06em",marginBottom:8}}>🛒 Matières premières à commander</p>
+          <div style={{background:"#0A0A0A",borderRadius:14,padding:16}}>
+            <p style={{fontSize:11,color:"#9CA3AF",marginBottom:12}}>
+              Basé sur les productions recommandées ci-dessus. Commander maintenant pour démarrer la macération dès réception.
+            </p>
+            {Object.entries(mpNecessaires).map(([nom, mp]:{[k:string]:any},i)=>{
+              const q = mp.quantite;
+              const affiche = mp.unite==="g" && q>=1000 ? `${(q/1000).toFixed(2)} kg` : mp.unite==="L" ? `${q.toFixed(1)} L` : `${Math.ceil(q)} ${mp.unite}`;
+              return (
+                <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderBottom:i<Object.keys(mpNecessaires).length-1?"1px solid #1F2937":"none"}}>
+                  <span style={{fontSize:13,color:"#D1D5DB"}}>{nom}</span>
+                  <span style={{fontSize:16,fontWeight:800,color:"#F2C94C"}}>{affiche}</span>
+                </div>
+              );
+            })}
+            <div style={{marginTop:12,padding:"10px 0 0",borderTop:"1px solid #374151"}}>
+              <p style={{fontSize:11,color:"#6B7280"}}>💡 Prévoir le délai de livraison de tes fournisseurs avant de démarrer la macération.</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Info source données */}
+      <div style={{marginTop:14,padding:"10px 12px",background:"#F8F8F6",borderRadius:8,border:"1px solid #EAE7E0"}}>
+        <p style={{fontSize:10,color:"#9CA3AF"}}>
+          📊 Calculs basés sur : {hasVentesData ? "commandes livrées" : "transactions comptables"} des 90 derniers jours · Objectif : {semCible} semaines de stock · Marge : 20%
+        </p>
+      </div>
+    </div>
+    )}
 
     {/* ── RECETTES ── */}
     {onglet==="recettes" && (
