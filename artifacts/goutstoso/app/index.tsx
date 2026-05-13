@@ -8405,6 +8405,8 @@ const Production = ({st, setSt}) => {
   const [batchModal, setBatchModal] = useState<null|any>(null);
   const [calcRecetteId, setCalcRecetteId] = useState(prod.recettes?.[0]?.id || "limonta");
   const [calcLitres, setCalcLitres] = useState("10");
+  const [calcBtl25, setCalcBtl25] = useState(""); // vide = auto depuis litres
+  const [calcBtl50, setCalcBtl50] = useState(""); // vide = auto depuis litres
 
   const recettes = (prod.recettes && prod.recettes.length > 0) ? prod.recettes : RECETTES_DEFAULT;
   const macerations = prod.macerations || [];
@@ -8862,132 +8864,153 @@ const Production = ({st, setSt}) => {
     {/* ── CALCULATEUR ── */}
     {onglet==="calculateur" && (
     <div>
-      {/* Sélection recette + litres */}
-      <div style={{...cardStyle,background:"#0A0A0A",color:"#fff"}}>
-        <p style={{fontSize:11,fontWeight:700,color:"#E8B64C",textTransform:"uppercase",letterSpacing:".06em",marginBottom:12}}>Calculateur de batch</p>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
-          <div>
-            <label style={{...labelStyle,color:"#9CA3AF"}}>Recette</label>
-            <select value={calcRecetteId} onChange={e=>setCalcRecetteId(e.target.value)} style={{...inputStyle,background:"#1A1A1A",color:"#fff",border:"1px solid #374151"}}>
-              {recettes.map(r=><option key={r.id} value={r.id}>{r.nom}</option>)}
-            </select>
-          </div>
-          <div>
-            <label style={{...labelStyle,color:"#9CA3AF"}}>Litres d'alcool à macérer</label>
-            <input type="number" value={calcLitres} onChange={e=>setCalcLitres(e.target.value)} style={{...inputStyle,background:"#1A1A1A",color:"#fff",border:"1px solid #374151"}} min="0" step="0.5"/>
-          </div>
-        </div>
-        {litres<=0 && <p style={{color:"#6B7280",textAlign:"center",fontSize:13,marginTop:4,marginBottom:4}}>Saisis la quantité d'alcool pour calculer automatiquement.</p>}
-      </div>
+      {calcRecette && (() => {
+        const rendement = calcRecette.rendementBouteilles || 5;
+        const volBtl = (calcRecette.volumeBouteille || 500) / 1000; // L
+        const anaRecette = analyses.find((a:any)=>a.recette?.id===calcRecette.id);
 
-      {calcRecette && litres>0 && (() => {
-        // Calcul répartition 250ml / 500ml
-        const btlTotal = Math.floor(litres * calcRecette.rendementBouteilles);
-        // On cherche les données de planification pour ce produit pour suggérer la répartition
-        const anaRecette = analyses.find(a=>a.recette?.id===calcRecette.id);
-        const ratio25Calc = anaRecette && (anaRecette.aproduire25+anaRecette.aproduire50)>0
+        // Ratio suggéré depuis ventes ou planif
+        const ratio25Defaut = anaRecette && (anaRecette.aproduire25+anaRecette.aproduire50)>0
           ? anaRecette.aproduire25/(anaRecette.aproduire25+anaRecette.aproduire50)
           : 0.4;
-        const btl25 = Math.round(btlTotal * ratio25Calc);
-        const btl50 = btlTotal - btl25;
-        const volTotal = (btl25 * 0.25) + (btl50 * 0.5); // litres de liqueur produits
+
+        // Mode "litres" : btl25/btl50 vides → auto depuis litres
+        // Mode "bouteilles" : btl25 ou btl50 saisies → litres recalculé
+        const modeManuel = calcBtl25 !== "" || calcBtl50 !== "";
+        let litresEffectifs = parseFloat(calcLitres)||0;
+        let btlTotal: number, btl25: number, btl50: number;
+
+        if(modeManuel) {
+          btl25 = parseInt(calcBtl25)||0;
+          btl50 = parseInt(calcBtl50)||0;
+          btlTotal = btl25 + btl50;
+          // Recalcule litres d'alcool nécessaires depuis les bouteilles voulues
+          const volLiqueurTotal = (btl25 * 0.25) + (btl50 * 0.5);
+          litresEffectifs = volLiqueurTotal > 0 ? volLiqueurTotal / (rendement * volBtl) : 0;
+        } else {
+          btlTotal = Math.floor(litresEffectifs * rendement);
+          btl25 = Math.round(btlTotal * ratio25Defaut);
+          btl50 = btlTotal - btl25;
+        }
+
+        const volTotal = (btl25 * 0.25) + (btl50 * 0.5);
+        const litresAff = modeManuel ? litresEffectifs.toFixed(1) : calcLitres;
+
+        // Ingrédients calculés sur litresEffectifs
+        const ingCalc = calcRecette.ingredients.map((ing:any)=>({
+          ...ing,
+          val: ing.parLitre ? ing.quantite * litresEffectifs : ing.quantite,
+        }));
+
+        const affQte = (val:number, unite:string) => {
+          if(unite==="g" && val>=1000) return `${(val/1000).toFixed(2)} kg`;
+          if(unite==="L") return `${val.toFixed(1)} L`;
+          if(unite==="ml") return `${val.toFixed(0)} ml`;
+          return `${val%1===0?val:val.toFixed(1)} ${unite}`;
+        };
 
         return (
           <>
-          {/* Ingrédients nécessaires */}
-          <div style={{...cardStyle}}>
-            <p style={{fontSize:11,fontWeight:700,color:"#9CA3AF",textTransform:"uppercase",letterSpacing:".05em",marginBottom:10}}>🧪 Ingrédients pour {litres}L d'alcool</p>
-            {calcIngredients.map((ing,i)=>{
-              const val = ing.parLitre ? ing.quantite * litres : ing.quantite;
-              let aff = "";
-              if(ing.unite==="g" && val>=1000) aff = `${(val/1000).toFixed(2)} kg`;
-              else if(ing.unite==="L") aff = `${val.toFixed(1)} L`;
-              else if(ing.unite==="ml") aff = `${val.toFixed(0)} ml`;
-              else aff = `${val%1===0?val:val.toFixed(1)} ${ing.unite}`;
-              return (
-                <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"7px 0",borderBottom:i<calcIngredients.length-1?"1px solid #F4F4F2":"none"}}>
-                  <span style={{fontSize:13,color:"#374151"}}>{ing.nom}</span>
-                  <span style={{fontWeight:800,color:"#0A0A0A",fontSize:15}}>{aff}</span>
-                </div>
-              );
-            })}
+          {/* Saisie mode "bouteilles voulus" OU "litres" */}
+          <div style={{...cardStyle,background:"#0A0A0A"}}>
+            <p style={{fontSize:10,fontWeight:700,color:"#9CA3AF",textTransform:"uppercase",letterSpacing:".05em",marginBottom:10}}>
+              🍾 Combien de bouteilles veux-tu produire ?
+            </p>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:10}}>
+              <div>
+                <label style={{...labelStyle,color:"#60A5FA"}}>× 250 ml</label>
+                <input
+                  type="number" min="0" step="1"
+                  placeholder={modeManuel?"":String(btl25)}
+                  value={calcBtl25}
+                  onChange={e=>{
+                    setCalcBtl25(e.target.value);
+                  }}
+                  style={{...inputStyle,background:"#1A1A1A",color:"#fff",border:"2px solid #60A5FA",fontWeight:700,fontSize:16,textAlign:"center"}}
+                />
+              </div>
+              <div>
+                <label style={{...labelStyle,color:"#6DBE45"}}>× 500 ml</label>
+                <input
+                  type="number" min="0" step="1"
+                  placeholder={modeManuel?"":String(btl50)}
+                  value={calcBtl50}
+                  onChange={e=>{
+                    setCalcBtl50(e.target.value);
+                  }}
+                  style={{...inputStyle,background:"#1A1A1A",color:"#fff",border:"2px solid #6DBE45",fontWeight:700,fontSize:16,textAlign:"center"}}
+                />
+              </div>
+            </div>
+            <div style={{borderTop:"1px solid #374151",paddingTop:10,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <div>
+                <p style={{fontSize:10,color:"#9CA3AF"}}>Litres d'alcool {modeManuel?"nécessaires":"à macérer"}</p>
+                {modeManuel
+                  ? <p style={{fontSize:20,fontWeight:800,color:"#F2C94C"}}>{litresEffectifs.toFixed(1)} L{litresEffectifs<=0&&<span style={{fontSize:12,color:"#6B7280"}}> — saisir les qtés</span>}</p>
+                  : <input type="number" value={calcLitres} onChange={e=>{setCalcLitres(e.target.value);setCalcBtl25("");setCalcBtl50("");}} style={{...inputStyle,background:"#1A1A1A",color:"#F2C94C",border:"1px solid #374151",fontWeight:800,fontSize:18,width:90,textAlign:"center",display:"inline-block"}} min="0" step="0.5"/>
+                }
+              </div>
+              {modeManuel && (
+                <button style={{background:"#374151",color:"#9CA3AF",border:"none",borderRadius:7,padding:"6px 10px",fontSize:11,cursor:"pointer"}} onClick={()=>{setCalcBtl25("");setCalcBtl50("");}}>
+                  ↺ Auto
+                </button>
+              )}
+              <div style={{textAlign:"right"}}>
+                <p style={{fontSize:10,color:"#9CA3AF"}}>Total bouteilles</p>
+                <p style={{fontSize:20,fontWeight:800,color:"#F2C94C"}}>{btlTotal}</p>
+              </div>
+            </div>
           </div>
 
-          {/* Résultat : bouteilles par format */}
-          <div style={{...cardStyle,background:"#0A0A0A"}}>
-            <p style={{fontSize:11,fontWeight:700,color:"#E8B64C",textTransform:"uppercase",letterSpacing:".06em",marginBottom:12}}>🍾 Production estimée</p>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:14}}>
-              <div style={{background:"#1A1A1A",borderRadius:10,padding:"12px 8px",textAlign:"center"}}>
-                <p style={{fontSize:10,color:"#9CA3AF",marginBottom:4}}>Total bouteilles</p>
-                <p style={{fontSize:30,fontWeight:900,color:"#F2C94C",lineHeight:1}}>{btlTotal}</p>
-                <p style={{fontSize:10,color:"#6B7280",marginTop:2}}>× {calcRecette.volumeBouteille}ml</p>
+          {litresEffectifs>0 && (
+          <>
+          {/* Ingrédients nécessaires */}
+          <div style={{...cardStyle}}>
+            <p style={{fontSize:11,fontWeight:700,color:"#9CA3AF",textTransform:"uppercase",letterSpacing:".05em",marginBottom:10}}>🧪 Ingrédients pour {parseFloat(litresAff).toFixed(1)}L d'alcool</p>
+            {ingCalc.map((ing:any,i:number)=>(
+              <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"7px 0",borderBottom:i<ingCalc.length-1?"1px solid #F4F4F2":"none"}}>
+                <span style={{fontSize:13,color:"#374151",flex:1,paddingRight:8}}>{ing.nom}</span>
+                <span style={{fontWeight:800,color:"#0A0A0A",fontSize:15,flexShrink:0}}>{affQte(ing.val,ing.unite)}</span>
               </div>
-              <div style={{background:"#1A1A1A",borderRadius:10,padding:"12px 8px",textAlign:"center"}}>
-                <p style={{fontSize:10,color:"#9CA3AF",marginBottom:4}}>250 ml</p>
-                <p style={{fontSize:30,fontWeight:900,color:"#60A5FA",lineHeight:1}}>{btl25}</p>
-                <p style={{fontSize:10,color:"#6B7280",marginTop:2}}>bouteilles</p>
-              </div>
-              <div style={{background:"#1A1A1A",borderRadius:10,padding:"12px 8px",textAlign:"center"}}>
-                <p style={{fontSize:10,color:"#9CA3AF",marginBottom:4}}>500 ml</p>
-                <p style={{fontSize:30,fontWeight:900,color:"#6DBE45",lineHeight:1}}>{btl50}</p>
-                <p style={{fontSize:10,color:"#6B7280",marginTop:2}}>bouteilles</p>
-              </div>
-            </div>
-
-            {/* Répartition 250/500 ajustable */}
-            <div style={{background:"#1A1A1A",borderRadius:10,padding:"10px 12px",marginBottom:12}}>
-              <p style={{fontSize:10,color:"#9CA3AF",marginBottom:6}}>Répartition 250ml / 500ml {anaRecette?"(basée sur tes ventes)":"(par défaut 40/60)"}</p>
-              <div style={{display:"flex",alignItems:"center",gap:8}}>
-                <span style={{fontSize:11,color:"#60A5FA",fontWeight:700,minWidth:28}}>{Math.round(ratio25Calc*100)}%</span>
-                <div style={{flex:1,height:8,background:"#374151",borderRadius:4,overflow:"hidden"}}>
-                  <div style={{height:"100%",background:"linear-gradient(90deg,#60A5FA,#6DBE45)",borderRadius:4,width:"100%",display:"flex"}}>
-                    <div style={{width:`${Math.round(ratio25Calc*100)}%`,background:"#60A5FA",borderRadius:"4px 0 0 4px"}}/>
-                    <div style={{flex:1,background:"#6DBE45",borderRadius:"0 4px 4px 0"}}/>
-                  </div>
-                </div>
-                <span style={{fontSize:11,color:"#6DBE45",fontWeight:700,minWidth:28}}>{Math.round((1-ratio25Calc)*100)}%</span>
-              </div>
-            </div>
-
-            {/* Infos macération */}
-            <div style={{display:"flex",gap:8,justifyContent:"space-around",borderTop:"1px solid #374151",paddingTop:12}}>
+            ))}
+            <div style={{display:"flex",gap:12,marginTop:10,paddingTop:10,borderTop:"1px solid #F4F4F2"}}>
               <div style={{textAlign:"center"}}>
                 <p style={{fontSize:10,color:"#9CA3AF"}}>Macération</p>
-                <p style={{fontSize:22,fontWeight:800,color:"#F2C94C"}}>{calcRecette.dureeMacerationJours}j</p>
+                <p style={{fontSize:18,fontWeight:800,color:"#0A0A0A"}}>{calcRecette.dureeMacerationJours}j</p>
               </div>
               <div style={{textAlign:"center"}}>
-                <p style={{fontSize:10,color:"#9CA3AF"}}>Volume produit</p>
-                <p style={{fontSize:22,fontWeight:800,color:"#F2C94C"}}>{volTotal.toFixed(1)}L</p>
+                <p style={{fontSize:10,color:"#9CA3AF"}}>Volume final</p>
+                <p style={{fontSize:18,fontWeight:800,color:"#0A0A0A"}}>{volTotal.toFixed(1)}L</p>
               </div>
               <div style={{textAlign:"center"}}>
                 <p style={{fontSize:10,color:"#9CA3AF"}}>Titre</p>
-                <p style={{fontSize:22,fontWeight:800,color:"#F2C94C"}}>{calcRecette.titreAlcool}°</p>
+                <p style={{fontSize:18,fontWeight:800,color:"#0A0A0A"}}>{calcRecette.titreAlcool}°</p>
               </div>
             </div>
           </div>
 
-          {/* Stock parfait après production */}
-          {anaRecette && (
+          {/* Stock après production */}
+          {anaRecette && (anaRecette.p25||anaRecette.p50) && (
             <div style={{...cardStyle,background:"#F0FDF4",border:"1.5px solid #BBF7D0"}}>
               <p style={{fontSize:11,fontWeight:700,color:"#15803D",textTransform:"uppercase",letterSpacing:".05em",marginBottom:8}}>📊 Stock après cette production</p>
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
                 {anaRecette.p25 && (
                   <div style={{textAlign:"center",background:"#fff",borderRadius:8,padding:"10px 8px"}}>
                     <p style={{fontSize:10,color:"#9CA3AF",marginBottom:2}}>250 ml</p>
-                    <p style={{fontSize:22,fontWeight:800,color:"#15803D"}}>{anaRecette.stockNet25 + btl25}</p>
+                    <p style={{fontSize:22,fontWeight:800,color:"#15803D"}}>{anaRecette.stockNet25+btl25}</p>
                     <p style={{fontSize:10,color:"#9CA3AF"}}>/ {anaRecette.cible25||20} cible</p>
-                    <p style={{fontSize:10,color:anaRecette.stockNet25+btl25>=anaRecette.cible25?"#15803D":"#F59E0B",fontWeight:600,marginTop:2}}>
-                      {anaRecette.stockNet25+btl25>=anaRecette.cible25?"✅ Stock parfait":"⚠ En dessous cible"}
+                    <p style={{fontSize:10,fontWeight:600,marginTop:2,color:anaRecette.stockNet25+btl25>=(anaRecette.cible25||20)?"#15803D":"#F59E0B"}}>
+                      {anaRecette.stockNet25+btl25>=(anaRecette.cible25||20)?"✅ Stock parfait":"⚠ En dessous cible"}
                     </p>
                   </div>
                 )}
                 {anaRecette.p50 && (
                   <div style={{textAlign:"center",background:"#fff",borderRadius:8,padding:"10px 8px"}}>
                     <p style={{fontSize:10,color:"#9CA3AF",marginBottom:2}}>500 ml</p>
-                    <p style={{fontSize:22,fontWeight:800,color:"#15803D"}}>{anaRecette.stockNet50 + btl50}</p>
+                    <p style={{fontSize:22,fontWeight:800,color:"#15803D"}}>{anaRecette.stockNet50+btl50}</p>
                     <p style={{fontSize:10,color:"#9CA3AF"}}>/ {anaRecette.cible50||20} cible</p>
-                    <p style={{fontSize:10,color:anaRecette.stockNet50+btl50>=anaRecette.cible50?"#15803D":"#F59E0B",fontWeight:600,marginTop:2}}>
-                      {anaRecette.stockNet50+btl50>=anaRecette.cible50?"✅ Stock parfait":"⚠ En dessous cible"}
+                    <p style={{fontSize:10,fontWeight:600,marginTop:2,color:anaRecette.stockNet50+btl50>=(anaRecette.cible50||20)?"#15803D":"#F59E0B"}}>
+                      {anaRecette.stockNet50+btl50>=(anaRecette.cible50||20)?"✅ Stock parfait":"⚠ En dessous cible"}
                     </p>
                   </div>
                 )}
@@ -8997,9 +9020,11 @@ const Production = ({st, setSt}) => {
 
           <button style={{...btnPrimary,width:"100%",marginTop:4,background:"#F2C94C",color:"#0A0A0A"}} onClick={()=>{
             openMaceration();
-            setMForm((m:any)=>({...m,recetteId:calcRecetteId,litresAlcool:calcLitres}));
+            setMForm((m:any)=>({...m,recetteId:calcRecetteId,litresAlcool:String(litresEffectifs.toFixed(1))}));
             setOnglet("macerations");
           }}>🫙 Démarrer cette macération</button>
+          </>
+          )}
           </>
         );
       })()}
