@@ -10157,30 +10157,6 @@ function Sauvegardes({authUser,st,setSt}:{authUser:any,st:any,setSt:any}) {
       </div>
     </div>
 
-    {/* MIGRATION FOURNISSEURS → CLIENTS */}
-    {(()=>{
-      const aDeplacer = (st.fournisseurs||[]).filter((f:any)=>f.categorie==="Client");
-      if(aDeplacer.length===0) return null;
-      return (
-        <div style={{background:"#FFF7ED",border:"1.5px solid #FED7AA",borderRadius:12,padding:"14px 16px",marginBottom:16}}>
-          <p style={{fontSize:13,fontWeight:700,color:"#C2410C",marginBottom:6}}>⚠️ {aDeplacer.length} contact{aDeplacer.length>1?"s":""} client{aDeplacer.length>1?"s":""} dans Fournisseurs</p>
-          <p style={{fontSize:12,color:"#92400E",marginBottom:10}}>Les contacts suivants ont été créés par erreur dans Fournisseurs : <strong>{aDeplacer.map((f:any)=>f.nom).join(", ")}</strong></p>
-          <button onClick={()=>{
-            setSt((p:any)=>{
-              const aDeplacer2 = (p.fournisseurs||[]).filter((f:any)=>f.categorie==="Client");
-              const restants = (p.fournisseurs||[]).filter((f:any)=>f.categorie!=="Client");
-              const clientsExistants = p.clients||[];
-              const nouveauxClients = aDeplacer2.filter((f:any)=>!clientsExistants.some((c:any)=>c.nom?.toLowerCase()===f.nom?.toLowerCase()));
-              return {...p, fournisseurs:restants, clients:[...clientsExistants,...nouveauxClients]};
-            });
-            alert(`✅ ${aDeplacer.length} contact${aDeplacer.length>1?"s":""} déplacé${aDeplacer.length>1?"s":""} vers l'onglet Clients.`);
-          }} style={{background:"#EA580C",color:"#fff",border:"none",borderRadius:8,padding:"9px 16px",fontWeight:600,fontSize:13,cursor:"pointer"}}>
-            👥 Déplacer vers Clients
-          </button>
-        </div>
-      );
-    })()}
-
     {/* BOUTON MANUEL */}
     <button
       onClick={()=>doBackup("manual")}
@@ -10354,6 +10330,14 @@ const defaults = {
 produits: INIT.produits.reduce((acc,p)=>({...acc,[p.id]:p}),{}),
 partenaires: INIT.partenaires.reduce((acc,p)=>({...acc,[p.id]:p}),{}),
 };
+// Migration automatique : fournisseurs avec categorie "Client" → clients
+const fournisseurs = data.fournisseurs||[];
+const mauvaisClients = fournisseurs.filter((f:any)=>f.categorie==="Client");
+const fournisseursMigres = mauvaisClients.length > 0 ? fournisseurs.filter((f:any)=>f.categorie!=="Client") : fournisseurs;
+const clientsBase = data.clients||[];
+const clientsMigres = mauvaisClients.length > 0
+  ? [...clientsBase, ...mauvaisClients.filter((f:any)=>!clientsBase.some((c:any)=>c.nom?.toLowerCase()===f.nom?.toLowerCase()))]
+  : clientsBase;
 return {
 ...INIT,
 ...data,
@@ -10366,6 +10350,8 @@ factures: data.factures||INIT.factures,
 transactions: data.transactions||INIT.transactions,
 soldeBancaire: data.soldeBancaire ?? INIT.soldeBancaire,
 production: data.production||INIT.production,
+fournisseurs: fournisseursMigres,
+clients: clientsMigres,
 };
 };
 
