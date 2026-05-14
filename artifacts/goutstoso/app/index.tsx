@@ -4396,7 +4396,7 @@ const Comptabilite = ({st,setSt}) => {
 const [modal,setModal] = useState(null);
 const [onglet,setOnglet] = useState("dashboard");
 const [periode,setPeriode] = useState(new Date().getFullYear()+"");
-const emptyT = {date:today(),type:"recette",compte:"3001",libelle:"",categorie:"Vente Limonta",montant:"",description:"",postfinance:true};
+const emptyT = {date:today(),type:"recette",compte:"3001",libelle:"",categorie:"Vente Limonta",montant:"",description:"",postfinance:true,justificatif:"",justificatifNom:""};
 const [form,setForm] = useState(emptyT);
 const [soldeModal,setSoldeModal] = useState(false);
 const [nouveauSolde,setNouveauSolde] = useState(st.soldeBancaire||0);
@@ -4748,9 +4748,18 @@ return (
                 <span style={{fontSize:10,color:"#737373"}}>{t.categorie}</span>
                 {t.postfinance && <span style={{fontSize:9,background:"#DBEAFE",color:"#1E40AF",borderRadius:4,padding:"1px 6px"}}>💳 PF</span>}
               </div>
+              {/* Justificatif badge */}
+              {t.justificatif && (
+                <div style={{marginBottom:6}}>
+                  <button onClick={()=>{ const w=window.open(); w.document.write('<html><body style="margin:0"><iframe src="'+t.justificatif+'" width="100%" height="100%" style="border:none"></iframe></body></html>'); w.document.close(); }}
+                    style={{background:"#EFF6FF",color:"#1D4ED8",border:"1px solid #BFDBFE",borderRadius:6,padding:"4px 10px",fontSize:11,fontWeight:600,cursor:"pointer",display:"flex",alignItems:"center",gap:5}}>
+                    📎 <span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:180}}>{t.justificatifNom||"Justificatif"}</span>
+                  </button>
+                </div>
+              )}
               {/* Ligne 3: actions */}
               <div style={{display:"flex",gap:6,justifyContent:"flex-end"}}>
-                <button onClick={()=>{setForm({...t,montant:String(t.montant)});setModal("form");}} style={{background:"#F4F4F2",border:"none",borderRadius:8,padding:"6px 10px",cursor:"pointer",display:"flex",alignItems:"center",gap:4,fontSize:11,fontWeight:500}}>
+                <button onClick={()=>{setForm({...t,montant:String(t.montant),justificatif:t.justificatif||"",justificatifNom:t.justificatifNom||""});setModal("form");}} style={{background:"#F4F4F2",border:"none",borderRadius:8,padding:"6px 10px",cursor:"pointer",display:"flex",alignItems:"center",gap:4,fontSize:11,fontWeight:500}}>
                   <Ic n="edit" s={12}/> Modifier
                 </button>
                 <button onClick={()=>{if(window.confirm("Supprimer ?"))del(t.id);}} style={{background:"#FEE2E2",color:"#991B1B",border:"none",borderRadius:8,padding:"6px 10px",cursor:"pointer",display:"flex",alignItems:"center",gap:4,fontSize:11,fontWeight:500}}>
@@ -5503,6 +5512,35 @@ return (
         <Sel label="Compte comptable" value={form.compte} onChange={v=>setForm(p=>({...p,compte:v,libelle:PLAN_COMPTABLE[v]||""}))}
           options={Object.entries(PLAN_COMPTABLE).filter(([k])=>form.type==="recette"?k.startsWith("3"):!k.startsWith("3")).map(([k,v])=>({v:k,l:k+" - "+v}))}/>
         <F label="Description" value={form.description} onChange={v=>setForm(p=>({...p,description:v}))} placeholder="Précisions (optionnel)"/>
+        {/* Justificatif PDF / image */}
+        <div style={{background:"#F8F7F5",border:"1.5px dashed #D1D5DB",borderRadius:10,padding:"12px 14px"}}>
+          <p style={{fontSize:11,fontWeight:600,color:"#374151",marginBottom:8}}>📎 Justificatif (reçu, facture, relevé…)</p>
+          {form.justificatif ? (
+            <div style={{display:"flex",alignItems:"center",gap:8}}>
+              <button onClick={()=>{ const w=window.open(); w.document.write('<html><body style="margin:0"><iframe src="'+form.justificatif+'" width="100%" height="100%" style="border:none"></iframe></body></html>'); w.document.close(); }}
+                style={{flex:1,background:"#DBEAFE",color:"#1D4ED8",border:"none",borderRadius:8,padding:"8px 12px",fontSize:12,fontWeight:600,cursor:"pointer",textAlign:"left",display:"flex",alignItems:"center",gap:6,overflow:"hidden"}}>
+                📄 <span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{form.justificatifNom||"Justificatif"}</span>
+              </button>
+              <button onClick={()=>setForm(p=>({...p,justificatif:"",justificatifNom:""}))}
+                style={{background:"#FEE2E2",color:"#991B1B",border:"none",borderRadius:8,padding:"8px 10px",cursor:"pointer",fontSize:12,fontWeight:600,flexShrink:0}}>✕</button>
+            </div>
+          ) : (
+            <label style={{display:"block",cursor:"pointer"}}>
+              <div style={{background:"#fff",border:"1px solid #E5E7EB",borderRadius:8,padding:"10px 14px",display:"flex",alignItems:"center",gap:8,fontSize:12,color:"#6B7280"}}>
+                <span style={{fontSize:18}}>📎</span>
+                <span>Choisir un fichier PDF ou image</span>
+              </div>
+              <input type="file" accept="image/*,application/pdf" style={{display:"none"}} onChange={e=>{
+                const file = e.target.files?.[0]; if(!file) return;
+                if(file.size > 8*1024*1024){alert("Fichier trop grand (max 8 Mo)");return;}
+                const reader = new FileReader();
+                reader.onload = ev => setForm(p=>({...p,justificatif:ev.target.result as string,justificatifNom:file.name}));
+                reader.readAsDataURL(file);
+                e.target.value="";
+              }}/>
+            </label>
+          )}
+        </div>
         <label style={{display:"flex",alignItems:"center",gap:10,padding:"12px",background:form.postfinance?"#DCFCE7":"#F5F5F0",borderRadius:10,cursor:"pointer",border:form.postfinance?"1.5px solid #86EFAC":"1.5px solid #E5E5E0"}}>
           <input type="checkbox" checked={form.postfinance||false} onChange={e=>setForm(p=>({...p,postfinance:e.target.checked}))} style={{width:18,height:18}}/>
           <div>
