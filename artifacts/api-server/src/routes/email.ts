@@ -1,8 +1,66 @@
-import { Router, type IRouter } from "express";
+import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import nodemailer from "nodemailer";
 import { z } from "zod/v4";
 
 const router: IRouter = Router();
+
+// ── Rate limiter simple (en mémoire) ────────────────────────────────────────
+// Max 30 envois par heure par IP pour éviter l'abus du relais SMTP
+const RATE_WINDOW_MS = 60 * 60 * 1000; // 1 heure
+const RATE_LIMIT = 30;
+const rateCounts = new Map<string, { count: number; resetAt: number }>();
+
+function getRateKey(req: Request): string {
+  return (
+    (req.headers["x-forwarded-for"] as string | undefined)?.split(",")[0]?.trim() ??
+    req.socket?.remoteAddress ??
+    "unknown"
+  );
+}
+
+function checkRateLimit(req: Request, res: Response): boolean {
+  const key = getRateKey(req);
+  const now = Date.now();
+  const entry = rateCounts.get(key);
+  if (!entry || now > entry.resetAt) {
+    rateCounts.set(key, { count: 1, resetAt: now + RATE_WINDOW_MS });
+    return true;
+  }
+  if (entry.count >= RATE_LIMIT) {
+    res.status(429).json({ error: "Trop de requêtes — réessaye dans une heure." });
+    return false;
+  }
+  entry.count++;
+  return true;
+}
+
+// ── Vérification d'origine ───────────────────────────────────────────────────
+// Seules les requêtes provenant du domaine Goutstoso ou de l'env de dev sont autorisées
+const ALLOWED_ORIGINS = [
+  "goutstoso.replit.app",
+  "goutstoso.replit.dev",
+  "localhost",
+  "127.0.0.1",
+];
+
+function checkOrigin(req: Request, res: Response): boolean {
+  const origin = req.headers["origin"] ?? req.headers["referer"] ?? "";
+  const allowed = ALLOWED_ORIGINS.some(o => origin.includes(o));
+  // En dev (pas de domaine configuré), on laisse passer
+  const domains = process.env.REPLIT_DOMAINS ?? "";
+  const isDev = !domains || domains.includes("replit.dev");
+  if (!allowed && !isDev) {
+    res.status(403).json({ error: "Origine non autorisée." });
+    return false;
+  }
+  return true;
+}
+
+function emailGuard(req: Request, res: Response, next: NextFunction): void {
+  if (!checkOrigin(req, res)) return;
+  if (!checkRateLimit(req, res)) return;
+  next();
+}
 
 const SendEmailBody = z.object({
   to: z.string().email(),
@@ -118,7 +176,7 @@ async function sendMail(to: string, toName: string, subject: string, bodyText: s
   });
 }
 
-router.post("/email/send", async (req, res) => {
+router.post("/email/send", emailGuard, async (req, res) => {
   const parsed = SendEmailBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "Paramètres invalides", details: parsed.error.issues });

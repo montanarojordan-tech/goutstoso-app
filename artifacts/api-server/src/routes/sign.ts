@@ -3,6 +3,7 @@ import { db, signingRequestsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { randomUUID } from "crypto";
 import nodemailer from "nodemailer";
+import { z } from "zod";
 import {
   CreateSigningRequestBody,
   GetSigningRequestParams,
@@ -145,7 +146,7 @@ async function sendSigningEmail(to: string, documentTitle: string, signingUrl: s
 }
 
 const CreateSigningRequestWithEmail = CreateSigningRequestBody.extend({
-  recipientEmail: CreateSigningRequestBody.shape.documentType.optional(),
+  recipientEmail: z.string().email().optional(),
 });
 
 router.post("/sign", async (req, res) => {
