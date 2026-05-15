@@ -10700,17 +10700,22 @@ const Production = ({st, setSt}) => {
         const volBtl = (calcRecette.volumeBouteille || 500) / 1000;
         const anaRecette = analyses.find((a:any)=>a.recette?.id===calcRecette.id);
 
-        // Ratio 250/500 depuis planification ou 40/60 par défaut
+        // Ratio volume 250ml/500ml depuis planification ou 40/60 par défaut
         const ratio25 = anaRecette && (anaRecette.aproduire25+anaRecette.aproduire50)>0
           ? anaRecette.aproduire25/(anaRecette.aproduire25+anaRecette.aproduire50) : 0.4;
 
         // Litres entrés par l'utilisateur (entrée principale)
         const litresInput = parseFloat(calcLitres)||0;
 
-        // Bouteilles auto depuis litres
-        const btlTotalAuto = Math.floor(litresInput * rendement);
-        const auto25 = Math.round(btlTotalAuto * ratio25);
-        const auto50 = btlTotalAuto - auto25;
+        // Volume total de liqueur : rendement exprimé en btl 500ml/L → L/L = rendement × volBtl
+        const volTotalLiqueur = litresInput * rendement * volBtl;
+
+        // Répartition auto par VOLUME (pas par nombre de bouteilles)
+        const volFor25 = volTotalLiqueur * ratio25;
+        const volFor50 = volTotalLiqueur * (1 - ratio25);
+        const auto25 = Math.floor(volFor25 / 0.25);
+        const auto50 = Math.floor(volFor50 / 0.5);
+        const btlTotalAuto = auto25 + auto50;
 
         // Override bouteilles si l'utilisateur a ajusté
         const btlOverride = calcBtl25 !== "" || calcBtl50 !== "";
@@ -10723,7 +10728,8 @@ const Production = ({st, setSt}) => {
           : litresInput;
 
         const btlTotal = eff25 + eff50;
-        const volLiqueur = (eff25*0.25)+(eff50*0.5);
+        // Volume final : exact depuis input ou recalculé depuis bouteilles ajustées
+        const volLiqueur = btlOverride ? (eff25*0.25)+(eff50*0.5) : volTotalLiqueur;
 
         const affQte = (val:number, unite:string) => {
           if(unite==="g" && val>=1000) return `${(val/1000).toFixed(2)} kg`;
