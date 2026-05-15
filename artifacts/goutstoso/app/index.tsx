@@ -5058,150 +5058,139 @@ return (
   {/* RENTABILITÉ */}
   {onglet==="rentabilite"&&(
     <div>
-      {/* TOTAL MARGE BRUTE — synthèse toutes ventes */}
+      {/* TOTAL MARGE BRUTE — basé sur les écritures comptables */}
       {(()=>{
-        const prodActifs = st.produits.filter(p=>p.actif);
-        let totalUnites=0, totalCA=0, totalMarge=0;
-        prodActifs.forEach(p=>{
-          const cout = p.coutRevient||0;
-          const margeP = p.prixClient-cout;
-          const margePro = p.prixRevendeur-cout;
-          const uCmd = (st.commandes||[]).filter(cmd=>{
-            if(!cmd.factureNumero) return false;
-            if(periode==="tout") return true;
-            return (cmd.date||"").startsWith(periode);
-          }).reduce((a,cmd)=>{
-            const l=(cmd.lignes||[]).find(l=>l.produitId===p.id);
-            return a+(l?parseInt(l.qte)||0:0);
-          },0);
-          const uFact = (st.factures||[]).filter(f=>{
-            if(f.statut!=="payée") return false;
-            if(periode==="tout") return true;
-            return (f.datePaiement||f.date||"").startsWith(periode);
-          }).reduce((a,f)=>{
-            const l=(f.lignes||[]).find(l=>l.produitId===p.id);
-            return a+(l?parseInt(l.qte)||0:0);
-          },0);
-          totalUnites += uCmd+uFact;
-          totalCA += uCmd*(p.prixClient||0) + uFact*(p.prixRevendeur||0);
-          totalMarge += uCmd*margeP + uFact*margePro;
+        // Un compte par famille de produit
+        const ca3001 = sum(transByPeriode.filter(t=>t.type==="recette"&&t.compte==="3001").map(t=>+t.montant));
+        const ca3002 = sum(transByPeriode.filter(t=>t.type==="recette"&&t.compte==="3002").map(t=>+t.montant));
+        const ca3003 = sum(transByPeriode.filter(t=>t.type==="recette"&&t.compte==="3003").map(t=>+t.montant));
+        const ca3004 = sum(transByPeriode.filter(t=>t.type==="recette"&&t.compte==="3004").map(t=>+t.montant));
+        const caTotal = ca3001+ca3002+ca3003+ca3004;
+        let totalUnites=0, totalMarge=0;
+        // Bouteilles (compte unique par produit)
+        st.produits.filter(p=>p.actif&&!p.nom.includes("Coffret")).forEach(p=>{
+          const caP = p.nom==="Limonta"?ca3001:p.nom==="Limelo"?ca3002:p.nom==="Clementino"?ca3003:0;
+          const prix = p.prixClient||1;
+          const units = Math.round(caP/prix);
+          totalUnites += units;
+          totalMarge += caP - units*(p.coutRevient||0);
         });
-        const pct = totalCA>0?Math.round((totalMarge/totalCA)*100):0;
+        // Coffrets (partagent 3004)
+        const coffretsProd = st.produits.filter(p=>p.actif&&p.nom.includes("Coffret"));
+        if(coffretsProd.length>0 && ca3004>0) {
+          const prixMoy = sum(coffretsProd.map(p=>p.prixClient||0))/coffretsProd.length;
+          const coutMoy = sum(coffretsProd.map(p=>p.coutRevient||0))/coffretsProd.length;
+          const unitsCoffrets = prixMoy>0?Math.round(ca3004/prixMoy):0;
+          totalUnites += unitsCoffrets;
+          totalMarge += ca3004 - unitsCoffrets*coutMoy;
+        }
+        const pct = caTotal>0?Math.round((totalMarge/caTotal)*100):0;
         return (
           <div style={{background:"linear-gradient(135deg,#1a1a1a 0%,#2d2d2d 100%)",borderRadius:14,padding:"16px",marginBottom:12,color:"#fff"}}>
-            <p style={{fontSize:10,fontWeight:600,color:"#F2C94C",textTransform:"uppercase",letterSpacing:".08em",marginBottom:8}}>
-              Ta marge brute totale {periode==="tout"?"— toutes périodes":`— ${periode}`}
+            <p style={{fontSize:10,fontWeight:600,color:"#F2C94C",textTransform:"uppercase",letterSpacing:".08em",marginBottom:2}}>
+              Marge brute réelle {periode==="tout"?"— toutes périodes":`— ${periode}`}
             </p>
+            <p style={{fontSize:9,color:"#888",marginBottom:10}}>Source : écritures comptables uniquement</p>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
               <div style={{textAlign:"center"}}>
                 <p style={{fontSize:17,fontWeight:800,color:"#F2C94C",lineHeight:1}}>{totalUnites}</p>
-                <p style={{fontSize:9,color:"#aaa",marginTop:3}}>unités vendues</p>
+                <p style={{fontSize:9,color:"#aaa",marginTop:3}}>unités (estimé)</p>
               </div>
               <div style={{textAlign:"center"}}>
-                <p style={{fontSize:15,fontWeight:800,color:"#fff",lineHeight:1}}>{chf(totalCA)}</p>
-                <p style={{fontSize:9,color:"#aaa",marginTop:3}}>chiffre d'affaires</p>
+                <p style={{fontSize:15,fontWeight:800,color:"#fff",lineHeight:1}}>{chf(caTotal)}</p>
+                <p style={{fontSize:9,color:"#aaa",marginTop:3}}>CA comptabilisé</p>
               </div>
               <div style={{textAlign:"center"}}>
                 <p style={{fontSize:15,fontWeight:800,color:totalMarge>0?"#4ADE80":"#F87171",lineHeight:1}}>{chf(totalMarge)}</p>
                 <p style={{fontSize:9,color:"#aaa",marginTop:3}}>marge brute ({pct}%)</p>
               </div>
             </div>
-            {totalUnites===0&&<p style={{fontSize:11,color:"#aaa",textAlign:"center",marginTop:8}}>Aucune vente sur cette période — marque tes commandes comme "envoyées en compta" ou tes factures comme "payées"</p>}
+            {caTotal===0&&<p style={{fontSize:11,color:"#aaa",textAlign:"center",marginTop:8}}>Aucune écriture de vente sur cette période — ajoute des transactions dans Comptabilité</p>}
           </div>
         );
       })()}
       <Card style={{marginBottom:12}}>
         <h3 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:16,marginBottom:4,letterSpacing:"-0.015em"}}>Marges & volumes par produit</h3>
-        <p style={{fontSize:11,color:"#737373",marginBottom:14}}>Marges théoriques + unités vendues sur la période sélectionnée</p>
-        {st.produits.filter(p=>p.actif).map((p,idx,arr)=>{
-          const isCoffret = p.nom.includes("Coffret");
-          const prevIsCoffret = idx>0 && arr[idx-1].nom.includes("Coffret");
-          const showDivider = isCoffret && !prevIsCoffret;
-          const cout = p.coutRevient||0;
-          const margeP = p.prixClient-cout;
-          const margePPct = p.prixClient?((margeP/p.prixClient)*100).toFixed(0):0;
-          const margePro = p.prixRevendeur-cout;
-          const margeProPct = p.prixRevendeur?((margePro/p.prixRevendeur)*100).toFixed(0):0;
-          const c = COULEURS[p.variante]||{accent:"#737373"};
+        <p style={{fontSize:11,color:"#737373",marginBottom:14}}>CA & marge réels depuis les écritures comptables · marges théoriques par prix</p>
+        {(()=>{
+          // Pré-calcul des CA par compte depuis transactions
+          const ca3001 = sum(transByPeriode.filter(t=>t.type==="recette"&&t.compte==="3001").map(t=>+t.montant));
+          const ca3002 = sum(transByPeriode.filter(t=>t.type==="recette"&&t.compte==="3002").map(t=>+t.montant));
+          const ca3003 = sum(transByPeriode.filter(t=>t.type==="recette"&&t.compte==="3003").map(t=>+t.montant));
+          const ca3004 = sum(transByPeriode.filter(t=>t.type==="recette"&&t.compte==="3004").map(t=>+t.montant));
+          const nbCoffrets = Math.max(1, st.produits.filter(p=>p.actif&&p.nom.includes("Coffret")).length);
 
-          // Volumes réels vendus depuis les commandes (période filtrée)
-          const unitesCmds = (st.commandes||[]).filter(cmd=>{
-            if(!cmd.envoyeeCompta) return false;
-            if(periode==="tout") return true;
-            if(periode.length===4) return (cmd.date||"").startsWith(periode);
-            if(periode.length===7) return (cmd.date||"").startsWith(periode);
-            return true;
-          }).reduce((acc,cmd)=>{
-            const l = (cmd.lignes||[]).find(l=>l.produitId===p.id);
-            return acc + (l?parseInt(l.qte)||0:0);
-          },0);
+          return st.produits.filter(p=>p.actif).map((p,idx,arr)=>{
+            const isCoffret = p.nom.includes("Coffret");
+            const prevIsCoffret = idx>0 && arr[idx-1].nom.includes("Coffret");
+            const showDivider = isCoffret && !prevIsCoffret;
+            const cout = p.coutRevient||0;
+            const margeP = p.prixClient-cout;
+            const margePPct = p.prixClient?((margeP/p.prixClient)*100).toFixed(0):0;
+            const margePro = p.prixRevendeur-cout;
+            const margeProPct = p.prixRevendeur?((margePro/p.prixRevendeur)*100).toFixed(0):0;
+            const c = COULEURS[p.variante]||{accent:"#737373"};
 
-          // Volumes depuis factures partenaires payées
-          const unitesFact = (st.factures||[]).filter(f=>{
-            if(f.statut!=="payée") return false;
-            if(periode==="tout") return true;
-            if(periode.length===4) return (f.datePaiement||f.date||"").startsWith(periode);
-            if(periode.length===7) return (f.datePaiement||f.date||"").startsWith(periode);
-            return true;
-          }).reduce((acc,f)=>{
-            const l = (f.lignes||[]).find(l=>l.produitId===p.id);
-            return acc + (l?parseInt(l.qte)||0:0);
-          },0);
+            // CA depuis les transactions (compte produit)
+            const caP = isCoffret
+              ? ca3004/nbCoffrets
+              : p.nom==="Limonta"?ca3001:p.nom==="Limelo"?ca3002:p.nom==="Clementino"?ca3003:0;
+            const totalUnites = p.prixClient>0?Math.round(caP/p.prixClient):0;
+            const margeGeneree = caP - totalUnites*cout;
 
-          const totalUnites = unitesCmds + unitesFact;
-          const caGenere = unitesCmds*(p.prixClient||0) + unitesFact*(p.prixRevendeur||0);
-          const margeGeneree = unitesCmds*margeP + unitesFact*margePro;
-
-          return (
-            <React.Fragment key={p.id}>
-              {showDivider && (
-                <div style={{display:"flex",alignItems:"center",gap:8,padding:"10px 0 6px",margin:"4px 0"}}>
-                  <div style={{flex:1,height:1,background:"#EAE7E0"}}/>
-                  <span style={{fontSize:10,fontWeight:700,color:"#737373",textTransform:"uppercase",letterSpacing:".07em"}}>🎁 Coffrets</span>
-                  <div style={{flex:1,height:1,background:"#EAE7E0"}}/>
-                </div>
-              )}
-            <div style={{padding:"12px 0",borderBottom:"1px solid #EAE7E0"}}>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:6}}>
-                <p style={{fontSize:13,fontWeight:600}}>{p.nom} <span style={{color:c.accent,fontWeight:400,fontSize:12}}>{p.variante}</span> {p.format}</p>
-                <p style={{fontSize:11,color:"#737373"}}>Coût: <strong>{chf(cout)}</strong></p>
-              </div>
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,fontSize:11,marginBottom:8}}>
-                <div style={{background:"#F4F4F2",borderRadius:6,padding:"6px 8px"}}>
-                  <p style={{color:"#737373",fontSize:10,fontWeight:500}}>PUBLIC {chf(p.prixClient)}</p>
-                  <p style={{fontWeight:700,color:margePPct>30?"#15803D":margePPct>15?"#9A3412":"#B91C1C",marginTop:2}}>
-                    {margePPct}% <span style={{fontSize:10,fontWeight:400}}>· {chf(margeP)}/u</span>
-                  </p>
-                </div>
-                <div style={{background:"#F4F4F2",borderRadius:6,padding:"6px 8px"}}>
-                  <p style={{color:"#737373",fontSize:10,fontWeight:500}}>PRO {chf(p.prixRevendeur)}</p>
-                  <p style={{fontWeight:700,color:margeProPct>30?"#15803D":margeProPct>15?"#9A3412":"#B91C1C",marginTop:2}}>
-                    {margeProPct}% <span style={{fontSize:10,fontWeight:400}}>· {chf(margePro)}/u</span>
-                  </p>
-                </div>
-              </div>
-              {totalUnites>0 && (
-                <div style={{background:"#EFF6FF",borderRadius:6,padding:"7px 10px",display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:4}}>
-                  <div style={{textAlign:"center"}}>
-                    <p style={{fontSize:8,color:"#1E40AF",fontWeight:600,textTransform:"uppercase"}}>Vendues</p>
-                    <p style={{fontSize:14,fontWeight:700,color:"#1E40AF",marginTop:1}}>{totalUnites}</p>
-                    <p style={{fontSize:8,color:"#6B7280"}}>unités</p>
+            return (
+              <React.Fragment key={p.id}>
+                {showDivider && (
+                  <div style={{display:"flex",alignItems:"center",gap:8,padding:"10px 0 6px",margin:"4px 0"}}>
+                    <div style={{flex:1,height:1,background:"#EAE7E0"}}/>
+                    <span style={{fontSize:10,fontWeight:700,color:"#737373",textTransform:"uppercase",letterSpacing:".07em"}}>🎁 Coffrets</span>
+                    <div style={{flex:1,height:1,background:"#EAE7E0"}}/>
                   </div>
-                  <div style={{textAlign:"center"}}>
-                    <p style={{fontSize:8,color:"#1E40AF",fontWeight:600,textTransform:"uppercase"}}>CA</p>
-                    <p style={{fontSize:13,fontWeight:700,color:"#1E40AF",marginTop:1}}>{chf(caGenere)}</p>
+                )}
+                <div style={{padding:"12px 0",borderBottom:"1px solid #EAE7E0"}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:6}}>
+                    <p style={{fontSize:13,fontWeight:600}}>{p.nom} <span style={{color:c.accent,fontWeight:400,fontSize:12}}>{p.variante}</span> {p.format}</p>
+                    <p style={{fontSize:11,color:"#737373"}}>Coût: <strong>{chf(cout)}</strong></p>
                   </div>
-                  <div style={{textAlign:"center"}}>
-                    <p style={{fontSize:8,color:margeGeneree>0?"#15803D":"#B91C1C",fontWeight:600,textTransform:"uppercase"}}>Marge</p>
-                    <p style={{fontSize:13,fontWeight:700,color:margeGeneree>0?"#15803D":"#B91C1C",marginTop:1}}>{chf(margeGeneree)}</p>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,fontSize:11,marginBottom:8}}>
+                    <div style={{background:"#F4F4F2",borderRadius:6,padding:"6px 8px"}}>
+                      <p style={{color:"#737373",fontSize:10,fontWeight:500}}>PUBLIC {chf(p.prixClient)}</p>
+                      <p style={{fontWeight:700,color:margePPct>30?"#15803D":margePPct>15?"#9A3412":"#B91C1C",marginTop:2}}>
+                        {margePPct}% <span style={{fontSize:10,fontWeight:400}}>· {chf(margeP)}/u</span>
+                      </p>
+                    </div>
+                    <div style={{background:"#F4F4F2",borderRadius:6,padding:"6px 8px"}}>
+                      <p style={{color:"#737373",fontSize:10,fontWeight:500}}>PRO {chf(p.prixRevendeur)}</p>
+                      <p style={{fontWeight:700,color:margeProPct>30?"#15803D":margeProPct>15?"#9A3412":"#B91C1C",marginTop:2}}>
+                        {margeProPct}% <span style={{fontSize:10,fontWeight:400}}>· {chf(margePro)}/u</span>
+                      </p>
+                    </div>
                   </div>
+                  {caP>0 ? (
+                    <div style={{background:"#EFF6FF",borderRadius:6,padding:"7px 10px",display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:4}}>
+                      <div style={{textAlign:"center"}}>
+                        <p style={{fontSize:8,color:"#1E40AF",fontWeight:600,textTransform:"uppercase"}}>Vendues</p>
+                        <p style={{fontSize:14,fontWeight:700,color:"#1E40AF",marginTop:1}}>{totalUnites}</p>
+                        <p style={{fontSize:8,color:"#6B7280"}}>{isCoffret?"estimé*":"estimé"}</p>
+                      </div>
+                      <div style={{textAlign:"center"}}>
+                        <p style={{fontSize:8,color:"#1E40AF",fontWeight:600,textTransform:"uppercase"}}>CA</p>
+                        <p style={{fontSize:13,fontWeight:700,color:"#1E40AF",marginTop:1}}>{chf(caP)}</p>
+                        {isCoffret&&<p style={{fontSize:8,color:"#6B7280"}}>réparti /coffret</p>}
+                      </div>
+                      <div style={{textAlign:"center"}}>
+                        <p style={{fontSize:8,color:margeGeneree>0?"#15803D":"#B91C1C",fontWeight:600,textTransform:"uppercase"}}>Marge</p>
+                        <p style={{fontSize:13,fontWeight:700,color:margeGeneree>0?"#15803D":"#B91C1C",marginTop:1}}>{chf(margeGeneree)}</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <p style={{fontSize:10,color:"#9CA3AF",textAlign:"center",padding:"2px 0"}}>Aucune écriture comptable sur cette période</p>
+                  )}
                 </div>
-              )}
-              {totalUnites===0 && <p style={{fontSize:10,color:"#9CA3AF",textAlign:"center",padding:"2px 0"}}>Aucune vente enregistrée sur cette période</p>}
-            </div>
-            </React.Fragment>
-          );
-        })}
+              </React.Fragment>
+            );
+          });
+        })()}
       </Card>
 
       {/* Analyse prix recommandés */}
