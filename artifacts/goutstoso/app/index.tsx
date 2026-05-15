@@ -1999,12 +1999,34 @@ return (
 <>
 <div className="fade">
 <button onClick={()=>setView(null)} style={{display:"flex",alignItems:"center",gap:6,background:"none",border:"none",color:"#9CA3AF",fontSize:13,marginBottom:16,padding:0,cursor:"pointer"}}>← Retour</button>
-<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
-<div>
-<h2 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:24,fontWeight:700}}>{pv.nom}</h2>
-<p style={{fontSize:12,color:"#6B7280"}}>{pv.adresse}</p>
-</div>
-<Badge c={pv.statut==="actif"?"green":"gray"}>{pv.statut}</Badge>
+
+{/* Carte identité partenaire */}
+<div style={{background:"#111",borderRadius:14,padding:"16px",marginBottom:14}}>
+  <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
+    <div style={{flex:1,minWidth:0}}>
+      {pv.logo && <img src={pv.logo} alt="logo" style={{height:40,maxWidth:90,objectFit:"contain",borderRadius:8,border:"1px solid rgba(255,255,255,.15)",background:"#fff",padding:4,marginBottom:8,display:"block"}}/>}
+      <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:22,fontWeight:700,color:"#fff",lineHeight:1.2}}>{pv.nom}</p>
+      {(pv.adresse||pv.npa||pv.ville) && (
+        <p style={{fontSize:11,color:"#9CA3AF",marginTop:4}}>
+          📍 {[pv.adresse,[pv.npa,pv.ville].filter(Boolean).join(" ")].filter(Boolean).join(", ")}
+        </p>
+      )}
+    </div>
+    <Badge c={pv.statut==="actif"?"green":"gray"}>{pv.statut}</Badge>
+  </div>
+  <div style={{borderTop:"1px solid rgba(255,255,255,.1)",paddingTop:10,display:"flex",flexDirection:"column",gap:6}}>
+    {pv.contact && <p style={{fontSize:12,color:"#D1D5DB"}}>👤 {pv.contact}</p>}
+    {pv.tel && (
+      <a href={"tel:"+pv.tel} style={{fontSize:12,color:"#A3E635",textDecoration:"none"}}>📞 {pv.tel}</a>
+    )}
+    {pv.email && (
+      <a href={"mailto:"+pv.email} style={{fontSize:12,color:"#60A5FA",textDecoration:"none",wordBreak:"break-all"}}>✉️ {pv.email}</a>
+    )}
+    {pv.site && (
+      <a href={pv.site.startsWith("http")?pv.site:"https://"+pv.site} target="_blank" rel="noreferrer" style={{fontSize:12,color:"#C4B5FD",textDecoration:"none"}}>🌐 {pv.site}</a>
+    )}
+    {pv.commission>0 && <p style={{fontSize:11,color:"#FCD34D",marginTop:2}}>Commission : {pv.commission}%</p>}
+  </div>
 </div>
 
     {/* Contrat actif */}
