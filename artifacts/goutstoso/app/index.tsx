@@ -6809,20 +6809,59 @@ const view = viewId ? (st.clients||[]).find(c=>c.id===viewId) : null;
 const emptyC = () => ({id:null,nom:"",email:"",telephone:"",adresse:"",npa:"",ville:"",notes:"",categorie:"client"});
 const [form,setForm] = useState(emptyC());
 
+const pvFromClient = (client, existingPvId?) => ({
+  id: existingPvId||uid(),
+  nom: client.nom,
+  adresse: client.adresse||"",
+  npa: client.npa||"",
+  ville: client.ville||"",
+  contact: client.contact||"",
+  tel: client.telephone||"",
+  email: client.email||"",
+  site: client.site||"",
+  type: "depot-vente",
+  commission: client.commission||0,
+  statut: "actif",
+  clientId: client.id,
+});
+
 const save = () => {
 if(!form.nom) { alert("Le nom est obligatoire"); return; }
 if(form.id) {
-setSt(p=>({...p,clients:(p.clients||[]).map(c=>c.id===form.id?form:c)}));
+  setSt(p=>{
+    const newClients = (p.clients||[]).map(c=>c.id===form.id?form:c);
+    let newPartenaires = p.partenaires||[];
+    if(form.categorie==="partenaire") {
+      const existing = newPartenaires.find(x=>x.clientId===form.id);
+      newPartenaires = existing
+        ? newPartenaires.map(x=>x.clientId===form.id?pvFromClient(form,existing.id):x)
+        : [...newPartenaires, pvFromClient(form)];
+    }
+    return {...p,clients:newClients,partenaires:newPartenaires};
+  });
 } else {
-const nc = {...form,id:uid()};
-setSt(p=>({...p,clients:[...(p.clients||[]),nc]}));
+  const nc = {...form,id:uid()};
+  setSt(p=>{
+    const newClients = [...(p.clients||[]),nc];
+    const newPartenaires = nc.categorie==="partenaire"
+      ? [...(p.partenaires||[]),pvFromClient(nc)]
+      : (p.partenaires||[]);
+    return {...p,clients:newClients,partenaires:newPartenaires};
+  });
 }
 setModal(null);
 };
 
 const supprimer = (id) => {
 if(!window.confirm("Supprimer ce client ? Les commandes liées seront conservées.")) return;
-setSt(p=>({...p,clients:(p.clients||[]).filter(c=>c.id!==id)}));
+const client = (st.clients||[]).find(c=>c.id===id);
+setSt(p=>({
+  ...p,
+  clients:(p.clients||[]).filter(c=>c.id!==id),
+  partenaires: client?.categorie==="partenaire"
+    ? (p.partenaires||[]).filter(x=>x.clientId!==id)
+    : (p.partenaires||[]),
+}));
 setViewId(null);
 };
 
