@@ -311,10 +311,9 @@ const Card = ({children,style,onClick}) => (
 
 // ── SECTION TITLE ──────────────────────────────────────────────
 const SectionTitle = ({children,action}) => (
-
-  <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
-    <h2 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:20,fontWeight:700,color:"#111"}}>{children}</h2>
-    {action}
+  <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12,gap:8,flexWrap:"wrap"}}>
+    <h2 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:20,fontWeight:700,color:"#111",flexShrink:0}}>{children}</h2>
+    {action && <div style={{display:"flex",gap:6,alignItems:"center",flexShrink:0,flexWrap:"wrap"}}>{action}</div>}
   </div>
 );
 
@@ -1205,9 +1204,8 @@ sendEmail({to:"admin@goutstoso.ch",subject:subj2,body:bodyAlerte});
   <SectionTitle action={
     <div style={{display:"flex",gap:8}}>
       <Btn icon="export" variant="ghost" small onClick={exportStocks}>Export</Btn>
-      <Btn variant="ghost" small onClick={syncMouvements}>⟳ Sync</Btn>
       <Btn variant="ghost" small onClick={()=>setModal("ajust")}>Ajuster</Btn>
-      <Btn icon="plus" onClick={()=>setModal("form")}>Entrée</Btn>
+      <Btn icon="plus" small onClick={()=>setModal("form")}>Entrée</Btn>
     </div>
   }>Stocks</SectionTitle>
 
@@ -1266,7 +1264,10 @@ sendEmail({to:"admin@goutstoso.ch",subject:subj2,body:bodyAlerte});
 
     return (
       <Card>
-        <h3 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:18,marginBottom:12}}>Mouvements de stock</h3>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
+          <h3 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:18}}>Mouvements de stock</h3>
+          <button onClick={syncMouvements} style={{background:"#F4F4F2",border:"none",borderRadius:8,padding:"5px 10px",fontSize:11,fontWeight:600,color:"#525252",cursor:"pointer"}}>⟳ Sync</button>
+        </div>
         {mouvements.length === 0 ? (
           <div style={{textAlign:"center",padding:"30px 20px",color:"#9CA3AF"}}>
             <p style={{fontSize:36,marginBottom:8}}>📦</p>
@@ -11187,12 +11188,12 @@ const Ventes = ({st, setSt}) => {
   ] as const;
   return (
     <div>
-      <div style={{display:"flex",background:"#fff",borderRadius:12,padding:4,marginBottom:16,gap:4,overflowX:"auto"}}>
+      <div style={{display:"flex",background:"#fff",borderRadius:12,padding:4,marginBottom:16,gap:3,overflowX:"auto",WebkitOverflowScrolling:"touch"}}>
         {tabs.map(t=>(
           <button key={t.id} onClick={()=>setOnglet(t.id as any)} style={{
-            flex:1,minWidth:72,padding:"8px 6px",border:"none",borderRadius:9,cursor:"pointer",fontSize:12,fontWeight:onglet===t.id?700:500,
+            flex:"1 1 0",minWidth:0,padding:"7px 4px",border:"none",borderRadius:9,cursor:"pointer",fontSize:11,fontWeight:onglet===t.id?700:500,
             background:onglet===t.id?"#0A0A0A":"transparent",color:onglet===t.id?"#F2C94C":"#525252",
-            transition:"background .15s,color .15s",whiteSpace:"nowrap",
+            transition:"background .15s,color .15s",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",
           }}>
             {t.emoji} {t.label}
           </button>
