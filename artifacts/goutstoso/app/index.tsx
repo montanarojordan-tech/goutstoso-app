@@ -1078,6 +1078,7 @@ sendEmail({to:"admin@goutstoso.ch",subject:subj,body:bodyTxt||body||""});
 const Stocks = ({st,setSt}) => {
 const [modal,setModal] = useState(null);
 const [form,setForm] = useState({produitId:"",qte:0,lot:genLot(),dateEntree:today(),notes:""});
+const [ajustForm,setAjustForm] = useState({produitId:"",cibleQte:"",notes:""});
 
 const save = () => {
 if(!form.produitId||!form.qte) return;
@@ -1105,6 +1106,25 @@ setSt(p=>({...p,
     source:"Suppression entrée de stock",lot:s.lot||"",
   }],
 }));
+};
+
+const ajuster = () => {
+if(!ajustForm.produitId||ajustForm.cibleQte==="") return;
+const cible = parseInt(ajustForm.cibleQte)||0;
+const actuel = sum((st.stocks||[]).filter(s=>s.produitId===ajustForm.produitId).map(s=>s.qte));
+const delta = cible - actuel;
+if(delta===0) { setModal(null); return; }
+const adjEntry = {id:uid(),produitId:ajustForm.produitId,qte:delta,lot:"",dateEntree:today(),notes:ajustForm.notes||""};
+setSt(p=>({...p,
+  stocks:[...(p.stocks||[]),adjEntry],
+  mouvementsStock:[...(p.mouvementsStock||[]),{
+    id:uid(),date:today(),type:"régularisation",
+    produitId:ajustForm.produitId,qte:delta,
+    source:"Régularisation manuelle"+(ajustForm.notes?" · "+ajustForm.notes:""),
+  }],
+}));
+setModal(null);
+setAjustForm({produitId:"",cibleQte:"",notes:""});
 };
 
 const exportStocks = () => {
@@ -1159,7 +1179,8 @@ sendEmail({to:"admin@goutstoso.ch",subject:subj2,body:bodyAlerte});
   <SectionTitle action={
     <div style={{display:"flex",gap:8}}>
       <Btn icon="export" variant="ghost" small onClick={exportStocks}>Export</Btn>
-      <Btn icon="plus" onClick={()=>setModal("form")}>Entrée stock</Btn>
+      <Btn variant="ghost" small onClick={()=>setModal("ajust")}>Ajuster</Btn>
+      <Btn icon="plus" onClick={()=>setModal("form")}>Entrée</Btn>
     </div>
   }>Stocks</SectionTitle>
 
@@ -1212,6 +1233,8 @@ sendEmail({to:"admin@goutstoso.ch",subject:subj2,body:bodyAlerte});
       ? {bg:"#FEE2E2",color:"#991B1B",label:"↓ Sortie"}
       : t==="restauration"
       ? {bg:"#DBEAFE",color:"#1E40AF",label:"↩ Restauration"}
+      : t==="régularisation"
+      ? {bg:"#FEF3C7",color:"#92400E",label:"⚖ Régul."}
       : {bg:"#F4F4F2",color:"#525252",label:"✎ Correction"};
 
     return (
@@ -1281,6 +1304,49 @@ sendEmail({to:"admin@goutstoso.ch",subject:subj2,body:bodyAlerte});
       </div>
       <div style={{display:"flex",gap:10,marginTop:20}}>
         <Btn onClick={save} full icon="check">Enregistrer</Btn>
+        <Btn onClick={()=>setModal(null)} variant="ghost" full>Annuler</Btn>
+      </div>
+    </Modal>
+  )}
+
+  {/* Modal ajustement de stock */}
+  {modal==="ajust"&&(
+    <Modal title="Ajustement de stock" onClose={()=>setModal(null)}>
+      <div style={{display:"grid",gap:14}}>
+        <Sel label="Produit" value={ajustForm.produitId} onChange={v=>{
+          const actuel = sum((st.stocks||[]).filter(s=>s.produitId===v).map(s=>s.qte));
+          setAjustForm(p=>({...p,produitId:v,cibleQte:String(actuel)}));
+        }} required
+          options={[{v:"",l:"- Sélectionner un produit -"},...st.produits.filter(p=>p.actif && !p.nom.includes("Coffret")).map(p=>({v:p.id,l:`${p.nom} ${p.variante} ${p.format}`}))]}/>
+        {ajustForm.produitId&&(()=>{
+          const actuel = sum((st.stocks||[]).filter(s=>s.produitId===ajustForm.produitId).map(s=>s.qte));
+          const cible = parseInt(ajustForm.cibleQte)||0;
+          const delta = cible - actuel;
+          return (
+            <div style={{background:"#F5F5F0",borderRadius:10,padding:"10px 14px",display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,textAlign:"center"}}>
+              <div>
+                <p style={{fontSize:10,color:"#9CA3AF",fontWeight:600,textTransform:"uppercase"}}>Actuel</p>
+                <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:22,fontWeight:700,color:"#111"}}>{actuel}</p>
+              </div>
+              <div>
+                <p style={{fontSize:10,color:"#9CA3AF",fontWeight:600,textTransform:"uppercase"}}>Cible</p>
+                <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:22,fontWeight:700,color:"#111"}}>{cible}</p>
+              </div>
+              <div>
+                <p style={{fontSize:10,color:"#9CA3AF",fontWeight:600,textTransform:"uppercase"}}>Écart</p>
+                <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:22,fontWeight:700,color:delta===0?"#9CA3AF":delta>0?"#166534":"#991B1B"}}>{delta>0?"+":""}{delta}</p>
+              </div>
+            </div>
+          );
+        })()}
+        <F label="Nouveau stock (unités)" type="number" value={ajustForm.cibleQte} onChange={v=>setAjustForm(p=>({...p,cibleQte:v}))} required/>
+        <F label="Motif (optionnel)" value={ajustForm.notes} onChange={v=>setAjustForm(p=>({...p,notes:v}))} placeholder="ex: Inventaire physique, casse, perte..."/>
+        <div style={{background:"#FEF9E7",borderRadius:10,padding:"10px 12px",fontSize:12,color:"#92400E"}}>
+          ⚖️ L'écart sera enregistré en "Régularisation" dans l'historique des mouvements.
+        </div>
+      </div>
+      <div style={{display:"flex",gap:10,marginTop:20}}>
+        <Btn onClick={ajuster} full icon="check">Valider l'ajustement</Btn>
         <Btn onClick={()=>setModal(null)} variant="ghost" full>Annuler</Btn>
       </div>
     </Modal>
@@ -4784,6 +4850,52 @@ return (
             <span style={{fontWeight:700,color:"#1E3A5F",fontSize:14}}>{chf(valeurStock)}</span>
           </div>
         </div>
+      </Card>
+
+      {/* Valorisation détaillée du stock */}
+      <Card style={{marginBottom:14}}>
+        <h3 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:17,marginBottom:12}}>Valorisation du stock</h3>
+        {(()=>{
+          const lignes = st.produits.filter(p=>p.actif && !p.nom.includes("Coffret")).map(p=>{
+            const total = sum((st.stocks||[]).filter(s=>s.produitId===p.id).map(s=>s.qte));
+            const enDepot = sum((st.depotStocks||[]).filter(d=>d.produitId===p.id).map(d=>d.qteDeposee-d.qteVendue-d.qteRetournee));
+            const propre = total - enDepot;
+            const cout = p.coutRevient||0;
+            return {p, total, enDepot, propre, valTotal:total*cout, valPropre:propre*cout, valDepot:enDepot*cout, cout};
+          });
+          const totVal = sum(lignes.map(l=>l.valTotal));
+          const totPropre = sum(lignes.map(l=>l.valPropre));
+          const totDepot = sum(lignes.map(l=>l.valDepot));
+          return (
+            <>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:14}}>
+                <div style={{background:"#F0FDF4",borderRadius:10,padding:"10px",textAlign:"center"}}>
+                  <p style={{fontSize:9,color:"#166534",fontWeight:600,textTransform:"uppercase"}}>Stock propre</p>
+                  <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:20,fontWeight:700,color:"#166534"}}>{chf(totPropre)}</p>
+                </div>
+                <div style={{background:"#DBEAFE",borderRadius:10,padding:"10px",textAlign:"center"}}>
+                  <p style={{fontSize:9,color:"#1E40AF",fontWeight:600,textTransform:"uppercase"}}>En dépôt</p>
+                  <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:20,fontWeight:700,color:"#1E40AF"}}>{chf(totDepot)}</p>
+                </div>
+              </div>
+              <p style={{fontSize:9,fontWeight:600,color:"#9CA3AF",textTransform:"uppercase",marginBottom:8,letterSpacing:"0.05em"}}>Détail par produit</p>
+              {lignes.map(({p,total,enDepot,propre,valTotal,cout})=>(
+                <div key={p.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderBottom:"1px solid #F5F5F0"}}>
+                  <div style={{flex:1,minWidth:0}}>
+                    <p style={{fontSize:12,fontWeight:600,color:"#111"}}>{p.nom} <span style={{color:"#9CA3AF",fontWeight:400}}>{p.variante}</span> <span style={{fontSize:10,color:"#9CA3AF"}}>{p.format}</span></p>
+                    <p style={{fontSize:10,color:"#9CA3AF",marginTop:1}}>{total} u. total · {propre} propre · {enDepot} en dépôt · coût {chf(cout)}/u</p>
+                  </div>
+                  <p style={{fontSize:14,fontWeight:700,color:"#374151",flexShrink:0,marginLeft:8}}>{chf(valTotal)}</p>
+                </div>
+              ))}
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:12,paddingTop:10,borderTop:"2px solid #EAE7E0"}}>
+                <p style={{fontWeight:700,fontSize:13}}>Total actif stock</p>
+                <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:20,fontWeight:700,color:"#0A0A0A"}}>{chf(totVal)}</p>
+              </div>
+              <p style={{fontSize:9,color:"#9CA3AF",marginTop:6,textAlign:"center"}}>Valorisé au coût de revient · Compte 1200</p>
+            </>
+          );
+        })()}
       </Card>
     </div>
   )}
