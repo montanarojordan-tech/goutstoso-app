@@ -141,6 +141,7 @@ partenaires:[
 {id:"pv1",nom:"Temple 5 - Epicerie Fine Sàrl",adresse:"Rue du Temple 5, 2610 Saint-Imier",contact:"",tel:"",type:"depot-vente",commission:0,statut:"actif"},
 ],
 stocks:[],
+mouvementsStock:[],
 depotStocks:[
 {id:"ds1",partenaireId:"pv1",produitId:"p1",qteDeposee:2,qteVendue:0,qteRetournee:0,dateDepot:"2026-01-01",dateInventaire:"2026-01-01"},
 {id:"ds2",partenaireId:"pv1",produitId:"p2",qteDeposee:2,qteVendue:0,qteRetournee:0,dateDepot:"2026-01-01",dateInventaire:"2026-01-01"},
@@ -1080,12 +1081,31 @@ const [form,setForm] = useState({produitId:"",qte:0,lot:genLot(),dateEntree:toda
 
 const save = () => {
 if(!form.produitId||!form.qte) return;
-setSt(p=>({...p,stocks:[...p.stocks,{...form,id:uid(),qte:+form.qte}]}));
+const newEntry = {...form,id:uid(),qte:+form.qte};
+setSt(p=>({...p,
+  stocks:[...p.stocks,newEntry],
+  mouvementsStock:[...(p.mouvementsStock||[]),{
+    id:uid(),date:form.dateEntree,type:"entrée",
+    produitId:form.produitId,qte:+form.qte,
+    source:"Production / entrée manuelle",lot:form.lot||"",notes:form.notes||"",stockEntreeId:newEntry.id,
+  }],
+}));
 setModal(null);
 setForm({produitId:"",qte:0,lot:"",dateEntree:today(),notes:""});
 };
 
-const del = id => setSt(p=>({...p,stocks:p.stocks.filter(s=>s.id!==id)}));
+const del = id => {
+const s = (st.stocks||[]).find(x=>x.id===id);
+if(!s) return;
+setSt(p=>({...p,
+  stocks:p.stocks.filter(x=>x.id!==id),
+  mouvementsStock:[...(p.mouvementsStock||[]),{
+    id:uid(),date:today(),type:"correction",
+    produitId:s.produitId,qte:-(s.qte||0),
+    source:"Suppression entrée de stock",lot:s.lot||"",
+  }],
+}));
+};
 
 const exportStocks = () => {
 const rows = st.produits.map(p=>{
@@ -1183,45 +1203,65 @@ sendEmail({to:"admin@goutstoso.ch",subject:subj2,body:bodyAlerte});
     })}
   </div>
 
-  {/* Historique des entrées */}
-  {st.stocks && st.stocks.length > 0 && (
-    <Card>
-      <h3 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:18,marginBottom:12}}>Historique des entrées</h3>
-      <div style={{display:"flex",flexDirection:"column",gap:6}}>
-        {st.stocks.slice().reverse().map(s=>{
-          const p = st.produits.find(x=>x.id===s.produitId);
-          return (
-            <div key={s.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"8px 0",borderBottom:"1px solid #F5F5F0"}}>
-              <div>
-                <p style={{fontSize:13,fontWeight:600}}>{p?.nom} {p?.variante} {p?.format}</p>
-                <p style={{fontSize:11,color:"#9CA3AF",marginTop:1}}>
-                  {s.lot && `Lot ${s.lot} · `}{fmt(s.dateEntree)}{s.notes?` · ${s.notes}`:""}
-                </p>
-              </div>
-              <div style={{display:"flex",alignItems:"center",gap:8}}>
-                <span style={{background:"#DCFCE7",color:"#166534",borderRadius:8,padding:"4px 10px",fontSize:13,fontWeight:700}}>+{s.qte}</span>
-                <button onClick={()=>del(s.id)} style={{background:"#FEE2E2",border:"none",borderRadius:8,padding:6,cursor:"pointer",display:"flex"}}>
-                  <Ic n="trash" s={13}/>
-                </button>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </Card>
-  )}
+  {/* Mouvements de stock */}
+  {(() => {
+    const mouvements = (st.mouvementsStock||[]).slice().sort((a,b)=>(b.date||"").localeCompare(a.date||""));
+    const typeStyle = (t) => t==="entrée"
+      ? {bg:"#DCFCE7",color:"#166534",label:"↑ Entrée"}
+      : t==="sortie"
+      ? {bg:"#FEE2E2",color:"#991B1B",label:"↓ Sortie"}
+      : t==="restauration"
+      ? {bg:"#DBEAFE",color:"#1E40AF",label:"↩ Restauration"}
+      : {bg:"#F4F4F2",color:"#525252",label:"✎ Correction"};
 
-  {/* État vide */}
-  {(!st.stocks || st.stocks.length === 0) && (
-    <div style={{textAlign:"center",padding:"40px 20px",color:"#9CA3AF"}}>
-      <p style={{fontSize:40,marginBottom:12}}>📦</p>
-      <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:20,fontWeight:600,color:"#374151"}}>Aucune entrée de stock</p>
-      <p style={{fontSize:13,marginTop:6}}>Enregistre ta première production pour commencer le suivi.</p>
-      <button onClick={()=>setModal("form")} style={{marginTop:16,background:"#F2C94C",border:"none",borderRadius:12,padding:"12px 24px",fontWeight:700,fontSize:14,cursor:"pointer"}}>
-        + Première entrée
-      </button>
-    </div>
-  )}
+    return (
+      <Card>
+        <h3 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:18,marginBottom:12}}>Mouvements de stock</h3>
+        {mouvements.length === 0 ? (
+          <div style={{textAlign:"center",padding:"30px 20px",color:"#9CA3AF"}}>
+            <p style={{fontSize:36,marginBottom:8}}>📦</p>
+            <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:18,fontWeight:600,color:"#374151"}}>Aucun mouvement</p>
+            <p style={{fontSize:12,marginTop:4}}>Enregistre ta première production pour commencer le suivi.</p>
+            <button onClick={()=>setModal("form")} style={{marginTop:14,background:"#F2C94C",border:"none",borderRadius:12,padding:"11px 22px",fontWeight:700,fontSize:13,cursor:"pointer"}}>
+              + Première entrée
+            </button>
+          </div>
+        ) : (
+          <div style={{display:"flex",flexDirection:"column",gap:0}}>
+            {mouvements.map((m,i)=>{
+              const prod = st.produits.find(x=>x.id===m.produitId);
+              const ts = typeStyle(m.type);
+              return (
+                <div key={m.id} style={{display:"flex",alignItems:"center",gap:10,padding:"9px 0",borderBottom:i<mouvements.length-1?"1px solid #F5F5F0":"none"}}>
+                  {/* Badge type */}
+                  <span style={{background:ts.bg,color:ts.color,borderRadius:6,padding:"3px 8px",fontSize:10,fontWeight:700,whiteSpace:"nowrap",flexShrink:0}}>{ts.label}</span>
+                  {/* Infos */}
+                  <div style={{flex:1,minWidth:0}}>
+                    <p style={{fontSize:12,fontWeight:600,color:"#111",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                      {prod?.nom} {prod?.variante} {prod?.format}
+                    </p>
+                    <p style={{fontSize:10,color:"#9CA3AF",marginTop:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                      {fmt(m.date)}{m.lot?` · Lot ${m.lot}`:""} · {m.source}
+                    </p>
+                  </div>
+                  {/* Qté */}
+                  <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:18,fontWeight:700,color:ts.color,flexShrink:0}}>
+                    {m.qte>0?"+":""}{m.qte}
+                  </span>
+                  {/* Supprimer si c'est une entrée manuelle */}
+                  {m.stockEntreeId && (
+                    <button onClick={()=>del(m.stockEntreeId)} style={{background:"#FEE2E2",border:"none",borderRadius:8,padding:5,cursor:"pointer",display:"flex",flexShrink:0}}>
+                      <Ic n="trash" s={12}/>
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </Card>
+    );
+  })()}
 
   {/* Modal nouvelle entrée */}
   {modal==="form"&&(
@@ -6087,6 +6127,7 @@ const etaitEnvoye = c.stockDeduit === true;
 setSt(p=>{
   let newStocks = p.stocks ? [...p.stocks] : [];
   let stockDeduit = c.stockDeduit || false;
+  const newMouvements = [...(p.mouvementsStock||[])];
 
   if(!etaitEnvoye && vaEtreEnvoye) {
     // Décrémentation : distribuer sur les entrées de stock disponibles
@@ -6098,9 +6139,14 @@ setSt(p=>{
         restant -= dedd;
         return {...s, qte: (s.qte||0) - dedd};
       });
+      // Mouvement de sortie par ligne
+      newMouvements.push({
+        id:uid(), date:today(), type:"sortie",
+        produitId:l.produitId, qte:-(parseInt(l.qte)||0),
+        source:`Commande ${c.numero}`, commandeId:c.id,
+      });
     });
     stockDeduit = true;
-    // Notification discrète en console (pas d'alert pour UX fluide)
   } else if(etaitEnvoye && !vaEtreEnvoye) {
     // Restauration stock si on revient en arrière
     (c.lignes||[]).filter(l=>l.produitId&&(l.qte||0)>0).forEach(l=>{
@@ -6111,6 +6157,12 @@ setSt(p=>{
         done = true;
         return {...s, qte: (s.qte||0) + aRestorer};
       });
+      // Mouvement de restauration par ligne
+      newMouvements.push({
+        id:uid(), date:today(), type:"restauration",
+        produitId:l.produitId, qte:+(parseInt(l.qte)||0),
+        source:`Annulation sortie — Commande ${c.numero}`, commandeId:c.id,
+      });
     });
     stockDeduit = false;
   }
@@ -6118,9 +6170,20 @@ setSt(p=>{
   return {
     ...p,
     stocks: newStocks,
+    mouvementsStock: newMouvements,
     commandes: p.commandes.map(x=>x.id===c.id?{...x,statut:newStatut,stockDeduit}:x),
   };
 });
+
+// Confirmation visible si stock déduit
+if(!etaitEnvoye && vaEtreEnvoye) {
+  const lignes = (c.lignes||[]).filter(l=>l.produitId&&(l.qte||0)>0);
+  const details = lignes.map(l=>{
+    const prod = st.produits.find(x=>x.id===l.produitId);
+    return `• ${prod?.nom||""} ${prod?.variante||""} ${prod?.format||""} : -${l.qte}`;
+  }).join("\n");
+  alert(`📦 Stock mis à jour — ${c.numero}\n\n${details}\n\nStatut → ${newStatut}`);
+}
 };
 
 const addLigne = () => setForm(p=>({...p,lignes:[...p.lignes,{produitId:"",qte:1}]}));
