@@ -29,3 +29,9 @@ id = "9ND9dj1oTknz47nHl_4wW"
 uri = "file://attached_assets/api_auth.txt"
 type = "text"
 title = "api.php mis à jour — coller sur Infomaniak (version diagnostic)"
+
+[[outputs]]
+id = "ZqJmt2GvGRzaMhMnJfoye"
+uri = "file://goutstoso_code.txt"
+type = "text"
+title = "Goutstoso — code complet (index.tsx)"
