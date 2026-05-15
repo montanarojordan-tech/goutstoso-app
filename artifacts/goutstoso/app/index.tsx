@@ -11763,6 +11763,37 @@ setLoading(false);
 })();
 },[]);
 
+// Migration : sync partenaires existants (sans clientId) vers st.clients
+React.useEffect(()=>{
+if(loading) return;
+setSt(p=>{
+  const pvsSansLien = (p.partenaires||[]).filter(pv=>!pv.clientId);
+  if(pvsSansLien.length===0) return p;
+  const newClients = [...(p.clients||[])];
+  const newPartenaires = (p.partenaires||[]).map(pv=>{
+    if(pv.clientId) return pv; // déjà lié
+    // Chercher un client existant avec le même nom
+    const existing = newClients.find(c=>c.nom===pv.nom && c.categorie==="partenaire");
+    if(existing) return {...pv,clientId:existing.id};
+    // Créer un nouveau client
+    const nc = {
+      id: uid(),
+      nom: pv.nom,
+      email: pv.email||"",
+      telephone: pv.tel||"",
+      adresse: pv.adresse||"",
+      npa: pv.npa||"",
+      ville: pv.ville||"",
+      notes: "",
+      categorie: "partenaire",
+    };
+    newClients.push(nc);
+    return {...pv,clientId:nc.id};
+  });
+  return {...p,clients:newClients,partenaires:newPartenaires};
+});
+},[loading]);
+
 // Sauvegarder à chaque changement
 const saveTimer = React.useRef(null);
 React.useEffect(()=>{
