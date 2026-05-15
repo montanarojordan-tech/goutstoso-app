@@ -5038,7 +5038,7 @@ return (
     <div>
       {/* TOTAL MARGE BRUTE — synthèse toutes ventes */}
       {(()=>{
-        const prodActifs = st.produits.filter(p=>p.actif&&!p.nom.includes("Coffret"));
+        const prodActifs = st.produits.filter(p=>p.actif);
         let totalUnites=0, totalCA=0, totalMarge=0;
         prodActifs.forEach(p=>{
           const cout = p.coutRevient||0;
@@ -5091,7 +5091,10 @@ return (
       <Card style={{marginBottom:12}}>
         <h3 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:16,marginBottom:4,letterSpacing:"-0.015em"}}>Marges & volumes par produit</h3>
         <p style={{fontSize:11,color:"#737373",marginBottom:14}}>Marges théoriques + unités vendues sur la période sélectionnée</p>
-        {st.produits.filter(p=>p.actif&&!p.nom.includes("Coffret")).map(p=>{
+        {st.produits.filter(p=>p.actif).map((p,idx,arr)=>{
+          const isCoffret = p.nom.includes("Coffret");
+          const prevIsCoffret = idx>0 && arr[idx-1].nom.includes("Coffret");
+          const showDivider = isCoffret && !prevIsCoffret;
           const cout = p.coutRevient||0;
           const margeP = p.prixClient-cout;
           const margePPct = p.prixClient?((margeP/p.prixClient)*100).toFixed(0):0;
@@ -5128,7 +5131,15 @@ return (
           const margeGeneree = unitesCmds*margeP + unitesFact*margePro;
 
           return (
-            <div key={p.id} style={{padding:"12px 0",borderBottom:"1px solid #EAE7E0"}}>
+            <React.Fragment key={p.id}>
+              {showDivider && (
+                <div style={{display:"flex",alignItems:"center",gap:8,padding:"10px 0 6px",margin:"4px 0"}}>
+                  <div style={{flex:1,height:1,background:"#EAE7E0"}}/>
+                  <span style={{fontSize:10,fontWeight:700,color:"#737373",textTransform:"uppercase",letterSpacing:".07em"}}>🎁 Coffrets</span>
+                  <div style={{flex:1,height:1,background:"#EAE7E0"}}/>
+                </div>
+              )}
+            <div style={{padding:"12px 0",borderBottom:"1px solid #EAE7E0"}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:6}}>
                 <p style={{fontSize:13,fontWeight:600}}>{p.nom} <span style={{color:c.accent,fontWeight:400,fontSize:12}}>{p.variante}</span> {p.format}</p>
                 <p style={{fontSize:11,color:"#737373"}}>Coût: <strong>{chf(cout)}</strong></p>
@@ -5166,6 +5177,7 @@ return (
               )}
               {totalUnites===0 && <p style={{fontSize:10,color:"#9CA3AF",textAlign:"center",padding:"2px 0"}}>Aucune vente enregistrée sur cette période</p>}
             </div>
+            </React.Fragment>
           );
         })}
       </Card>
@@ -5174,7 +5186,10 @@ return (
       <Card style={{marginBottom:12}}>
         <h3 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:15,marginBottom:6,letterSpacing:"-0.015em"}}>💡 Analyse des prix</h3>
         <p style={{fontSize:11,color:"#737373",marginBottom:14}}>Basé sur ton coût de revient, tes charges et les standards du marché suisse</p>
-        {st.produits.filter(p=>p.actif&&!p.nom.includes("Coffret")).map(p=>{
+        {st.produits.filter(p=>p.actif).map((p,idx,arr)=>{
+          const isCoffret = p.nom.includes("Coffret");
+          const prevIsCoffret = idx>0 && arr[idx-1].nom.includes("Coffret");
+          const showDividerA = isCoffret && !prevIsCoffret;
           const cout = p.coutRevient||0;
           if(cout===0) return (
             <div key={p.id} style={{padding:"10px 12px",background:"#F4F4F2",borderRadius:8,marginBottom:8,fontSize:11,color:"#737373"}}>
@@ -5188,9 +5203,10 @@ return (
           const recommPublic = cout * 3;
           const premium = cout * 4;
 
-          // Fourchettes marché suisse liqueurs artisanales
-          // 25cl : 18-28 CHF public, 50cl : 28-42 CHF public
-          const fourchette = p.format==="25cl"?{min:18,max:28}:p.format==="50cl"?{min:28,max:42}:{min:20,max:35};
+          // Fourchettes marché suisse
+          const fourchette = isCoffret
+            ? (p.variante.toLowerCase().includes("verres")?{min:60,max:100}:{min:50,max:90})
+            : (p.format==="25cl"?{min:18,max:28}:p.format==="50cl"?{min:28,max:42}:{min:20,max:35});
 
           // Analyse prix actuel
           const ecartPublic = p.prixClient - recommPublic;
@@ -5208,7 +5224,15 @@ return (
           const c = COULEURS[p.variante]||{accent:"#737373"};
 
           return (
-            <div key={p.id} style={{padding:"12px",background:"#fff",border:"1px solid #EAE7E0",borderRadius:10,marginBottom:10}}>
+            <React.Fragment key={p.id}>
+              {showDividerA && (
+                <div style={{display:"flex",alignItems:"center",gap:8,padding:"10px 0 6px"}}>
+                  <div style={{flex:1,height:1,background:"#EAE7E0"}}/>
+                  <span style={{fontSize:10,fontWeight:700,color:"#737373",textTransform:"uppercase",letterSpacing:".07em"}}>🎁 Coffrets</span>
+                  <div style={{flex:1,height:1,background:"#EAE7E0"}}/>
+                </div>
+              )}
+            <div style={{padding:"12px",background:"#fff",border:"1px solid #EAE7E0",borderRadius:10,marginBottom:10}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:10,paddingBottom:8,borderBottom:"1px solid #F4F4F2"}}>
                 <p style={{fontSize:13,fontWeight:600}}>{p.nom} <span style={{color:c.accent,fontWeight:400,fontSize:12}}>{p.variante}</span> {p.format}</p>
                 <p style={{fontSize:10,color:"#737373"}}>Coût: <strong>{chf(cout)}</strong></p>
@@ -5251,10 +5275,11 @@ return (
 
               {/* Fourchette marché */}
               <div style={{background:"#F4F4F2",borderRadius:6,padding:"6px 10px",fontSize:10,color:"#525252"}}>
-                📊 Marché suisse liqueurs artisanales {p.format} : <strong>{chf(fourchette.min)} - {chf(fourchette.max)}</strong>
+                📊 Marché suisse {isCoffret?"coffrets":("liqueurs artisanales "+p.format)} : <strong>{chf(fourchette.min)} - {chf(fourchette.max)}</strong>
                 {dansFourchette?" ✓ Ton prix est dans la fourchette":" ⚠ Ton prix est hors fourchette"}
               </div>
             </div>
+            </React.Fragment>
           );
         })}
 
@@ -5309,11 +5334,11 @@ return (
           })();
           const moisPeriode = periode==="tout"?12:periode.length===4?12:1;
           const chargesMensuelles = chargesFixes/moisPeriode;
-          const margeMoyenne = st.produits.filter(p=>p.actif&&!p.nom.includes("Coffret"))
+          const margeMoyenne = st.produits.filter(p=>p.actif)
             .reduce((acc,p)=>{
               const m = p.prixClient-(p.coutRevient||0);
               return acc+m;
-            },0) / Math.max(1, st.produits.filter(p=>p.actif&&!p.nom.includes("Coffret")).length);
+            },0) / Math.max(1, st.produits.filter(p=>p.actif).length);
           const bouteillesNecessaires = margeMoyenne>0?Math.ceil(chargesMensuelles/margeMoyenne):0;
           return (
             <div>
