@@ -1108,6 +1108,32 @@ setSt(p=>({...p,
 }));
 };
 
+const syncMouvements = () => {
+let added = 0;
+setSt(p=>{
+  const dejaSynced = new Set(
+    (p.mouvementsStock||[]).filter(m=>m.commandeId).map(m=>m.commandeId)
+  );
+  const newMouvements = [...(p.mouvementsStock||[])];
+  (p.commandes||[]).filter(c=>c.stockDeduit).forEach(c=>{
+    if(!dejaSynced.has(c.id)){
+      (c.lignes||[]).filter(l=>l.produitId&&(parseInt(l.qte)||0)>0).forEach(l=>{
+        newMouvements.push({
+          id:uid(),date:c.date||today(),type:"sortie",
+          produitId:l.produitId,qte:-(parseInt(l.qte)||0),
+          source:`Commande ${c.numero}`,commandeId:c.id,
+        });
+        added++;
+      });
+    }
+  });
+  if(added===0) return p;
+  return {...p,mouvementsStock:newMouvements};
+});
+if(added>0) alert(`✅ ${added} mouvement(s) synchronisé(s) depuis les commandes existantes.`);
+else alert("✅ Tout est déjà à jour, aucun mouvement manquant.");
+};
+
 const ajuster = () => {
 if(!ajustForm.produitId||ajustForm.cibleQte==="") return;
 const cible = parseInt(ajustForm.cibleQte)||0;
@@ -1179,6 +1205,7 @@ sendEmail({to:"admin@goutstoso.ch",subject:subj2,body:bodyAlerte});
   <SectionTitle action={
     <div style={{display:"flex",gap:8}}>
       <Btn icon="export" variant="ghost" small onClick={exportStocks}>Export</Btn>
+      <Btn variant="ghost" small onClick={syncMouvements}>⟳ Sync</Btn>
       <Btn variant="ghost" small onClick={()=>setModal("ajust")}>Ajuster</Btn>
       <Btn icon="plus" onClick={()=>setModal("form")}>Entrée</Btn>
     </div>
