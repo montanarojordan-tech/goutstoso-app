@@ -417,19 +417,23 @@ action: "contrats",
 }
 });
 
-// Offres à relancer (envoyées il y a 7j+ sans réponse)
+// Offres à relancer (envoyées il y a 7j+ sans réponse, ou relancées il y a 7j+)
 (st.offres||[]).filter(o=>
   o.statut==="envoyée" &&
   o.date
 ).forEach(o=>{
-const joursDepuis = Math.floor((now - new Date(o.date))/86400000);
+const dateRef = o.dateRelance || o.date;
+const joursDepuis = Math.floor((now - new Date(dateRef))/86400000);
 if(joursDepuis >= 7) {
+  const descBase = o.dateRelance
+    ? (o.clientNom||"Client inconnu")+" · Relancé le "+fmt(o.dateRelance)
+    : (o.clientNom||"Client inconnu")+" · Envoyée le "+fmt(o.date);
   alertes.push({
     type:"offre_relance",
     priorite: joursDepuis >= 14 ? "haute" : "moyenne",
     icone: joursDepuis >= 14 ? "📣" : "🔁",
     titre:"Relancer — Offre "+o.numero+" sans réponse depuis "+joursDepuis+"j",
-    desc:(o.clientNom||"Client inconnu")+" · Envoyée le "+fmt(o.date),
+    desc: descBase,
     action:"offres",
     id: o.id,
   });
@@ -647,28 +651,39 @@ Bonjour {authUser.display_name||authUser.username}
               {!isRelance && <span style={{color:"#737373",fontSize:16,flexShrink:0}}>›</span>}
             </div>
             {isRelance && (
-              <button
-                onClick={(e)=>{
-                  e.stopPropagation();
-                  const o = (st.offres||[]).find(x=>x.id===a.id);
-                  if(!o){alert("Offre introuvable");return;}
-                  const email = o.clientEmail;
-                  if(!email){alert("Aucun email pour ce client");return;}
-                  const contact = o.clientNom||"";
-                  const dateEnvoi = new Date(o.date).toLocaleDateString("fr-CH",{day:"numeric",month:"long",year:"numeric"});
-                  const expStr = o.dateValidite ? new Date(o.dateValidite).toLocaleDateString("fr-CH",{day:"numeric",month:"long",year:"numeric"}) : "date à confirmer";
-                  const subj = "Relance — Offre "+o.numero+" - Goûtstoso";
-                  const body =
-                    "Bonjour "+contact+",\n\n"+
-                    "Je me permets de revenir vers vous au sujet de notre offre commerciale N° "+o.numero+" que nous vous avons transmise le "+dateEnvoi+".\n\n"+
-                    "Cette offre reste valable jusqu'au "+expStr+". Avez-vous eu l'occasion d'en prendre connaissance ? Nous sommes bien entendu disponibles pour répondre à toutes vos questions.\n\n"+
-                    "N'hésitez pas à nous faire part de votre retour.\n\n"+
-                    "Cordialement,\n\nJordan Montanaro\nGoûtstoso\nadmin@goutstoso.ch · www.goutstoso.ch";
-                  sendEmail({to:email, toName:contact, subject:subj, body});
-                }}
-                style={{marginTop:8,width:"100%",background:"#92400E",color:"#FEF9C3",border:"none",borderRadius:8,padding:"7px 12px",fontSize:11,fontWeight:700,cursor:"pointer"}}>
-                ✉️ Envoyer la relance par email
-              </button>
+              <div style={{marginTop:8,display:"flex",gap:6}}>
+                <button
+                  onClick={(e)=>{
+                    e.stopPropagation();
+                    const o = (st.offres||[]).find(x=>x.id===a.id);
+                    if(!o){alert("Offre introuvable");return;}
+                    const email = o.clientEmail;
+                    if(!email){alert("Aucun email pour ce client");return;}
+                    const contact = o.clientNom||"";
+                    const dateEnvoi = new Date(o.date).toLocaleDateString("fr-CH",{day:"numeric",month:"long",year:"numeric"});
+                    const expStr = o.dateValidite ? new Date(o.dateValidite).toLocaleDateString("fr-CH",{day:"numeric",month:"long",year:"numeric"}) : "date à confirmer";
+                    const subj = "Relance — Offre "+o.numero+" - Goûtstoso";
+                    const body =
+                      "Bonjour "+contact+",\n\n"+
+                      "Je me permets de revenir vers vous au sujet de notre offre commerciale N° "+o.numero+" que nous vous avons transmise le "+dateEnvoi+".\n\n"+
+                      "Cette offre reste valable jusqu'au "+expStr+". Avez-vous eu l'occasion d'en prendre connaissance ? Nous sommes bien entendu disponibles pour répondre à toutes vos questions.\n\n"+
+                      "N'hésitez pas à nous faire part de votre retour.\n\n"+
+                      "Cordialement,\n\nJordan Montanaro\nGoûtstoso\nadmin@goutstoso.ch · www.goutstoso.ch";
+                    sendEmail({to:email, toName:contact, subject:subj, body});
+                    setSt(p=>({...p, offres:(p.offres||[]).map(x=>x.id===a.id?{...x,dateRelance:today()}:x)}));
+                  }}
+                  style={{flex:1,background:"#92400E",color:"#FEF9C3",border:"none",borderRadius:8,padding:"7px 10px",fontSize:11,fontWeight:700,cursor:"pointer"}}>
+                  ✉️ Envoyer la relance
+                </button>
+                <button
+                  onClick={(e)=>{
+                    e.stopPropagation();
+                    setSt(p=>({...p, offres:(p.offres||[]).map(x=>x.id===a.id?{...x,dateRelance:today()}:x)}));
+                  }}
+                  style={{background:"#D1FAE5",color:"#065F46",border:"1px solid #6EE7B7",borderRadius:8,padding:"7px 10px",fontSize:11,fontWeight:700,cursor:"pointer",whiteSpace:"nowrap"}}>
+                  ✅ Relancée
+                </button>
+              </div>
             )}
           </div>
         );
