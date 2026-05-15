@@ -35,3 +35,15 @@ id = "ZqJmt2GvGRzaMhMnJfoye"
 uri = "file://goutstoso_code.txt"
 type = "text"
 title = "Goutstoso — code complet (index.tsx)"
+
+[[outputs]]
+id = "H80Mb8mIfrwl1lDYXRq6U"
+uri = "file://exports/goutstoso_code.tar.gz"
+type = "unspecified"
+title = "Goutstoso — index.tsx (archive .tar.gz)"
+
+[[outputs]]
+id = "4-857DTQAgQUYdo2YvMBW"
+uri = "file://exports/goutstoso_index.txt"
+type = "text"
+title = "Goutstoso — code complet (.txt)"
