@@ -2346,6 +2346,7 @@ Dépôts-vente
               <div style={{display:"flex",gap:6,alignItems:"center"}}>
                 <Badge c={pv.statut==="actif"?"green":"gray"}>{pv.statut}</Badge>
                 <button onClick={()=>{setForm({...pv});setModal("form");}} style={{background:"#F5F5F0",border:"none",borderRadius:8,padding:6,cursor:"pointer",display:"flex"}}><Ic n="edit" s={14}/></button>
+                <button onClick={e=>{e.stopPropagation();supprimerPV(pv);}} style={{background:"#FEE2E2",border:"none",borderRadius:8,padding:6,cursor:"pointer",display:"flex"}}><Ic n="trash" s={14}/></button>
               </div>
             </div>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}} onClick={()=>setView(pv)}>
