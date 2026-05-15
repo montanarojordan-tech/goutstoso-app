@@ -337,7 +337,7 @@ const getProchainRappelFn = (f) => {
 // ══════════════════════════════════════════════════════════════
 // PAGE: TABLEAU DE BORD
 // ══════════════════════════════════════════════════════════════
-const Dashboard = ({st, setTab, authUser, sendEmail}) => {
+const Dashboard = ({st, setSt, setTab, authUser, sendEmail}) => {
 const now = new Date();
 const today_str = today();
 
@@ -11976,7 +11976,7 @@ return ()=>clearInterval(iv);
 
   const isDesktop = useIsDesktop();
 const pages = {
-dashboard:   <Dashboard    st={st} setTab={setTab} authUser={authUser} sendEmail={sendEmail}/>,
+dashboard:   <Dashboard    st={st} setSt={setSt} setTab={setTab} authUser={authUser} sendEmail={sendEmail}/>,
 ventes:      <Ventes       st={st} setSt={setSt}/>,
 clients:     <Clients      st={st} setSt={setSt}/>,
 stocks:      <Stocks       st={st} setSt={setSt}/>,
