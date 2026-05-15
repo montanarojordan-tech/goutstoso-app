@@ -1,0 +1,129 @@
+CONTEXTE
+========
+J'ai une application React/TSX déjà fonctionnelle pour gérer mon activité de production de liqueurs artisanales (marque Goûtstoso). Le fichier principal est index.tsx (~12'000 lignes). Tout fonctionne mais l'organisation est devenue complexe au fil du temps. Je veux OPTIMISER sans tout casser.
+
+⚠️ RÈGLES ABSOLUES
+==================
+1. NE PAS supprimer de fonctionnalités existantes
+2. NE PAS supprimer les données (synchronisation cloud Infomaniak doit continuer à fonctionner via API https://hc12z9cbqiy.preview.infomaniak.website/api.php)
+3. NE PAS toucher aux images base64 (logo + 6 photos produits)
+4. NE PAS modifier le système d'authentification existant
+5. NE PAS modifier la structure du state INIT ni la base de données existante
+6. CONSERVER toutes les recettes de calcul de coût, marges, factures
+7. CONSERVER tous les PDF existants (factures, contrats, CGV, documents)
+8. CONSERVER la palette de couleurs (noir #0A0A0A, jaune #E8B64C, crème #FAFAF7)
+9. CONSERVER les polices Inter + Cormorant Garamond
+
+🎯 OBJECTIFS DE L'OPTIMISATION
+==============================
+Réorganiser la navigation pour rendre l'app plus intuitive et ajouter un module Production qui manque.
+
+CHANGEMENTS À FAIRE
+===================
+
+1. NAVIGATION SIMPLIFIÉE (en bas mobile / sidebar desktop)
+   Passer de 11 onglets à 6 onglets principaux :
+   
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   🏠 ACCUEIL (Dashboard existant - garder tel quel)
+   👥 CLIENTS (fusion Clients + Partenaires en 1 seul module)
+   💰 VENTES (fusion Factures + Commandes)
+   🏭 PRODUCTION (NOUVEAU module)
+   📦 STOCK (Matières premières + produits finis)
+   📊 COMPTA (Comptabilité + Trésorerie + Fournisseurs)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   
+   Sous-onglets internes (selon le module) :
+   - CLIENTS : Tous / Pros / Particuliers
+   - VENTES : Factures pro / Commandes web / Ventes directes
+   - PRODUCTION : Recettes / Lots / Historique
+   - STOCK : Matières premières / Produits finis / Mouvements
+   - COMPTA : Aperçu / Journal / Trésorerie / Fournisseurs / Résultat / Bilan
+
+2. FUSION CLIENTS + PARTENAIRES (sans perdre les données)
+   - Garder les deux tableaux de données séparés en interne (compatibilité)
+   - Créer un wrapper "Clients" qui affiche les deux types ensemble avec un filtre type:
+     • type: "pro" = ancien partenaire (revendeur, restaurant)
+     • type: "particulier" = ancien client web
+   - Fiche client unifiée affichant TOUT l'historique (factures + commandes + contrats + bulletins de livraison)
+   - Ajouter un bouton "Nouveau client" qui demande d'abord le type
+
+3. MODULE PRODUCTION (NOUVEAU)
+   Créer un nouveau module avec 3 onglets :
+   
+   a) RECETTES (référence)
+      - 7 recettes pré-saisies (Limonta, Limelo, Clementino, Pescato, Fraisetta, Lamponia, Caffetto)
+      - Chaque recette stocke : nom, fruits (qté + unité), alcool 80° (L), eau (L), sucre (g), 
+        durée macération (jours), durée repos (jours), titre alcool final (%), volume final (L), 
+        nombre de bouteilles produites par recette
+      - Possibilité d'éditer/dupliquer/créer une recette
+      
+   b) LANCEMENT PRODUCTION
+      - Formulaire : sélection recette + quantité (multiplicateur ou nombre de bouteilles cibles)
+      - L'app calcule automatiquement les ingrédients nécessaires
+      - Vérifie le stock matières premières
+      - Si OK : bouton "Lancer la production"
+      - Génère un n° de lot automatique (LOT-AAAA-XXX)
+      - Déduit les matières premières du stock
+      - Crée une production "en cours" avec date prévue de fin
+      
+   c) HISTORIQUE DES LOTS
+      - Liste de tous les lots produits/en cours
+      - Chaque lot : numéro, recette, date prod, date fin macération, date fin repos, 
+        statut (en macération / repos / disponible), quantité produite
+      - Quand le repos est terminé : bouton "Valider la production" → ajoute les bouteilles 
+        au stock propre
+      - PDF de fiche technique imprimable pour atelier
+
+4. STOCK MATIÈRES PREMIÈRES (NOUVEAU)
+   Dans le module STOCK, ajouter un onglet "Matières premières" :
+   - Liste des ingrédients : alcool 80°, sucre blanc, sucre roux, eau, citrons jaunes, citrons verts, 
+     clémentines, pêches, fraises, framboises, café arabica, vanille, fève tonka
+   - Pour chaque : nom, unité (L, kg, unités), stock actuel, seuil d'alerte
+   - Bouton "Ajouter un achat" : crée une entrée stock + écriture compta automatique
+   - Alerte dashboard si stock bas
+
+5. WORKFLOW AUTOMATIQUE — IMPORTANT
+   Toute action doit avoir des impacts automatiques visibles dans la compta et le stock :
+   
+   • Vente directe → -stock propre / +recette PostFinance / +historique client
+   • Vente web (commande Shopify payée) → -stock propre / +recette PostFinance / +historique
+   • Facture pro créée → en attente
+   • Facture pro payée → +recette PostFinance / +historique partenaire
+   • Bulletin dépôt-vente → -stock propre / +stock déposé / +historique partenaire
+   • Inventaire dépôt-vente → -stock déposé / +recette à l'encaissement / facture mensuelle auto
+   • Production lancée → -matières premières
+   • Production validée → +stock propre
+   • Achat matières premières → +matières / -dépense PostFinance
+   • Facture fournisseur payée → -dépense PostFinance
+
+6. RÉORGANISATION COMPTA
+   Fusionner les onglets Trésorerie + Compta + Fournisseurs en un seul module COMPTA avec sous-onglets :
+   - Aperçu : KPIs et résumé (existant)
+   - Trésorerie : prévisions 30/60/90j (existant)
+   - Journal : toutes les écritures (existant)
+   - Fournisseurs : factures fournisseurs (existant)
+   - Résultat : compte de résultat (existant)
+   - Bilan : actif/passif (existant)
+   - Rentabilité : marges par produit (existant)
+
+7. AMÉLIORATIONS UX
+   - Bouton "+" flottant en bas à droite (mobile) avec menu rapide : 
+     Nouvelle vente / Nouveau client / Nouvelle production / Nouvel achat
+   - Recherche globale en haut (cherche dans clients, factures, commandes simultanément)
+   - Badges visuels d'alerte sur les onglets si action requise
+
+CONTRAINTES TECHNIQUES
+======================
+- Fichier reste en TypeScript/React (.tsx)
+- Pas de changement de framework
+- Conserver la cohérence visuelle existante
+- Tester que la sync cloud continue à fonctionner après modifs
+- Le fichier peut être splitté en plusieurs fichiers .tsx si ça améliore la lisibilité (App.tsx + modules)
+
+LIVRABLE ATTENDU
+================
+- Code optimisé, fonctionnel, sans perte de données
+- Tous les modules existants accessibles via la nouvelle navigation
+- Module Production opérationnel avec liaison stock matières premières
+- Tests de non-régression sur les workflows critiques (facturation, compta, dépôt-vente)

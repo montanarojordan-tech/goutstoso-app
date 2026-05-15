@@ -10955,28 +10955,122 @@ const Production = ({st, setSt}) => {
 };
 
 // ══════════════════════════════════════════════════════════════
-// APP SHELL - Navigation mobile en bas
+// VENTES — wrapper avec sous-onglets
+// ══════════════════════════════════════════════════════════════
+const Ventes = ({st, setSt}) => {
+  const [onglet, setOnglet] = useState<"depots"|"offres"|"commandes"|"factures">("depots");
+  const tabs = [
+    {id:"depots",   label:"Dépôts",    emoji:"🤝"},
+    {id:"offres",   label:"Offres",    emoji:"📋"},
+    {id:"commandes",label:"Commandes", emoji:"📦"},
+    {id:"factures", label:"Factures",  emoji:"🧾"},
+  ] as const;
+  return (
+    <div>
+      <div style={{display:"flex",background:"#fff",borderRadius:12,padding:4,marginBottom:16,gap:4,overflowX:"auto"}}>
+        {tabs.map(t=>(
+          <button key={t.id} onClick={()=>setOnglet(t.id as any)} style={{
+            flex:1,minWidth:72,padding:"8px 6px",border:"none",borderRadius:9,cursor:"pointer",fontSize:12,fontWeight:onglet===t.id?700:500,
+            background:onglet===t.id?"#0A0A0A":"transparent",color:onglet===t.id?"#F2C94C":"#525252",
+            transition:"background .15s,color .15s",whiteSpace:"nowrap",
+          }}>
+            {t.emoji} {t.label}
+          </button>
+        ))}
+      </div>
+      {onglet==="depots"    && <Partenaires st={st} setSt={setSt}/>}
+      {onglet==="offres"    && <Offres st={st} setSt={setSt}/>}
+      {onglet==="commandes" && <Commandes st={st} setSt={setSt}/>}
+      {onglet==="factures"  && <Factures st={st} setSt={setSt}/>}
+    </div>
+  );
+};
+
+// ══════════════════════════════════════════════════════════════
+// PARAMÈTRES — infos société + solde
+// ══════════════════════════════════════════════════════════════
+const Parametres = ({st, setSt, authUser}) => {
+  const [solde, setSolde] = useState(String(st.soldeBancaire||0));
+  const [saved, setSaved] = useState(false);
+  const saveSolde = () => {
+    const v = parseFloat(solde);
+    if(isNaN(v)) return;
+    setSt(p=>({...p, soldeBancaire:v}));
+    setSaved(true);
+    setTimeout(()=>setSaved(false), 2000);
+  };
+  return (
+    <div className="fade">
+      <SectionTitle>Paramètres</SectionTitle>
+
+      <Card style={{marginBottom:14}}>
+        <h3 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:17,marginBottom:12}}>Société</h3>
+        {[
+          {l:"Nom",    v:SOCIETE.nom},
+          {l:"Adresse",v:SOCIETE.adresse},
+          {l:"Email",  v:SOCIETE.email},
+          {l:"Tél.",   v:SOCIETE.tel},
+          {l:"IBAN",   v:"CH23 0900 0000 1565 1485 8"},
+          {l:"TVA",    v:"Exonéré"},
+        ].map((r,i)=>(
+          <div key={i} style={{display:"flex",justifyContent:"space-between",padding:"7px 0",borderBottom:"1px solid #F5F5F0",fontSize:13}}>
+            <span style={{color:"#9CA3AF",fontWeight:600,minWidth:80}}>{r.l}</span>
+            <span style={{fontWeight:500,textAlign:"right"}}>{r.v}</span>
+          </div>
+        ))}
+      </Card>
+
+      <Card style={{marginBottom:14}}>
+        <h3 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:17,marginBottom:12}}>Solde PostFinance</h3>
+        <p style={{fontSize:12,color:"#9CA3AF",marginBottom:10}}>Mettre à jour le solde affiché dans l'application.</p>
+        <div style={{display:"flex",gap:8,alignItems:"center"}}>
+          <span style={{fontWeight:600,fontSize:13}}>CHF</span>
+          <input type="number" step="0.01" value={solde} onChange={e=>setSolde(e.target.value)}
+            style={{flex:1,padding:"10px 12px",border:"1.5px solid #E5E5E0",borderRadius:10,fontSize:14}}/>
+          <button onClick={saveSolde} style={{padding:"10px 16px",background:"#0A0A0A",color:"#F2C94C",border:"none",borderRadius:10,fontWeight:700,fontSize:13,cursor:"pointer"}}>
+            {saved?"✓ Sauvé":"Mettre à jour"}
+          </button>
+        </div>
+      </Card>
+
+      <Card>
+        <h3 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:17,marginBottom:12}}>Compte utilisateur</h3>
+        {[
+          {l:"Nom",  v:authUser?.display_name||authUser?.username||""},
+          {l:"Rôle", v:authUser?.role==="admin"?"Administrateur":"Utilisateur"},
+          {l:"Email",v:"admin@goutstoso.ch"},
+        ].map((r,i)=>(
+          <div key={i} style={{display:"flex",justifyContent:"space-between",padding:"7px 0",borderBottom:"1px solid #F5F5F0",fontSize:13}}>
+            <span style={{color:"#9CA3AF",fontWeight:600,minWidth:80}}>{r.l}</span>
+            <span style={{fontWeight:500}}>{r.v}</span>
+          </div>
+        ))}
+      </Card>
+    </div>
+  );
+};
+
+// ══════════════════════════════════════════════════════════════
+// APP SHELL - Navigation
 // ══════════════════════════════════════════════════════════════
 
-// Groupes de navigation - 6 en bas, reste dans "Plus"
 const NAV_MAIN = [
-{id:"dashboard",label:"Accueil",icon:"dash"},
-{id:"partenaires",label:"Dépôts",icon:"depot"},
-{id:"clients",label:"Clients",icon:"prod"},
-{id:"fournisseurs",label:"Fourn.",icon:"facture"},
-{id:"compta",label:"Compta",icon:"compta"},
-{id:"more",label:"Plus",icon:"more"},
+  {id:"dashboard", label:"Accueil",    icon:"dash",    emoji:"🏠"},
+  {id:"clients",   label:"Clients",    icon:"prod",    emoji:"👥"},
+  {id:"ventes",    label:"Ventes",     icon:"facture", emoji:"💰"},
+  {id:"production",label:"Production", icon:"prod",    emoji:"🏭"},
+  {id:"stocks",    label:"Stock",      icon:"stock",   emoji:"📦"},
+  {id:"compta",    label:"Compta",     icon:"compta",  emoji:"📊"},
 ];
+
 const NAV_MORE = [
-{id:"offres",label:"Offres",icon:"contrat"},
-{id:"factures",label:"Factures",icon:"facture"},
-{id:"contrats",label:"Contrats",icon:"contrat"},
-{id:"commandes",label:"Commandes",icon:"facture"},
-{id:"produits",label:"Produits",icon:"prod"},
-{id:"stocks",label:"Stocks",icon:"stock"},
-{id:"production",label:"Production",icon:"prod"},
-{id:"documents",label:"Documents",icon:"contrat"},
-{id:"sauvegardes",label:"Sauvegardes",icon:"stock"},
+  {id:"documents",  label:"Documents légaux", icon:"contrat", emoji:"📜"},
+  {id:"production", label:"Recettes",         icon:"prod",    emoji:"🏭"},
+  {id:"parametres", label:"Paramètres",       icon:"settings",emoji:"⚙️"},
+  {id:"contrats",   label:"Contrats",         icon:"contrat", emoji:"📋"},
+  {id:"fournisseurs",label:"Fournisseurs",    icon:"facture", emoji:"🏭"},
+  {id:"produits",   label:"Produits",         icon:"prod",    emoji:"🍋"},
+  {id:"sauvegardes",label:"Sauvegardes",      icon:"stock",   emoji:"💾"},
 ];
 
 // Icône "more" (hamburger)
@@ -11615,20 +11709,23 @@ return ()=>clearInterval(iv);
 
   const isDesktop = useIsDesktop();
 const pages = {
-dashboard:<Dashboard st={st} setTab={setTab} authUser={authUser} sendEmail={sendEmail}/>,
-produits:<Produits st={st} setSt={setSt}/>,
-stocks:<Stocks st={st} setSt={setSt}/>,
-partenaires:<Partenaires st={st} setSt={setSt}/>,
-contrats:<Contrats st={st} setSt={setSt}/>,
-factures:<Factures st={st} setSt={setSt}/>,
-commandes:<Commandes st={st} setSt={setSt}/>,
+dashboard:   <Dashboard    st={st} setTab={setTab} authUser={authUser} sendEmail={sendEmail}/>,
+ventes:      <Ventes       st={st} setSt={setSt}/>,
+clients:     <Clients      st={st} setSt={setSt}/>,
+stocks:      <Stocks       st={st} setSt={setSt}/>,
+compta:      <Comptabilite st={st} setSt={setSt}/>,
+production:  <Production   st={st} setSt={setSt}/>,
+parametres:  <Parametres   st={st} setSt={setSt} authUser={authUser}/>,
+// modules accessibles via drawer
+produits:    <Produits     st={st} setSt={setSt}/>,
+partenaires: <Partenaires  st={st} setSt={setSt}/>,
+contrats:    <Contrats     st={st} setSt={setSt}/>,
+factures:    <Factures     st={st} setSt={setSt}/>,
+commandes:   <Commandes    st={st} setSt={setSt}/>,
 fournisseurs:<Fournisseurs st={st} setSt={setSt}/>,
-clients:<Clients st={st} setSt={setSt}/>,
-documents:<Documents st={st} setSt={setSt}/>,
-sauvegardes:<Sauvegardes authUser={authUser} st={st} setSt={setSt}/>,
-compta:<Comptabilite st={st} setSt={setSt}/>,
-offres:<Offres st={st} setSt={setSt}/>,
-production:<Production st={st} setSt={setSt}/>,
+offres:      <Offres       st={st} setSt={setSt}/>,
+documents:   <Documents    st={st} setSt={setSt}/>,
+sauvegardes: <Sauvegardes  authUser={authUser} st={st} setSt={setSt}/>,
 };
 
 const allTabs = [...NAV_MAIN.filter(t=>t.id!=="more"), ...NAV_MORE];
@@ -11661,26 +11758,26 @@ return (
         {/* Menu par catégories */}
         {[
           {groupe:null, items:[
-            {id:"dashboard",label:"Accueil",emoji:"🏠"},
+            {id:"dashboard",  label:"Accueil",     emoji:"🏠"},
+            {id:"clients",    label:"Clients",     emoji:"👥"},
+            {id:"ventes",     label:"Ventes",      emoji:"💰"},
+            {id:"production", label:"Production",  emoji:"🏭"},
+            {id:"stocks",     label:"Stock",       emoji:"📦"},
+            {id:"compta",     label:"Comptabilité",emoji:"📊"},
           ]},
-          {groupe:"Ventes", items:[
-            {id:"partenaires",label:"Dépôts",emoji:"🤝"},
-            {id:"offres",label:"Offres",emoji:"📋"},
-            {id:"clients",label:"Clients",emoji:"👥"},
-            {id:"commandes",label:"Commandes",emoji:"📦"},
-            {id:"factures",label:"Factures",emoji:"🧾"},
-          ]},
-          {groupe:"Stock & Produits", items:[
-            {id:"produits",label:"Produits",emoji:"🍋"},
-            {id:"stocks",label:"Stocks",emoji:"📊"},
-            {id:"production",label:"Production",emoji:"🏭"},
-          ]},
-          {groupe:"Gestion", items:[
-            {id:"contrats",label:"Contrats",emoji:"📋"},
+          {groupe:"Modules détaillés", items:[
+            {id:"partenaires", label:"Dépôts-vente",emoji:"🤝"},
+            {id:"offres",      label:"Offres",      emoji:"📋"},
+            {id:"factures",    label:"Factures",    emoji:"🧾"},
+            {id:"commandes",   label:"Commandes",   emoji:"📦"},
+            {id:"contrats",    label:"Contrats",    emoji:"📋"},
             {id:"fournisseurs",label:"Fournisseurs",emoji:"🏭"},
-            {id:"compta",label:"Comptabilité",emoji:"💰"},
-            {id:"documents",label:"Documents",emoji:"📁"},
-            {id:"sauvegardes",label:"Sauvegardes",emoji:"💾"},
+            {id:"produits",    label:"Produits",    emoji:"🍋"},
+          ]},
+          {groupe:"Plus", items:[
+            {id:"documents",  label:"Documents légaux",emoji:"📜"},
+            {id:"parametres", label:"Paramètres",      emoji:"⚙️"},
+            {id:"sauvegardes",label:"Sauvegardes",     emoji:"💾"},
           ]},
         ].map((section,si)=>(
           <div key={si} style={{marginBottom:4}}>
@@ -11784,7 +11881,7 @@ return (
     {showAdmin && <AdminPanel currentUser={authUser} onClose={()=>setShowAdmin(false)}/>}
 
     {/* CONTENU PRINCIPAL */}
-    <div style={{flex:1,padding:"68px 16px 24px",overflowY:"auto",background:"var(--cream)",minHeight:"100vh"}}>
+    <div style={{flex:1,padding:"68px 16px 84px",overflowY:"auto",background:"var(--cream)",minHeight:"100vh"}}>
       {pages[tab]||null}
     </div>
 
@@ -11829,27 +11926,27 @@ return (
       {/* Sections groupées */}
       <div style={{flex:1,padding:"8px 10px",overflowY:"auto"}}>
         {[
-          {groupe:null, items:[
-            {id:"dashboard",label:"Accueil",icon:"dash",emoji:"🏠"},
+          {groupe:"Navigation principale", items:[
+            {id:"dashboard",  label:"Accueil",    emoji:"🏠"},
+            {id:"clients",    label:"Clients",    emoji:"👥"},
+            {id:"ventes",     label:"Ventes",     emoji:"💰"},
+            {id:"production", label:"Production", emoji:"🏭"},
+            {id:"stocks",     label:"Stock",      emoji:"📦"},
+            {id:"compta",     label:"Compta",     emoji:"📊"},
           ]},
-          {groupe:"Ventes", items:[
-            {id:"partenaires",label:"Dépôts",icon:"depot",emoji:"🤝"},
-            {id:"offres",label:"Offres",icon:"contrat",emoji:"📋"},
-            {id:"clients",label:"Clients",icon:"prod",emoji:"👥"},
-            {id:"commandes",label:"Commandes",icon:"facture",emoji:"📦"},
-            {id:"factures",label:"Factures",icon:"facture",emoji:"🧾"},
+          {groupe:"Modules détaillés", items:[
+            {id:"partenaires", label:"Dépôts-vente",emoji:"🤝"},
+            {id:"offres",      label:"Offres",      emoji:"📋"},
+            {id:"factures",    label:"Factures",    emoji:"🧾"},
+            {id:"commandes",   label:"Commandes",   emoji:"📦"},
+            {id:"contrats",    label:"Contrats",    emoji:"📋"},
+            {id:"fournisseurs",label:"Fournisseurs",emoji:"🏭"},
+            {id:"produits",    label:"Produits",    emoji:"🍋"},
           ]},
-          {groupe:"Stock & Produits", items:[
-            {id:"produits",label:"Produits",icon:"prod",emoji:"🍋"},
-            {id:"stocks",label:"Stocks",icon:"stock",emoji:"📊"},
-            {id:"production",label:"Production",icon:"prod",emoji:"🏭"},
-          ]},
-          {groupe:"Gestion", items:[
-            {id:"contrats",label:"Contrats",icon:"contrat",emoji:"📋"},
-            {id:"fournisseurs",label:"Fournisseurs",icon:"facture",emoji:"🏭"},
-            {id:"compta",label:"Comptabilité",icon:"compta",emoji:"💰"},
-            {id:"documents",label:"Documents",icon:"contrat",emoji:"📁"},
-            {id:"sauvegardes",label:"Sauvegardes",icon:"stock",emoji:"💾"},
+          {groupe:"Plus", items:[
+            {id:"documents",  label:"Documents légaux",emoji:"📜"},
+            {id:"parametres", label:"Paramètres",      emoji:"⚙️"},
+            {id:"sauvegardes",label:"Sauvegardes",     emoji:"💾"},
           ]},
         ].map((section,si)=>(
           <div key={si} style={{marginBottom:6}}>
@@ -11894,6 +11991,33 @@ return (
         {!syncing && <p style={{fontSize:10,color:"#15803D",textAlign:"center",marginTop:6}}>✓ Synchronisé</p>}
       </div>
     </div>
+
+    {/* ── BARRE DE NAVIGATION DU BAS ──────────────────────── */}
+    <div style={{
+      position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",
+      width:"100%",maxWidth:480,zIndex:50,
+      background:"#fff",borderTop:"1px solid #EAE7E0",
+      padding:"6px 8px",
+      paddingBottom:"calc(6px + env(safe-area-inset-bottom))",
+      display:"flex",alignItems:"center",justifyContent:"space-around",
+    }}>
+      {NAV_MAIN.map(t=>{
+        const active = tab===t.id;
+        return (
+          <button key={t.id} onClick={()=>goTo(t.id)} style={{
+            flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:2,
+            padding:"6px 2px",border:"none",background:"transparent",cursor:"pointer",
+            color:active?"#0A0A0A":"#9CA3AF",
+            transition:"color .15s",
+          }}>
+            <span style={{fontSize:18,lineHeight:1}}>{t.emoji}</span>
+            <span style={{fontSize:9,fontWeight:active?700:500,letterSpacing:"0.01em",whiteSpace:"nowrap"}}>{t.label}</span>
+            {active && <span style={{width:18,height:2,borderRadius:1,background:"#F2C94C",marginTop:1}}/>}
+          </button>
+        );
+      })}
+    </div>
+
   </div>
 </>
 
