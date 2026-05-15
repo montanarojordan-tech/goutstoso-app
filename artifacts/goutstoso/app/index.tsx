@@ -6002,18 +6002,39 @@ if(!form.client) { alert("Indique le nom du client"); return; }
 const lignesOk = (form.lignes||[]).filter(l=>l.produitId&&l.qte>0);
 if(!lignesOk.length) { alert("Ajoute au moins un produit"); return; }
 const numero = form.numero || genNumero();
-// Auto-link clientId : si pas déjà lié, chercher un client avec le même nom
 let clientId = form.clientId;
 if(!clientId && form.client) {
-const matched = (st.clients||[]).find(c=>c.nom.toLowerCase().trim()===form.client.toLowerCase().trim());
-if(matched) clientId = matched.id;
+  const matched = (st.clients||[]).find(c=>c.nom.toLowerCase().trim()===form.client.toLowerCase().trim());
+  if(matched) clientId = matched.id;
 }
 const cleaned = {...form, numero, lignes:lignesOk, clientId};
 if(form.id) {
-setSt(p=>({...p,commandes:(p.commandes||[]).map(c=>c.id===form.id?cleaned:c)}));
+  // Modification : pas de re-déduction (gestion manuelle des ajustements)
+  setSt(p=>({...p,commandes:(p.commandes||[]).map(c=>c.id===form.id?cleaned:c)}));
 } else {
-cleaned.id = uid();
-setSt(p=>({...p,commandes:[...(p.commandes||[]),cleaned]}));
+  // Nouvelle commande : déduire le stock immédiatement
+  cleaned.id = uid();
+  cleaned.stockDeduit = true;
+  setSt(p=>{
+    let newStocks = [...(p.stocks||[])];
+    const newMouvements = [...(p.mouvementsStock||[])];
+    lignesOk.forEach(l=>{
+      let restant = parseInt(l.qte)||0;
+      newStocks = newStocks.map(s=>{
+        if(s.produitId!==l.produitId || restant<=0) return s;
+        const dedd = Math.min(s.qte||0, restant);
+        restant -= dedd;
+        return {...s, qte:(s.qte||0)-dedd};
+      });
+      newMouvements.push({id:uid(),date:cleaned.date||today(),type:"sortie",produitId:l.produitId,qte:-(parseInt(l.qte)||0),source:`Commande ${cleaned.numero}`,commandeId:cleaned.id});
+    });
+    return {...p, stocks:newStocks, mouvementsStock:newMouvements, commandes:[...(p.commandes||[]),cleaned]};
+  });
+  const details = lignesOk.map(l=>{
+    const prod = st.produits.find(x=>x.id===l.produitId);
+    return `• ${prod?.nom||""} ${prod?.variante||""} ${prod?.format||""} : -${l.qte}`;
+  }).join("\n");
+  alert(`✅ Commande ${numero} créée\n\n📦 Stock déduit :\n${details}`);
 }
 setModal(null);
 };
@@ -6107,11 +6128,32 @@ alert(newTrans.length+" écriture(s) créée(s) en compta !");
 };
 
 const supprimer = (id) => {
-if(!window.confirm("Supprimer cette commande ? Les écritures compta liées seront aussi supprimées.")) return;
-setSt(p=>({...p,
-commandes:p.commandes.filter(c=>c.id!==id),
-transactions:(p.transactions||[]).filter(t=>t.commandeId!==id),
-}));
+const cmd = (st.commandes||[]).find(c=>c.id===id);
+const stockMsg = cmd?.stockDeduit ? "\nLe stock déduit sera restauré." : "";
+if(!window.confirm(`Supprimer cette commande ? Les écritures compta liées seront aussi supprimées.${stockMsg}`)) return;
+setSt(p=>{
+  let newStocks = [...(p.stocks||[])];
+  const newMouvements = [...(p.mouvementsStock||[])];
+  if(cmd?.stockDeduit) {
+    (cmd.lignes||[]).filter(l=>l.produitId&&(l.qte||0)>0).forEach(l=>{
+      let aRestorer = parseInt(l.qte)||0;
+      let done = false;
+      newStocks = newStocks.map(s=>{
+        if(s.produitId!==l.produitId||done) return s;
+        done = true;
+        return {...s, qte:(s.qte||0)+aRestorer};
+      });
+      newMouvements.push({id:uid(),date:today(),type:"restauration",produitId:l.produitId,qte:+(parseInt(l.qte)||0),source:`Suppression commande ${cmd.numero}`,commandeId:id});
+    });
+  }
+  return {
+    ...p,
+    stocks: newStocks,
+    mouvementsStock: newMouvements,
+    commandes: p.commandes.filter(c=>c.id!==id),
+    transactions: (p.transactions||[]).filter(t=>t.commandeId!==id),
+  };
+});
 setViewId(null);
 };
 
@@ -9073,24 +9115,46 @@ const creerCommandeAchat = (offre) => {
   let n=1; while(existing.includes("CMD-"+y+"-"+String(n).padStart(3,"0"))) n++;
   const numero = "CMD-"+y+"-"+String(n).padStart(3,"0");
   const cid = uid();
+  const lignesOk = (offre.lignes||[]).filter(l=>l.qte>0).map(l=>({produitId:l.produitId,qte:l.qte}));
   const newCmd = {
     id:cid, numero, date:today(),
     clientId:"", client:offre.clientNom,
     email:offre.clientEmail||"", telephone:"", adresse:offre.clientAdresse||"",
     npa:offre.clientNpa||"", ville:offre.clientVille||"",
-    lignes:(offre.lignes||[]).filter(l=>l.qte>0).map(l=>({produitId:l.produitId,qte:l.qte})),
+    lignes:lignesOk,
     rabais:0, fraisPort:0, commissionShopify:0,
     source:"partenaire",
     statut:"en attente", envoyeeCompta:false,
+    stockDeduit:true,
     notes:"Issue de l'offre "+offre.numero+" (achat ferme)",
     offreId:offre.id,
   };
-  setSt(p=>({
-    ...p,
-    commandes:[...(p.commandes||[]),newCmd],
-    offres:(p.offres||[]).map(o=>o.id===offre.id?{...o,typeContrat:"achat",commandeId:cid}:o),
-  }));
-  alert("✅ Commande "+numero+" créée ! Retrouve-la dans Ventes → Commandes pour générer la confirmation et la facture.");
+  setSt(p=>{
+    let newStocks = [...(p.stocks||[])];
+    const newMouvements = [...(p.mouvementsStock||[])];
+    lignesOk.forEach(l=>{
+      let restant = parseInt(l.qte)||0;
+      newStocks = newStocks.map(s=>{
+        if(s.produitId!==l.produitId||restant<=0) return s;
+        const dedd = Math.min(s.qte||0,restant);
+        restant -= dedd;
+        return {...s, qte:(s.qte||0)-dedd};
+      });
+      newMouvements.push({id:uid(),date:today(),type:"sortie",produitId:l.produitId,qte:-(parseInt(l.qte)||0),source:`Commande ${numero} (offre ${offre.numero})`,commandeId:cid});
+    });
+    return {
+      ...p,
+      stocks:newStocks,
+      mouvementsStock:newMouvements,
+      commandes:[...(p.commandes||[]),newCmd],
+      offres:(p.offres||[]).map(o=>o.id===offre.id?{...o,typeContrat:"achat",commandeId:cid}:o),
+    };
+  });
+  const details = lignesOk.map(l=>{
+    const prod = st.produits.find(x=>x.id===l.produitId);
+    return `• ${prod?.nom||""} ${prod?.variante||""} ${prod?.format||""} : -${l.qte}`;
+  }).join("\n");
+  alert(`✅ Commande ${numero} créée\n\n📦 Stock déduit :\n${details}\n\nRetrouve-la dans Ventes → Commandes.`);
 };
 
 const convertirEnCommande = (offre) => {
