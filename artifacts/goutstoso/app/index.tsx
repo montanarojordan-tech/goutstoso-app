@@ -3455,7 +3455,6 @@ if(deg===1) {
     "Nous vous adressons ce deuxième rappel et vous demandons de procéder au règlement dans un délai de 10 jours, incluant les frais de rappel :\n\n"+
     "  Montant de la facture   CHF "+total.toFixed(2)+"\n"+
     "  Frais de rappel         CHF 15.00\n"+
-    "  ─────────────────────────────────\n"+
     "  TOTAL DÛ                CHF "+totalFinal.toFixed(2)+"\n\n"+
     "Coordonnées de paiement :\n"+iban+totalFinal.toFixed(2)+"\n\n"+
     "Sans règlement dans ce délai, un troisième et dernier rappel vous sera adressé avec des frais de CHF 25.00, avant toute procédure de recouvrement.\n\n"+
@@ -3467,7 +3466,6 @@ if(deg===1) {
     "Ce troisième et dernier rappel exige le règlement immédiat du montant suivant :\n\n"+
     "  Montant de la facture   CHF "+total.toFixed(2)+"\n"+
     "  Frais de rappel         CHF 25.00\n"+
-    "  ─────────────────────────────────\n"+
     "  TOTAL DÛ                CHF "+totalFinal.toFixed(2)+"\n\n"+
     "Coordonnées de paiement :\n"+iban+totalFinal.toFixed(2)+"\n\n"+
     "À défaut de paiement sous 10 jours, nous nous verrons dans l'obligation d'engager une procédure de recouvrement. L'ensemble des frais en découlant seront entièrement à votre charge.\n\n"+
@@ -6140,10 +6138,7 @@ const body =
 `Produits commandés :\n${lignesTxt}\n\n`+
 (parseFloat(c.rabais)>0?`  Rabais : -CHF ${parseFloat(c.rabais).toFixed(2)}\n`:"")+
 (parseFloat(c.fraisPort)>0?`  Frais de port : +CHF ${parseFloat(c.fraisPort).toFixed(2)}\n`:"")+
-`  ─────────────────────────────\n`+
-`  TOTAL : CHF ${calc.totalClient.toFixed(2)}\n\n`+
-`Conditions de paiement :\n`+
-`IBAN : CH23 0900 0000 1565 1485 8 — PostFinance — Goûtstoso / Jordan Montanaro\n\n`+
+`TOTAL : CHF ${calc.totalClient.toFixed(2)}\n\n`+
 `Nous préparons votre commande et vous tiendrons informé(e) dès l'expédition.\n\n`+
 `Pour toute question, n'hésitez pas à nous contacter à admin@goutstoso.ch.\n\n`+
 `Cordialement,\n\nJordan Montanaro\nGoûtstoso\nadmin@goutstoso.ch · www.goutstoso.ch`;
