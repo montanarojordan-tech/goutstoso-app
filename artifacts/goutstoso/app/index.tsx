@@ -12115,12 +12115,12 @@ return (
 return (
 <>
 <style>{STYLE}</style>
-<div style={{display:"flex",flexDirection:"column",position:"fixed",top:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:480,bottom:0,background:"var(--cream)"}}>
+<div style={{display:"flex",flexDirection:"column",position:"fixed",top:0,bottom:0,left:"max(0px, calc(50% - 240px))",width:"min(100vw, 480px)",background:"var(--cream)"}}>
 
     {/* HEADER TOP */}
     <div style={{
-      position:"fixed",top:0,left:"50%",transform:"translateX(-50%)",
-      width:"100%",maxWidth:480,zIndex:50,
+      position:"fixed",top:0,left:"max(0px, calc(50% - 240px))",
+      width:"min(100vw, 480px)",maxWidth:480,zIndex:50,
       background:"#FFFFFF",borderBottom:"1px solid var(--gray-mid)",
       padding:"10px 14px 8px",
       display:"flex",alignItems:"center",justifyContent:"space-between",
@@ -12261,8 +12261,8 @@ return (
 
     {/* ── BARRE DE NAVIGATION DU BAS ──────────────────────── */}
     <div style={{
-      position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",
-      width:"100%",maxWidth:480,zIndex:50,
+      position:"fixed",bottom:0,left:"max(0px, calc(50% - 240px))",
+      width:"min(100vw, 480px)",zIndex:50,
       background:"#fff",borderTop:"1px solid #EAE7E0",
       padding:"6px 8px",
       paddingBottom:"calc(6px + env(safe-area-inset-bottom))",
