@@ -12115,7 +12115,7 @@ return (
 return (
 <>
 <style>{STYLE}</style>
-<div style={{display:"flex",flexDirection:"column",minHeight:"100vh",maxWidth:480,margin:"0 auto",position:"relative",background:"var(--cream)"}}>
+<div style={{display:"flex",flexDirection:"column",height:"100%",minHeight:"100dvh",maxWidth:480,margin:"0 auto",position:"relative",background:"var(--cream)"}}>
 
     {/* HEADER TOP */}
     <div style={{
@@ -12148,7 +12148,7 @@ return (
     {showAdmin && <AdminPanel currentUser={authUser} onClose={()=>setShowAdmin(false)}/>}
 
     {/* CONTENU PRINCIPAL */}
-    <div style={{flex:1,padding:"68px 16px 84px",overflowY:"auto",background:"var(--cream)",minHeight:"100vh"}}>
+    <div style={{flex:1,paddingTop:68,paddingLeft:16,paddingRight:16,paddingBottom:"calc(90px + env(safe-area-inset-bottom))",overflowY:"auto",background:"var(--cream)"}}>
       {pages[tab]||null}
     </div>
 
