@@ -12148,7 +12148,7 @@ return (
     {showAdmin && <AdminPanel currentUser={authUser} onClose={()=>setShowAdmin(false)}/>}
 
     {/* CONTENU PRINCIPAL */}
-    <div style={{flex:1,paddingTop:68,paddingLeft:16,paddingRight:16,paddingBottom:"calc(90px + env(safe-area-inset-bottom))",overflowY:"auto",background:"var(--cream)"}}>
+    <div style={{flex:1,paddingTop:68,paddingLeft:16,paddingRight:16,paddingBottom:"calc(24px + env(safe-area-inset-bottom))",overflowY:"auto",background:"var(--cream)"}}>
       {pages[tab]||null}
     </div>
 
@@ -12259,31 +12259,6 @@ return (
       </div>
     </div>
 
-    {/* ── BARRE DE NAVIGATION DU BAS ──────────────────────── */}
-    <div style={{
-      position:"fixed",bottom:0,left:"max(0px, calc(50% - 240px))",
-      width:"min(100vw, 480px)",zIndex:50,
-      background:"#fff",borderTop:"1px solid #EAE7E0",
-      padding:"6px 8px",
-      paddingBottom:"calc(6px + env(safe-area-inset-bottom))",
-      display:"flex",alignItems:"center",justifyContent:"space-around",
-    }}>
-      {NAV_MAIN.map(t=>{
-        const active = tab===t.id;
-        return (
-          <button key={t.id} onClick={()=>goTo(t.id)} style={{
-            flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:2,
-            padding:"6px 2px",border:"none",background:"transparent",cursor:"pointer",
-            color:active?"#0A0A0A":"#9CA3AF",
-            transition:"color .15s",
-          }}>
-            <span style={{fontSize:18,lineHeight:1}}>{t.emoji}</span>
-            <span style={{fontSize:9,fontWeight:active?700:500,letterSpacing:"0.01em",whiteSpace:"nowrap"}}>{t.label}</span>
-            {active && <span style={{width:18,height:2,borderRadius:1,background:"#F2C94C",marginTop:1}}/>}
-          </button>
-        );
-      })}
-    </div>
 
   </div>
 </>
