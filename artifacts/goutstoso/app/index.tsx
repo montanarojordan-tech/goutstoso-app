@@ -9410,7 +9410,7 @@ const statutConfig = {
   "refusée":{color:"#991B1B",bg:"#FEE2E2",label:"❌ Refusée"},
 };
 
-const updLigne = (i,v) => setForm(p=>({...p,lignes:p.lignes.map((l,j)=>j===i?{...l,qte:+v}:l)}));
+const updLigne = (i,v) => setForm(p=>({...p,lignes:p.lignes.map((l,j)=>j===i?{...l,qte:typeof v==="number"?v:parseInt(v.replace(/[^0-9]/g,""))||0}:l)}));
 
 // Vue détail
 if(view) return (
@@ -9944,28 +9944,35 @@ return (
       {/* Produits */}
       <div>
         <p style={{fontSize:11,fontWeight:700,color:"#374151",marginBottom:8,textTransform:"uppercase",letterSpacing:".04em"}}>Produits & quantités</p>
-        <div style={{background:"#0A0A0A",borderRadius:"10px 10px 0 0",padding:"8px 12px",display:"grid",gridTemplateColumns:"1fr 60px 60px 70px",gap:8}}>
-          <p style={{fontSize:9,fontWeight:700,color:"#F2C94C"}}>PRODUIT</p>
-          <p style={{fontSize:9,fontWeight:700,color:"#9CA3AF",textAlign:"center"}}>PRIX PUB.</p>
-          <p style={{fontSize:9,fontWeight:700,color:"#F2C94C",textAlign:"center"}}>PRIX PART.</p>
-          <p style={{fontSize:9,fontWeight:700,color:"#9CA3AF",textAlign:"center"}}>QTÉ</p>
-        </div>
+        <div style={{display:"flex",flexDirection:"column",gap:8}}>
         {(form.lignes||[]).map((l,i)=>{
           const prod=(st.produits||[]).find(p=>p.id===l.produitId);
           if(!prod) return null;
+          const qte = l.qte||0;
           return (
-            <div key={i} style={{display:"grid",gridTemplateColumns:"1fr 60px 60px 70px",gap:8,alignItems:"center",padding:"8px 12px",background:i%2===0?"#fff":"#FAFAF8",border:"1px solid #F0F0EC",borderTop:"none"}}>
-              <div>
-                <p style={{fontWeight:600,fontSize:12}}>{prod.nom} {prod.variante}</p>
-                <p style={{fontSize:10,color:"#9CA3AF"}}>{prod.format}</p>
+            <div key={i} style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,background:qte>0?"#F0FDF4":"#fff",border:"1.5px solid "+(qte>0?"#86EFAC":"#EAE7E0"),borderRadius:10,padding:"10px 12px"}}>
+              <div style={{flex:1,minWidth:0}}>
+                <p style={{fontWeight:600,fontSize:13,color:"#111"}}>{prod.nom} {prod.variante}</p>
+                <p style={{fontSize:10,color:"#9CA3AF"}}>{prod.format} · <span style={{color:"#166534",fontWeight:700}}>CHF {prod.prixRevendeur}</span><span style={{color:"#9CA3AF",textDecoration:"line-through",marginLeft:4}}>CHF {prod.prixClient}</span></p>
               </div>
-              <p style={{fontSize:11,color:"#9CA3AF",textAlign:"center",textDecoration:"line-through"}}>CHF {prod.prixClient}</p>
-              <p style={{fontSize:12,fontWeight:700,color:"#166534",textAlign:"center"}}>CHF {prod.prixRevendeur}</p>
-              <input type="number" min={0} value={l.qte||0} onChange={e=>updLigne(i,e.target.value)}
-                style={{padding:"6px 4px",fontSize:14,fontWeight:700,textAlign:"center",border:"1.5px solid #E5E5E0",borderRadius:8,width:"100%",boxSizing:"border-box"}}/>
+              <div style={{display:"flex",alignItems:"center",gap:0,flexShrink:0}}>
+                <button type="button" onClick={()=>updLigne(i,Math.max(0,qte-1))}
+                  style={{width:36,height:36,borderRadius:"8px 0 0 8px",border:"1.5px solid #D1D5DB",borderRight:"none",background:"#F5F5F0",fontSize:20,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",color:"#374151"}}>−</button>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  value={qte===0?"0":String(qte)}
+                  onFocus={e=>e.target.select()}
+                  onChange={e=>updLigne(i,e.target.value)}
+                  style={{width:44,height:36,textAlign:"center",border:"1.5px solid #D1D5DB",borderLeft:"none",borderRight:"none",fontSize:16,fontWeight:700,color:"#111",background:qte>0?"#DCFCE7":"#fff",outline:"none"}}/>
+                <button type="button" onClick={()=>updLigne(i,qte+1)}
+                  style={{width:36,height:36,borderRadius:"0 8px 8px 0",border:"1.5px solid #D1D5DB",borderLeft:"none",background:"#0A0A0A",fontSize:20,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",color:"#F2C94C"}}>+</button>
+              </div>
             </div>
           );
         })}
+        </div>
         {(()=>{
           const total=sum((form.lignes||[]).map(l=>{const p=(st.produits||[]).find(x=>x.id===l.produitId);return (p?.prixRevendeur||0)*(l.qte||0);}));
           if(!total) return null;
