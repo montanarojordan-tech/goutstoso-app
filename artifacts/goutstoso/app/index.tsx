@@ -9510,10 +9510,23 @@ if(view) return (
         )}
       </div>
       <div style={{marginTop:10,paddingTop:10,borderTop:"1px solid #BFDBFE"}}>
-        <p style={{fontSize:11,color:"#374151",marginBottom:8}}>Le partenaire a confirmé son intérêt ?</p>
-        <button onClick={()=>setSt(p=>({...p,offres:p.offres.map(o=>o.id===view.id?{...o,statut:"intérêt",interetConfirme:true}:o)}))}
-          style={{width:"100%",background:"#6D28D9",color:"#fff",border:"none",borderRadius:9,padding:"10px",fontWeight:700,fontSize:12,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
-          ✅ Oui — Passer à l'étape Offre
+        <p style={{fontSize:11,color:"#374151",marginBottom:4,fontWeight:600}}>Le partenaire a confirmé son intérêt ?</p>
+        <p style={{fontSize:10,color:"#6B7280",marginBottom:10}}>Choisis le type de collaboration souhaité :</p>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
+          <button onClick={()=>setSt(p=>({...p,offres:p.offres.map(o=>o.id===view.id?{...o,statut:"intérêt",interetConfirme:true,typeContrat:"depot-vente"}:o)}))}
+            style={{background:"#0A0A0A",color:"#F2C94C",border:"none",borderRadius:10,padding:"12px 8px",fontWeight:700,fontSize:11,cursor:"pointer",textAlign:"center",lineHeight:1.5}}>
+            🏪 Dépôt-vente<br/>
+            <span style={{fontSize:9,fontWeight:400,color:"#D4A017"}}>Contrat + commission</span>
+          </button>
+          <button onClick={()=>setSt(p=>({...p,offres:p.offres.map(o=>o.id===view.id?{...o,statut:"intérêt",interetConfirme:true,typeContrat:"achat"}:o)}))}
+            style={{background:"#1E40AF",color:"#fff",border:"none",borderRadius:10,padding:"12px 8px",fontWeight:700,fontSize:11,cursor:"pointer",textAlign:"center",lineHeight:1.5}}>
+            💳 Achat ferme<br/>
+            <span style={{fontSize:9,fontWeight:400,color:"#93C5FD"}}>Commande + facture</span>
+          </button>
+        </div>
+        <button onClick={()=>setSt(p=>({...p,offres:p.offres.map(o=>o.id===view.id?{...o,statut:"intérêt",interetConfirme:true,typeContrat:""}:o)}))}
+          style={{width:"100%",background:"#F5F3FF",color:"#6D28D9",border:"1.5px solid #DDD6FE",borderRadius:9,padding:"9px",fontWeight:600,fontSize:11,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+          📋 À définir — Rédiger l'offre d'abord
         </button>
       </div>
     </Card>
@@ -9522,8 +9535,11 @@ if(view) return (
   {/* ── ÉTAPE 2 : INTÉRÊT CONFIRMÉ → rédiger offre ── */}
   {(view.statut==="intérêt") && (
     <Card style={{padding:"14px",marginBottom:12,background:"#F5F3FF",border:"1.5px solid #DDD6FE"}}>
-      <p style={{fontSize:12,fontWeight:700,color:"#6D28D9",marginBottom:10}}>✅ Étape 2 — Intérêt confirmé · Rédiger l'offre</p>
-      <p style={{fontSize:11,color:"#374151",marginBottom:10}}>L'établissement est intéressé. Rédige maintenant l'offre commerciale avec les quantités souhaitées, puis envoie-la pour signature.</p>
+      <p style={{fontSize:12,fontWeight:700,color:"#6D28D9",marginBottom:6}}>✅ Étape 2 — Intérêt confirmé</p>
+      {view.typeContrat==="depot-vente" && <div style={{background:"#0A0A0A",borderRadius:8,padding:"8px 10px",marginBottom:10,display:"flex",alignItems:"center",gap:6}}><span style={{fontSize:13}}>🏪</span><span style={{fontSize:11,fontWeight:700,color:"#F2C94C"}}>Dépôt-vente</span><button onClick={()=>setSt(p=>({...p,offres:p.offres.map(o=>o.id===view.id?{...o,typeContrat:""}:o)}))} style={{marginLeft:"auto",background:"none",border:"none",fontSize:9,color:"#9CA3AF",cursor:"pointer"}}>changer</button></div>}
+      {view.typeContrat==="achat" && <div style={{background:"#1E40AF",borderRadius:8,padding:"8px 10px",marginBottom:10,display:"flex",alignItems:"center",gap:6}}><span style={{fontSize:13}}>💳</span><span style={{fontSize:11,fontWeight:700,color:"#fff"}}>Achat ferme</span><button onClick={()=>setSt(p=>({...p,offres:p.offres.map(o=>o.id===view.id?{...o,typeContrat:""}:o)}))} style={{marginLeft:"auto",background:"none",border:"none",fontSize:9,color:"#93C5FD",cursor:"pointer"}}>changer</button></div>}
+      {!view.typeContrat && <div style={{background:"#F5F3FF",borderRadius:8,padding:"8px 10px",marginBottom:10,display:"flex",alignItems:"center",gap:6}}><span style={{fontSize:13}}>📋</span><span style={{fontSize:11,color:"#6D28D9"}}>Type à définir dans l'offre</span></div>}
+      <p style={{fontSize:11,color:"#374151",marginBottom:10}}>Rédige l'offre commerciale avec les quantités souhaitées, puis envoie-la pour signature.</p>
       <button onClick={()=>{setForm({...view,statut:"brouillon"});setModal("form");setViewId(null);}}
         style={{width:"100%",background:"#6D28D9",color:"#fff",border:"none",borderRadius:9,padding:"10px",fontWeight:700,fontSize:12,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
         📝 Rédiger l'offre commerciale
