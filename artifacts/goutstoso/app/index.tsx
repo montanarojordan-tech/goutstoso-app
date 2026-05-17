@@ -12115,7 +12115,7 @@ return (
 return (
 <>
 <style>{STYLE}</style>
-<div style={{display:"flex",flexDirection:"column",height:"100%",minHeight:"100dvh",maxWidth:480,margin:"0 auto",position:"relative",background:"var(--cream)"}}>
+<div style={{display:"flex",flexDirection:"column",position:"fixed",top:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:480,bottom:0,background:"var(--cream)"}}>
 
     {/* HEADER TOP */}
     <div style={{
