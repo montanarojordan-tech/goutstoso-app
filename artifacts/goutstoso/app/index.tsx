@@ -9192,6 +9192,12 @@ const dateValiditeDefaut = () => {
   return d.toISOString().slice(0,10);
 };
 
+const allProduitsLignes = (existingLignes=[]) =>
+  (st.produits||[]).filter(p=>p.actif&&!p.nom.includes("Coffret")).map(p=>{
+    const ex = existingLignes.find(l=>l.produitId===p.id);
+    return {produitId:p.id, qte:ex?.qte||0};
+  });
+
 const emptyForm = () => ({
   id:null,
   numero:nextNumero(),
@@ -9208,7 +9214,7 @@ const emptyForm = () => ({
   clientSite:"",
   clientLogo:"",
   introText:"Nous avons le plaisir de vous soumettre notre offre commerciale pour nos liqueurs artisanales Goûtstoso. Vous trouverez ci-dessous notre tarification partenaire ainsi que le détail de nos produits disponibles.",
-  lignes:(st.produits||[]).filter(p=>p.actif&&!p.nom.includes("Coffret")).map(p=>({produitId:p.id,qte:0})),
+  lignes:allProduitsLignes(),
   notes:"",
   statut:"prospection",
   interetConfirme:false,
@@ -9540,7 +9546,7 @@ if(view) return (
       {view.typeContrat==="achat" && <div style={{background:"#1E40AF",borderRadius:8,padding:"8px 10px",marginBottom:10,display:"flex",alignItems:"center",gap:6}}><span style={{fontSize:13}}>💳</span><span style={{fontSize:11,fontWeight:700,color:"#fff"}}>Achat ferme</span><button onClick={()=>setSt(p=>({...p,offres:p.offres.map(o=>o.id===view.id?{...o,typeContrat:""}:o)}))} style={{marginLeft:"auto",background:"none",border:"none",fontSize:9,color:"#93C5FD",cursor:"pointer"}}>changer</button></div>}
       {!view.typeContrat && <div style={{background:"#F5F3FF",borderRadius:8,padding:"8px 10px",marginBottom:10,display:"flex",alignItems:"center",gap:6}}><span style={{fontSize:13}}>📋</span><span style={{fontSize:11,color:"#6D28D9"}}>Type à définir dans l'offre</span></div>}
       <p style={{fontSize:11,color:"#374151",marginBottom:10}}>Rédige l'offre commerciale avec les quantités souhaitées, puis envoie-la pour signature.</p>
-      <button onClick={()=>{setForm({...view,statut:"brouillon"});setModal("form");setViewId(null);}}
+      <button onClick={()=>{setForm({...view,statut:"brouillon",lignes:allProduitsLignes(view.lignes||[])});setModal("form");setViewId(null);}}
         style={{width:"100%",background:"#6D28D9",color:"#fff",border:"none",borderRadius:9,padding:"10px",fontWeight:700,fontSize:12,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
         📝 Rédiger l'offre commerciale
       </button>
@@ -9648,7 +9654,7 @@ if(view) return (
   {/* Actions */}
   <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:8}}>
     <button onClick={()=>genererOffrePDF(view,st)} style={{background:"#111",color:"#F2C94C",border:"none",borderRadius:10,padding:"11px 4px",fontWeight:700,fontSize:11,cursor:"pointer"}}>📄 PDF offre</button>
-    <button onClick={()=>{setForm({...view});setModal("form");setViewId(null);}} style={{background:"#FEF9E7",border:"1.5px solid #F2C94C",borderRadius:10,padding:"11px 4px",fontWeight:600,fontSize:11,cursor:"pointer",color:"#92400E"}}>✏️ Modifier</button>
+    <button onClick={()=>{setForm({...view,lignes:allProduitsLignes(view.lignes||[])});setModal("form");setViewId(null);}} style={{background:"#FEF9E7",border:"1.5px solid #F2C94C",borderRadius:10,padding:"11px 4px",fontWeight:600,fontSize:11,cursor:"pointer",color:"#92400E"}}>✏️ Modifier</button>
     <button onClick={()=>supprimerOffre(view.id)} style={{background:"#FEE2E2",border:"none",borderRadius:10,padding:"11px 4px",fontWeight:600,fontSize:11,cursor:"pointer",color:"#991B1B"}}>🗑 Suppr.</button>
   </div>
   <button onClick={()=>creerContactDepuisOffre(view)} style={{width:"100%",marginBottom:8,background:"#EFF6FF",border:"1.5px solid #BFDBFE",borderRadius:10,padding:"10px",fontWeight:600,fontSize:12,color:"#1E40AF",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
