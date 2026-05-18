@@ -173,7 +173,7 @@ transactions:[
 {id:"t13",date:"2026-04-02",compte:"6610",libelle:"Marketing",type:"depense",categorie:"Marketing",montant:35.00,description:"Publicité Facebook"},
 {id:"t14",date:"2026-04-02",compte:"6610",libelle:"Marketing",type:"depense",categorie:"Marketing",montant:49.90,description:"Publicité Facebook"},
 {id:"t15",date:"2026-04-02",compte:"4000",libelle:"Achats de matériel",type:"depense",categorie:"Matériel",montant:14.40,description:"Achat divers matériel"},
-{id:"t16",date:"2026-04-02",compte:"3600",libelle:"Frais expédition clients",type:"depense",categorie:"Expédition",montant:9.00,description:"Envoi 99.60.006482.06243271"},
+{id:"t16",date:"2026-04-02",compte:"6315",libelle:"Frais d'envoi des commandes",type:"depense",categorie:"Frais d'expédition (envois)",montant:9.00,description:"Envoi 99.60.006482.06243271"},
 {id:"t17",date:"2026-03-23",compte:"5201",libelle:"Dédouanement",type:"depense",categorie:"Dédouanement",montant:46.75,description:"Dédouanement - DPD"},
 {id:"t18",date:"2026-03-23",compte:"5201",libelle:"Dédouanement",type:"depense",categorie:"Dédouanement",montant:21.45,description:"Dédouanement - La Poste"},
 {id:"t19",date:"2026-03-23",compte:"5201",libelle:"Dédouanement",type:"depense",categorie:"Dédouanement",montant:22.75,description:"Dédouanement - La Poste"},
@@ -12416,7 +12416,11 @@ stocks: data.stocks||INIT.stocks,
 depotStocks: data.depotStocks||INIT.depotStocks,
 contrats: data.contrats||INIT.contrats,
 factures: data.factures||INIT.factures,
-transactions: data.transactions||INIT.transactions,
+transactions: (data.transactions||INIT.transactions).map((t:any)=>
+  t.id==="t16"&&t.compte==="3600"&&t.type==="depense"
+    ? {...t,compte:"6315",libelle:"Frais d'envoi des commandes",categorie:"Frais d'expédition (envois)"}
+    : t
+),
 soldeBancaire: data.soldeBancaire ?? INIT.soldeBancaire,
 production: data.production||INIT.production,
 fournisseurs: fournisseursMigres,
