@@ -6160,7 +6160,10 @@ return (
           setForm(p=>({...p,categorie:v,compte:compteAuto,libelle:v==="Frais de rappel"?"Frais de rappel":(PLAN_COMPTABLE[compteAuto]||p.libelle)}));
         }} options={(form.type==="recette"?CATEGORIES_RECETTE:CATEGORIES_DEPENSE).map(c=>({v:c,l:c}))}/>
         <Sel label="Compte comptable" value={form.compte} onChange={v=>setForm(p=>({...p,compte:v,libelle:PLAN_COMPTABLE[v]||""}))}
-          options={Object.entries(PLAN_COMPTABLE).filter(([k])=>form.type==="recette"?k.startsWith("3"):!k.startsWith("3")).map(([k,v])=>({v:k,l:k+" - "+v}))}/>
+          options={Object.entries(PLAN_COMPTABLE).filter(([k])=>{
+            const recetteCptes = k.startsWith("3") && k!=="3900" && k!=="3100" && k!=="3200";
+            return form.type==="recette" ? recetteCptes : !recetteCptes;
+          }).map(([k,v])=>({v:k,l:k+" - "+v}))}/>
         <F label="Description" value={form.description} onChange={v=>setForm(p=>({...p,description:v}))} placeholder="Précisions (optionnel)"/>
         {/* Justificatif PDF / image */}
         <div style={{background:"#F8F7F5",border:"1.5px dashed #D1D5DB",borderRadius:10,padding:"12px 14px"}}>
