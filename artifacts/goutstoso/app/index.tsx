@@ -12374,6 +12374,9 @@ soldeBancaire: data.soldeBancaire ?? INIT.soldeBancaire,
 production: data.production||INIT.production,
 fournisseurs: fournisseursMigres,
 clients: clientsMigres,
+associes: data.associes||INIT.associes,
+modeRepartition: data.modeRepartition||INIT.modeRepartition,
+reglesInternes: data.reglesInternes??INIT.reglesInternes,
 };
 };
 
