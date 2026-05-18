@@ -5946,7 +5946,21 @@ return (
                         <span style={{flex:1}}>{fmt(ap.date)} · {ap.type}{ap.commentaire?" · "+ap.commentaire:""}</span>
                         <span style={{fontWeight:600,color:"#166534",marginRight:6}}>+{chf(parseFloat(ap.montant)||0)}</span>
                         <button onClick={()=>{setSelectedAssocieId(a.id);setApportForm({...ap,montant:String(ap.montant)});setAssocieModal("apport");}}
-                          style={{background:"#F5F5F0",border:"none",borderRadius:6,padding:"3px 7px",fontSize:9,fontWeight:700,cursor:"pointer",color:"#374151"}}>✏️</button>
+                          style={{background:"#F5F5F0",border:"none",borderRadius:6,padding:"3px 7px",fontSize:9,fontWeight:700,cursor:"pointer",color:"#374151",marginRight:3}}>✏️</button>
+                        <button onClick={()=>{
+                          if(!confirm("Supprimer cet apport de "+chf(parseFloat(ap.montant)||0)+" ?")) return;
+                          const m=parseFloat(ap.montant)||0;
+                          setSt((p:any)=>({
+                            ...p,
+                            associes:(p.associes||[]).map((assoc:any)=>assoc.id===a.id
+                              ?{...assoc,apports:assoc.apports.filter((x:any)=>x.id!==ap.id)}
+                              :assoc),
+                            transactions:(p.transactions||[]).filter((t:any)=>t.apportId!==ap.id),
+                            soldeBancaire:ap.type==="argent"
+                              ?parseFloat((parseFloat(p.soldeBancaire||0)-m).toFixed(2))
+                              :parseFloat(p.soldeBancaire||0),
+                          }));
+                        }} style={{background:"#FEE2E2",border:"none",borderRadius:6,padding:"3px 7px",fontSize:9,fontWeight:700,cursor:"pointer",color:"#991B1B"}}>🗑️</button>
                       </div>
                     ))}
                   </div>
