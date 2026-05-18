@@ -13410,47 +13410,8 @@ return (
     {showAdmin && <AdminPanel currentUser={authUser} onClose={()=>setShowAdmin(false)}/>}
 
     {/* CONTENU PRINCIPAL */}
-    <div style={{flex:1,paddingTop:68,paddingLeft:16,paddingRight:16,paddingBottom:"calc(64px + env(safe-area-inset-bottom))",overflowY:"auto",background:"var(--cream)"}}>
+    <div style={{flex:1,paddingTop:68,paddingLeft:16,paddingRight:16,paddingBottom:"calc(24px + env(safe-area-inset-bottom))",overflowY:"auto",background:"var(--cream)"}}>
       {pages[tab]||null}
-    </div>
-
-    {/* ── BARRE DE NAVIGATION INFÉRIEURE ─────────────── */}
-    <div style={{
-      position:"fixed",bottom:0,left:"max(0px, calc(50% - 240px))",
-      width:"min(100vw, 480px)",zIndex:50,
-      background:"#fff",borderTop:"1px solid #EAE7E0",
-      display:"flex",alignItems:"stretch",
-      paddingBottom:"env(safe-area-inset-bottom)",
-    }}>
-      {([
-        {id:"dashboard", label:"Accueil",   emoji:"🏠"},
-        {id:"ventes",    label:"Ventes",    emoji:"💰"},
-        {id:"partenaires",label:"Dépôts",  emoji:"🤝"},
-        {id:"stocks",    label:"Stock",     emoji:"📦"},
-        {id:"compta",    label:"Compta",    emoji:"📊"},
-      ] as const).map(t=>{
-        const active = tab===t.id;
-        return (
-          <button key={t.id} onClick={()=>goTo(t.id)} style={{
-            flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",
-            gap:1,padding:"6px 2px",border:"none",background:"none",cursor:"pointer",
-            color:active?"#0A0A0A":"#9CA3AF",
-            borderTop:active?"2px solid #F2C94C":"2px solid transparent",
-            transition:"color .15s,border-color .15s",
-          }}>
-            <span style={{fontSize:18,lineHeight:1}}>{t.emoji}</span>
-            <span style={{fontSize:9,fontWeight:active?700:500,letterSpacing:".01em"}}>{t.label}</span>
-          </button>
-        );
-      })}
-      <button onClick={()=>setShowMenu(true)} style={{
-        flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",
-        gap:1,padding:"6px 2px",border:"none",background:"none",cursor:"pointer",
-        color:"#9CA3AF",borderTop:"2px solid transparent",
-      }}>
-        <span style={{fontSize:18,lineHeight:1}}>☰</span>
-        <span style={{fontSize:9,fontWeight:500,letterSpacing:".01em"}}>Plus</span>
-      </button>
     </div>
 
     {/* ── DRAWER MENU LATÉRAL ──────────────────────────── */}
