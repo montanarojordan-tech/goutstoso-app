@@ -53,6 +53,11 @@ function DocumentPreview({ req }: { req: SigningRequest }) {
     if (d.clientTel) rows.push(["Téléphone", d.clientTel]);
     if (d.clientAdresse) rows.push(["Adresse", d.clientAdresse]);
     if (d.date) rows.push(["Date", formatDate(d.date)]);
+  } else if (type === "convention") {
+    if (d.associeNom) rows.push(["Signataire", d.associeNom]);
+    if (d.associeRole) rows.push(["Rôle", d.associeRole]);
+    if (d.date) rows.push(["Date", formatDate(d.date)]);
+    if (Array.isArray(d.associes) && d.associes.length > 0) rows.push(["Associés", d.associes.join(" · ")]);
   } else {
     Object.entries(d).forEach(([k, v]) => {
       if (typeof v === "string" || typeof v === "number") {
@@ -149,6 +154,23 @@ function DocumentPreview({ req }: { req: SigningRequest }) {
           </div>
         )}
       </div>
+      {type === "convention" && d.conventionTexte && (
+        <div className="border-t border-gray-100 px-6 pb-6">
+          <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mt-4 mb-3">Texte complet de la convention</p>
+          <div className="text-xs leading-relaxed text-gray-700 max-h-80 overflow-y-auto pr-1 border border-gray-100 rounded-xl p-4 bg-gray-50/50">
+            {(d.conventionTexte as string).split("\n").map((line: string, i: number) => {
+              const isArticle = /^\d+\./.test(line.trim());
+              const isMain = line.startsWith("CONVENTION") || line.startsWith("Société simple");
+              const isBullet = line.startsWith("- ");
+              if (!line.trim()) return <div key={i} className="h-1" />;
+              if (isMain) return <p key={i} className="font-bold text-sm text-gray-900 mb-1">{line}</p>;
+              if (isArticle) return <p key={i} className="font-semibold text-blue-800 mt-3 pt-2 border-t border-gray-100">{line}</p>;
+              if (isBullet) return <p key={i} className="pl-3 text-gray-600">• {line.slice(2)}</p>;
+              return <p key={i}>{line}</p>;
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

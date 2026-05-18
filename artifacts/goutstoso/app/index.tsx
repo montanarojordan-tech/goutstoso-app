@@ -1881,6 +1881,131 @@ doc.save(c.numero+".pdf");
 } catch(e){alert("Erreur PDF : "+e.message);}
 };
 
+const genererConventionPDF = async (st:any) => {
+try {
+await new Promise((res,rej)=>{
+if((window as any).jspdf){res();return;}
+const s=document.createElement("script");
+s.src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";
+s.onload=res;s.onerror=rej;document.head.appendChild(s);
+});
+const {jsPDF}=(window as any).jspdf;
+const doc=new jsPDF("p","mm","a4");
+const W=210,mg=18;
+const fmt2=(s:string)=>s?new Date(s).toLocaleDateString("fr-CH",{day:"2-digit",month:"2-digit",year:"numeric"}):"";
+
+// ── Page 1+ : Texte de la convention ──
+doc.setFillColor(242,201,76);doc.rect(0,0,W,6,"F");
+pdfLogo(doc,mg);
+doc.setFontSize(15);doc.setFont("helvetica","bold");doc.setTextColor(17,17,17);
+doc.text("CONVENTION D'ASSOCIÉS",W-mg,20,{align:"right"});
+doc.setFontSize(9);doc.setFont("helvetica","normal");doc.setTextColor(120,120,120);
+doc.text("GOÛTSTOSO · Société simple · Art. 530 CO suisse",W-mg,28,{align:"right"});
+doc.setFontSize(8);
+doc.text("Version du "+new Date().toLocaleDateString("fr-CH"),W-mg,34,{align:"right"});
+doc.setDrawColor(230,230,228);doc.setLineWidth(0.3);doc.line(mg,38,W-mg,38);
+
+const conv = st.conventionAssocies||{texte:"",signataires:[]};
+const texte:string = conv.texte||"";
+const lines = texte.split("\n");
+
+const addFooter=(d:any)=>{
+  d.setDrawColor(230,230,228);d.setLineWidth(0.3);d.line(mg,277,W-mg,277);
+  d.setFontSize(7.5);d.setFont("helvetica","normal");d.setTextColor(150,150,150);
+  d.text("Goûtstoso · Convention d'associés · Confidentiel",W/2,282,{align:"center"});
+  d.setFillColor(242,201,76);d.rect(0,292,W,5,"F");
+};
+const newPage=(d:any)=>{
+  addFooter(d);d.addPage();
+  d.setFillColor(242,201,76);d.rect(0,0,W,3,"F");
+  return 12;
+};
+
+let y=46;
+const maxY=270;
+
+for(const line of lines){
+  if(y>maxY) y=newPage(doc);
+  if(!line.trim()){y+=3;continue;}
+  const isMain=line.startsWith("CONVENTION")||line.startsWith("Société simple");
+  const isArticle=/^\d+\./.test(line.trim());
+  const isBullet=line.startsWith("- ");
+  if(isMain){
+    doc.setFontSize(13);doc.setFont("helvetica","bold");doc.setTextColor(17,17,17);
+    doc.text(line,mg,y);y+=8;
+  } else if(isArticle){
+    if(y>maxY-12) y=newPage(doc);
+    y+=2;
+    doc.setFillColor(240,249,255);doc.roundedRect(mg,y-4,W-mg*2,8,1,1,"F");
+    doc.setFontSize(10);doc.setFont("helvetica","bold");doc.setTextColor(30,58,138);
+    doc.text(line,mg+2,y+1);y+=8;
+  } else if(isBullet){
+    doc.setFontSize(8.5);doc.setFont("helvetica","normal");doc.setTextColor(80,80,80);
+    const sl=doc.splitTextToSize("• "+line.slice(2),W-mg*2-8);
+    if(y+sl.length*4.5>maxY) y=newPage(doc);
+    doc.text(sl,mg+4,y);y+=sl.length*4.5;
+  } else {
+    doc.setFontSize(8.5);doc.setFont("helvetica","normal");doc.setTextColor(60,60,60);
+    const sl=doc.splitTextToSize(line,W-mg*2);
+    if(y+sl.length*4.5>maxY) y=newPage(doc);
+    doc.text(sl,mg,y);y+=sl.length*4.5;
+  }
+}
+
+// ── Page signatures ──
+addFooter(doc);
+doc.addPage();
+doc.setFillColor(242,201,76);doc.rect(0,0,W,6,"F");
+pdfLogo(doc,mg);
+doc.setFontSize(13);doc.setFont("helvetica","bold");doc.setTextColor(17,17,17);
+doc.text("SIGNATURES DES ASSOCIÉS",W/2,22,{align:"center"});
+doc.setFontSize(8.5);doc.setFont("helvetica","normal");doc.setTextColor(120,120,120);
+doc.text("En signant, chaque associé confirme avoir lu et accepté l'intégralité de la présente convention.",W/2,30,{align:"center",maxWidth:W-mg*2});
+doc.setDrawColor(230,230,228);doc.setLineWidth(0.3);doc.line(mg,34,W-mg,34);
+
+const assocs=st.associes||[];
+const signataires:any[]=conv.signataires||[];
+const colW=(W-mg*2-10)/2;
+let sy=42;
+
+for(let i=0;i<assocs.length;i++){
+  const a=assocs[i];
+  const col=i%2;
+  const x=mg+col*(colW+10);
+  if(col===0&&i>0) sy+=52;
+  if(sy>240){
+    addFooter(doc);doc.addPage();
+    doc.setFillColor(242,201,76);doc.rect(0,0,W,3,"F");
+    sy=15;
+  }
+  const sig=signataires.find((s:any)=>s.associeId===a.id);
+  const signed=!!sig?.signed;
+  doc.setDrawColor(signed?34:200,signed?197:200,signed?94:200);
+  doc.setLineWidth(0.5);
+  doc.roundedRect(x,sy,colW,44,2,2,"S");
+  doc.setFontSize(8);doc.setFont("helvetica","bold");doc.setTextColor(17,17,17);
+  doc.text(a.nom,x+3,sy+7);
+  doc.setFont("helvetica","normal");doc.setFontSize(7);doc.setTextColor(150,150,150);
+  doc.text(a.role,x+3,sy+12);
+  if(signed&&sig.signData){
+    try{doc.addImage(sig.signData,"PNG",x+3,sy+15,colW-6,22);}catch(e){}
+    doc.setFontSize(7);doc.setFont("helvetica","normal");
+    doc.setTextColor(22,101,52);
+    const dateStr=sig.signedAt?fmt2(sig.signedAt):new Date().toLocaleDateString("fr-CH");
+    doc.text("✓ Signé le "+dateStr,x+3,sy+40);
+  } else {
+    doc.setFontSize(8);doc.setTextColor(200,200,200);
+    doc.text("— Signature à apposer —",x+colW/2,sy+28,{align:"center"});
+    doc.setFontSize(7);doc.setTextColor(180,180,180);
+    doc.text("Non signé",x+colW/2,sy+40,{align:"center"});
+  }
+}
+
+addFooter(doc);
+doc.save("Convention_Associes_Goutstoso.pdf");
+}catch(e:any){alert("Erreur PDF : "+e.message);}
+};
+
 const genererFicheMacerationPDF = async ({recette, litres, btl25, btl50, numLot, dateDebut, notes}) => {
 try {
 await new Promise((res,rej)=>{
@@ -3208,6 +3333,12 @@ Contrats
         <p style={{fontSize:9,color:"#F2C94C",fontWeight:700,textTransform:"uppercase",letterSpacing:".1em"}}>Convention d'associés</p>
         <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:20,fontWeight:700,color:"#fff",marginTop:2}}>GOÛTSTOSO</p>
         <p style={{fontSize:10,color:"#9CA3AF",marginTop:3}}>Société simple · Art. 530 CO suisse · {(st.associes||[]).length} associés</p>
+        <div style={{display:"flex",gap:8,marginTop:12}}>
+          <button onClick={()=>genererConventionPDF(st)} style={{flex:1,background:"#F2C94C",color:"#111",border:"none",borderRadius:8,padding:"8px",fontSize:11,fontWeight:700,cursor:"pointer"}}>📄 PDF Convention</button>
+          <button onClick={()=>genererConventionPDF(st)} style={{flex:1,background:"#1a1a1a",color:"#9CA3AF",border:"1px solid #333",borderRadius:8,padding:"8px",fontSize:10,fontWeight:600,cursor:"pointer"}}>
+            {(st.conventionAssocies?.signataires||[]).filter((s:any)=>s.signed).length}/{(st.associes||[]).length} signé(s)
+          </button>
+        </div>
       </div>
 
       {/* Statut signatures */}
@@ -3259,11 +3390,17 @@ Contrats
                   if(!a.email){alert("Saisis d'abord l'email de "+a.nom);return;}
                   const conv2 = st.conventionAssocies||{texte:CONVENTION_TEXTE_DEFAUT,signataires:[]};
                   const docData = {conventionTexte:conv2.texte,associeNom:a.nom,associeRole:a.role,associes:(st.associes||[]).map((x:any)=>x.nom),date:today()};
-                  const token = await envoyerPourSignature("convention","Convention d'associés Goûtstoso",docData,a.email);
-                  if(!token) return;
-                  const newSig = {associeId:a.id,token,signed:false,signData:null,signerNom:""};
-                  const newSignataires = [...(conv2.signataires||[]).filter((s:any)=>s.associeId!==a.id),newSig];
-                  setSt((p:any)=>({...p,conventionAssocies:{...conv2,signataires:newSignataires}}));
+                  try {
+                    const r2 = await fetch(`${SIGN_API}/sign`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({documentType:"convention",documentTitle:"Convention d'associés Goûtstoso",documentData:docData,expiresInDays:30})});
+                    if(!r2.ok) throw new Error("Erreur serveur");
+                    const {token:tok,signingUrl} = await r2.json();
+                    const emailBody = `Chère/Cher ${a.nom},\n\nJordan Montanaro t'invite à signer la Convention d'associés Goûtstoso.\n\nClique sur ce lien pour lire le document complet et apposer ta signature électronique :\n\n${signingUrl}\n\nCe lien est valable 30 jours. Aucune application n'est nécessaire.\n\nCordialement,\n\nJordan Montanaro\nGoûtstoso · admin@goutstoso.ch · www.goutstoso.ch`;
+                    await sendEmail({to:a.email,toName:a.nom,subject:"Signature requise — Convention d'associés Goûtstoso",body:emailBody});
+                    const newSig = {associeId:a.id,token:tok,signed:false,signData:null,signerNom:""};
+                    const newSignataires = [...(conv2.signataires||[]).filter((s:any)=>s.associeId!==a.id),newSig];
+                    setSt((p:any)=>({...p,conventionAssocies:{...conv2,signataires:newSignataires}}));
+                    alert("✅ Email envoyé à "+a.email);
+                  } catch(e:any){alert("Erreur envoi : "+e.message);}
                 }} style={{background:signed?"#F5F5F0":"linear-gradient(135deg,#0a0a0a,#1a1a1a)",color:signed?"#9CA3AF":"#F2C94C",border:"none",borderRadius:8,padding:"8px",fontSize:10,fontWeight:700,cursor:signed?"default":"pointer"}}>
                   🔏 Envoyer lien
                 </button>
@@ -3275,7 +3412,7 @@ Contrats
                       const r = await fetch(`${SIGN_API2}/sign/${sig.token}`);
                       const d = await r.json();
                       if(d.status!=="signed"){alert("Pas encore signé — renvoie le lien si besoin.");return;}
-                      const newSignataires = (conv2.signataires||[]).map((s:any)=>s.associeId===a.id?{...s,signed:true,signData:d.signatureData,signerNom:d.signerName,token:null}:s);
+                      const newSignataires = (conv2.signataires||[]).map((s:any)=>s.associeId===a.id?{...s,signed:true,signData:d.signatureData,signerNom:d.signerName,token:null,signedAt:d.signedAt||new Date().toISOString()}:s);
                       setSt((p:any)=>({...p,conventionAssocies:{...conv2,signataires:newSignataires}}));
                       alert("✅ "+d.signerName+" a signé la convention !");
                     } catch(e:any){alert("Erreur : "+e.message);}
