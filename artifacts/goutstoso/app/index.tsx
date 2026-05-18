@@ -481,14 +481,16 @@ const depenses = sum((st.transactions||[]).filter(t=>t.type==="depense").map(t=>
 const resultat = recettes - depenses;
 const soldeBancaire = parseFloat(st.soldeBancaire||0);
 
-// Factures en attente
-const facturesAttente = (st.factures||[]).filter(f=>f.statut==="en attente");
-const caAttente = sum(facturesAttente.map(f=>{
-return sum((f.lignes||[]).map(l=>{
-const prod = st.produits.find(pr=>pr.id===l.produitId);
+// Factures non payées (= montant à encaisser)
+const facturesAttente = (st.factures||[]).filter(f=>f.statut!=="payée");
+const caAttente = sum(facturesAttente.map(f=>sum((f.lignes||[]).map(l=>{
+const prod=st.produits.find(pr=>pr.id===l.produitId);
 return ((f.typeClient==="revendeur"?prod?.prixRevendeur:prod?.prixClient)||0)*(l.qte||0);
-}));
-}));
+})))) + sum((st.commandes||[]).filter(c=>c.source!=="shopify"&&c.statut!=="payée"&&!c.factureNumero).map(c=>{
+const t=sum((c.lignes||[]).filter(l=>l.produitId).map(l=>{
+const p=st.produits.find(x=>x.id===l.produitId);
+return (c.typeClient==="revendeur"?(p?.prixRevendeur||0):(p?.prixClient||0))*(l.qte||0);}));
+return t-(parseFloat(c.rabais)||0)+(parseFloat(c.fraisPort)||0);}));
 
 // === ALERTES ===
 const alertes = [];
@@ -638,7 +640,7 @@ action: "fournisseurs",
 });
 
 // Commandes livrées sans facture
-const cmdSansFacture = (st.commandes||[]).filter(c=>!c.factureNumero && (c.statut==="livrée"||c.statut==="retirée"));
+const cmdSansFacture = (st.commandes||[]).filter(c=>!c.factureNumero && (c.statut==="livrée"||c.statut==="expédiée"));
 if(cmdSansFacture.length > 0) {
 alertes.push({
 type: "compta",
@@ -2473,7 +2475,7 @@ const vendus = depots.filter(d=>d.qteVendue>0);
 if(!vendus.length){ alert("Aucune vente à facturer."); return; }
 const num = "FAC-"+new Date().getFullYear()+"-"+String((st.factures||[]).length+1).padStart(3,"0");
 const lignes = vendus.map(d=>({produitId:d.produitId,qte:d.qteVendue}));
-const newFac = {id:uid(),numero:num,date:today(),partenaireId:pv.id,typeClient:"revendeur",lignes,statut:"en attente",datePaiement:"",notes:"Inventaire dépôt-vente",envoyee:false};
+const newFac = {id:uid(),numero:num,date:today(),partenaireId:pv.id,typeClient:"revendeur",lignes,statut:"en attente de paiement",datePaiement:"",notes:"Inventaire dépôt-vente",envoyee:false};
 // Réduire qteDeposee pour les ventes + retraits, et réinitialiser les compteurs
 // Supprimer les lignes vides, garder celles avec du stock restant
 const newDepots = (st.depotStocks||[]).map(d=>{
@@ -3260,7 +3262,7 @@ return (
           rabais: 0,
           fraisPort: 0,
           commissionShopify: 0,
-          statut: "en attente",
+          statut: "à préparer",
           envoyeeCompta: false,
           notes: "Commande issue de l'offre "+view.numero,
           offreId: view.id,
@@ -3292,7 +3294,7 @@ return (
           partenaireId: view.partenaireId,
           typeClient: "revendeur",
           lignes: (view.lignes||[]).filter(l=>l.produitId).map(l=>({produitId:l.produitId,qte:l.qte})),
-          statut: "en attente",
+          statut: "en attente de paiement",
           datePaiement: "",
           notes: "Facture issue du "+view.type+" "+view.numero,
           contratId: view.id,
@@ -3855,7 +3857,7 @@ if(!factures.every(f=>f.partenaireId===partenaireId)) {
 }
 
 // Vérifier qu'elles sont toutes en attente
-if(!factures.every(f=>f.statut==="en attente")) {
+if(factures.some(f=>f.statut==="payée")) {
   alert("Seules les factures en attente peuvent être regroupées");
   return;
 }
@@ -3893,7 +3895,7 @@ const nouvelleFacture = {
   partenaireId,
   typeClient: factures[0].typeClient || "revendeur",
   lignes,
-  statut: "en attente",
+  statut: "en attente de paiement",
   datePaiement: "",
   notes: noteRecap,
 };
@@ -3942,7 +3944,7 @@ if(form.id) {
 setSt(p=>({...p,factures:p.factures.map(f=>f.id===form.id?{...form,lignes:lignesOk,lignesOffertes,total,totalRabais,comptOffert:form.comptOffert||"3900"}:f)}));
 } else {
 const numero = genNumero();
-setSt(p=>({...p,factures:[...(p.factures||[]),{...form,id:uid(),numero,statut:"en attente",lignes:lignesOk,lignesOffertes,total,totalRabais,comptOffert:form.comptOffert||"3900",datePaiement:""}]}));
+setSt(p=>({...p,factures:[...(p.factures||[]),{...form,id:uid(),numero,statut:"en attente de paiement",lignes:lignesOk,lignesOffertes,total,totalRabais,comptOffert:form.comptOffert||"3900",datePaiement:""}]}));
 }
 setModal(null);
 };
@@ -4260,11 +4262,11 @@ const echeance = new Date(new Date(f.date).getTime()+30*86400000).toISOString().
 const dateRappel = today();
 const newRappel = {degree:deg, date:dateRappel, frais};
 
-// Enregistrer le rappel dans l'état
+// Enregistrer le rappel dans l'état + mettre à jour le statut
 setSt(p=>({
   ...p,
   factures: p.factures.map(fac=>fac.id===f.id
-    ? {...fac, rappels:[...(fac.rappels||[]), newRappel]}
+    ? {...fac, rappels:[...(fac.rappels||[]), newRappel], statut:"rappel "+deg}
     : fac
   )
 }));
@@ -4425,7 +4427,7 @@ try {
 const factures = (st.factures||[]).slice().reverse();
 const filtrees = factures.filter(f=>{
 if(filtre==="toutes") return true;
-if(filtre==="attente") return f.statut==="en attente"&&!getInfosRetard(f);
+if(filtre==="attente") return f.statut!=="payée"&&!getInfosRetard(f);
 if(filtre==="echues") return f.statut!=="payée"&&getInfosRetard(f);
 if(filtre==="payees") return f.statut==="payée";
 return true;
@@ -4582,6 +4584,18 @@ return (
       </div>
     )}
     {view.statut!=="payée"&&(
+      <div style={{marginBottom:8}}>
+        <Sel label="Statut de paiement" value={view.statut==="en attente"?"en attente de paiement":view.statut||"en attente de paiement"}
+          onChange={v=>{setSt(p=>({...p,factures:p.factures.map(x=>x.id===view.id?{...x,statut:v}:x)}));setView(vw=>({...vw,statut:v}));}}
+          options={[
+            {v:"en attente de paiement",l:"⏳ En attente de paiement"},
+            {v:"rappel 1",l:"🔔 Rappel 1"},
+            {v:"rappel 2",l:"⚠️ Rappel 2"},
+            {v:"rappel 3",l:"🚨 Rappel 3"},
+          ]}/>
+      </div>
+    )}
+    {view.statut!=="payée"&&(
       <div style={{marginBottom:16}}>
         <button onClick={()=>{marquerPayee(view.id);setView(null);}} style={{width:"100%",background:"#DCFCE7",border:"none",borderRadius:12,padding:"12px",fontWeight:700,fontSize:13,color:"#166534",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
           ✅ Marquer comme payée
@@ -4612,7 +4626,7 @@ return (
           <p style={{fontSize:12,fontWeight:700,color:"#D4A017",marginTop:2}}>{view.numero}</p>
           <p style={{fontSize:10,color:"#9CA3AF",marginTop:2}}>Émise le {fmt(view.date)}</p>
           <p style={{fontSize:10,color:retard?"#DC2626":"#9CA3AF"}}>Échéance {fmt(echeance)}</p>
-          <div style={{marginTop:6}}><Badge c={view.statut==="payée"?"green":retard?"red":"yellow"}>{view.statut==="payée"?"Payée":retard?"En retard":"En attente"}</Badge></div>
+          <div style={{marginTop:6}}><Badge c={view.statut==="payée"?"green":view.statut==="rappel 3"||view.statut==="rappel 2"?"red":view.statut==="rappel 1"?"orange":retard?"red":"yellow"}>{view.statut==="payée"?"Payée":view.statut==="rappel 1"?"Rappel 1":view.statut==="rappel 2"?"Rappel 2":view.statut==="rappel 3"?"Rappel 3":retard?"En retard":"En attente"}</Badge></div>
         </div>
       </div>
       <div style={{margin:"12px 16px",height:1,background:"#F5F5F0"}}/>
@@ -4887,10 +4901,9 @@ return {Numero:f.numero,Date:f.date,Client:pv?.nom,Total:total,Statut:f.statut};
                   CHF {total.toFixed(2)}
                 </p>
                 <div style={{marginTop:4,display:"flex",gap:4,justifyContent:"flex-end",flexWrap:"wrap"}}>
-                  <Badge c={f.statut==="payée"?"green":retard?"red":"yellow"}>
-                    {f.statut==="payée"?"Payée":retard?`Retard ${retard.jours}j`:"En attente"}
+                  <Badge c={f.statut==="payée"?"green":f.statut==="rappel 3"||f.statut==="rappel 2"?"red":f.statut==="rappel 1"?"orange":retard?"red":"yellow"}>
+                    {f.statut==="payée"?"Payée":f.statut==="rappel 1"?"Rappel 1":f.statut==="rappel 2"?"Rappel 2":f.statut==="rappel 3"?"Rappel 3":retard?`Retard ${retard.jours}j`:"En attente"}
                   </Badge>
-                  {rappelsEnvoyes.length>0&&<Badge c="red">R{rappelsEnvoyes[rappelsEnvoyes.length-1].degree} envoyé</Badge>}
                 </div>
               </div>
             </div>
@@ -5021,7 +5034,7 @@ return {Numero:f.numero,Date:f.date,Client:pv?.nom,Total:total,Statut:f.statut};
       <p style={{fontSize:12,color:"#737373",marginBottom:12}}>Sélectionne les factures d'un même partenaire à regrouper en une seule facture mensuelle.</p>
       
       {(() => {
-        const facturesEnAttente = (st.factures||[]).filter(f=>f.statut==="en attente");
+        const facturesEnAttente = (st.factures||[]).filter(f=>f.statut!=="payée");
         // Grouper par partenaire
         const parPartenaire = {};
         facturesEnAttente.forEach(f=>{
@@ -5673,7 +5686,7 @@ return (
       {(() => {
         const now = new Date();
         // Entrées prévues : factures partenaires en attente ou envoyées
-        const facEntrees = (st.factures||[]).filter(f=>f.statut==="en attente"||f.statut==="envoyée").map(f=>{
+        const facEntrees = (st.factures||[]).filter(f=>f.statut!=="payée").map(f=>{
           const montant = sum((f.lignes||[]).map(l=>{
             const p = st.produits.find(pr=>pr.id===l.produitId);
             return ((f.typeClient==="revendeur"?p?.prixRevendeur:p?.prixClient)||0)*(l.qte||0);
@@ -7141,7 +7154,7 @@ fraisPort:0,
 commissionShopify:0,
 source:"direct",
 typeClient:"revendeur",
-statut:"en attente",
+statut:"à préparer",
 envoyeeCompta:false,
 notes:"",
 historique:[],
@@ -7382,13 +7395,13 @@ setViewId(null);
 };
 
 const toggleStatut = (c) => {
-const cycle = ["en attente","en attente retrait","expédiée","livrée","retirée","payée"];
+const cycle = ["à préparer","emballée","expédiée","livrée","payée"];
 const idx = cycle.indexOf(c.statut);
-const newStatut = cycle[(idx+1)%cycle.length] || "en attente";
+const newStatut = cycle[(idx+1)%cycle.length] || "à préparer";
 
 const hEntry = {ancien:c.statut||"—",nouveau:newStatut,date:today(),heure:new Date().toLocaleTimeString("fr-CH",{hour:"2-digit",minute:"2-digit"})};
 
-const STATUTS_SORTIS = ["expédiée","livrée","retirée","payée"];
+const STATUTS_SORTIS = ["expédiée","livrée","payée"];
 const vaEtreEnvoye = STATUTS_SORTIS.includes(newStatut);
 const etaitEnvoye = c.stockDeduit === true;
 
@@ -7465,9 +7478,9 @@ if(filtre==="sans-facture") return !c.factureNumero;
 if(filtre==="avec-facture") return !!c.factureNumero;
 return true;
 });
-const nbSansFacture = commandes.filter(c=>!c.factureNumero && (c.statut==="livrée"||c.statut==="retirée")).length;
+const nbSansFacture = commandes.filter(c=>!c.factureNumero && (c.statut==="livrée"||c.statut==="expédiée")).length;
 
-const badgeStatut = (s) => s==="en attente"?"yellow":s==="en attente retrait"?"yellow":s==="expédiée"?"blue":s==="livrée"?"green":s==="retirée"?"green":s==="payée"?"green":"gray";
+const badgeStatut = (s) => s==="à préparer"?"yellow":s==="emballée"?"blue":s==="expédiée"?"blue":s==="livrée"?"green":s==="payée"?"green":"gray";
 
 // Vue détail
 if(view) {
@@ -7682,7 +7695,7 @@ return (
       ? <div style={{background:"#F0FDF4",border:"1px solid #BBF7D0",borderRadius:8,padding:"7px 12px",marginBottom:8,display:"flex",alignItems:"center",gap:6,fontSize:11,color:"#15803D",fontWeight:600}}>
           📦 Stock déduit automatiquement à l'expédition
         </div>
-      : (view.statut==="en attente"||view.statut==="en attente retrait") && (
+      : (view.statut==="à préparer"||view.statut==="emballée") && (
           <div style={{background:"#F8F8F6",border:"1px solid #E5E5E0",borderRadius:8,padding:"7px 12px",marginBottom:8,display:"flex",alignItems:"center",gap:6,fontSize:11,color:"#737373"}}>
             📦 Le stock sera déduit automatiquement au passage en "expédiée"
           </div>
@@ -7725,7 +7738,7 @@ return (
       </Card>
     )}
 
-    {view.email && (view.statut==="livrée"||view.statut==="retirée"||view.statut==="expédiée") && (
+    {view.email && (view.statut==="livrée"||view.statut==="expédiée") && (
       <button onClick={()=>envoyerEmailSatisfaction(view)} style={{width:"100%",background:view.emailSatisfactionEnvoye?"#F5F5F0":"linear-gradient(135deg,#E8B64C,#D4A017)",color:view.emailSatisfactionEnvoye?"#525252":"#fff",border:"none",borderRadius:10,padding:"12px",fontWeight:600,fontSize:12,cursor:"pointer",marginBottom:12}}>
         {view.emailSatisfactionEnvoye ? `✓ Email satisfaction envoyé le ${fmt(view.emailSatisfactionEnvoye)}` : "✨ Envoyer email de satisfaction"}
       </button>
@@ -8002,12 +8015,10 @@ Commandes
 
         <Sel label="Statut" value={form.statut} onChange={v=>setForm(p=>({...p,statut:v}))}
           options={[
-            {v:"en attente",l:"⏳ En attente"},
-            {v:"en attente retrait",l:"📦 En attente de retrait"},
+            {v:"à préparer",l:"📋 À préparer"},
+            {v:"emballée",l:"📦 Emballée"},
             {v:"expédiée",l:"🚚 Expédiée"},
             {v:"livrée",l:"✅ Livrée"},
-            {v:"retirée",l:"✅ Retirée"},
-            {v:"payée",l:"💰 Payée"},
           ]}/>
 
         <F label="Notes" value={form.notes||""} onChange={v=>setForm(p=>({...p,notes:v}))}/>
@@ -8253,8 +8264,8 @@ return (
       const badgeSty = (s:string) => ({
         "actif":{bg:"#DCFCE7",c:"#166534"},"signé":{bg:"#DCFCE7",c:"#166534"},
         "accepté":{bg:"#DCFCE7",c:"#166534"},"payée":{bg:"#DCFCE7",c:"#166534"},
-        "livrée":{bg:"#DBEAFE",c:"#1E3A5F"},"retirée":{bg:"#DBEAFE",c:"#1E3A5F"},
-        "en attente":{bg:"#FEF9E7",c:"#92400E"},"envoyée":{bg:"#FEF9E7",c:"#92400E"},
+        "livrée":{bg:"#DCFCE7",c:"#166534"},"expédiée":{bg:"#DBEAFE",c:"#1E3A5F"},
+        "emballée":{bg:"#DBEAFE",c:"#1E3A5F"},"à préparer":{bg:"#FEF9E7",c:"#92400E"},
         "en retard":{bg:"#FEF2F2",c:"#991B1B"},"résilié":{bg:"#FEF2F2",c:"#991B1B"},
         "refusé":{bg:"#FEF2F2",c:"#991B1B"},
       }[s]||{bg:"#F3F4F6",c:"#6B7280"});
@@ -11588,7 +11599,7 @@ const Production = ({st, setSt}) => {
   // Ventes par produit sur 90 derniers jours (commandes livrées)
   const maintenant = Date.now();
   const debut90j = new Date(maintenant - 90 * 24 * 60 * 60 * 1000).toISOString().slice(0,10);
-  const cmdLivrees = (st.commandes||[]).filter((c:any) => (c.statut==="livrée"||c.statut==="retirée") && (c.date||"")>=debut90j);
+  const cmdLivrees = (st.commandes||[]).filter((c:any) => (c.statut==="livrée"||c.statut==="expédiée") && (c.date||"")>=debut90j);
   const ventesQteParProd:{[id:string]:number} = {};
   cmdLivrees.forEach((c:any) => {
     (c.lignes||[]).forEach((l:any) => {
@@ -11623,7 +11634,7 @@ const Production = ({st, setSt}) => {
   };
 
   // Commandes en cours (à livrer)
-  const cmdEnCours = (st.commandes||[]).filter((c:any)=>c.statut==="en cours"||c.statut==="confirmée"||c.statut==="nouvelle"||c.statut==="préparée");
+  const cmdEnCours = (st.commandes||[]).filter((c:any)=>c.statut==="à préparer"||c.statut==="emballée"||c.statut==="expédiée");
   const cmdEnCoursParProd:{[id:string]:number} = {};
   cmdEnCours.forEach((c:any)=>{
     (c.lignes||[]).forEach((l:any)=>{
