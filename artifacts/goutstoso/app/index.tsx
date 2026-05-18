@@ -5470,7 +5470,7 @@ return (
       <Card style={{marginBottom:14}}>
         <h3 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:17,marginBottom:10}}>Points d'attention</h3>
         <div style={{display:"flex",flexDirection:"column",gap:8}}>
-          {(factAttente.length>0 || cmdNonPayees.length>0) && (
+          {factAttente.length>0 && (
             <div style={{background:"#FEF9E7",borderRadius:8,padding:"10px 12px"}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
                 <p style={{fontSize:12,fontWeight:600,color:"#92400E"}}>Créances clients</p>
@@ -5478,14 +5478,8 @@ return (
               </div>
               {factAttente.length>0 && (
                 <div style={{display:"flex",justifyContent:"space-between",fontSize:10,color:"#92400E",marginBottom:2,paddingLeft:8}}>
-                  <span>📄 {factAttente.length} facture(s) partenaires</span>
-                  <span>{chf(creancesFactures)}</span>
-                </div>
-              )}
-              {cmdNonPayees.length>0 && (
-                <div style={{display:"flex",justifyContent:"space-between",fontSize:10,color:"#92400E",paddingLeft:8}}>
-                  <span>🛒 {cmdNonPayees.length} commande(s) web</span>
-                  <span>{chf(creancesCommandes)}</span>
+                  <span>📄 {factAttente.length} facture(s) ouvertes</span>
+                  <span>{chf(creancesClients)}</span>
                 </div>
               )}
             </div>
