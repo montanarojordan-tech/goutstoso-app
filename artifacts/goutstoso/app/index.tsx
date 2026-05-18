@@ -1421,7 +1421,7 @@ return (
 <div>
 <p style={{fontSize:12,color:"#6B7280",marginBottom:8,textAlign:"center"}}>Signez dans le cadre ci-dessous</p>
 <div style={{border:"2px solid #F2C94C",borderRadius:10,overflow:"hidden",background:"#fff",marginBottom:12}}>
-<canvas ref={canvasRef} width={340} height={160} style={{width:"100%",height:160,touchAction:"none",display:"block"}}
+<canvas ref={canvasRef} width={400} height={220} style={{width:"100%",height:220,touchAction:"none",display:"block"}}
 onMouseDown={start} onMouseMove={draw} onMouseUp={stop}
 onTouchStart={start} onTouchMove={draw} onTouchEnd={stop}/>
 </div>
@@ -6076,6 +6076,7 @@ const [modal,setModal] = useState(null);
 const [viewId,setViewId] = useState(null);
 const [filtre,setFiltre] = useState("toutes");
 const [signingBL,setSigningBL] = useState(false);
+const [editingBLInfo,setEditingBLInfo] = useState(false);
 const [sigJordanCmd,setSigJordanCmd] = useState(false);
 const [blReceptionnaire,setBlReceptionnaire] = useState("");
 const [blDateSaisie,setBlDateSaisie] = useState(today());
@@ -6466,6 +6467,45 @@ if(sigJordanCmd) {
   );
 }
 
+// Modifier infos BL (sans re-signer)
+if(editingBLInfo) {
+  return (
+    <div className="fade">
+      <button onClick={()=>setEditingBLInfo(false)} style={{display:"flex",alignItems:"center",gap:6,background:"none",border:"none",color:"#9CA3AF",fontSize:13,marginBottom:16,padding:0,cursor:"pointer"}}>← Retour</button>
+      <div style={{background:"#FEF9E7",borderRadius:12,padding:"12px 14px",marginBottom:20,border:"1.5px solid #F2C94C"}}>
+        <p style={{fontWeight:700,fontSize:13}}>✏️ Modifier le bulletin de livraison</p>
+        <p style={{fontSize:11,color:"#92400E",marginTop:4}}>{view.blNumero||"—"} — {view.client}</p>
+        <p style={{fontSize:10,color:"#6B7280",marginTop:2}}>La signature existante est conservée</p>
+      </div>
+      <div style={{display:"grid",gap:14}}>
+        <div>
+          <label style={{fontSize:11,color:"#6B7280",fontWeight:600,display:"block",marginBottom:6}}>Nom et prénom du réceptionnaire</label>
+          <input value={blReceptionnaire} onChange={(e:any)=>setBlReceptionnaire(e.target.value)}
+            placeholder="Ex : Marie Dupont"
+            style={{width:"100%",padding:"11px 13px",borderRadius:10,border:"1.5px solid #E5E7EB",fontSize:14,outline:"none",boxSizing:"border-box"}}/>
+        </div>
+        <div>
+          <label style={{fontSize:11,color:"#6B7280",fontWeight:600,display:"block",marginBottom:6}}>Date de réception</label>
+          <input type="date" value={blDateSaisie} onChange={(e:any)=>setBlDateSaisie(e.target.value)}
+            style={{width:"100%",padding:"11px 13px",borderRadius:10,border:"1.5px solid #E5E7EB",fontSize:14,outline:"none",boxSizing:"border-box"}}/>
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginTop:4}}>
+          <button onClick={()=>setEditingBLInfo(false)}
+            style={{padding:"13px",background:"#F5F5F0",border:"none",borderRadius:12,fontWeight:600,fontSize:13,cursor:"pointer"}}>
+            Annuler
+          </button>
+          <button onClick={()=>{
+            setSt((p:any)=>({...p,commandes:p.commandes.map((c:any)=>c.id===view.id?{...c,blReceptionnaire:blReceptionnaire.trim()||c.blReceptionnaire,blDate:blDateSaisie||c.blDate}:c)}));
+            setEditingBLInfo(false);
+          }} style={{padding:"13px",background:"#F2C94C",border:"none",borderRadius:12,fontWeight:700,fontSize:13,cursor:"pointer"}}>
+            ✓ Enregistrer
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // Signature BL en plein écran
 if(signingBL) {
   const blNum = view.blNumero || genBLNumero();
@@ -6566,16 +6606,20 @@ return (
       <p style={{fontSize:11,fontWeight:700,color:view.blSigne?"#166534":"#92400E",textTransform:"uppercase",letterSpacing:".05em",marginBottom:8}}>
         {view.blSigne?"✅":"📦"} Bulletin de livraison
       </p>
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6}}>
         <button onClick={async()=>{
           const num = view.blNumero || genBLNumero();
           if(!view.blNumero) setSt((p:any)=>({...p,commandes:p.commandes.map((c:any)=>c.id===view.id?{...c,blNumero:num}:c)}));
           await genererBulletinLivraisonCommandePDF({...view,blNumero:num},st);
-        }} style={{background:"#92400E",color:"#fff",border:"none",borderRadius:8,padding:"10px",fontWeight:700,fontSize:12,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:5}}>
-          📄 {view.blNumero?"Re-télécharger":"Générer BL"}
+        }} style={{background:"#92400E",color:"#fff",border:"none",borderRadius:8,padding:"9px 4px",fontWeight:700,fontSize:11,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:4}}>
+          📄 {view.blNumero?"PDF":"Générer"}
         </button>
-        <button onClick={()=>{setBlReceptionnaire(view.blReceptionnaire||"");setBlDateSaisie(view.blDate||today());setSigningBL(true);}} style={{background:view.blSigne?"#166534":"#fff",color:view.blSigne?"#fff":"#92400E",border:"1.5px solid "+(view.blSigne?"#166534":"#F2C94C"),borderRadius:8,padding:"10px",fontWeight:700,fontSize:12,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:5}}>
-          {view.blSigne?"✍️ Re-signer":"✍️ Signer sur place"}
+        <button onClick={()=>{setBlReceptionnaire(view.blReceptionnaire||"");setBlDateSaisie(view.blDate||today());setEditingBLInfo(true);}}
+          style={{background:"#F5F5F0",color:"#374151",border:"1.5px solid #E5E5E0",borderRadius:8,padding:"9px 4px",fontWeight:700,fontSize:11,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:4}}>
+          ✏️ Modifier
+        </button>
+        <button onClick={()=>{setBlReceptionnaire(view.blReceptionnaire||"");setBlDateSaisie(view.blDate||today());setSigningBL(true);}} style={{background:view.blSigne?"#166534":"#fff",color:view.blSigne?"#fff":"#92400E",border:"1.5px solid "+(view.blSigne?"#166534":"#F2C94C"),borderRadius:8,padding:"9px 4px",fontWeight:700,fontSize:11,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:4}}>
+          {view.blSigne?"✍️ Re-signer":"✍️ Signer"}
         </button>
       </div>
       {view.blNumero && <p style={{fontSize:10,color:"#D97706",marginTop:6,textAlign:"center"}}>{view.blNumero}{view.blDate?" · "+fmt(view.blDate):""}</p>}
