@@ -4584,7 +4584,7 @@ const PLAN_COMPTABLE = {
 };
 
 const CATEGORIES_RECETTE = ["Vente Limonta","Vente Limelo","Vente Clementino","Vente Coffrets","Dépôt-vente","Vente directe","Frais expédition facturés","Frais de rappel","Autres"];
-const CATEGORIES_DEPENSE = ["Matières premières","Bouteilles","Étiquettes","Emballages","Dédouanement","Marketing","Frais d'expédition (envois)","Transport","Matériel","Commissions","Services","Salaires","Frais bancaires","Autres"];
+const CATEGORIES_DEPENSE = ["Matières premières","Bouteilles","Étiquettes","Emballages","Dédouanement","Marketing","Frais d'expédition (envois)","Transport","Matériel","Commissions","Services","Salaires","Frais bancaires","Rabais accordés sur ventes","Autres"];
 
 const Comptabilite = ({st,setSt}) => {
 const [modal,setModal] = useState(null);
@@ -5794,7 +5794,8 @@ return (
       {[
         {titre:"ACTIFS",comptes:["1020","1021","1100","3200","3100"],color:"#DBEAFE",border:"#BFDBFE",txt:"#1E3A5F"},
         {titre:"CAPITAUX PROPRES",comptes:["2000","2800"],color:"#EDE9FE",border:"#C4B5FD",txt:"#4C1D95"},
-        {titre:"PRODUITS / RECETTES",comptes:["3001","3002","3003","3004","3600","3750","3900"],color:"#DCFCE7",border:"#86EFAC",txt:"#166534"},
+        {titre:"PRODUITS / RECETTES",comptes:["3001","3002","3003","3004","3600","3750"],color:"#DCFCE7",border:"#86EFAC",txt:"#166534"},
+        {titre:"DÉDUCTIONS DES VENTES",comptes:["3900"],color:"#FFF7ED",border:"#FED7AA",txt:"#9A3412"},
         {titre:"CHARGES — MATIÈRES PREMIÈRES",comptes:["4000","4010","4100","4200","4210","4220","4400"],color:"#FEF9E7",border:"#FCD34D",txt:"#92400E"},
         {titre:"CHARGES — EXPLOITATION",comptes:["5000","5201","6000","6200","6300","6315","6400","6510","6512","6513","6530","6600","6610","6700","6800","6900","8900"],color:"#FEF2F2",border:"#FECACA",txt:"#991B1B"},
       ].map((grp,gi)=>{
