@@ -4555,7 +4555,7 @@ const PLAN_COMPTABLE = {
 "6000":"Charges de locaux",
 "6200":"Transport",
 "6300":"Assurances",
-"6315":"Frais de déplacement / représentation",
+"6315":"Frais d'envoi des commandes",
 "6400":"Électricité",
 "6510":"Téléphone",
 "6512":"Internet",
