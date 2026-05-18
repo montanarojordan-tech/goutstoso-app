@@ -187,6 +187,15 @@ transactions:[
 {id:"t27",date:"2026-04-15",compte:"6610",libelle:"Marketing",type:"depense",categorie:"Marketing",montant:42.00,description:"Publicité Facebook"},
 ],
 soldeBancaire: 798.24,
+associes: [
+  {id:"a1",nom:"Jordan Montanaro",role:"Fondateur & Production",apports:[{id:"ap1",date:"2025-01-01",montant:500,type:"argent",commentaire:"Apport initial fondateur"}],remboursements:[],pourcentageCustom:null},
+  {id:"a2",nom:"Associé 2",role:"Commercial",apports:[],remboursements:[],pourcentageCustom:null},
+  {id:"a3",nom:"Associé 3",role:"Communication",apports:[],remboursements:[],pourcentageCustom:null},
+  {id:"a4",nom:"Associé 4",role:"Logistique",apports:[],remboursements:[],pourcentageCustom:null},
+  {id:"a5",nom:"Associé 5",role:"Partenariats",apports:[],remboursements:[],pourcentageCustom:null},
+],
+modeRepartition: "apports",
+reglesInternes: "",
 };
 
 // ══════════════════════════════════════════════════════════════
@@ -4573,6 +4582,14 @@ const [nouveauSolde,setNouveauSolde] = useState(st.soldeBancaire||0);
 const emptyR = () => ({id:null as any,nom:"",montant:"" as any,frequence:"mensuelle",compte:"6100",categorie:"Loyer",prochainPaiement:today(),actif:true});
 const [rModal,setRModal] = useState(false);
 const [rForm,setRForm] = useState<any>(emptyR());
+const [associeModal,setAssocieModal] = useState<string|null>(null);
+const [selectedAssocieId,setSelectedAssocieId] = useState<string|null>(null);
+const emptyAssocieForm = {nom:"",role:"",pourcentageCustom:""};
+const [associeForm,setAssocieForm] = useState<any>(emptyAssocieForm);
+const emptyApport = {date:today(),montant:"",type:"argent",commentaire:""};
+const [apportForm,setApportForm] = useState<any>(emptyApport);
+const emptyRemb = {date:today(),montant:"",commentaire:""};
+const [rembForm,setRembForm] = useState<any>(emptyRemb);
 
 // Saisie automatique depuis factures payées
 React.useEffect(()=>{
@@ -4807,6 +4824,8 @@ return (
       {id:"resultat",l:"Résultat"},
       {id:"bilan",l:"Bilan"},
       {id:"recurrentes",l:"Récurr."},
+      {id:"planComptable",l:"Plan Cpt."},
+      {id:"associes",l:"Associés"},
     ].map(o=>(
       <button key={o.id} onClick={()=>setOnglet(o.id)} style={{background:onglet===o.id?"#0A0A0A":"transparent",color:onglet===o.id?"#FAFAF7":"#525252",border:onglet===o.id?"none":"1px solid #EAE7E0",borderRadius:8,padding:"6px 9px",fontSize:10.5,fontWeight:onglet===o.id?600:500,cursor:"pointer",whiteSpace:"nowrap",flexShrink:0,letterSpacing:"-0.01em"}}>
         {o.l}
@@ -5722,6 +5741,306 @@ return (
       )}
     </div>
   )}
+
+  {/* PLAN COMPTABLE */}
+  {onglet==="planComptable"&&(
+    <div>
+      <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:19,fontWeight:700,marginBottom:2}}>Plan comptable</p>
+      <p style={{fontSize:11,color:"#737373",marginBottom:14}}>Goûtstoso · Raison individuelle suisse (PME simplifiée)</p>
+      {[
+        {titre:"ACTIFS",comptes:["1020","1021","1100","3200","3100"],color:"#DBEAFE",border:"#BFDBFE",txt:"#1E3A5F"},
+        {titre:"PRODUITS / RECETTES",comptes:["3001","3002","3003","3004","3600","3750","3900"],color:"#DCFCE7",border:"#86EFAC",txt:"#166534"},
+        {titre:"CHARGES — MATIÈRES PREMIÈRES",comptes:["4000","4010","4100","4200","4210","4220","4400"],color:"#FEF9E7",border:"#FCD34D",txt:"#92400E"},
+        {titre:"CHARGES — EXPLOITATION",comptes:["5000","5201","6000","6200","6300","6400","6510","6512","6513","6530","6600","6610","6700","6800","6900","8900"],color:"#FEF2F2",border:"#FECACA",txt:"#991B1B"},
+      ].map((grp,gi)=>{
+        const cpts = grp.comptes.filter(k=>PLAN_COMPTABLE[k]);
+        if(!cpts.length) return null;
+        const totalGrp = (st.transactions||[]).filter(t=>cpts.includes(t.compte)).reduce((acc,t)=>acc+(parseFloat(t.montant)||0),0);
+        return (
+          <Card key={gi} style={{marginBottom:12,padding:0,overflow:"hidden"}}>
+            <div style={{background:grp.color,borderBottom:"1px solid "+grp.border,padding:"9px 14px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <p style={{fontSize:10,fontWeight:700,color:grp.txt,textTransform:"uppercase",letterSpacing:".06em"}}>{grp.titre}</p>
+              {totalGrp>0&&<span style={{fontSize:11,fontWeight:700,color:grp.txt}}>{chf(totalGrp)}</span>}
+            </div>
+            {cpts.map(k=>{
+              const solde = (st.transactions||[]).filter(t=>t.compte===k).reduce((acc,t)=>acc+(parseFloat(t.montant)||0),0);
+              return (
+                <div key={k} style={{display:"flex",alignItems:"center",gap:10,padding:"9px 14px",borderBottom:"1px solid #F5F5F0"}}>
+                  <span style={{fontSize:10,fontFamily:"monospace",fontWeight:700,color:grp.txt,background:grp.color,padding:"2px 7px",borderRadius:5,flexShrink:0}}>{k}</span>
+                  <span style={{fontSize:12,color:"#374151",flex:1}}>{PLAN_COMPTABLE[k]}</span>
+                  {solde>0&&<span style={{fontSize:11,fontWeight:600,color:"#525252",flexShrink:0}}>{chf(solde)}</span>}
+                </div>
+              );
+            })}
+          </Card>
+        );
+      })}
+      <div style={{background:"#F5F5F0",borderRadius:10,padding:"12px 14px",marginBottom:8}}>
+        <p style={{fontSize:11,fontWeight:700,color:"#374151",marginBottom:4}}>🔒 TVA — Statut actuel</p>
+        <p style={{fontSize:11,color:"#525252",lineHeight:1.6}}>Goûtstoso n'est actuellement <strong>pas assujetti à la TVA</strong>.<br/>Les factures mentionnent "Non assujetti à la TVA" conformément à la LTVA suisse.<br/>Ce statut peut être activé lorsque le CA dépasse CHF 100 000/an.</p>
+      </div>
+    </div>
+  )}
+
+  {/* ASSOCIÉS */}
+  {onglet==="associes"&&(()=>{
+    const assocs = st.associes||[];
+    const totalInvesti = assocs.reduce((s,a)=>s+a.apports.reduce((ss,ap)=>ss+(parseFloat(ap.montant)||0),0),0);
+    const totalRembourse = assocs.reduce((s,a)=>s+a.remboursements.reduce((ss,r)=>ss+(parseFloat(r.montant)||0),0),0);
+    const mode = st.modeRepartition||"apports";
+    const getShare = (a) => {
+      if(mode==="egal") return assocs.length ? 100/assocs.length : 0;
+      if(mode==="custom") return parseFloat(a.pourcentageCustom)||0;
+      const ap = a.apports.reduce((s,ap)=>s+(parseFloat(ap.montant)||0),0);
+      return totalInvesti>0 ? (ap/totalInvesti)*100 : 0;
+    };
+    const beneficeNet = resultat;
+    const selectedA = assocs.find(a=>a.id===selectedAssocieId);
+    return (
+      <div>
+        {/* Header KPIs */}
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:14}}>
+          <Card style={{padding:"10px 12px",background:"#DBEAFE"}}>
+            <p style={{fontSize:9,color:"#1E3A5F",fontWeight:700,textTransform:"uppercase"}}>Total investi</p>
+            <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:18,fontWeight:700,color:"#1E3A5F",marginTop:3}}>{chf(totalInvesti)}</p>
+            <p style={{fontSize:9,color:"#3B82F6",marginTop:2}}>par {assocs.length} associés</p>
+          </Card>
+          <Card style={{padding:"10px 12px",background:beneficeNet>=0?"#DCFCE7":"#FEF2F2"}}>
+            <p style={{fontSize:9,color:beneficeNet>=0?"#166534":"#991B1B",fontWeight:700,textTransform:"uppercase"}}>Résultat {new Date().getFullYear()}</p>
+            <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:18,fontWeight:700,color:beneficeNet>=0?"#166534":"#991B1B",marginTop:3}}>{beneficeNet>=0?"+":""}{chf(beneficeNet)}</p>
+            <p style={{fontSize:9,color:"#6B7280",marginTop:2}}>filtre période active</p>
+          </Card>
+        </div>
+
+        {/* Mode de répartition */}
+        <Card style={{marginBottom:14,padding:"12px 14px"}}>
+          <p style={{fontSize:11,fontWeight:700,color:"#374151",marginBottom:8}}>Mode de répartition</p>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6}}>
+            {[{v:"apports",l:"Selon apports"},{v:"egal",l:"Parts égales"},{v:"custom",l:"Personnalisé"}].map(m=>(
+              <button key={m.v} onClick={()=>setSt((p:any)=>({...p,modeRepartition:m.v}))}
+                style={{background:mode===m.v?"#0A0A0A":"#F5F5F0",color:mode===m.v?"#FAFAF7":"#525252",border:"none",borderRadius:8,padding:"8px 4px",fontSize:10,fontWeight:mode===m.v?700:500,cursor:"pointer"}}>
+                {m.l}
+              </button>
+            ))}
+          </div>
+          {mode==="custom"&&(
+            <p style={{fontSize:10,color:"#9CA3AF",marginTop:8}}>Les % personnalisés se modifient depuis chaque fiche associé.</p>
+          )}
+        </Card>
+
+        {/* Liste des associés */}
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+          <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:17,fontWeight:700}}>Les 5 associés</p>
+          <Btn small icon="plus" onClick={()=>{setAssocieForm(emptyAssocieForm);setAssocieModal("form");}}>Modifier</Btn>
+        </div>
+
+        <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:14}}>
+          {assocs.map(a=>{
+            const apTot = a.apports.reduce((s,ap)=>s+(parseFloat(ap.montant)||0),0);
+            const remTot = a.remboursements.reduce((s,r)=>s+(parseFloat(r.montant)||0),0);
+            const solde = apTot - remTot;
+            const share = getShare(a);
+            const resultatA = beneficeNet * share/100;
+            return (
+              <Card key={a.id} style={{padding:"12px 14px"}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
+                  <div style={{flex:1,minWidth:0}}>
+                    <p style={{fontSize:13,fontWeight:700,color:"#111"}}>{a.nom}</p>
+                    <p style={{fontSize:11,color:"#737373",marginTop:1}}>{a.role}</p>
+                  </div>
+                  <div style={{textAlign:"right",flexShrink:0}}>
+                    <p style={{fontSize:10,color:"#9CA3AF",fontWeight:600}}>PART</p>
+                    <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:20,fontWeight:700,color:"#1E3A5F"}}>{share.toFixed(1)}%</p>
+                  </div>
+                </div>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6,marginBottom:10}}>
+                  <div style={{background:"#DBEAFE",borderRadius:8,padding:"6px 8px",textAlign:"center"}}>
+                    <p style={{fontSize:8,color:"#1E3A5F",fontWeight:700,textTransform:"uppercase"}}>Investi</p>
+                    <p style={{fontSize:12,fontWeight:700,color:"#1E3A5F",marginTop:2}}>{chf(apTot)}</p>
+                  </div>
+                  <div style={{background:"#F0FDF4",borderRadius:8,padding:"6px 8px",textAlign:"center"}}>
+                    <p style={{fontSize:8,color:"#166534",fontWeight:700,textTransform:"uppercase"}}>Solde dû</p>
+                    <p style={{fontSize:12,fontWeight:700,color:"#166534",marginTop:2}}>{chf(solde)}</p>
+                  </div>
+                  <div style={{background:resultatA>=0?"#DCFCE7":"#FEF2F2",borderRadius:8,padding:"6px 8px",textAlign:"center"}}>
+                    <p style={{fontSize:8,color:resultatA>=0?"#166534":"#991B1B",fontWeight:700,textTransform:"uppercase"}}>Résultat</p>
+                    <p style={{fontSize:12,fontWeight:700,color:resultatA>=0?"#166534":"#991B1B",marginTop:2}}>{resultatA>=0?"+":""}{chf(resultatA)}</p>
+                  </div>
+                </div>
+                {/* Historique apports mini */}
+                {a.apports.length>0&&(
+                  <div style={{marginBottom:8}}>
+                    <p style={{fontSize:9,fontWeight:600,color:"#9CA3AF",textTransform:"uppercase",marginBottom:4}}>Apports ({a.apports.length})</p>
+                    {a.apports.slice(-2).map(ap=>(
+                      <div key={ap.id} style={{display:"flex",justifyContent:"space-between",fontSize:10,color:"#525252",padding:"2px 0"}}>
+                        <span>{fmt(ap.date)} · {ap.type}</span>
+                        <span style={{fontWeight:600,color:"#166534"}}>+{chf(parseFloat(ap.montant)||0)}</span>
+                      </div>
+                    ))}
+                    {a.apports.length>2&&<p style={{fontSize:9,color:"#9CA3AF",marginTop:2}}>+{a.apports.length-2} autre(s)…</p>}
+                  </div>
+                )}
+                {/* Actions */}
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
+                  <button onClick={()=>{setSelectedAssocieId(a.id);setApportForm(emptyApport);setAssocieModal("apport");}}
+                    style={{background:"#DBEAFE",color:"#1E3A5F",border:"none",borderRadius:8,padding:"7px",fontSize:10,fontWeight:700,cursor:"pointer"}}>
+                    + Apport
+                  </button>
+                  <button onClick={()=>{setSelectedAssocieId(a.id);setRembForm(emptyRemb);setAssocieModal("remboursement");}}
+                    style={{background:solde<=0?"#F5F5F0":"#DCFCE7",color:solde<=0?"#9CA3AF":"#166534",border:"none",borderRadius:8,padding:"7px",fontSize:10,fontWeight:700,cursor:"pointer",opacity:solde<=0?.6:1}}>
+                    − Remboursement
+                  </button>
+                </div>
+              </Card>
+            );
+          })}
+        </div>
+
+        {/* Règles internes */}
+        <Card style={{marginBottom:14,padding:"12px 14px"}}>
+          <p style={{fontSize:11,fontWeight:700,color:"#374151",marginBottom:8}}>📝 Règles internes</p>
+          <textarea value={st.reglesInternes||""} onChange={e=>setSt((p:any)=>({...p,reglesInternes:e.target.value}))}
+            placeholder="Note ici les règles de répartition convenues entre associés (ex: bénéfices répartis selon les apports jusqu'au remboursement, puis à parts égales…)"
+            style={{width:"100%",minHeight:80,fontSize:11,border:"1.5px solid #E5E5E0",borderRadius:8,padding:"10px",fontFamily:"inherit",lineHeight:1.6,boxSizing:"border-box",resize:"vertical"}}/>
+          <p style={{fontSize:9,color:"#9CA3AF",marginTop:4}}>Document interne uniquement — ne remplace pas une convention d'associés légale.</p>
+        </Card>
+
+        {/* Export PDF récapitulatif associés */}
+        <button onClick={async()=>{
+          try {
+            await new Promise((res,rej)=>{
+              if((window as any).jspdf){res(null);return;}
+              const s=document.createElement("script");
+              s.src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";
+              s.onload=res;s.onerror=rej;document.head.appendChild(s);
+            });
+            const {jsPDF}=(window as any).jspdf;
+            const doc=new jsPDF({unit:"mm",format:"a4"});
+            const W=210,mg=18;
+            doc.setFillColor(232,182,76);doc.rect(0,0,W,6,"F");
+            pdfLogo(doc,mg);
+            doc.setFontSize(16);doc.setFont("helvetica","bold");doc.setTextColor(17,17,17);
+            doc.text("Récapitulatif Associés — Goûtstoso",mg,44);
+            doc.setFontSize(9);doc.setFont("helvetica","normal");doc.setTextColor(100,100,100);
+            doc.text("Généré le "+fmt(today())+" · Mode: "+(mode==="apports"?"selon apports":mode==="egal"?"parts égales":"personnalisé"),mg,50);
+            doc.setDrawColor(230,230,228);doc.line(mg,53,W-mg,53);
+            let y=60;
+            doc.setFontSize(10);doc.setFont("helvetica","bold");doc.setTextColor(17,17,17);
+            doc.text("Total investi : "+chf(totalInvesti),mg,y);y+=6;
+            doc.text("Résultat période : "+(beneficeNet>=0?"+":"")+chf(beneficeNet),mg,y);y+=10;
+            assocs.forEach((a,i)=>{
+              const apTot=a.apports.reduce((s,ap)=>s+(parseFloat(ap.montant)||0),0);
+              const remTot=a.remboursements.reduce((s,r)=>s+(parseFloat(r.montant)||0),0);
+              const solde=apTot-remTot;
+              const sh=getShare(a);
+              const resA=beneficeNet*sh/100;
+              doc.setFillColor(i%2===0?248:255,i%2===0?248:255,i%2===0?245:255);
+              doc.rect(mg,y-4,W-mg*2,10,"F");
+              doc.setFontSize(9);doc.setFont("helvetica","bold");doc.setTextColor(17,17,17);
+              doc.text((i+1)+". "+a.nom+" — "+a.role,mg+2,y);
+              doc.setFont("helvetica","normal");doc.setTextColor(80,80,80);
+              doc.text("Apports: "+chf(apTot)+" · Part: "+sh.toFixed(1)+"% · Solde dû: "+chf(solde)+" · Résultat théorique: "+(resA>=0?"+":"")+chf(resA),mg+2,y+5);
+              y+=12;
+              if(y>265){doc.addPage();y=20;}
+            });
+            if(st.reglesInternes){
+              y+=4;doc.setFontSize(9);doc.setFont("helvetica","bold");doc.setTextColor(17,17,17);
+              doc.text("Règles internes :",mg,y);y+=5;
+              doc.setFont("helvetica","normal");doc.setTextColor(80,80,80);
+              const rl=doc.splitTextToSize(st.reglesInternes,W-mg*2);
+              rl.forEach((l:string)=>{doc.text(l,mg,y);y+=4.5;if(y>275){doc.addPage();y=20;}});
+            }
+            doc.setDrawColor(230,230,228);doc.line(mg,280,W-mg,280);
+            doc.setFontSize(7);doc.setTextColor(150,150,150);
+            doc.text("Goûtstoso · Jordan Montanaro · Rue des Sources 19 · 2613 Villeret · admin@goutstoso.ch",W/2,285,{align:"center"});
+            doc.setFillColor(232,182,76);doc.rect(0,292,W,5,"F");
+            doc.save("associes-goutstoso-"+today()+".pdf");
+          } catch(e:any){alert("Erreur PDF : "+e.message);}
+        }} style={{width:"100%",background:"#0A0A0A",color:"#F2C94C",border:"none",borderRadius:10,padding:"12px",fontWeight:700,fontSize:12,cursor:"pointer",marginBottom:14}}>
+          📄 Exporter récapitulatif PDF
+        </button>
+
+        {/* Modal apport */}
+        {associeModal==="apport"&&selectedA&&(
+          <Modal title={"Apport — "+selectedA.nom} onClose={()=>setAssocieModal(null)}>
+            <div style={{display:"grid",gap:12}}>
+              <F label="Date" type="date" value={apportForm.date} onChange={v=>setApportForm((p:any)=>({...p,date:v}))}/>
+              <F label="Montant (CHF)" type="number" value={apportForm.montant} onChange={v=>setApportForm((p:any)=>({...p,montant:v}))} required/>
+              <Sel label="Type d'apport" value={apportForm.type} onChange={v=>setApportForm((p:any)=>({...p,type:v}))}
+                options={[{v:"argent",l:"Argent"},{v:"materiel",l:"Matériel"},{v:"stock",l:"Stock"},{v:"travail",l:"Travail"},{v:"autre",l:"Autre"}]}/>
+              <F label="Commentaire (optionnel)" value={apportForm.commentaire} onChange={v=>setApportForm((p:any)=>({...p,commentaire:v}))} placeholder="Ex: Achat alcool, matériel de production…"/>
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginTop:16}}>
+              <Btn full icon="check" onClick={()=>{
+                const m=parseFloat(String(apportForm.montant).replace(",","."))||0;
+                if(!m){alert("Montant requis");return;}
+                const newAp={id:uid(),...apportForm,montant:m};
+                setSt((p:any)=>({...p,associes:(p.associes||[]).map((a:any)=>a.id===selectedAssocieId?{...a,apports:[...a.apports,newAp]}:a)}));
+                setAssocieModal(null);
+              }}>Enregistrer</Btn>
+              <Btn full variant="ghost" onClick={()=>setAssocieModal(null)}>Annuler</Btn>
+            </div>
+          </Modal>
+        )}
+
+        {/* Modal remboursement */}
+        {associeModal==="remboursement"&&selectedA&&(
+          <Modal title={"Remboursement — "+selectedA.nom} onClose={()=>setAssocieModal(null)}>
+            {(()=>{
+              const soldeA=selectedA.apports.reduce((s:number,ap:any)=>s+(parseFloat(ap.montant)||0),0)-selectedA.remboursements.reduce((s:number,r:any)=>s+(parseFloat(r.montant)||0),0);
+              return (
+                <div>
+                  <div style={{background:"#F5F5F0",borderRadius:8,padding:"10px 12px",marginBottom:12}}>
+                    <p style={{fontSize:10,color:"#737373",fontWeight:600}}>Solde restant dû à {selectedA.nom}</p>
+                    <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:22,fontWeight:700,color:"#166534",marginTop:3}}>{chf(soldeA)}</p>
+                  </div>
+                  <div style={{display:"grid",gap:12}}>
+                    <F label="Date" type="date" value={rembForm.date} onChange={v=>setRembForm((p:any)=>({...p,date:v}))}/>
+                    <F label="Montant remboursé (CHF)" type="number" value={rembForm.montant} onChange={v=>setRembForm((p:any)=>({...p,montant:v}))} required/>
+                    <F label="Commentaire (optionnel)" value={rembForm.commentaire} onChange={v=>setRembForm((p:any)=>({...p,commentaire:v}))} placeholder="Ex: Virement PostFinance…"/>
+                  </div>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginTop:16}}>
+                    <Btn full icon="check" onClick={()=>{
+                      const m=parseFloat(String(rembForm.montant).replace(",","."))||0;
+                      if(!m){alert("Montant requis");return;}
+                      if(m>soldeA&&!window.confirm("Ce remboursement dépasse le solde dû ("+chf(soldeA)+"). Continuer ?")){return;}
+                      const newR={id:uid(),...rembForm,montant:m};
+                      setSt((p:any)=>({...p,associes:(p.associes||[]).map((a:any)=>a.id===selectedAssocieId?{...a,remboursements:[...a.remboursements,newR]}:a)}));
+                      setAssocieModal(null);
+                    }}>Enregistrer</Btn>
+                    <Btn full variant="ghost" onClick={()=>setAssocieModal(null)}>Annuler</Btn>
+                  </div>
+                </div>
+              );
+            })()}
+          </Modal>
+        )}
+
+        {/* Modal édition associé */}
+        {associeModal==="form"&&(
+          <Modal title="Modifier les associés" onClose={()=>setAssocieModal(null)}>
+            <p style={{fontSize:11,color:"#6B7280",marginBottom:14}}>Clique sur un associé pour modifier son nom ou rôle.</p>
+            <div style={{display:"flex",flexDirection:"column",gap:10}}>
+              {assocs.map((a:any)=>(
+                <Card key={a.id} style={{padding:"10px 12px"}}>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
+                    <F label="Nom" value={a.nom} onChange={v=>setSt((p:any)=>({...p,associes:(p.associes||[]).map((x:any)=>x.id===a.id?{...x,nom:v}:x)}))}/>
+                    <F label="Rôle" value={a.role} onChange={v=>setSt((p:any)=>({...p,associes:(p.associes||[]).map((x:any)=>x.id===a.id?{...x,role:v}:x)}))}/>
+                  </div>
+                  {mode==="custom"&&(
+                    <F label="% personnalisé" type="number" value={a.pourcentageCustom||""} onChange={v=>setSt((p:any)=>({...p,associes:(p.associes||[]).map((x:any)=>x.id===a.id?{...x,pourcentageCustom:v}:x)}))}/>
+                  )}
+                </Card>
+              ))}
+            </div>
+            <div style={{marginTop:16}}>
+              <Btn full icon="check" onClick={()=>setAssocieModal(null)}>Fermer</Btn>
+            </div>
+          </Modal>
+        )}
+      </div>
+    );
+  })()}
 
   {/* Modal nouvelle écriture */}
   {modal==="form"&&(
