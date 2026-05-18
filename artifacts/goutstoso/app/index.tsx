@@ -6102,6 +6102,7 @@ npa:"",
 ville:"",
 lignes:[{produitId:"",qte:1}],
 rabais:0,
+justifRabais:"",
 fraisPort:0,
 commissionShopify:0,
 source:"direct",
@@ -6109,6 +6110,8 @@ typeClient:"revendeur",
 statut:"en attente",
 envoyeeCompta:false,
 notes:"",
+historique:[],
+moyenPaiement:"",
 });
 const [form,setForm] = useState(emptyC());
 
@@ -6188,6 +6191,7 @@ const save = () => {
 if(!form.client) { alert("Indique le nom du client"); return; }
 const lignesOk = (form.lignes||[]).filter(l=>l.produitId&&l.qte>0);
 if(!lignesOk.length) { alert("Ajoute au moins un produit"); return; }
+if(parseFloat(form.rabais)>0 && !form.justifRabais?.trim()) { alert("⚠️ Justifie le rabais accordé — ce champ est obligatoire."); return; }
 const numero = form.numero || genNumero();
 let clientId = form.clientId;
 if(!clientId && form.client) {
@@ -6349,6 +6353,16 @@ const cycle = ["en attente","en attente retrait","expédiée","livrée","retiré
 const idx = cycle.indexOf(c.statut);
 const newStatut = cycle[(idx+1)%cycle.length] || "en attente";
 
+// Capturer moyen de paiement si on passe à "payée"
+let moyenPaiement = c.moyenPaiement||"";
+if(newStatut==="payée" && !c.moyenPaiement) {
+  const mp = window.prompt("💳 Moyen de paiement reçu ?","Virement bancaire");
+  if(mp===null) return; // Annulé
+  moyenPaiement = mp.trim()||"Non précisé";
+}
+
+const hEntry = {ancien:c.statut||"—",nouveau:newStatut,date:today(),heure:new Date().toLocaleTimeString("fr-CH",{hour:"2-digit",minute:"2-digit"})};
+
 const STATUTS_SORTIS = ["expédiée","livrée","retirée","payée"];
 const vaEtreEnvoye = STATUTS_SORTIS.includes(newStatut);
 const etaitEnvoye = c.stockDeduit === true;
@@ -6400,7 +6414,7 @@ setSt(p=>{
     ...p,
     stocks: newStocks,
     mouvementsStock: newMouvements,
-    commandes: p.commandes.map(x=>x.id===c.id?{...x,statut:newStatut,stockDeduit}:x),
+    commandes: p.commandes.map(x=>x.id===c.id?{...x,statut:newStatut,stockDeduit,historique:[...(x.historique||[]),hEntry],moyenPaiement:newStatut==="payée"?moyenPaiement:(x.moyenPaiement||"")}:x),
   };
 });
 
@@ -6686,8 +6700,11 @@ return (
         <span>Sous-total produits</span><span style={{fontWeight:600}}>{chf(calc.produitsTotal)}</span>
       </div>
       {parseFloat(view.rabais)>0 && (
-        <div style={{display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:4,color:"#991B1B"}}>
-          <span>Rabais</span><span style={{fontWeight:600}}>-{chf(view.rabais)}</span>
+        <div>
+          <div style={{display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:2,color:"#991B1B"}}>
+            <span>Rabais</span><span style={{fontWeight:600}}>-{chf(view.rabais)}</span>
+          </div>
+          {view.justifRabais && <p style={{fontSize:10,color:"#92400E",fontStyle:"italic",marginBottom:4,paddingLeft:4}}>↳ {view.justifRabais}</p>}
         </div>
       )}
       {parseFloat(view.fraisPort)>0 && (
@@ -6710,10 +6727,35 @@ return (
       </div>
     </Card>
 
+    {view.moyenPaiement && (
+      <Card style={{padding:"10px 14px",background:"#F0FDF4",border:"1px solid #BBF7D0",marginBottom:12}}>
+        <p style={{fontSize:10,color:"#166534",fontWeight:700,textTransform:"uppercase",marginBottom:4}}>💳 Paiement reçu</p>
+        <p style={{fontSize:13,fontWeight:600,color:"#166534"}}>{view.moyenPaiement}</p>
+      </Card>
+    )}
+
     {view.notes && (
-      <Card style={{padding:"10px 14px",background:"#F5F5F0"}}>
+      <Card style={{padding:"10px 14px",background:"#F5F5F0",marginBottom:12}}>
         <p style={{fontSize:10,color:"#9CA3AF",fontWeight:700,textTransform:"uppercase",marginBottom:4}}>Notes</p>
         <p style={{fontSize:12}}>{view.notes}</p>
+      </Card>
+    )}
+
+    {(view.historique||[]).length>0 && (
+      <Card style={{padding:"12px 14px",marginBottom:12}}>
+        <p style={{fontSize:10,color:"#9CA3AF",fontWeight:700,textTransform:"uppercase",marginBottom:10}}>📋 Historique des statuts</p>
+        {(view.historique||[]).slice().reverse().map((h,i)=>(
+          <div key={i} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 0",borderBottom:i<(view.historique||[]).length-1?"1px solid #F5F5F0":"none"}}>
+            <div style={{flex:1}}>
+              <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
+                <span style={{fontSize:11,color:"#6B7280",background:"#F3F4F6",borderRadius:4,padding:"2px 6px"}}>{h.ancien}</span>
+                <span style={{fontSize:10,color:"#9CA3AF"}}>→</span>
+                <span style={{fontSize:11,fontWeight:700,color:"#0A0A0A",background:"#F0FDF4",borderRadius:4,padding:"2px 6px"}}>{h.nouveau}</span>
+              </div>
+            </div>
+            <p style={{fontSize:10,color:"#9CA3AF",flexShrink:0}}>{h.date}{h.heure?" · "+h.heure:""}</p>
+          </div>
+        ))}
       </Card>
     )}
   </div>
@@ -6886,6 +6928,14 @@ Commandes
             <F label="Commission Shopify" type="number" value={form.commissionShopify||""} onChange={v=>setForm(p=>({...p,commissionShopify:v}))}/>
           )}
         </div>
+        {parseFloat(form.rabais)>0 && (
+          <div style={{background:"#FEF9E7",border:"1.5px solid #F2C94C",borderRadius:10,padding:"10px 12px"}}>
+            <label style={{fontSize:11,fontWeight:700,color:"#92400E",display:"block",marginBottom:6}}>⚠️ Justification du rabais <span style={{color:"#EF4444"}}>*</span></label>
+            <textarea value={form.justifRabais||""} onChange={e=>setForm(p=>({...p,justifRabais:e.target.value}))}
+              placeholder="Ex: Client fidèle, commande volumineux, accord commercial..."
+              style={{width:"100%",minHeight:60,padding:"8px 10px",fontSize:12,border:"1.5px solid #F2C94C",borderRadius:8,resize:"vertical",fontFamily:"inherit",boxSizing:"border-box",background:"#fff"}}/>
+          </div>
+        )}
 
         <Sel label="Statut" value={form.statut} onChange={v=>setForm(p=>({...p,statut:v}))}
           options={[
@@ -6945,7 +6995,7 @@ const [catTab,setCatTab] = useState<"tous"|"client"|"partenaire">("tous");
 
 const view = viewId ? (st.clients||[]).find(c=>c.id===viewId) : null;
 
-const emptyC = () => ({id:null,nom:"",email:"",telephone:"",adresse:"",npa:"",ville:"",notes:"",categorie:"client"});
+const emptyC = () => ({id:null,nom:"",contact:"",email:"",telephone:"",site:"",adresse:"",npa:"",ville:"",notes:"",categorie:"client",statut:"actif",prixDefaut:"client",delaiPaiement:30,conditions:""});
 const [form,setForm] = useState(emptyC());
 
 const pvFromClient = (client, existingPvId?) => ({
@@ -7044,10 +7094,28 @@ return (
 <button onClick={()=>setViewId(null)} style={{display:"flex",alignItems:"center",gap:6,background:"none",border:"none",color:"#9CA3AF",fontSize:13,marginBottom:12,padding:0,cursor:"pointer"}}>← Retour clients</button>
 
     <div style={{background:"#111",borderRadius:14,padding:"16px",marginBottom:14}}>
-      <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:24,fontWeight:700,color:"#fff"}}>{view.nom}</p>
-      {view.email && <p style={{fontSize:12,color:"#aaa",marginTop:4}}>✉️ {view.email}</p>}
-      {view.telephone && <p style={{fontSize:12,color:"#aaa",marginTop:2}}>📞 {view.telephone}</p>}
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8}}>
+        <div style={{flex:1,minWidth:0}}>
+          <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:24,fontWeight:700,color:"#fff"}}>{view.nom}</p>
+          {view.contact && <p style={{fontSize:12,color:"#F2C94C",marginTop:3}}>👤 {view.contact}</p>}
+          {view.email && <p style={{fontSize:12,color:"#aaa",marginTop:3}}>✉️ {view.email}</p>}
+          {view.telephone && <p style={{fontSize:12,color:"#aaa",marginTop:2}}>📞 {view.telephone}</p>}
+          {view.site && <p style={{fontSize:11,color:"#60A5FA",marginTop:2}}>🌐 {view.site}</p>}
+        </div>
+        <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:6}}>
+          {view.statut && <span style={{fontSize:10,fontWeight:700,padding:"3px 8px",borderRadius:6,background:view.statut==="actif"?"#166534":view.statut==="inactif"?"#4B5563":"#1E40AF",color:"#fff"}}>{view.statut==="actif"?"✅ Actif":view.statut==="inactif"?"⏸ Inactif":"🔍 Prospection"}</span>}
+          {view.prixDefaut && <span style={{fontSize:10,fontWeight:600,padding:"3px 8px",borderRadius:6,background:"#1f2937",color:view.prixDefaut==="revendeur"?"#86EFAC":"#93C5FD"}}>{view.prixDefaut==="revendeur"?"🤝 Prix partenaire":"💰 Prix public"}</span>}
+          {(view.delaiPaiement||30) && <span style={{fontSize:10,color:"#9CA3AF"}}>⏱ {view.delaiPaiement||30}j</span>}
+        </div>
+      </div>
     </div>
+
+    {view.conditions && (
+      <Card style={{marginBottom:14,padding:"10px 14px",background:"#FEF9E7",border:"1px solid #F2C94C"}}>
+        <p style={{fontSize:10,color:"#92400E",fontWeight:700,textTransform:"uppercase",marginBottom:4}}>📋 Conditions commerciales</p>
+        <p style={{fontSize:12,color:"#374151",lineHeight:1.5}}>{view.conditions}</p>
+      </Card>
+    )}
 
     {/* Actions */}
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:14}}>
@@ -7287,17 +7355,71 @@ Clients
             ))}
           </div>
         </div>
-        <F label="Nom / Raison sociale" value={form.nom} onChange={v=>setForm(p=>({...p,nom:v}))} required/>
+        <F label="Nom / Raison sociale *" value={form.nom} onChange={v=>setForm(p=>({...p,nom:v}))} required/>
+        <F label="Personne de contact" value={form.contact||""} onChange={v=>setForm(p=>({...p,contact:v}))} placeholder="Prénom Nom"/>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
           <F label="Email" value={form.email||""} onChange={v=>setForm(p=>({...p,email:v}))}/>
           <F label="Téléphone" value={form.telephone||""} onChange={v=>setForm(p=>({...p,telephone:v}))}/>
         </div>
+        <F label="Site web" value={form.site||""} onChange={v=>setForm(p=>({...p,site:v}))} placeholder="www.exemple.ch"/>
         <F label="Adresse" value={form.adresse||""} onChange={v=>setForm(p=>({...p,adresse:v}))} placeholder="Rue et numéro"/>
         <div style={{display:"grid",gridTemplateColumns:"80px 1fr",gap:12}}>
           <F label="NPA" value={form.npa||""} onChange={v=>setForm(p=>({...p,npa:v}))}/>
           <F label="Ville" value={form.ville||""} onChange={v=>setForm(p=>({...p,ville:v}))}/>
         </div>
-        <F label="Notes" value={form.notes||""} onChange={v=>setForm(p=>({...p,notes:v}))} placeholder="Préférences, informations..."/>
+
+        {/* Statut */}
+        <div>
+          <label style={{fontSize:11,fontWeight:600,color:"#9CA3AF",textTransform:"uppercase",letterSpacing:".06em",display:"block",marginBottom:8}}>Statut</label>
+          <div style={{display:"flex",gap:6}}>
+            {([["actif","✅ Actif","#DCFCE7","#166534"],["inactif","⏸ Inactif","#F3F4F6","#6B7280"],["en prospection","🔍 Prospection","#EFF6FF","#1E40AF"]] as const).map(([v,l,bg,col])=>(
+              <button key={v} type="button" onClick={()=>setForm(p=>({...p,statut:v}))}
+                style={{flex:1,padding:"8px 4px",border:"1.5px solid "+(form.statut===v?col:"#E5E5E0"),borderRadius:8,background:form.statut===v?bg:"#fff",fontWeight:form.statut===v?700:400,fontSize:11,color:form.statut===v?col:"#6B7280",cursor:"pointer",transition:"all .15s"}}>
+                {l}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Prix par défaut */}
+        <div>
+          <label style={{fontSize:11,fontWeight:600,color:"#9CA3AF",textTransform:"uppercase",letterSpacing:".06em",display:"block",marginBottom:8}}>Prix appliqué par défaut</label>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+            {([["client","💰 Prix public","#EFF6FF","#1E40AF"],["revendeur","🤝 Prix partenaire","#F0FDF4","#166534"]] as const).map(([v,l,bg,col])=>(
+              <button key={v} type="button" onClick={()=>setForm(p=>({...p,prixDefaut:v}))}
+                style={{padding:"10px 8px",border:"1.5px solid "+((form.prixDefaut||"client")===v?col:"#E5E5E0"),borderRadius:10,background:(form.prixDefaut||"client")===v?bg:"#fff",fontWeight:(form.prixDefaut||"client")===v?700:400,fontSize:12,color:(form.prixDefaut||"client")===v?col:"#6B7280",cursor:"pointer",transition:"all .15s"}}>
+                {l}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Délai paiement */}
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+          <div>
+            <label style={{fontSize:11,fontWeight:600,color:"#9CA3AF",textTransform:"uppercase",letterSpacing:".06em",display:"block",marginBottom:8}}>Délai de paiement</label>
+            <div style={{display:"flex",alignItems:"center",gap:8}}>
+              <div style={{display:"flex",gap:4}}>
+                {[15,30,60,90].map(d=>(
+                  <button key={d} type="button" onClick={()=>setForm(p=>({...p,delaiPaiement:d}))}
+                    style={{padding:"8px 10px",border:"1.5px solid "+((form.delaiPaiement||30)===d?"#0A0A0A":"#E5E5E0"),borderRadius:8,background:(form.delaiPaiement||30)===d?"#0A0A0A":"#fff",color:(form.delaiPaiement||30)===d?"#F2C94C":"#6B7280",fontWeight:(form.delaiPaiement||30)===d?700:400,fontSize:11,cursor:"pointer"}}>
+                    {d}j
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Conditions commerciales */}
+        <div>
+          <label style={{fontSize:11,fontWeight:600,color:"#9CA3AF",textTransform:"uppercase",letterSpacing:".06em",display:"block",marginBottom:8}}>Conditions commerciales</label>
+          <textarea value={form.conditions||""} onChange={e=>setForm(p=>({...p,conditions:e.target.value}))}
+            placeholder="Ex: Remise habituelle 10%, paiement sur facture, livraison mensuelle..."
+            style={{width:"100%",minHeight:60,padding:"8px 10px",fontSize:12,border:"1.5px solid #E5E5E0",borderRadius:10,resize:"vertical",fontFamily:"inherit",boxSizing:"border-box"}}/>
+        </div>
+
+        <F label="Notes internes" value={form.notes||""} onChange={v=>setForm(p=>({...p,notes:v}))} placeholder="Informations privées, préférences..."/>
       </div>
       <div style={{display:"flex",gap:10,marginTop:20}}>
         <Btn onClick={save} full icon="check">Enregistrer</Btn>
