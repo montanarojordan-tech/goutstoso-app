@@ -7434,9 +7434,21 @@ return c.nom?.toLowerCase().includes(s) || c.email?.toLowerCase().includes(s) ||
 const nbClient = clients.filter(c=>(c.categorie||"client")==="client").length;
 const nbPartenaire = clients.filter(c=>c.categorie==="partenaire").length;
 
-// Stats par client
+// Stats par client (inclut lookup via partenaire lié)
 const getStats = (clientId) => {
-const commandes = (st.commandes||[]).filter(c=>c.clientId===clientId);
+const linkedPv = (st.partenaires||[]).find(pv=>pv.clientId===clientId);
+const commandes = (st.commandes||[]).filter(c=>
+  c.clientId===clientId || (linkedPv && c.partenaireId===linkedPv.id)
+);
+const factures = (st.factures||[]).filter(f=>
+  f.partenaireId===clientId || (linkedPv && f.partenaireId===linkedPv.id)
+);
+const offres = (st.contrats||[]).filter(c=>
+  c.type==="offre" && linkedPv && c.partenaireId===linkedPv.id
+);
+const contrats = (st.contrats||[]).filter(c=>
+  c.type!=="offre" && !c.livraison && linkedPv && c.partenaireId===linkedPv.id
+);
 const ca = sum(commandes.map(c=>{
 const t = sum((c.lignes||[]).filter(l=>l.produitId).map(l=>{
 const p = st.produits.find(x=>x.id===l.produitId);
@@ -7444,7 +7456,6 @@ return (c.typeClient==="revendeur"?(p?.prixRevendeur||0):(p?.prixClient||0))*(l.
 }));
 return t - (parseFloat(c.rabais)||0) + (parseFloat(c.fraisPort)||0);
 }));
-// Commandes en attente de paiement (tout sauf payée)
 const cmdNonPayees = commandes.filter(c=>c.statut!=="payée"&&c.statut!=="livrée"&&c.statut!=="retirée");
 const aEncaisser = sum(cmdNonPayees.map(c=>{
 const t = sum((c.lignes||[]).filter(l=>l.produitId).map(l=>{
@@ -7453,7 +7464,7 @@ return (c.typeClient==="revendeur"?(p?.prixRevendeur||0):(p?.prixClient||0))*(l.
 }));
 return t - (parseFloat(c.rabais)||0) + (parseFloat(c.fraisPort)||0);
 }));
-return {nbCommandes:commandes.length,ca,commandes,nbNonPayees:cmdNonPayees.length,aEncaisser};
+return {nbCommandes:commandes.length,ca,commandes,nbNonPayees:cmdNonPayees.length,aEncaisser,factures,offres,contrats};
 };
 
 // Vue détail client
@@ -7566,28 +7577,61 @@ return (
       );
     })()}
 
-    {/* Historique commandes */}
-    <Card style={{padding:"12px 14px"}}>
-      <p style={{fontSize:11,fontWeight:700,color:"#9CA3AF",textTransform:"uppercase",marginBottom:10}}>Historique ({stats.nbCommandes})</p>
-      {stats.commandes.length===0
-        ? <p style={{fontSize:12,color:"#9CA3AF",textAlign:"center",padding:"10px 0"}}>Aucune commande</p>
-        : stats.commandes.slice().reverse().map(c=>{
-            const t = sum((c.lignes||[]).filter(l=>l.produitId).map(l=>{
-              const p = st.produits.find(x=>x.id===l.produitId);
-              return (c.typeClient==="revendeur"?(p?.prixRevendeur||0):(p?.prixClient||0))*(l.qte||0);
-            })) - (parseFloat(c.rabais)||0) + (parseFloat(c.fraisPort)||0);
-            return (
-              <div key={c.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderBottom:"1px solid #F5F5F0"}}>
-                <div>
-                  <p style={{fontSize:12,fontWeight:600}}>{c.numero}</p>
-                  <p style={{fontSize:10,color:"#9CA3AF"}}>{fmt(c.date)} · {(c.lignes||[]).length} produit(s) · {c.statut}</p>
-                </div>
-                <span style={{fontWeight:700,fontSize:13}}>{chf(t)}</span>
-              </div>
-            );
-          })
-      }
-    </Card>
+    {/* Historique complet par catégorie */}
+    {(()=>{
+      const badgeSty = (s:string) => ({
+        "actif":{bg:"#DCFCE7",c:"#166534"},"signé":{bg:"#DCFCE7",c:"#166534"},
+        "accepté":{bg:"#DCFCE7",c:"#166534"},"payée":{bg:"#DCFCE7",c:"#166534"},
+        "livrée":{bg:"#DBEAFE",c:"#1E3A5F"},"retirée":{bg:"#DBEAFE",c:"#1E3A5F"},
+        "en attente":{bg:"#FEF9E7",c:"#92400E"},"envoyée":{bg:"#FEF9E7",c:"#92400E"},
+        "en retard":{bg:"#FEF2F2",c:"#991B1B"},"résilié":{bg:"#FEF2F2",c:"#991B1B"},
+        "refusé":{bg:"#FEF2F2",c:"#991B1B"},
+      }[s]||{bg:"#F3F4F6",c:"#6B7280"});
+      const total = stats.offres.length+stats.contrats.length+stats.commandes.length+stats.factures.length;
+      const groupes = [
+        {label:"📋 Offres",items:stats.offres,type:"offre"},
+        {label:"📑 Contrats dépôt-vente",items:stats.contrats,type:"contrat"},
+        {label:"🛒 Commandes",items:stats.commandes,type:"commande"},
+        {label:"📄 Factures",items:stats.factures,type:"facture"},
+      ].filter(g=>g.items.length>0);
+      if(total===0) return (
+        <Card style={{padding:"16px",textAlign:"center" as const}}>
+          <p style={{fontSize:12,color:"#9CA3AF"}}>Aucun historique</p>
+        </Card>
+      );
+      return (
+        <>
+          {groupes.map((grp,gi)=>(
+            <Card key={gi} style={{padding:"12px 14px",marginBottom:10}}>
+              <p style={{fontSize:11,fontWeight:700,color:"#9CA3AF",textTransform:"uppercase" as const,marginBottom:8}}>
+                {grp.label} ({grp.items.length})
+              </p>
+              {grp.items.slice().sort((a:any,b:any)=>(b.date||b.dateSignature||"").localeCompare(a.date||a.dateSignature||"")).map((item:any)=>{
+                const sty = badgeSty(item.statut||"");
+                let montant = 0;
+                if(grp.type==="facture") montant = calcTotalNet(item,st.produits);
+                else if(grp.type==="commande") montant = sum((item.lignes||[]).filter((l:any)=>l.produitId).map((l:any)=>{
+                  const p = st.produits.find((x:any)=>x.id===l.produitId);
+                  return (item.typeClient==="revendeur"?(p?.prixRevendeur||0):(p?.prixClient||0))*(l.qte||0);
+                }))-(parseFloat(item.rabais)||0)+(parseFloat(item.fraisPort)||0);
+                return (
+                  <div key={item.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderBottom:"1px solid #F5F5F0"}}>
+                    <div style={{flex:1,minWidth:0}}>
+                      <p style={{fontSize:12,fontWeight:600}}>{item.numero||("…"+item.id.slice(-6))}</p>
+                      <p style={{fontSize:10,color:"#9CA3AF",marginTop:1}}>{fmt(item.date||item.dateSignature||"")} {grp.type==="commande"?"· "+(item.lignes||[]).length+" produit(s)":""}</p>
+                    </div>
+                    <div style={{display:"flex",alignItems:"center",gap:6,flexShrink:0}}>
+                      <span style={{fontSize:9,fontWeight:700,padding:"2px 6px",borderRadius:5,background:sty.bg,color:sty.c}}>{item.statut||"—"}</span>
+                      {montant>0&&<span style={{fontWeight:700,fontSize:13,marginLeft:2}}>{chf(montant)}</span>}
+                    </div>
+                  </div>
+                );
+              })}
+            </Card>
+          ))}
+        </>
+      );
+    })()}
   </div>
 );
 
@@ -12448,8 +12492,9 @@ setSt(p=>{
   const newClients = [...(p.clients||[])];
   const newPartenaires = (p.partenaires||[]).map(pv=>{
     if(pv.clientId) return pv; // déjà lié
-    // Chercher un client existant avec le même nom
-    const existing = newClients.find(c=>c.nom===pv.nom && c.categorie==="partenaire");
+    // Chercher un client existant avec le même nom (insensible casse/espaces)
+    const nom = pv.nom?.toLowerCase().trim()||"";
+    const existing = newClients.find(c=>(c.nom||"").toLowerCase().trim()===nom && c.categorie==="partenaire");
     if(existing) return {...pv,clientId:existing.id};
     // Créer un nouveau client
     const nc = {
@@ -12466,7 +12511,11 @@ setSt(p=>{
     newClients.push(nc);
     return {...pv,clientId:nc.id};
   });
-  return {...p,clients:newClients,partenaires:newPartenaires};
+  // Dédoublonnage : on garde la première occurrence par nom+catégorie
+  const uniqueClients = newClients.filter((c,i)=>
+    newClients.findIndex(x=>(x.nom||"").toLowerCase().trim()===(c.nom||"").toLowerCase().trim() && x.categorie===c.categorie)===i
+  );
+  return {...p,clients:uniqueClients,partenaires:newPartenaires};
 });
 },[loading]);
 
