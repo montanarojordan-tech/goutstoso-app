@@ -5318,9 +5318,15 @@ const catDepenses = Object.values(parCategorie).filter(c=>c.type==="depense").so
 
 // Bilan simplifié
 const factAttente = (st.factures||[]).filter(f=>f.statut!=="payée");
-// Créances clients = factures en attente + commandes Shopify non payées
+// Créances clients = factures en attente + commandes directes non soldées (Shopify = déjà payé au moment de la commande, pas une créance)
 const creancesFactures = sum(factAttente.map(f=>calcTotalNet(f,st.produits)));
-const cmdNonPayees = (st.commandes||[]).filter(c=>c.statut!=="payée"&&c.statut!=="livrée"&&c.statut!=="retirée"&&!c.factureNumero);
+const cmdNonPayees = (st.commandes||[]).filter(c=>
+  c.source!=="shopify" &&
+  c.statut!=="payée" &&
+  c.statut!=="livrée" &&
+  c.statut!=="retirée" &&
+  !c.factureNumero
+);
 const creancesCommandes = sum(cmdNonPayees.map(c=>{
 const t = sum((c.lignes||[]).filter(l=>l.produitId).map(l=>{
 const p = st.produits.find(x=>x.id===l.produitId);
