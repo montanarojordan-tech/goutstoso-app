@@ -4703,6 +4703,18 @@ const recettes = sum(transByPeriode.filter(t=>t.type==="recette").map(t=>+t.mont
 const depenses = sum(transByPeriode.filter(t=>t.type==="depense").map(t=>+t.montant));
 const resultat = recettes - depenses;
 
+// ── Associés ─────────────────────────────────────────────────
+const assocs: any[] = st.associes||[];
+const modeRep: string = st.modeRepartition||"apports";
+const totalInvestiAll = assocs.reduce((s:number,a:any)=>s+a.apports.reduce((ss:number,ap:any)=>ss+(parseFloat(ap.montant)||0),0),0);
+const getShareFn = (a:any):number => {
+  if(modeRep==="egal") return assocs.length ? 100/assocs.length : 0;
+  if(modeRep==="custom") return parseFloat(a.pourcentageCustom)||0;
+  const ap = a.apports.reduce((s:number,ap:any)=>s+(parseFloat(ap.montant)||0),0);
+  return totalInvestiAll>0 ? (ap/totalInvestiAll)*100 : 0;
+};
+const selectedA: any = assocs.find((a:any)=>a.id===selectedAssocieId);
+
 // Données par mois (pour graphique)
 const parMois = {};
 transByPeriode.forEach(t=>{
@@ -5783,31 +5795,18 @@ return (
   )}
 
   {/* ASSOCIÉS */}
-  {onglet==="associes"&&(()=>{
-    const assocs = st.associes||[];
-    const totalInvesti = assocs.reduce((s,a)=>s+a.apports.reduce((ss,ap)=>ss+(parseFloat(ap.montant)||0),0),0);
-    const totalRembourse = assocs.reduce((s,a)=>s+a.remboursements.reduce((ss,r)=>ss+(parseFloat(r.montant)||0),0),0);
-    const mode = st.modeRepartition||"apports";
-    const getShare = (a) => {
-      if(mode==="egal") return assocs.length ? 100/assocs.length : 0;
-      if(mode==="custom") return parseFloat(a.pourcentageCustom)||0;
-      const ap = a.apports.reduce((s,ap)=>s+(parseFloat(ap.montant)||0),0);
-      return totalInvesti>0 ? (ap/totalInvesti)*100 : 0;
-    };
-    const beneficeNet = resultat;
-    const selectedA = assocs.find(a=>a.id===selectedAssocieId);
-    return (
+  {onglet==="associes"&&(
       <div>
         {/* Header KPIs */}
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:14}}>
           <Card style={{padding:"10px 12px",background:"#DBEAFE"}}>
             <p style={{fontSize:9,color:"#1E3A5F",fontWeight:700,textTransform:"uppercase"}}>Total investi</p>
-            <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:18,fontWeight:700,color:"#1E3A5F",marginTop:3}}>{chf(totalInvesti)}</p>
+            <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:18,fontWeight:700,color:"#1E3A5F",marginTop:3}}>{chf(totalInvestiAll)}</p>
             <p style={{fontSize:9,color:"#3B82F6",marginTop:2}}>par {assocs.length} associés</p>
           </Card>
-          <Card style={{padding:"10px 12px",background:beneficeNet>=0?"#DCFCE7":"#FEF2F2"}}>
-            <p style={{fontSize:9,color:beneficeNet>=0?"#166534":"#991B1B",fontWeight:700,textTransform:"uppercase"}}>Résultat {new Date().getFullYear()}</p>
-            <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:18,fontWeight:700,color:beneficeNet>=0?"#166534":"#991B1B",marginTop:3}}>{beneficeNet>=0?"+":""}{chf(beneficeNet)}</p>
+          <Card style={{padding:"10px 12px",background:resultat>=0?"#DCFCE7":"#FEF2F2"}}>
+            <p style={{fontSize:9,color:resultat>=0?"#166534":"#991B1B",fontWeight:700,textTransform:"uppercase"}}>Résultat {new Date().getFullYear()}</p>
+            <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:18,fontWeight:700,color:resultat>=0?"#166534":"#991B1B",marginTop:3}}>{resultat>=0?"+":""}{chf(resultat)}</p>
             <p style={{fontSize:9,color:"#6B7280",marginTop:2}}>filtre période active</p>
           </Card>
         </div>
@@ -5818,12 +5817,12 @@ return (
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6}}>
             {[{v:"apports",l:"Selon apports"},{v:"egal",l:"Parts égales"},{v:"custom",l:"Personnalisé"}].map(m=>(
               <button key={m.v} onClick={()=>setSt((p:any)=>({...p,modeRepartition:m.v}))}
-                style={{background:mode===m.v?"#0A0A0A":"#F5F5F0",color:mode===m.v?"#FAFAF7":"#525252",border:"none",borderRadius:8,padding:"8px 4px",fontSize:10,fontWeight:mode===m.v?700:500,cursor:"pointer"}}>
+                style={{background:modeRep===m.v?"#0A0A0A":"#F5F5F0",color:modeRep===m.v?"#FAFAF7":"#525252",border:"none",borderRadius:8,padding:"8px 4px",fontSize:10,fontWeight:modeRep===m.v?700:500,cursor:"pointer"}}>
                 {m.l}
               </button>
             ))}
           </div>
-          {mode==="custom"&&(
+          {modeRep==="custom"&&(
             <p style={{fontSize:10,color:"#9CA3AF",marginTop:8}}>Les % personnalisés se modifient depuis chaque fiche associé.</p>
           )}
         </Card>
@@ -5839,8 +5838,8 @@ return (
             const apTot = a.apports.reduce((s,ap)=>s+(parseFloat(ap.montant)||0),0);
             const remTot = a.remboursements.reduce((s,r)=>s+(parseFloat(r.montant)||0),0);
             const solde = apTot - remTot;
-            const share = getShare(a);
-            const resultatA = beneficeNet * share/100;
+            const share = getShareFn(a);
+            const resultatA = resultat * share/100;
             return (
               <Card key={a.id} style={{padding:"12px 14px"}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
@@ -5922,18 +5921,18 @@ return (
             doc.setFontSize(16);doc.setFont("helvetica","bold");doc.setTextColor(17,17,17);
             doc.text("Récapitulatif Associés — Goûtstoso",mg,44);
             doc.setFontSize(9);doc.setFont("helvetica","normal");doc.setTextColor(100,100,100);
-            doc.text("Généré le "+fmt(today())+" · Mode: "+(mode==="apports"?"selon apports":mode==="egal"?"parts égales":"personnalisé"),mg,50);
+            doc.text("Généré le "+fmt(today())+" · Mode: "+(modeRep==="apports"?"selon apports":modeRep==="egal"?"parts égales":"personnalisé"),mg,50);
             doc.setDrawColor(230,230,228);doc.line(mg,53,W-mg,53);
             let y=60;
             doc.setFontSize(10);doc.setFont("helvetica","bold");doc.setTextColor(17,17,17);
-            doc.text("Total investi : "+chf(totalInvesti),mg,y);y+=6;
-            doc.text("Résultat période : "+(beneficeNet>=0?"+":"")+chf(beneficeNet),mg,y);y+=10;
-            assocs.forEach((a,i)=>{
-              const apTot=a.apports.reduce((s,ap)=>s+(parseFloat(ap.montant)||0),0);
-              const remTot=a.remboursements.reduce((s,r)=>s+(parseFloat(r.montant)||0),0);
+            doc.text("Total investi : "+chf(totalInvestiAll),mg,y);y+=6;
+            doc.text("Résultat période : "+(resultat>=0?"+":"")+chf(resultat),mg,y);y+=10;
+            assocs.forEach((a:any,i:number)=>{
+              const apTot=a.apports.reduce((s:number,ap:any)=>s+(parseFloat(ap.montant)||0),0);
+              const remTot=a.remboursements.reduce((s:number,r:any)=>s+(parseFloat(r.montant)||0),0);
               const solde=apTot-remTot;
-              const sh=getShare(a);
-              const resA=beneficeNet*sh/100;
+              const sh=getShareFn(a);
+              const resA=resultat*sh/100;
               doc.setFillColor(i%2===0?248:255,i%2===0?248:255,i%2===0?245:255);
               doc.rect(mg,y-4,W-mg*2,10,"F");
               doc.setFontSize(9);doc.setFont("helvetica","bold");doc.setTextColor(17,17,17);
@@ -6027,7 +6026,7 @@ return (
                     <F label="Nom" value={a.nom} onChange={v=>setSt((p:any)=>({...p,associes:(p.associes||[]).map((x:any)=>x.id===a.id?{...x,nom:v}:x)}))}/>
                     <F label="Rôle" value={a.role} onChange={v=>setSt((p:any)=>({...p,associes:(p.associes||[]).map((x:any)=>x.id===a.id?{...x,role:v}:x)}))}/>
                   </div>
-                  {mode==="custom"&&(
+                  {modeRep==="custom"&&(
                     <F label="% personnalisé" type="number" value={a.pourcentageCustom||""} onChange={v=>setSt((p:any)=>({...p,associes:(p.associes||[]).map((x:any)=>x.id===a.id?{...x,pourcentageCustom:v}:x)}))}/>
                   )}
                 </Card>
@@ -6039,8 +6038,7 @@ return (
           </Modal>
         )}
       </div>
-    );
-  })()}
+  )}
 
   {/* Modal nouvelle écriture */}
   {modal==="form"&&(
