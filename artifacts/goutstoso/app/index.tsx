@@ -5321,11 +5321,9 @@ const factAttente = (st.factures||[]).filter(f=>f.statut!=="payée");
 // Créances clients = factures en attente + commandes directes non soldées (Shopify = déjà payé au moment de la commande, pas une créance)
 const creancesFactures = sum(factAttente.map(f=>calcTotalNet(f,st.produits)));
 const cmdNonPayees = (st.commandes||[]).filter(c=>
-  c.source!=="shopify" &&
-  c.statut!=="payée" &&
-  c.statut!=="livrée" &&
-  c.statut!=="retirée" &&
-  !c.factureNumero
+  c.source!=="shopify" &&   // Shopify = client a déjà payé Shopify
+  c.statut!=="payée" &&     // payée = déjà encaissé
+  !c.factureNumero          // avec facture = suivi via facture
 );
 const creancesCommandes = sum(cmdNonPayees.map(c=>{
 const t = sum((c.lignes||[]).filter(l=>l.produitId).map(l=>{
