@@ -1,0 +1,320 @@
+Je veux créer/améliorer le module commercial complet de mon ERP Goûtstoso.
+
+Objectif : gérer tout le processus depuis la création d’un client/partenaire jusqu’à la facture payée et automatiquement intégrée en comptabilité.
+
+IMPORTANT :
+
+* ne pas supprimer les données existantes
+* ne pas casser le stock déjà programmé
+* garder le système de signature en ligne
+* garder les PDF générables
+* garder les emails générables
+* travailler module par module
+* faire un schéma clair avant de coder
+
+MODULE : FLUX COMMERCIAL COMPLET
+
+1. Création client / partenaire
+
+Créer une fiche pour :
+
+* nouveau client
+* nouveau partenaire
+* prospect
+* fournisseur si besoin
+
+Champs souhaités :
+
+* nom entreprise
+* prénom / nom contact
+* adresse
+* NPA / ville
+* email
+* téléphone
+* type : client, partenaire, prospect
+* statut : actif, inactif, en prospection
+* conditions commerciales
+* prix appliqué par défaut : prix normal ou prix partenaire
+* délai paiement par défaut : 30 jours
+* notes internes
+
+2. Prospection
+
+Créer une étape de prospection liée au contact.
+
+La prospection doit permettre de générer/envoyer un document PDF contenant :
+
+* présentation Goûtstoso
+* assortiment complet
+* produits
+* prix de vente public
+* prix partenaire
+* conditions
+* informations de collaboration
+
+Statuts prospection :
+
+* à contacter
+* document envoyé
+* relance à faire
+* accepté
+* refusé
+* sans réponse
+
+Si prospection refusée :
+
+* enregistrer la raison
+* garder historique
+* possibilité de relancer plus tard
+
+Si prospection acceptée :
+
+* proposer deux choix :
+  A. créer une offre
+  B. créer directement une commande
+
+3. Création d’une offre
+
+Depuis une prospection acceptée, possibilité de créer une offre.
+
+Dans l’offre :
+
+* choisir les produits
+* indiquer les quantités
+* choisir prix normal ou prix partenaire
+* appliquer un rabais possible
+* justifier le rabais dans un champ obligatoire si rabais utilisé
+* calcul automatique total HT / TVA / TTC
+* calcul marge si possible
+* statut de l’offre
+
+Statuts offre :
+
+* brouillon
+* envoyée
+* en attente de signature
+* signée
+* refusée
+* expirée
+* convertie en commande
+
+Signature :
+
+* possibilité d’envoyer l’offre au client/partenaire par email pour signature en ligne
+* garder le système de signature existant
+* enregistrer date, heure, email, IP si possible
+* une fois signée, possibilité de convertir en commande
+
+4. Création directe d’une commande
+
+Si pas d’offre, possibilité de créer directement une commande.
+
+Types de commande :
+
+* commande Shopify
+* commande prestataire / partenaire
+* commande directe
+
+Dans la commande :
+
+* choisir le client ou partenaire
+* choisir les produits
+* indiquer les quantités
+* choisir prix normal ou prix partenaire
+* appliquer rabais si nécessaire
+* justifier le rabais
+* ajouter commission si commande en ligne / Shopify si nécessaire
+* calcul automatique total HT / TVA / TTC
+* calcul marge si possible
+
+IMPORTANT STOCK :
+Une fois la commande créée/validée, le stock doit être automatiquement impacté comme actuellement.
+Ne pas casser cette logique.
+Si possible, utiliser un mouvement de stock de type “vente”.
+
+Statuts commande :
+
+* brouillon
+* confirmée
+* en préparation
+* prête
+* livrée
+* facturée
+* annulée
+
+5. Confirmation de commande
+
+Depuis une commande, possibilité de générer :
+
+* confirmation de commande PDF
+* email pré-rempli
+
+L’utilisateur doit pouvoir télécharger le PDF puis l’envoyer en pièce jointe manuellement.
+
+L’email doit contenir :
+
+* nom client
+* numéro de commande
+* résumé commande
+* montant total
+* délai de livraison si disponible
+* formule professionnelle
+
+6. Modification du statut de commande
+
+Tout au long du processus, l’utilisateur doit pouvoir modifier le statut de la commande.
+
+Chaque changement de statut doit être enregistré dans un historique :
+
+* ancien statut
+* nouveau statut
+* date
+* utilisateur
+* commentaire optionnel
+
+7. Génération facture
+
+Depuis une commande confirmée ou livrée, possibilité de générer une facture.
+
+La facture reprend automatiquement :
+
+* client
+* produits
+* quantités
+* prix
+* rabais
+* TVA
+* total
+* délai paiement 30 jours
+
+Possibilité de générer :
+
+* PDF facture
+* email pré-rempli pour envoi
+
+Statuts facture :
+
+* brouillon
+* envoyée
+* en attente paiement
+* payée
+* rappel 1
+* rappel 2
+* rappel 3
+* en retard
+* annulée
+
+8. Paiement à 30 jours et rappels
+
+Paiement par défaut : 30 jours.
+
+Le système doit suivre :
+
+* date facture
+* échéance
+* jours de retard
+* statut paiement
+
+Rappels automatiques ou générables :
+
+* rappel 1
+* rappel 2
+* rappel 3
+
+Chaque rappel doit pouvoir ajouter des frais programmés.
+
+Exemple :
+
+* rappel 1 : sans frais ou frais définis
+* rappel 2 : frais définis
+* rappel 3 : frais définis
+
+Les frais doivent être paramétrables.
+
+Possibilité de générer :
+
+* PDF rappel
+* email de rappel pré-rempli
+
+9. Paiement reçu
+
+Quand une facture est marquée comme payée :
+
+* mettre le statut en “payée”
+* enregistrer date de paiement
+* enregistrer moyen de paiement
+* mettre à jour le solde client
+* envoyer automatiquement les écritures en comptabilité
+
+10. Comptabilité automatique
+
+Une fois la facture payée, elle doit automatiquement aller en comptabilité dans les bons comptes.
+
+Créer les écritures comptables nécessaires :
+
+* chiffre d’affaires
+* TVA due si applicable
+* compte client
+* compte banque / caisse
+* frais de rappel si applicable
+* commission Shopify si applicable
+
+Le solde comptable doit se mettre à jour automatiquement.
+
+IMPORTANT :
+La comptabilité doit respecter le principe débit / crédit.
+Prévoir une structure compatible raison individuelle suisse.
+
+11. Historique complet
+
+Chaque élément doit garder un historique :
+
+* prospection
+* offre
+* signature
+* commande
+* confirmation
+* facture
+* rappel
+* paiement
+* écriture comptable
+
+12. Interface souhaitée
+
+Créer une interface claire avec un pipeline :
+
+Prospect → Prospection envoyée → Accepté → Offre ou Commande → Signature → Commande confirmée → Facture → Paiement → Comptabilité
+
+Prévoir une vue avec :
+
+* tableau des prospects
+* tableau des offres
+* tableau des commandes
+* tableau des factures
+* alertes de retard paiement
+* actions rapides
+
+Actions rapides :
+
+* créer contact
+* envoyer prospection
+* créer offre
+* créer commande
+* générer confirmation
+* générer facture
+* générer rappel
+* marquer comme payé
+
+13. Avant de coder
+
+Commence par me proposer :
+
+* le schéma du workflow
+* les statuts
+* les tables nécessaires
+* les relations entre tables
+* les composants React nécessaires
+* les fonctions backend nécessaires
+* les risques à vérifier
+
+Ensuite seulement, coder étape par étape.
