@@ -7100,7 +7100,7 @@ const genererFactureDepuisCommande = (cmd, st, setSt) => {
 // ══════════════════════════════════════════════════════════════
 // PAGE: COMMANDES (ventes en ligne Shopify)
 // ══════════════════════════════════════════════════════════════
-const Commandes = ({st,setSt}) => {
+const Commandes = ({st,setSt,setTab=(_:any)=>{}}) => {
 const [modal,setModal] = useState(null);
 const [viewId,setViewId] = useState(null);
 const [filtre,setFiltre] = useState("toutes");
@@ -7882,8 +7882,10 @@ Commandes
           </div>
         </div>
         <div style={{display:"flex",gap:6,marginTop:8}}>
-          {!c.factureNumero && (
+          {!c.factureNumero ? (
             <button onClick={()=>genererFactureDepuisCommande(c,st,setSt)} style={{flex:1,background:"#0A0A0A",color:"#F2C94C",border:"none",borderRadius:8,padding:"7px",fontSize:11,fontWeight:700,cursor:"pointer"}}>🧾 Créer la facture</button>
+          ) : (
+            <button onClick={()=>setTab("factures")} style={{flex:1,background:"#DCFCE7",color:"#166534",border:"none",borderRadius:8,padding:"7px",fontSize:11,fontWeight:700,cursor:"pointer"}}>🧾 {c.factureNumero}</button>
           )}
           <button onClick={()=>setViewId(c.id)} style={{flex:1,background:"#F5F5F0",border:"none",borderRadius:8,padding:"7px",fontSize:11,fontWeight:600,cursor:"pointer"}}>👁 Voir</button>
           <button onClick={()=>supprimer(c.id)} style={{background:"#FEE2E2",border:"none",borderRadius:8,padding:"7px 10px",cursor:"pointer",display:"flex"}}><Ic n="trash" s={13}/></button>
@@ -12418,7 +12420,7 @@ const Production = ({st, setSt}) => {
 // ══════════════════════════════════════════════════════════════
 // VENTES — wrapper avec sous-onglets
 // ══════════════════════════════════════════════════════════════
-const Ventes = ({st, setSt}) => {
+const Ventes = ({st, setSt, setTab=(_:any)=>{}}) => {
   const [onglet, setOnglet] = useState<"depots"|"offres"|"commandes"|"factures">("depots");
   const tabs = [
     {id:"depots",   label:"Dépôts",    emoji:"🤝"},
@@ -12441,7 +12443,7 @@ const Ventes = ({st, setSt}) => {
       </div>
       {onglet==="depots"    && <Partenaires st={st} setSt={setSt}/>}
       {onglet==="offres"    && <Offres st={st} setSt={setSt}/>}
-      {onglet==="commandes" && <Commandes st={st} setSt={setSt}/>}
+      {onglet==="commandes" && <Commandes st={st} setSt={setSt} setTab={setTab}/>}
       {onglet==="factures"  && <Factures st={st} setSt={setSt}/>}
     </div>
   );
@@ -13239,7 +13241,7 @@ return ()=>clearInterval(iv);
   const isDesktop = useIsDesktop();
 const pages = {
 dashboard:   <Dashboard    st={st} setSt={setSt} setTab={setTab} authUser={authUser} sendEmail={sendEmail}/>,
-ventes:      <Ventes       st={st} setSt={setSt}/>,
+ventes:      <Ventes       st={st} setSt={setSt} setTab={setTab}/>,
 clients:     <Clients      st={st} setSt={setSt}/>,
 stocks:      <Stocks       st={st} setSt={setSt}/>,
 compta:      <Comptabilite st={st} setSt={setSt}/>,
@@ -13250,7 +13252,7 @@ produits:    <Produits     st={st} setSt={setSt}/>,
 partenaires: <Partenaires  st={st} setSt={setSt}/>,
 contrats:    <Contrats     st={st} setSt={setSt}/>,
 factures:    <Factures     st={st} setSt={setSt}/>,
-commandes:   <Commandes    st={st} setSt={setSt}/>,
+commandes:   <Commandes    st={st} setSt={setSt} setTab={setTab}/>,
 fournisseurs:<Fournisseurs st={st} setSt={setSt}/>,
 offres:      <Offres       st={st} setSt={setSt}/>,
 documents:   <Documents    st={st} setSt={setSt}/>,
