@@ -5937,17 +5937,18 @@ return (
                     <p style={{fontSize:12,fontWeight:700,color:resultatA>=0?"#166534":"#991B1B",marginTop:2}}>{resultatA>=0?"+":""}{chf(resultatA)}</p>
                   </div>
                 </div>
-                {/* Historique apports mini */}
+                {/* Historique apports */}
                 {a.apports.length>0&&(
                   <div style={{marginBottom:8}}>
                     <p style={{fontSize:9,fontWeight:600,color:"#9CA3AF",textTransform:"uppercase",marginBottom:4}}>Apports ({a.apports.length})</p>
-                    {a.apports.slice(-2).map(ap=>(
-                      <div key={ap.id} style={{display:"flex",justifyContent:"space-between",fontSize:10,color:"#525252",padding:"2px 0"}}>
-                        <span>{fmt(ap.date)} · {ap.type}</span>
-                        <span style={{fontWeight:600,color:"#166534"}}>+{chf(parseFloat(ap.montant)||0)}</span>
+                    {a.apports.map(ap=>(
+                      <div key={ap.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",fontSize:10,color:"#525252",padding:"3px 0",borderBottom:"1px solid #F3F3F0"}}>
+                        <span style={{flex:1}}>{fmt(ap.date)} · {ap.type}{ap.commentaire?" · "+ap.commentaire:""}</span>
+                        <span style={{fontWeight:600,color:"#166534",marginRight:6}}>+{chf(parseFloat(ap.montant)||0)}</span>
+                        <button onClick={()=>{setSelectedAssocieId(a.id);setApportForm({...ap,montant:String(ap.montant)});setAssocieModal("apport");}}
+                          style={{background:"#F5F5F0",border:"none",borderRadius:6,padding:"3px 7px",fontSize:9,fontWeight:700,cursor:"pointer",color:"#374151"}}>✏️</button>
                       </div>
                     ))}
-                    {a.apports.length>2&&<p style={{fontSize:9,color:"#9CA3AF",marginTop:2}}>+{a.apports.length-2} autre(s)…</p>}
                   </div>
                 )}
                 {/* Actions */}
@@ -6032,7 +6033,7 @@ return (
 
         {/* Modal apport */}
         {associeModal==="apport"&&selectedA&&(
-          <Modal title={"Apport — "+selectedA.nom} onClose={()=>setAssocieModal(null)}>
+          <Modal title={(apportForm.id?"Modifier apport":"Nouvel apport")+" — "+selectedA.nom} onClose={()=>setAssocieModal(null)}>
             <div style={{display:"grid",gap:12}}>
               <F label="Date" type="date" value={apportForm.date} onChange={v=>setApportForm((p:any)=>({...p,date:v}))}/>
               <F label="Montant (CHF)" type="number" value={apportForm.montant} onChange={v=>setApportForm((p:any)=>({...p,montant:v}))} required/>
@@ -6044,15 +6045,34 @@ return (
               <Btn full icon="check" onClick={()=>{
                 const m=parseFloat(String(apportForm.montant).replace(",","."))||0;
                 if(!m){alert("Montant requis");return;}
-                const newAp={id:uid(),...apportForm,montant:m};
                 const assocNom=(st.associes||[]).find((a:any)=>a.id===selectedAssocieId)?.nom||"Associé";
-                const newCapTrans={id:"cap_"+newAp.id,date:newAp.date,compte:"2000",libelle:"Apport — "+assocNom,type:"capital",categorie:"Capital investi",montant:m,description:newAp.commentaire||newAp.type,apportId:newAp.id};
-                setSt((p:any)=>({
-                  ...p,
-                  associes:(p.associes||[]).map((a:any)=>a.id===selectedAssocieId?{...a,apports:[...a.apports,newAp]}:a),
-                  transactions:[...(p.transactions||[]),newCapTrans],
-                  soldeBancaire:newAp.type==="argent"?parseFloat((parseFloat(p.soldeBancaire||0)+m).toFixed(2)):parseFloat(p.soldeBancaire||0),
-                }));
+                if(apportForm.id) {
+                  // Modification d'un apport existant
+                  const oldAp=(st.associes||[]).find((a:any)=>a.id===selectedAssocieId)?.apports?.find((ap:any)=>ap.id===apportForm.id);
+                  const oldM=parseFloat(oldAp?.montant)||0;
+                  const diffSolde=(apportForm.type==="argent"?m:0)-(oldAp?.type==="argent"?oldM:0);
+                  const updatedAp={...apportForm,montant:m};
+                  setSt((p:any)=>({
+                    ...p,
+                    associes:(p.associes||[]).map((a:any)=>a.id===selectedAssocieId
+                      ?{...a,apports:a.apports.map((ap:any)=>ap.id===apportForm.id?updatedAp:ap)}
+                      :a),
+                    transactions:(p.transactions||[]).map((t:any)=>t.apportId===apportForm.id
+                      ?{...t,date:updatedAp.date,montant:m,libelle:"Apport — "+assocNom,description:updatedAp.commentaire||updatedAp.type}
+                      :t),
+                    soldeBancaire:parseFloat((parseFloat(p.soldeBancaire||0)+diffSolde).toFixed(2)),
+                  }));
+                } else {
+                  // Nouvel apport
+                  const newAp={id:uid(),...apportForm,montant:m};
+                  const newCapTrans={id:"cap_"+newAp.id,date:newAp.date,compte:"2000",libelle:"Apport — "+assocNom,type:"capital",categorie:"Capital investi",montant:m,description:newAp.commentaire||newAp.type,apportId:newAp.id};
+                  setSt((p:any)=>({
+                    ...p,
+                    associes:(p.associes||[]).map((a:any)=>a.id===selectedAssocieId?{...a,apports:[...a.apports,newAp]}:a),
+                    transactions:[...(p.transactions||[]),newCapTrans],
+                    soldeBancaire:newAp.type==="argent"?parseFloat((parseFloat(p.soldeBancaire||0)+m).toFixed(2)):parseFloat(p.soldeBancaire||0),
+                  }));
+                }
                 setAssocieModal(null);
               }}>Enregistrer</Btn>
               <Btn full variant="ghost" onClick={()=>setAssocieModal(null)}>Annuler</Btn>
