@@ -4555,6 +4555,7 @@ const PLAN_COMPTABLE = {
 "6000":"Charges de locaux",
 "6200":"Transport",
 "6300":"Assurances",
+"6315":"Frais de déplacement / représentation",
 "6400":"Électricité",
 "6510":"Téléphone",
 "6512":"Internet",
@@ -5763,7 +5764,7 @@ return (
         {titre:"ACTIFS",comptes:["1020","1021","1100","3200","3100"],color:"#DBEAFE",border:"#BFDBFE",txt:"#1E3A5F"},
         {titre:"PRODUITS / RECETTES",comptes:["3001","3002","3003","3004","3600","3750","3900"],color:"#DCFCE7",border:"#86EFAC",txt:"#166534"},
         {titre:"CHARGES — MATIÈRES PREMIÈRES",comptes:["4000","4010","4100","4200","4210","4220","4400"],color:"#FEF9E7",border:"#FCD34D",txt:"#92400E"},
-        {titre:"CHARGES — EXPLOITATION",comptes:["5000","5201","6000","6200","6300","6400","6510","6512","6513","6530","6600","6610","6700","6800","6900","8900"],color:"#FEF2F2",border:"#FECACA",txt:"#991B1B"},
+        {titre:"CHARGES — EXPLOITATION",comptes:["5000","5201","6000","6200","6300","6315","6400","6510","6512","6513","6530","6600","6610","6700","6800","6900","8900"],color:"#FEF2F2",border:"#FECACA",txt:"#991B1B"},
       ].map((grp,gi)=>{
         const cpts = grp.comptes.filter(k=>PLAN_COMPTABLE[k]);
         if(!cpts.length) return null;
@@ -5787,6 +5788,30 @@ return (
           </Card>
         );
       })}
+      {(()=>{
+        const tousComptes = ["1020","1021","1100","3200","3100","3001","3002","3003","3004","3600","3750","3900","4000","4010","4100","4200","4210","4220","4400","5000","5201","6000","6200","6300","6315","6400","6510","6512","6513","6530","6600","6610","6700","6800","6900","8900"];
+        const comptesInconnus = [...new Set((st.transactions||[]).map(t=>t.compte).filter(c=>c&&!tousComptes.includes(c)))].sort();
+        if(!comptesInconnus.length) return null;
+        const totalDiv = (st.transactions||[]).filter(t=>comptesInconnus.includes(t.compte)).reduce((acc,t)=>acc+(parseFloat(t.montant)||0),0);
+        return (
+          <Card style={{marginBottom:12,padding:0,overflow:"hidden"}}>
+            <div style={{background:"#F3F4F6",borderBottom:"1px solid #E5E7EB",padding:"9px 14px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <p style={{fontSize:10,fontWeight:700,color:"#374151",textTransform:"uppercase",letterSpacing:".06em"}}>AUTRES COMPTES UTILISÉS</p>
+              {totalDiv>0&&<span style={{fontSize:11,fontWeight:700,color:"#374151"}}>{chf(totalDiv)}</span>}
+            </div>
+            {comptesInconnus.map(k=>{
+              const solde = (st.transactions||[]).filter(t=>t.compte===k).reduce((acc,t)=>acc+(parseFloat(t.montant)||0),0);
+              return (
+                <div key={k} style={{display:"flex",alignItems:"center",gap:10,padding:"9px 14px",borderBottom:"1px solid #F5F5F0"}}>
+                  <span style={{fontSize:10,fontFamily:"monospace",fontWeight:700,color:"#374151",background:"#F3F4F6",padding:"2px 7px",borderRadius:5,flexShrink:0}}>{k}</span>
+                  <span style={{fontSize:12,color:"#374151",flex:1}}>{PLAN_COMPTABLE[k]||"Compte non classifié"}</span>
+                  {solde>0&&<span style={{fontSize:11,fontWeight:600,color:"#525252",flexShrink:0}}>{chf(solde)}</span>}
+                </div>
+              );
+            })}
+          </Card>
+        );
+      })()}
       <div style={{background:"#F5F5F0",borderRadius:10,padding:"12px 14px",marginBottom:8}}>
         <p style={{fontSize:11,fontWeight:700,color:"#374151",marginBottom:4}}>🔒 TVA — Statut actuel</p>
         <p style={{fontSize:11,color:"#525252",lineHeight:1.6}}>Goûtstoso n'est actuellement <strong>pas assujetti à la TVA</strong>.<br/>Les factures mentionnent "Non assujetti à la TVA" conformément à la LTVA suisse.<br/>Ce statut peut être activé lorsque le CA dépasse CHF 100 000/an.</p>
