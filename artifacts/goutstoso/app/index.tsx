@@ -6111,7 +6111,6 @@ statut:"en attente",
 envoyeeCompta:false,
 notes:"",
 historique:[],
-moyenPaiement:"",
 });
 const [form,setForm] = useState(emptyC());
 
@@ -6353,14 +6352,6 @@ const cycle = ["en attente","en attente retrait","expédiée","livrée","retiré
 const idx = cycle.indexOf(c.statut);
 const newStatut = cycle[(idx+1)%cycle.length] || "en attente";
 
-// Capturer moyen de paiement si on passe à "payée"
-let moyenPaiement = c.moyenPaiement||"";
-if(newStatut==="payée" && !c.moyenPaiement) {
-  const mp = window.prompt("💳 Moyen de paiement reçu ?","Virement bancaire");
-  if(mp===null) return; // Annulé
-  moyenPaiement = mp.trim()||"Non précisé";
-}
-
 const hEntry = {ancien:c.statut||"—",nouveau:newStatut,date:today(),heure:new Date().toLocaleTimeString("fr-CH",{hour:"2-digit",minute:"2-digit"})};
 
 const STATUTS_SORTIS = ["expédiée","livrée","retirée","payée"];
@@ -6414,7 +6405,7 @@ setSt(p=>{
     ...p,
     stocks: newStocks,
     mouvementsStock: newMouvements,
-    commandes: p.commandes.map(x=>x.id===c.id?{...x,statut:newStatut,stockDeduit,historique:[...(x.historique||[]),hEntry],moyenPaiement:newStatut==="payée"?moyenPaiement:(x.moyenPaiement||"")}:x),
+    commandes: p.commandes.map(x=>x.id===c.id?{...x,statut:newStatut,stockDeduit,historique:[...(x.historique||[]),hEntry]}:x),
   };
 });
 
@@ -6726,13 +6717,6 @@ return (
         <span style={{fontWeight:700,fontFamily:"'Cormorant Garamond',serif",fontSize:18,color:"#166534"}}>{chf(calc.netRecu)}</span>
       </div>
     </Card>
-
-    {view.moyenPaiement && (
-      <Card style={{padding:"10px 14px",background:"#F0FDF4",border:"1px solid #BBF7D0",marginBottom:12}}>
-        <p style={{fontSize:10,color:"#166534",fontWeight:700,textTransform:"uppercase",marginBottom:4}}>💳 Paiement reçu</p>
-        <p style={{fontSize:13,fontWeight:600,color:"#166534"}}>{view.moyenPaiement}</p>
-      </Card>
-    )}
 
     {view.notes && (
       <Card style={{padding:"10px 14px",background:"#F5F5F0",marginBottom:12}}>
