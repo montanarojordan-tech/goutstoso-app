@@ -124,6 +124,125 @@ const CGV = `CONDITIONS GÉNÉRALES DE VENTE & DE DÉPÔT-VENTE
 Document établi à Villeret, valable dès sa publication.
 Goûtstoso · Jordan Montanaro · admin@goutstoso.ch · www.goutstoso.ch`;
 
+const CONVENTION_TEXTE_DEFAUT = `CONVENTION D'ASSOCIÉS — GOÛTSTOSO
+Société simple selon les articles 530 et suivants du Code des obligations suisse
+
+1. Parties
+
+La présente convention est conclue entre :
+
+Jordan Montanaro
+Dimitri Montanaro
+Ophélie Montanaro
+Jennifer Küng
+Colin Cudré-Mauroux
+
+Ci-après dénommés collectivement « les Associés ».
+
+2. Constitution de la société simple
+
+Les Associés conviennent de collaborer dans le cadre d'une société simple exploitée sous le nom GOÛTSTOSO. Cette collaboration a pour objectif le développement, la production, la commercialisation et la promotion de liqueurs artisanales ainsi que toute activité liée directement ou indirectement au projet.
+
+3. Objet
+
+La société simple a notamment pour objet :
+- la création et production de liqueurs artisanales ;
+- la vente directe et indirecte ;
+- la commercialisation auprès de professionnels et particuliers ;
+- le développement de produits dérivés ;
+- la gestion d'un site internet et d'outils numériques ;
+- le développement de recettes, concepts, visuels et supports liés à la marque Goûtstoso.
+
+4. Apports des associés
+
+Chaque associé a participé au lancement du projet selon les modalités convenues entre les parties. Les apports financiers, matériels ou autres contributions pourront évoluer dans le temps et seront suivis dans un tableau interne validé collectivement.
+
+À la signature de la présente convention :
+- Apport initial de référence : CHF 300.– par associé
+- Capital de départ : CHF 1'500.–
+
+Les associés reconnaissent toutefois que les investissements futurs pourront différer entre eux.
+
+5. Répartition des bénéfices et pertes
+
+Tant que le projet n'a pas atteint une stabilité financière suffisante, les bénéfices seront intégralement réinvestis dans l'activité. Aucune distribution de bénéfices ne sera effectuée avant l'atteinte d'un capital ou d'une trésorerie jugée suffisante par les Associés, notamment en vue :
+- du développement de la production ;
+- du financement du stock ;
+- des démarches administratives ;
+- du développement commercial ;
+- du développement de l'ERP et des outils numériques.
+
+La répartition future des bénéfices pourra être revue selon les investissements réels, l'implication effective, ou selon un accord collectif écrit.
+
+6. Engagement des associés
+
+Chaque associé s'engage à contribuer au développement du projet selon ses disponibilités, ses compétences et les besoins du projet. Les Associés s'engagent à maintenir une communication transparente, un comportement loyal et une collaboration constructive.
+
+En cas de déséquilibre important et durable dans l'implication ou les investissements, une discussion devra être organisée afin de trouver une solution équitable. Une adaptation des responsabilités pourra être décidée à la majorité de 4 associés sur 5.
+
+7. Décisions importantes
+
+Nécessitent l'accord d'au moins 3 associés sur 5 :
+- dépense supérieure à CHF 250.– ;
+- investissement important ;
+- nouvel engagement financier ;
+- modification des prix ;
+- validation de nouveaux partenaires majeurs ;
+- changement d'organisation.
+
+Nécessitent l'accord unanime :
+- entrée d'un nouvel associé ;
+- exclusion d'un associé ;
+- transformation juridique ;
+- cession de la marque ;
+- dissolution du projet.
+
+8. Éléments administratifs au nom de Jordan Montanaro
+
+Les Associés reconnaissent que plusieurs éléments administratifs sont établis au nom de Jordan Montanaro pour des raisons pratiques : compte bancaire, autorisations, licences, assurances, hébergements numériques, site internet, outils ERP, stockage situé Rue des Sources 19, 2613 Villeret.
+
+Ces éléments sont utilisés dans le cadre exclusif du projet et sont reconnus comme liés à l'activité commune. Jordan Montanaro assume une responsabilité administrative et juridique supérieure du fait que plusieurs éléments sont à son nom.
+
+9. Propriété intellectuelle
+
+La marque Goûtstoso, les visuels, logos, recettes, supports commerciaux, contenus numériques, documents, réseaux sociaux, outils ERP et éléments développés dans le cadre du projet constituent des actifs liés à l'activité commune. Aucun associé ne peut les utiliser à des fins personnelles, les céder, les reproduire ou développer un projet concurrent sans accord écrit des autres Associés.
+
+10. Confidentialité
+
+Les Associés s'engagent à conserver confidentiels les recettes, données clients, informations financières, stratégies commerciales, accès numériques, prix fournisseurs et méthodes de production. Cette obligation demeure même après le départ d'un associé.
+
+11. Gestion des accès et outils numériques
+
+Les accès aux outils numériques doivent être conservés et documentés de manière sécurisée. En cas de départ d'un associé, les accès concernés devront être immédiatement retirés ou adaptés.
+
+12. Autorisations et législation alcool
+
+Les Associés s'engagent à respecter l'ensemble des obligations légales suisses relatives à la production, au stockage, à la commercialisation et à la publicité de l'alcool. La vente d'alcool aux personnes de moins de 18 ans est strictement interdite.
+
+13. Assurances
+
+Jusqu'à un niveau d'activité jugé suffisant, certaines couvertures peuvent être assurées par les contrats privés existants de Jordan Montanaro. Dès que l'activité le nécessitera, les Associés s'engagent à mettre en place une RC entreprise et les assurances professionnelles adaptées.
+
+14. Retrait d'un associé
+
+Un associé peut quitter le projet moyennant notification écrite. En cas de départ : les accès numériques seront retirés, les droits sur la marque et les outils prendront fin, les éléments confidentiels devront rester confidentiels. La valeur éventuelle de participation sera évaluée selon la situation financière réelle, les investissements réalisés et les engagements du projet.
+
+15. Responsabilité
+
+Les associés répondent personnellement, solidairement et sans limitation des engagements envers les tiers. En cas de faute grave ou acte intentionnel causant un préjudice au projet, l'associé concerné pourra être tenu seul responsable des conséquences internes.
+
+16. Transformation future
+
+Si le développement du projet le justifie, les Associés envisageront la création d'une structure juridique plus adaptée (notamment Sàrl). Les modalités seront discutées collectivement en tenant compte des investissements, de l'implication, des responsabilités et de la situation financière réelle.
+
+17. Modification de la convention
+
+Toute modification de la présente convention devra être rédigée par écrit et validée et signée par l'ensemble des Associés.
+
+18. Droit applicable et for juridique
+
+La présente convention est soumise exclusivement au droit suisse. Tout litige sera soumis aux tribunaux compétents du canton de Berne.`;
+
 const INIT = {
 produits:[
 {id:"p1",nom:"Limonta",variante:"Citron jaune",format:"25cl",description:"Liqueur artisanale au citron jaune. Macération lente de zestes frais en alcool pur. Fraîche, fruitée et légèrement acidulée.",alcool:"30% vol.",ingredients:"Eau, sucre, alcool fin, citron",image:"IMG_LIMONTA_25CL",prixClient:19,prixRevendeur:15,coutRevient:8.34,actif:true},
@@ -193,14 +312,15 @@ transactions:[
 ],
 soldeBancaire: 798.24,
 associes: [
-  {id:"a1",nom:"Jordan Montanaro",role:"Fondateur & Production",apports:[{id:"ap1",date:"2025-01-01",montant:300,type:"argent",commentaire:"Apport initial"}],remboursements:[],pourcentageCustom:null},
-  {id:"a2",nom:"Associé 2",role:"Commercial",apports:[{id:"ap2",date:"2025-01-01",montant:300,type:"argent",commentaire:"Apport initial"}],remboursements:[],pourcentageCustom:null},
-  {id:"a3",nom:"Associé 3",role:"Communication",apports:[{id:"ap3",date:"2025-01-01",montant:300,type:"argent",commentaire:"Apport initial"}],remboursements:[],pourcentageCustom:null},
-  {id:"a4",nom:"Associé 4",role:"Logistique",apports:[{id:"ap4",date:"2025-01-01",montant:300,type:"argent",commentaire:"Apport initial"}],remboursements:[],pourcentageCustom:null},
-  {id:"a5",nom:"Associé 5",role:"Partenariats",apports:[{id:"ap5",date:"2025-01-01",montant:300,type:"argent",commentaire:"Apport initial"}],remboursements:[],pourcentageCustom:null},
+  {id:"a1",nom:"Jordan Montanaro",role:"Fondateur & Production",email:"admin@goutstoso.ch",apports:[{id:"ap1",date:"2025-01-01",montant:300,type:"argent",commentaire:"Apport initial"}],remboursements:[],pourcentageCustom:null},
+  {id:"a2",nom:"Dimitri Montanaro",role:"Commercial",email:"",apports:[{id:"ap2",date:"2025-01-01",montant:300,type:"argent",commentaire:"Apport initial"}],remboursements:[],pourcentageCustom:null},
+  {id:"a3",nom:"Ophélie Montanaro",role:"Communication",email:"",apports:[{id:"ap3",date:"2025-01-01",montant:300,type:"argent",commentaire:"Apport initial"}],remboursements:[],pourcentageCustom:null},
+  {id:"a4",nom:"Jennifer Küng",role:"Logistique",email:"",apports:[{id:"ap4",date:"2025-01-01",montant:300,type:"argent",commentaire:"Apport initial"}],remboursements:[],pourcentageCustom:null},
+  {id:"a5",nom:"Colin Cudré-Mauroux",role:"Partenariats",email:"",apports:[{id:"ap5",date:"2025-01-01",montant:300,type:"argent",commentaire:"Apport initial"}],remboursements:[],pourcentageCustom:null},
 ],
 modeRepartition: "apports",
 reglesInternes: "",
+conventionAssocies: {texte: CONVENTION_TEXTE_DEFAUT, signataires: [] as any[]},
 };
 
 // ══════════════════════════════════════════════════════════════
@@ -2641,6 +2761,7 @@ const [sigMode,setSigMode] = useState(null); // "fournisseur" | "client" | null
 const [form,setForm] = useState(null);
 const [filtreC,setFiltreC] = useState("tous");
 const [recoveryTokenC, setRecoveryTokenC] = useState("");
+const [convEditing, setConvEditing] = useState(false);
 
 // Toujours récupérer le contrat frais depuis le state
 const view = viewId ? (st.contrats||[]).find(c=>c.id===viewId) : null;
@@ -3014,6 +3135,7 @@ const filtresC = [
   {id:"brouillon", l:"Brouillons"},
   {id:"expiré", l:nbExpires>0?`Expirés (${nbExpires})`:"Expirés"},
   {id:"résilié", l:nbResilies>0?`Résiliés (${nbResilies})`:"Résiliés"},
+  {id:"associe", l:"👥 Convention associés"},
 ];
 
 const contratsFiltres = contratsListe.filter(c=>{
@@ -3078,7 +3200,134 @@ Contrats
     ))}
   </div>
 
-  {contratsFiltres.length===0 ? (
+  {filtreC==="associe" ? (
+    /* ── VUE CONVENTION D'ASSOCIÉS ── */
+    <div>
+      {/* Header */}
+      <div style={{background:"#111",borderRadius:14,padding:"14px 16px",marginBottom:12}}>
+        <p style={{fontSize:9,color:"#F2C94C",fontWeight:700,textTransform:"uppercase",letterSpacing:".1em"}}>Convention d'associés</p>
+        <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:20,fontWeight:700,color:"#fff",marginTop:2}}>GOÛTSTOSO</p>
+        <p style={{fontSize:10,color:"#9CA3AF",marginTop:3}}>Société simple · Art. 530 CO suisse · {(st.associes||[]).length} associés</p>
+      </div>
+
+      {/* Statut signatures */}
+      <Card style={{marginBottom:12,padding:"12px 14px"}}>
+        <p style={{fontSize:11,fontWeight:700,color:"#374151",marginBottom:10}}>📝 Signatures</p>
+        {(st.associes||[]).map((a:any)=>{
+          const conv = st.conventionAssocies||{texte:"",signataires:[]};
+          const sig = (conv.signataires||[]).find((s:any)=>s.associeId===a.id);
+          const signed = !!sig?.signed;
+          const hasToken = !!sig?.token && !signed;
+          return (
+            <div key={a.id} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 0",borderBottom:"1px solid #F3F3F0"}}>
+              <div style={{width:8,height:8,borderRadius:"50%",background:signed?"#22C55E":hasToken?"#F59E0B":"#E5E7EB",flexShrink:0}}/>
+              <div style={{flex:1,minWidth:0}}>
+                <p style={{fontSize:12,fontWeight:600,color:"#111"}}>{a.nom}</p>
+                <p style={{fontSize:10,color:"#9CA3AF"}}>{a.role}</p>
+              </div>
+              <span style={{fontSize:10,fontWeight:600,color:signed?"#166534":hasToken?"#92400E":"#9CA3AF"}}>
+                {signed?"✅ Signé":hasToken?"⏳ En attente":"—"}
+              </span>
+            </div>
+          );
+        })}
+      </Card>
+
+      {/* Envoi par associé */}
+      <Card style={{marginBottom:12,padding:"12px 14px"}}>
+        <p style={{fontSize:11,fontWeight:700,color:"#374151",marginBottom:10}}>✉️ Envoyer pour signature</p>
+        {(st.associes||[]).map((a:any)=>{
+          const conv = st.conventionAssocies||{texte:"",signataires:[]};
+          const sig = (conv.signataires||[]).find((s:any)=>s.associeId===a.id);
+          const signed = !!sig?.signed;
+          const hasToken = !!sig?.token && !signed;
+          return (
+            <div key={a.id} style={{marginBottom:10,padding:"10px 12px",background:"#F9F9F6",borderRadius:10,border:"1px solid #E5E5E0"}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:6}}>
+                <div>
+                  <p style={{fontSize:12,fontWeight:700,color:"#111"}}>{a.nom}</p>
+                  <p style={{fontSize:10,color:"#6B7280"}}>{a.role}</p>
+                </div>
+                {signed && <span style={{fontSize:10,background:"#DCFCE7",color:"#166534",fontWeight:700,padding:"3px 8px",borderRadius:6}}>✅ Signé</span>}
+              </div>
+              {/* Email display/edit inline */}
+              <div style={{marginBottom:8}}>
+                <F label="Email" value={a.email||""} onChange={v=>setSt((p:any)=>({...p,associes:(p.associes||[]).map((x:any)=>x.id===a.id?{...x,email:v}:x)}))} placeholder="email@exemple.ch"/>
+              </div>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
+                <button disabled={signed} onClick={async()=>{
+                  if(!a.email){alert("Saisis d'abord l'email de "+a.nom);return;}
+                  const conv2 = st.conventionAssocies||{texte:CONVENTION_TEXTE_DEFAUT,signataires:[]};
+                  const docData = {conventionTexte:conv2.texte,associeNom:a.nom,associeRole:a.role,associes:(st.associes||[]).map((x:any)=>x.nom),date:today()};
+                  const token = await envoyerPourSignature("convention","Convention d'associés Goûtstoso",docData,a.email);
+                  if(!token) return;
+                  const newSig = {associeId:a.id,token,signed:false,signData:null,signerNom:""};
+                  const newSignataires = [...(conv2.signataires||[]).filter((s:any)=>s.associeId!==a.id),newSig];
+                  setSt((p:any)=>({...p,conventionAssocies:{...conv2,signataires:newSignataires}}));
+                }} style={{background:signed?"#F5F5F0":"linear-gradient(135deg,#0a0a0a,#1a1a1a)",color:signed?"#9CA3AF":"#F2C94C",border:"none",borderRadius:8,padding:"8px",fontSize:10,fontWeight:700,cursor:signed?"default":"pointer"}}>
+                  🔏 Envoyer lien
+                </button>
+                {hasToken && (
+                  <button onClick={async()=>{
+                    const conv2 = st.conventionAssocies||{texte:"",signataires:[]};
+                    try {
+                      const SIGN_API2 = (process.env.EXPO_PUBLIC_DOMAIN?`https://${process.env.EXPO_PUBLIC_DOMAIN}`:"https://goutstoso.replit.app")+"/api";
+                      const r = await fetch(`${SIGN_API2}/sign/${sig.token}`);
+                      const d = await r.json();
+                      if(d.status!=="signed"){alert("Pas encore signé — renvoie le lien si besoin.");return;}
+                      const newSignataires = (conv2.signataires||[]).map((s:any)=>s.associeId===a.id?{...s,signed:true,signData:d.signatureData,signerNom:d.signerName,token:null}:s);
+                      setSt((p:any)=>({...p,conventionAssocies:{...conv2,signataires:newSignataires}}));
+                      alert("✅ "+d.signerName+" a signé la convention !");
+                    } catch(e:any){alert("Erreur : "+e.message);}
+                  }} style={{background:"#DCFCE7",color:"#166534",border:"none",borderRadius:8,padding:"8px",fontSize:10,fontWeight:700,cursor:"pointer"}}>
+                    🔄 Vérifier
+                  </button>
+                )}
+                {!hasToken && !signed && <div/>}
+              </div>
+            </div>
+          );
+        })}
+      </Card>
+
+      {/* Texte de la convention */}
+      <Card style={{marginBottom:12,padding:"14px"}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+          <p style={{fontSize:11,fontWeight:700,color:"#374151"}}>📄 Texte de la convention</p>
+          <button onClick={()=>setConvEditing(true)} style={{background:"#F5F5F0",border:"none",borderRadius:8,padding:"6px 12px",fontSize:11,fontWeight:600,cursor:"pointer",color:"#374151"}}>✏️ Modifier</button>
+        </div>
+        {/* Affichage formaté par article */}
+        <div style={{fontSize:11,lineHeight:1.7,color:"#374151"}}>
+          {((st.conventionAssocies||{texte:CONVENTION_TEXTE_DEFAUT}).texte||CONVENTION_TEXTE_DEFAUT).split("\n").map((line:string,i:number)=>{
+            const isTitle = /^\d+\./.test(line.trim());
+            const isMain = line.startsWith("CONVENTION") || line.startsWith("Société simple");
+            if(!line.trim()) return <div key={i} style={{height:6}}/>;
+            if(isMain) return <p key={i} style={{fontFamily:"'Cormorant Garamond',serif",fontSize:14,fontWeight:700,color:"#111",marginBottom:4}}>{line}</p>;
+            if(isTitle) return <p key={i} style={{fontSize:12,fontWeight:700,color:"#1E3A5F",marginTop:10,marginBottom:4,borderTop:"1px solid #F3F3F0",paddingTop:8}}>{line}</p>;
+            if(line.startsWith("- ")) return <p key={i} style={{paddingLeft:12,color:"#525252"}}>• {line.slice(2)}</p>;
+            return <p key={i}>{line}</p>;
+          })}
+        </div>
+      </Card>
+
+      {/* Modal édition convention */}
+      {convEditing && (
+        <Modal title="Modifier la convention" onClose={()=>setConvEditing(false)}>
+          <p style={{fontSize:11,color:"#6B7280",marginBottom:10}}>Modifie directement le texte. Les envois futurs utiliseront cette version.</p>
+          <textarea
+            value={(st.conventionAssocies||{texte:CONVENTION_TEXTE_DEFAUT}).texte||CONVENTION_TEXTE_DEFAUT}
+            onChange={e=>setSt((p:any)=>({...p,conventionAssocies:{...(p.conventionAssocies||{}),texte:e.target.value}}))}
+            style={{width:"100%",minHeight:320,fontSize:11,border:"1.5px solid #E5E5E0",borderRadius:8,padding:"10px",fontFamily:"inherit",lineHeight:1.6,boxSizing:"border-box",resize:"vertical"}}/>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginTop:12}}>
+            <Btn full icon="check" onClick={()=>setConvEditing(false)}>Enregistrer</Btn>
+            <Btn full variant="ghost" onClick={()=>{
+              if(confirm("Remettre le texte par défaut ?"))setSt((p:any)=>({...p,conventionAssocies:{...(p.conventionAssocies||{}),texte:CONVENTION_TEXTE_DEFAUT}}));
+            }}>↩ Réinitialiser</Btn>
+          </div>
+        </Modal>
+      )}
+    </div>
+  ) : contratsFiltres.length===0 ? (
     <div style={{textAlign:"center",padding:"40px 20px",color:"#9CA3AF"}}>
       <p style={{fontSize:40,marginBottom:12}}>📄</p>
       <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:20,fontWeight:600,color:"#374151"}}>Aucun contrat</p>
@@ -4599,7 +4848,7 @@ const [rModal,setRModal] = useState(false);
 const [rForm,setRForm] = useState<any>(emptyR());
 const [associeModal,setAssocieModal] = useState<string|null>(null);
 const [selectedAssocieId,setSelectedAssocieId] = useState<string|null>(null);
-const emptyAssocieForm = {nom:"",role:"",pourcentageCustom:""};
+const emptyAssocieForm = {nom:"",role:"",email:"",pourcentageCustom:""};
 const [associeForm,setAssocieForm] = useState<any>(emptyAssocieForm);
 const emptyApport = {date:today(),montant:"",type:"argent",commentaire:""};
 const [apportForm,setApportForm] = useState<any>(emptyApport);
@@ -6130,7 +6379,7 @@ return (
         {/* Modal édition associé */}
         {associeModal==="form"&&(
           <Modal title="Modifier les associés" onClose={()=>setAssocieModal(null)}>
-            <p style={{fontSize:11,color:"#6B7280",marginBottom:14}}>Clique sur un associé pour modifier son nom ou rôle.</p>
+            <p style={{fontSize:11,color:"#6B7280",marginBottom:14}}>Modifie le nom, rôle et email de chaque associé. L'email sert à envoyer la convention pour signature.</p>
             <div style={{display:"flex",flexDirection:"column",gap:10}}>
               {assocs.map((a:any)=>(
                 <Card key={a.id} style={{padding:"10px 12px"}}>
@@ -6138,8 +6387,11 @@ return (
                     <F label="Nom" value={a.nom} onChange={v=>setSt((p:any)=>({...p,associes:(p.associes||[]).map((x:any)=>x.id===a.id?{...x,nom:v}:x)}))}/>
                     <F label="Rôle" value={a.role} onChange={v=>setSt((p:any)=>({...p,associes:(p.associes||[]).map((x:any)=>x.id===a.id?{...x,role:v}:x)}))}/>
                   </div>
+                  <F label="Email privé" value={a.email||""} onChange={v=>setSt((p:any)=>({...p,associes:(p.associes||[]).map((x:any)=>x.id===a.id?{...x,email:v}:x)}))} placeholder="prenom@exemple.ch"/>
                   {modeRep==="custom"&&(
-                    <F label="% personnalisé" type="number" value={a.pourcentageCustom||""} onChange={v=>setSt((p:any)=>({...p,associes:(p.associes||[]).map((x:any)=>x.id===a.id?{...x,pourcentageCustom:v}:x)}))}/>
+                    <div style={{marginTop:8}}>
+                      <F label="% personnalisé" type="number" value={a.pourcentageCustom||""} onChange={v=>setSt((p:any)=>({...p,associes:(p.associes||[]).map((x:any)=>x.id===a.id?{...x,pourcentageCustom:v}:x)}))}/>
+                    </div>
                   )}
                 </Card>
               ))}
@@ -12536,15 +12788,17 @@ production: data.production||INIT.production,
 fournisseurs: fournisseursMigres,
 clients: clientsMigres,
 associes: (data.associes||INIT.associes).map((a:any,i:number)=>{
-  // Migration : normalise tous les apports initiaux à 300.-
+  const vraisNoms = ["Jordan Montanaro","Dimitri Montanaro","Ophélie Montanaro","Jennifer Küng","Colin Cudré-Mauroux"];
+  const nomCorr = a.nom===`Associé ${i+1}` ? (vraisNoms[i]||a.nom) : a.nom;
   const apportsCorr = a.apports.map((ap:any)=>ap.id===`ap${i+1}`&&(ap.montant===500||ap.montant===0)?{...ap,montant:300}:ap);
   const apportsFinal = apportsCorr.length===0
     ? [{id:`ap${i+1}`,date:"2025-01-01",montant:300,type:"argent",commentaire:"Apport initial"}]
     : apportsCorr;
-  return {...a,apports:apportsFinal};
+  return {...a,nom:nomCorr,email:a.email||"",apports:apportsFinal};
 }),
 modeRepartition: data.modeRepartition||INIT.modeRepartition,
 reglesInternes: data.reglesInternes??INIT.reglesInternes,
+conventionAssocies: data.conventionAssocies||INIT.conventionAssocies,
 };
 };
 
