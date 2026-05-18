@@ -1,0 +1,83 @@
+Ajouter au module comptabilité un système de gestion des associés / membres du projet.
+
+Contexte :
+
+* nous sommes 5 personnes dans le business
+* tout le monde n’a pas investi le même montant
+* l’entreprise n’est pas assujettie à la TVA pour le moment
+* il faut pouvoir suivre clairement qui a apporté combien
+* il faut pouvoir voir la part théorique de chacun
+* il faut garder un historique des apports et remboursements
+
+IMPORTANT TVA :
+L’entreprise n’est actuellement pas assujettie à la TVA.
+Donc :
+
+* ne pas appliquer de TVA par défaut
+* permettre de désactiver totalement la TVA
+* garder une option pour l’activer plus tard si nécessaire
+* les factures doivent mentionner “Non assujetti à la TVA” si besoin
+
+MODULE ASSOCIÉS / APPORTS
+
+Créer une section :
+
+* Associés
+* Apports
+* Répartition
+* Remboursements
+* Résultat par associé
+
+Pour chaque associé :
+
+* nom
+* rôle
+* montant investi
+* date des apports
+* type d’apport : argent, matériel, stock, travail, autre
+* commentaire
+* pourcentage théorique
+* montant remboursé
+* solde restant
+* historique complet
+
+Fonctionnalités :
+
+* ajouter un apport
+* modifier un apport avec historique
+* enregistrer un remboursement
+* voir le total investi par tous les associés
+* voir le pourcentage d’investissement de chaque personne
+* voir qui a investi le plus
+* voir le solde restant dû à chaque associé
+* exporter un récapitulatif PDF
+
+Calculs :
+
+* total des apports = somme de tous les apports
+* part d’un associé = apport de l’associé / total des apports
+* solde associé = apports - remboursements
+* résultat théorique par associé = bénéfice net x pourcentage d’apport
+
+Attention :
+Ce module sert au suivi interne entre associés.
+Il ne doit pas remplacer une vraie convention entre associés.
+Prévoir un champ “règles internes” pour noter si les bénéfices sont répartis selon :
+
+* l’investissement
+* à parts égales
+* selon un accord personnalisé
+
+L’interface doit permettre de choisir le mode de répartition :
+
+1. Répartition selon apports
+2. Répartition égale entre les 5 associés
+3. Répartition personnalisée
+
+Créer aussi une vue claire :
+
+* total investi
+* bénéfice/perte actuel
+* part théorique de chacun
+* solde à rembourser
+* historique des apports

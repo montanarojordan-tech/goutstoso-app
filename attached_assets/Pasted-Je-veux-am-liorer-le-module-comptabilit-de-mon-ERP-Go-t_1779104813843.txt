@@ -1,0 +1,463 @@
+Je veux améliorer le module comptabilité de mon ERP Goûtstoso pour en faire une comptabilité beaucoup plus professionnelle, reliée automatiquement aux ventes, commandes, factures, paiements, rappels, stock, production et dépenses.
+
+IMPORTANT :
+
+* ne pas supprimer les données existantes
+* ne pas casser les modules déjà en place
+* ne pas remplacer l’application par un modèle vide
+* conserver les factures, commandes, paiements, produits, stocks et contacts existants
+* avancer progressivement
+* commencer par proposer un schéma clair avant de coder
+
+OBJECTIF :
+Créer un vrai moteur comptable professionnel compatible avec une raison individuelle en Suisse.
+
+Le module doit permettre de suivre en permanence :
+
+* chiffre d’affaires
+* charges
+* bénéfice
+* perte
+* marge brute
+* marge nette
+* TVA
+* créances clients
+* dettes fournisseurs
+* stock immobilisé
+* rentabilité par produit
+* rentabilité par partenaire
+* résultat mensuel
+* résultat annuel
+
+---
+
+1. VRAIE COMPTABILITÉ EN DOUBLE ÉCRITURE
+
+---
+
+Mettre en place un système débit / crédit.
+
+Chaque opération doit générer une écriture comptable équilibrée.
+
+Créer les éléments suivants :
+
+* plan comptable
+* journal comptable
+* grand livre
+* bilan
+* compte de résultat
+* exercices comptables
+* soldes des comptes
+* écritures automatiques
+* écritures manuelles
+
+Tables nécessaires :
+
+* accounts
+* journal_entries
+* journal_lines
+* fiscal_years
+* vat_rates
+* accounting_documents
+* payment_methods
+
+Chaque journal_entry doit contenir :
+
+* date
+* description
+* référence document
+* type opération
+* statut
+* utilisateur
+* total débit
+* total crédit
+
+Chaque journal_line doit contenir :
+
+* compte
+* débit
+* crédit
+* TVA si applicable
+* centre de coût si prévu
+* lien facture / paiement / stock / production si applicable
+
+---
+
+2. PLAN COMPTABLE SUISSE SIMPLIFIÉ
+
+---
+
+Créer un plan comptable adapté à une raison individuelle suisse.
+
+Prévoir au minimum :
+
+ACTIFS
+
+* Banque
+* Caisse
+* Clients
+* Stock marchandises
+* Stock matières premières
+
+PASSIFS
+
+* Fournisseurs
+* TVA due
+* Dettes diverses
+
+PRODUITS
+
+* Vente de liqueurs
+* Vente accessoires / coffrets
+* Frais de rappel facturés
+* Autres produits
+
+CHARGES
+
+* Achat alcool
+* Achat fruits
+* Achat sucre
+* Achat bouteilles
+* Achat étiquettes
+* Emballages
+* Cartons
+* Frais Shopify
+* Commissions
+* Frais bancaires
+* Publicité
+* Essence / livraison
+* Frais administratifs
+* Préfecture / autorisations
+* Pertes production
+* Corrections stock
+
+---
+
+3. AUTOMATISATIONS COMPTABLES
+
+---
+
+Créer des écritures automatiquement depuis les événements métier.
+
+Quand une facture est générée :
+
+* enregistrer la créance client
+* enregistrer le chiffre d’affaires
+* enregistrer la TVA due si applicable
+
+Quand une facture est payée :
+
+* solder la créance client
+* enregistrer l’encaissement banque ou caisse
+* mettre à jour le solde client
+* mettre à jour le bénéfice/perte
+
+Quand une commande est validée :
+
+* impacter le stock
+* calculer coût des produits vendus si disponible
+* calculer marge brute
+
+Quand une vente Shopify est enregistrée :
+
+* enregistrer chiffre d’affaires
+* enregistrer commission Shopify
+* enregistrer frais de paiement si disponible
+* enregistrer encaissement net
+
+Quand un rappel est généré :
+
+* enregistrer frais de rappel si facturés
+* mettre à jour solde client
+
+Quand une dépense est saisie :
+
+* affecter la dépense au bon compte
+* gérer TVA récupérable si applicable
+* impacter le résultat
+
+Quand une production est terminée :
+
+* transformer matières premières en produits finis
+* calculer coût réel de production
+* enregistrer pertes de production
+* valoriser le stock produit fini
+
+---
+
+4. SUIVI DU BÉNÉFICE / PERTE EN TEMPS RÉEL
+
+---
+
+Créer un dashboard financier visible en permanence.
+
+Le bénéfice ne doit pas être une valeur fixe.
+Il doit être calculé automatiquement à partir :
+
+* ventes
+* factures
+* paiements
+* charges
+* stock
+* production
+* commissions
+* frais bancaires
+* pertes
+* rappels
+* TVA
+
+Afficher en temps réel :
+
+* bénéfice brut
+* bénéfice net
+* perte éventuelle
+* chiffre d’affaires
+* charges totales
+* marge globale
+* marge par produit
+* marge par partenaire
+* résultat du mois
+* résultat de l’année
+* créances ouvertes
+* factures en retard
+* TVA estimée à payer
+* stock immobilisé
+
+Prévoir filtres :
+
+* aujourd’hui
+* cette semaine
+* ce mois
+* ce trimestre
+* cette année
+* période personnalisée
+
+---
+
+5. RENTABILITÉ PAR PRODUIT
+
+---
+
+Créer une analyse par produit.
+
+Pour chaque produit :
+
+* prix de vente normal
+* prix partenaire
+* coût matière
+* coût packaging
+* coût production
+* coût total par bouteille
+* marge brute
+* marge nette estimée
+* quantité vendue
+* bénéfice généré
+* stock restant
+* rentabilité
+
+Le coût réel doit venir :
+
+* des recettes
+* des matières premières
+* des bouteilles
+* des étiquettes
+* des emballages
+* des pertes de production
+
+---
+
+6. RENTABILITÉ PAR CLIENT / PARTENAIRE
+
+---
+
+Pour chaque client ou partenaire, afficher :
+
+* chiffre d’affaires
+* marge générée
+* factures ouvertes
+* factures payées
+* retards de paiement
+* rappels envoyés
+* rabais accordés
+* commissions éventuelles
+* rentabilité réelle
+
+---
+
+7. TVA
+
+---
+
+Prévoir un système TVA compatible Suisse.
+
+Fonctions :
+
+* taux TVA paramétrables
+* TVA collectée
+* TVA récupérable
+* TVA nette estimée
+* export décompte TVA
+* ventes exonérées si besoin
+* ventes export si besoin
+
+Le système doit pouvoir afficher :
+
+* TVA due
+* TVA récupérable
+* solde TVA estimé
+
+---
+
+8. DÉPENSES
+
+---
+
+Créer un module de saisie des dépenses.
+
+Champs :
+
+* date
+* fournisseur
+* catégorie comptable
+* montant HT
+* TVA
+* montant TTC
+* moyen de paiement
+* justificatif PDF/photo
+* commentaire
+* lien éventuel avec stock ou production
+
+Exemples de dépenses :
+
+* alcool
+* fruits
+* sucre
+* bouteilles
+* étiquettes
+* cartons
+* sacs
+* publicité
+* préfecture
+* frais bancaires
+* frais Shopify
+* essence
+* livraison
+
+---
+
+9. RAPPORTS FINANCIERS
+
+---
+
+Créer les rapports suivants :
+
+* compte de résultat
+* bilan
+* journal comptable
+* grand livre
+* balance des comptes
+* rapport TVA
+* rapport rentabilité produits
+* rapport rentabilité clients
+* rapport factures impayées
+* rapport stock valorisé
+
+Export possible :
+
+* PDF
+* Excel / CSV
+
+---
+
+10. SOLDES ET ALERTES
+
+---
+
+Créer des alertes automatiques :
+
+* facture en retard
+* marge trop faible
+* produit non rentable
+* charges trop élevées
+* TVA estimée élevée
+* stock immobilisé important
+* perte mensuelle
+* client mauvais payeur
+
+---
+
+11. HISTORIQUE ET AUDIT
+
+---
+
+Chaque action comptable doit garder un historique :
+
+* création écriture
+* modification
+* suppression
+* paiement
+* rappel
+* changement statut facture
+* correction stock
+* dépense ajoutée
+
+Chaque historique doit contenir :
+
+* utilisateur
+* date
+* ancienne valeur
+* nouvelle valeur
+* raison de modification
+
+---
+
+12. INTERFACE SOUHAITÉE
+
+---
+
+Créer une navigation comptabilité avec :
+
+* Dashboard financier
+* Journal
+* Grand livre
+* Factures clients
+* Paiements
+* Dépenses
+* TVA
+* Bilan
+* Compte de résultat
+* Rentabilité produits
+* Rentabilité partenaires
+* Paramètres comptables
+
+Le dashboard doit afficher :
+
+* CA
+* charges
+* bénéfice/perte
+* marge
+* TVA
+* créances ouvertes
+* factures en retard
+* stock valorisé
+
+---
+
+13. RÈGLE IMPORTANTE
+
+---
+
+Ne pas coder directement toute la comptabilité d’un coup.
+
+Commencer par me proposer :
+
+1. le schéma du module comptabilité
+2. les tables nécessaires
+3. les relations entre ventes, stock, production et compta
+4. les règles débit/crédit
+5. les calculs bénéfice/perte
+6. les automatisations comptables
+7. les risques techniques
+8. les étapes de développement progressives
+
+Ensuite seulement, coder étape par étape.
