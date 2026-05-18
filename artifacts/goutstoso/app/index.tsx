@@ -4828,7 +4828,7 @@ return (
   </div>
 
   {/* Onglets */}
-  <div style={{display:"flex",gap:5,marginBottom:14,overflowX:"auto",paddingBottom:2,WebkitOverflowScrolling:"touch"}}>
+  <div style={{display:"flex",flexWrap:"wrap",gap:5,marginBottom:14}}>
     {[
       {id:"dashboard",l:"Aperçu"},
       {id:"tresorerie",l:"Trésor."},
