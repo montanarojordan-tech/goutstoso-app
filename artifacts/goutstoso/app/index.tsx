@@ -9753,7 +9753,7 @@ if(view) return (
 
 return (
 <div className="fade">
-<SectionTitle action={<Btn icon="plus" onClick={()=>{setForm(emptyForm());setModal("form");}}>+ Prospection</Btn>}>Pipeline Offres</SectionTitle>
+<SectionTitle action={<Btn icon="plus" onClick={()=>{setForm(emptyForm());setModal("form");}}>Prospection</Btn>}>Pipeline Offres</SectionTitle>
 
 {/* Stats pipeline */}
 {(()=>{
