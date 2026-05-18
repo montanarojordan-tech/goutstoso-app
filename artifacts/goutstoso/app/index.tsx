@@ -188,11 +188,11 @@ transactions:[
 ],
 soldeBancaire: 798.24,
 associes: [
-  {id:"a1",nom:"Jordan Montanaro",role:"Fondateur & Production",apports:[{id:"ap1",date:"2025-01-01",montant:500,type:"argent",commentaire:"Apport initial fondateur"}],remboursements:[],pourcentageCustom:null},
-  {id:"a2",nom:"Associé 2",role:"Commercial",apports:[],remboursements:[],pourcentageCustom:null},
-  {id:"a3",nom:"Associé 3",role:"Communication",apports:[],remboursements:[],pourcentageCustom:null},
-  {id:"a4",nom:"Associé 4",role:"Logistique",apports:[],remboursements:[],pourcentageCustom:null},
-  {id:"a5",nom:"Associé 5",role:"Partenariats",apports:[],remboursements:[],pourcentageCustom:null},
+  {id:"a1",nom:"Jordan Montanaro",role:"Fondateur & Production",apports:[{id:"ap1",date:"2025-01-01",montant:300,type:"argent",commentaire:"Apport initial"}],remboursements:[],pourcentageCustom:null},
+  {id:"a2",nom:"Associé 2",role:"Commercial",apports:[{id:"ap2",date:"2025-01-01",montant:300,type:"argent",commentaire:"Apport initial"}],remboursements:[],pourcentageCustom:null},
+  {id:"a3",nom:"Associé 3",role:"Communication",apports:[{id:"ap3",date:"2025-01-01",montant:300,type:"argent",commentaire:"Apport initial"}],remboursements:[],pourcentageCustom:null},
+  {id:"a4",nom:"Associé 4",role:"Logistique",apports:[{id:"ap4",date:"2025-01-01",montant:300,type:"argent",commentaire:"Apport initial"}],remboursements:[],pourcentageCustom:null},
+  {id:"a5",nom:"Associé 5",role:"Partenariats",apports:[{id:"ap5",date:"2025-01-01",montant:300,type:"argent",commentaire:"Apport initial"}],remboursements:[],pourcentageCustom:null},
 ],
 modeRepartition: "apports",
 reglesInternes: "",
@@ -12399,7 +12399,14 @@ soldeBancaire: data.soldeBancaire ?? INIT.soldeBancaire,
 production: data.production||INIT.production,
 fournisseurs: fournisseursMigres,
 clients: clientsMigres,
-associes: data.associes||INIT.associes,
+associes: (data.associes||INIT.associes).map((a:any,i:number)=>{
+  // Migration : normalise tous les apports initiaux à 300.-
+  const apportsCorr = a.apports.map((ap:any)=>ap.id===`ap${i+1}`&&(ap.montant===500||ap.montant===0)?{...ap,montant:300}:ap);
+  const apportsFinal = apportsCorr.length===0
+    ? [{id:`ap${i+1}`,date:"2025-01-01",montant:300,type:"argent",commentaire:"Apport initial"}]
+    : apportsCorr;
+  return {...a,apports:apportsFinal};
+}),
 modeRepartition: data.modeRepartition||INIT.modeRepartition,
 reglesInternes: data.reglesInternes??INIT.reglesInternes,
 };
