@@ -1881,6 +1881,184 @@ doc.save(c.numero+".pdf");
 } catch(e){alert("Erreur PDF : "+e.message);}
 };
 
+const genererQuittancePDF = async (assoc:any, ap:any) => {
+try {
+await new Promise((res,rej)=>{
+if((window as any).jspdf){res();return;}
+const s=document.createElement("script");
+s.src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";
+s.onload=res;s.onerror=rej;document.head.appendChild(s);
+});
+const {jsPDF}=(window as any).jspdf;
+const doc=new jsPDF("p","mm","a4");
+const W=210,mg=18;
+const numQ="QAP-"+new Date(ap.date).getFullYear()+"-"+ap.id.slice(-4).toUpperCase();
+const dateL=new Date(ap.date).toLocaleDateString("fr-CH",{day:"2-digit",month:"long",year:"numeric"});
+
+doc.setFillColor(242,201,76);doc.rect(0,0,W,6,"F");
+pdfLogo(doc,mg);
+doc.setFontSize(15);doc.setFont("helvetica","bold");doc.setTextColor(17,17,17);
+doc.text("QUITTANCE D'APPORT EN CAPITAL",W-mg,20,{align:"right"});
+doc.setFontSize(9);doc.setFont("helvetica","normal");doc.setTextColor(120,120,120);
+doc.text("GOÛTSTOSO · Société simple · Art. 530 CO suisse",W-mg,28,{align:"right"});
+doc.text("Réf. : "+numQ,W-mg,34,{align:"right"});
+doc.setDrawColor(230,230,228);doc.setLineWidth(0.3);doc.line(mg,38,W-mg,38);
+
+let y=48;
+doc.setFillColor(249,249,246);doc.roundedRect(mg,y,W-mg*2,50,3,3,"F");
+const colL=W/2-mg-5; const colR=W/2+5;
+doc.setFontSize(8);doc.setFont("helvetica","bold");doc.setTextColor(120,120,120);
+doc.text("ASSOCIÉ",mg+4,y+8);
+doc.setFontSize(12);doc.setFont("helvetica","bold");doc.setTextColor(17,17,17);
+doc.text(assoc.nom,mg+4,y+17);
+doc.setFontSize(8.5);doc.setFont("helvetica","normal");doc.setTextColor(107,114,128);
+doc.text(assoc.role,mg+4,y+24);
+
+doc.setFontSize(8);doc.setFont("helvetica","bold");doc.setTextColor(120,120,120);
+doc.text("MONTANT",colR,y+8);
+doc.setFontSize(20);doc.setFont("helvetica","bold");doc.setTextColor(22,101,52);
+doc.text("CHF "+parseFloat(ap.montant).toFixed(2),colR,y+22);
+doc.setFontSize(8.5);doc.setFont("helvetica","normal");doc.setTextColor(107,114,128);
+const typeL2=ap.type==="argent"?"Apport en numéraire":ap.type==="materiel"?"Apport en nature (matériel)":ap.type==="stock"?"Apport en nature (stock)":ap.type==="travail"?"Apport en industrie":ap.type;
+doc.text(typeL2,colR,y+29);
+doc.text("Date : "+dateL,colR,y+36);
+if(ap.commentaire){doc.setFontSize(8);doc.text("Note : "+ap.commentaire,colR,y+43,{maxWidth:colL});}
+y+=58;
+
+doc.setFontSize(9.5);doc.setFont("helvetica","normal");doc.setTextColor(60,60,60);
+const qText=`Goûtstoso (Société simple, Art. 530 CO) reconnaît avoir reçu de ${assoc.nom} un apport en capital d'un montant de CHF ${parseFloat(ap.montant).toFixed(2)} le ${dateL} dans le cadre de la Convention d'associés Goûtstoso.\n\nCet apport est enregistré au compte 2000 « Capital investi » et modifie la répartition des parts conformément à la convention en vigueur.`;
+const qLines=doc.splitTextToSize(qText,W-mg*2);
+doc.text(qLines,mg,y);
+y+=qLines.length*5+10;
+
+if(ap.captureVirement){
+  doc.setFontSize(9);doc.setFont("helvetica","bold");doc.setTextColor(80,80,80);
+  doc.text("PREUVE DE VERSEMENT",mg,y);y+=4;
+  doc.setDrawColor(200,200,200);doc.setLineWidth(0.3);doc.roundedRect(mg,y,W-mg*2,70,2,2,"S");
+  try{const ext=ap.captureVirement.startsWith("data:image/png")?"PNG":"JPEG";doc.addImage(ap.captureVirement,ext,mg+2,y+2,W-mg*2-4,66);}catch(e){}
+  y+=76;
+}
+
+if(y>230){doc.addPage();doc.setFillColor(242,201,76);doc.rect(0,0,W,3,"F");y=15;}
+y+=4;
+doc.setFontSize(8);doc.setFont("helvetica","bold");doc.setTextColor(80,80,80);
+doc.text("SIGNATURES",mg,y);y+=4;
+const sigW=(W-mg*2-10)/2;
+doc.setDrawColor(200,200,200);doc.setLineWidth(0.3);
+doc.roundedRect(mg,y,sigW,32,2,2,"S");
+doc.setFontSize(7);doc.setFont("helvetica","bold");doc.setTextColor(150,150,150);
+doc.text("Goûtstoso — Jordan Montanaro",mg+3,y+5);
+doc.roundedRect(mg+sigW+10,y,sigW,32,2,2,"S");
+doc.text(assoc.nom,mg+sigW+13,y+5);
+
+doc.setDrawColor(230,230,228);doc.setLineWidth(0.3);doc.line(mg,277,W-mg,277);
+doc.setFontSize(7.5);doc.setFont("helvetica","normal");doc.setTextColor(150,150,150);
+doc.text("Goûtstoso - Jordan Montanaro · Rue des Sources 19 · 2613 Villeret · admin@goutstoso.ch",W/2,282,{align:"center"});
+doc.setFillColor(242,201,76);doc.rect(0,292,W,5,"F");
+doc.save("Quittance_"+assoc.nom.replace(/\s+/g,"_")+"_"+ap.date+".pdf");
+}catch(e:any){alert("Erreur PDF : "+e.message);}
+};
+
+const genererAvenantPDF = async (stData:any) => {
+try {
+await new Promise((res,rej)=>{
+if((window as any).jspdf){res();return;}
+const s=document.createElement("script");
+s.src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";
+s.onload=res;s.onerror=rej;document.head.appendChild(s);
+});
+const {jsPDF}=(window as any).jspdf;
+const doc=new jsPDF("p","mm","a4");
+const W=210,mg=18;
+const assocs=stData.associes||[];
+const totalInvesti=assocs.reduce((s:number,a:any)=>s+a.apports.reduce((ss:number,ap:any)=>ss+(parseFloat(ap.montant)||0),0),0);
+
+doc.setFillColor(242,201,76);doc.rect(0,0,W,6,"F");
+pdfLogo(doc,mg);
+doc.setFontSize(14);doc.setFont("helvetica","bold");doc.setTextColor(17,17,17);
+doc.text("AVENANT À LA CONVENTION D'ASSOCIÉS",W-mg,20,{align:"right"});
+doc.setFontSize(9);doc.setFont("helvetica","normal");doc.setTextColor(120,120,120);
+doc.text("GOÛTSTOSO · Société simple · Art. 530 CO suisse",W-mg,28,{align:"right"});
+doc.text("Daté du "+new Date().toLocaleDateString("fr-CH",{day:"2-digit",month:"long",year:"numeric"}),W-mg,34,{align:"right"});
+doc.setDrawColor(230,230,228);doc.setLineWidth(0.3);doc.line(mg,38,W-mg,38);
+
+let y=46;
+doc.setFontSize(10);doc.setFont("helvetica","bold");doc.setTextColor(30,58,138);
+doc.text("OBJET : Mise à jour des apports en capital des associés",mg,y);y+=7;
+doc.setFontSize(9);doc.setFont("helvetica","normal");doc.setTextColor(60,60,60);
+const intro=`Les soussignés, associés de GOÛTSTOSO, conviennent ce qui suit en complément de la Convention d'associés initiale. Le présent avenant modifie l'article 4 (Apports des associés) conformément aux versements effectués.`;
+const iLines=doc.splitTextToSize(intro,W-mg*2);
+doc.text(iLines,mg,y);y+=iLines.length*5+8;
+
+doc.setFontSize(10);doc.setFont("helvetica","bold");doc.setTextColor(30,58,138);
+doc.text("1. Récapitulatif des apports mis à jour",mg,y);y+=7;
+
+doc.setFillColor(17,17,17);doc.rect(mg,y,W-mg*2,8,"F");
+doc.setFontSize(7.5);doc.setFont("helvetica","bold");doc.setTextColor(242,201,76);
+doc.text("ASSOCIÉ",mg+3,y+5.5);doc.text("RÔLE",80,y+5.5);
+doc.setTextColor(180,180,180);doc.text("TOTAL APPORTS",148,y+5.5,{align:"right"});doc.text("PART %",W-mg-3,y+5.5,{align:"right"});
+y+=8;
+assocs.forEach((a:any,i:number)=>{
+  const apTot=a.apports.reduce((s:number,ap:any)=>s+(parseFloat(ap.montant)||0),0);
+  const part=totalInvesti>0?(apTot/totalInvesti*100):0;
+  doc.setFillColor(i%2===0?249:255,i%2===0?249:255,i%2===0?246:255);
+  doc.rect(mg,y,W-mg*2,10,"F");
+  doc.setFontSize(9);doc.setFont("helvetica","bold");doc.setTextColor(17,17,17);
+  doc.text(a.nom,mg+3,y+6.5);
+  doc.setFont("helvetica","normal");doc.setFontSize(8);doc.setTextColor(107,114,128);
+  doc.text(a.role,80,y+6.5);
+  doc.setFont("helvetica","bold");doc.setTextColor(22,101,52);doc.setFontSize(9);
+  doc.text("CHF "+apTot.toFixed(2),148,y+6.5,{align:"right"});
+  doc.setTextColor(30,58,138);doc.text(part.toFixed(1)+"%",W-mg-3,y+6.5,{align:"right"});
+  y+=10;
+});
+doc.setFillColor(254,249,231);doc.roundedRect(W/2+10,y+2,W/2-mg-10,10,2,2,"F");
+doc.setFontSize(10);doc.setFont("helvetica","bold");doc.setTextColor(17,17,17);
+doc.text("TOTAL : CHF "+totalInvesti.toFixed(2),W-mg-3,y+9,{align:"right"});
+y+=18;
+
+doc.setFontSize(10);doc.setFont("helvetica","bold");doc.setTextColor(30,58,138);
+doc.text("2. Détail chronologique par associé",mg,y);y+=7;
+for(const a of assocs){
+  if(y>252){doc.addPage();doc.setFillColor(242,201,76);doc.rect(0,0,W,3,"F");y=12;}
+  doc.setFontSize(9);doc.setFont("helvetica","bold");doc.setTextColor(17,17,17);
+  doc.text("▸ "+a.nom,mg,y);y+=5;
+  for(const ap of a.apports){
+    doc.setFontSize(8);doc.setFont("helvetica","normal");doc.setTextColor(107,114,128);
+    const tL=ap.type==="argent"?"Numéraire":ap.type==="materiel"?"Matériel":ap.type==="stock"?"Stock":ap.type==="travail"?"Travail":ap.type;
+    const ln=new Date(ap.date).toLocaleDateString("fr-CH")+"  ·  "+tL+"  ·  CHF "+parseFloat(ap.montant).toFixed(2)+(ap.commentaire?" — "+ap.commentaire:"")+(ap.captureVirement?" 📎":"");
+    const sl=doc.splitTextToSize(ln,W-mg*2-6);
+    if(y+sl.length*4.5>252){doc.addPage();doc.setFillColor(242,201,76);doc.rect(0,0,W,3,"F");y=12;}
+    doc.text(sl,mg+4,y);y+=sl.length*4.5;
+  }
+  y+=3;
+}
+
+// Page signatures
+if(y>200){doc.addPage();doc.setFillColor(242,201,76);doc.rect(0,0,W,6,"F");pdfLogo(doc,mg);y=22;}
+else y+=6;
+doc.setFontSize(9);doc.setFont("helvetica","bold");doc.setTextColor(80,80,80);
+doc.text("SIGNATURES — Validation de l'avenant par les associés",W/2,y,{align:"center"});y+=8;
+const colW=(W-mg*2-10)/2;
+assocs.forEach((a:any,i:number)=>{
+  const col=i%2;const x=mg+col*(colW+10);
+  if(col===0&&i>0) y+=38;
+  doc.setDrawColor(200,200,200);doc.setLineWidth(0.3);doc.roundedRect(x,y,colW,32,2,2,"S");
+  doc.setFontSize(7.5);doc.setFont("helvetica","bold");doc.setTextColor(80,80,80);doc.text(a.nom,x+3,y+6);
+  doc.setFont("helvetica","normal");doc.setFontSize(7);doc.setTextColor(150,150,150);doc.text(a.role,x+3,y+11);
+  doc.setFontSize(7);doc.setTextColor(180,180,180);
+  doc.text("Signature :",x+3,y+20);doc.line(x+22,y+20,x+colW-3,y+20);
+  doc.text("Date :",x+3,y+28);doc.line(x+14,y+28,x+colW-3,y+28);
+});
+
+doc.setDrawColor(230,230,228);doc.setLineWidth(0.3);doc.line(mg,277,W-mg,277);
+doc.setFontSize(7.5);doc.setFont("helvetica","normal");doc.setTextColor(150,150,150);
+doc.text("Goûtstoso - Jordan Montanaro · Rue des Sources 19 · 2613 Villeret · admin@goutstoso.ch · www.goutstoso.ch",W/2,282,{align:"center"});
+doc.setFillColor(242,201,76);doc.rect(0,292,W,5,"F");
+doc.save("Avenant_Convention_Goutstoso_"+new Date().toISOString().slice(0,10)+".pdf");
+}catch(e:any){alert("Erreur PDF : "+e.message);}
+};
+
 const genererConventionPDF = async (st:any) => {
 try {
 await new Promise((res,rej)=>{
@@ -3335,8 +3513,8 @@ Contrats
         <p style={{fontSize:10,color:"#9CA3AF",marginTop:3}}>Société simple · Art. 530 CO suisse · {(st.associes||[]).length} associés</p>
         <div style={{display:"flex",gap:8,marginTop:12}}>
           <button onClick={()=>genererConventionPDF(st)} style={{flex:1,background:"#F2C94C",color:"#111",border:"none",borderRadius:8,padding:"8px",fontSize:11,fontWeight:700,cursor:"pointer"}}>📄 PDF Convention</button>
-          <button onClick={()=>genererConventionPDF(st)} style={{flex:1,background:"#1a1a1a",color:"#9CA3AF",border:"1px solid #333",borderRadius:8,padding:"8px",fontSize:10,fontWeight:600,cursor:"pointer"}}>
-            {(st.conventionAssocies?.signataires||[]).filter((s:any)=>s.signed).length}/{(st.associes||[]).length} signé(s)
+          <button onClick={()=>genererAvenantPDF(st)} style={{flex:1,background:"#1a1a1a",color:"#9CA3AF",border:"1px solid #333",borderRadius:8,padding:"8px",fontSize:10,fontWeight:600,cursor:"pointer"}}>
+            📋 Avenant · {(st.conventionAssocies?.signataires||[]).filter((s:any)=>s.signed).length}/{(st.associes||[]).length} signé(s)
           </button>
         </div>
       </div>
@@ -4987,7 +5165,7 @@ const [associeModal,setAssocieModal] = useState<string|null>(null);
 const [selectedAssocieId,setSelectedAssocieId] = useState<string|null>(null);
 const emptyAssocieForm = {nom:"",role:"",email:"",pourcentageCustom:""};
 const [associeForm,setAssocieForm] = useState<any>(emptyAssocieForm);
-const emptyApport = {date:today(),montant:"",type:"argent",commentaire:""};
+const emptyApport = {date:today(),montant:"",type:"argent",commentaire:"",captureVirement:null as string|null};
 const [apportForm,setApportForm] = useState<any>(emptyApport);
 const emptyRemb = {date:today(),montant:"",commentaire:""};
 const [rembForm,setRembForm] = useState<any>(emptyRemb);
@@ -6328,12 +6506,14 @@ return (
                   <div style={{marginBottom:8}}>
                     <p style={{fontSize:9,fontWeight:600,color:"#9CA3AF",textTransform:"uppercase",marginBottom:4}}>Apports ({a.apports.length})</p>
                     {a.apports.map(ap=>(
-                      <div key={ap.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",fontSize:10,color:"#525252",padding:"3px 0",borderBottom:"1px solid #F3F3F0"}}>
-                        <span style={{flex:1}}>{fmt(ap.date)} · {ap.type}{ap.commentaire?" · "+ap.commentaire:""}</span>
-                        <span style={{fontWeight:600,color:"#166534",marginRight:6}}>+{chf(parseFloat(ap.montant)||0)}</span>
-                        <button onClick={()=>{setSelectedAssocieId(a.id);setApportForm({...ap,montant:String(ap.montant)});setAssocieModal("apport");}}
-                          style={{background:"#F5F5F0",border:"none",borderRadius:6,padding:"3px 7px",fontSize:9,fontWeight:700,cursor:"pointer",color:"#374151",marginRight:3}}>✏️</button>
-                        <button onClick={()=>{
+                      <div key={ap.id} style={{borderBottom:"1px solid #F3F3F0",padding:"4px 0"}}>
+                        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",fontSize:10,color:"#525252"}}>
+                          <span style={{flex:1}}>{fmt(ap.date)} · {ap.type}{ap.commentaire?" · "+ap.commentaire:""}{ap.captureVirement?<span style={{marginLeft:4,fontSize:9,color:"#6B7280"}}>📎</span>:null}</span>
+                          <span style={{fontWeight:600,color:"#166534",marginRight:6}}>+{chf(parseFloat(ap.montant)||0)}</span>
+                          <button onClick={()=>genererQuittancePDF(a,ap)} style={{background:"#F2C94C",border:"none",borderRadius:6,padding:"3px 7px",fontSize:9,fontWeight:700,cursor:"pointer",color:"#111",marginRight:3}} title="Quittance PDF">📄</button>
+                          <button onClick={()=>{setSelectedAssocieId(a.id);setApportForm({...ap,montant:String(ap.montant)});setAssocieModal("apport");}}
+                            style={{background:"#F5F5F0",border:"none",borderRadius:6,padding:"3px 7px",fontSize:9,fontWeight:700,cursor:"pointer",color:"#374151",marginRight:3}}>✏️</button>
+                          <button onClick={()=>{
                           if(!confirm("Supprimer cet apport de "+chf(parseFloat(ap.montant)||0)+" ?")) return;
                           const m=parseFloat(ap.montant)||0;
                           setSt((p:any)=>({
@@ -6348,6 +6528,7 @@ return (
                           }));
                         }} style={{background:"#FEE2E2",border:"none",borderRadius:6,padding:"3px 7px",fontSize:9,fontWeight:700,cursor:"pointer",color:"#991B1B"}}>🗑️</button>
                       </div>
+                    </div>
                     ))}
                   </div>
                 )}
@@ -6440,6 +6621,28 @@ return (
               <Sel label="Type d'apport" value={apportForm.type} onChange={v=>setApportForm((p:any)=>({...p,type:v}))}
                 options={[{v:"argent",l:"Argent"},{v:"materiel",l:"Matériel"},{v:"stock",l:"Stock"},{v:"travail",l:"Travail"},{v:"autre",l:"Autre"}]}/>
               <F label="Commentaire (optionnel)" value={apportForm.commentaire} onChange={v=>setApportForm((p:any)=>({...p,commentaire:v}))} placeholder="Ex: Achat alcool, matériel de production…"/>
+              {/* Capture virement */}
+              <div>
+                <p style={{fontSize:11,fontWeight:600,color:"#374151",marginBottom:6}}>📷 Capture du virement (optionnel)</p>
+                {apportForm.captureVirement ? (
+                  <div style={{position:"relative"}}>
+                    <img src={apportForm.captureVirement} alt="capture" style={{width:"100%",maxHeight:180,objectFit:"contain",borderRadius:8,border:"1.5px solid #E5E5E0"}}/>
+                    <button onClick={()=>setApportForm((p:any)=>({...p,captureVirement:null}))} style={{position:"absolute",top:4,right:4,background:"#B91C1C",color:"#fff",border:"none",borderRadius:6,padding:"3px 7px",fontSize:10,fontWeight:700,cursor:"pointer"}}>✕ Supprimer</button>
+                  </div>
+                ) : (
+                  <label style={{display:"block",border:"1.5px dashed #D1D5DB",borderRadius:8,padding:"14px",textAlign:"center",cursor:"pointer",background:"#FAFAF7"}}>
+                    <p style={{fontSize:11,color:"#9CA3AF"}}>📂 Clique pour choisir une photo</p>
+                    <p style={{fontSize:9,color:"#D1D5DB",marginTop:3}}>JPG, PNG — screenshot virement ou paiement</p>
+                    <input type="file" accept="image/*" style={{display:"none"}} onChange={e=>{
+                      const file=(e.target as HTMLInputElement).files?.[0];
+                      if(!file) return;
+                      const reader=new FileReader();
+                      reader.onload=ev=>setApportForm((p:any)=>({...p,captureVirement:(ev.target as FileReader).result as string}));
+                      reader.readAsDataURL(file);
+                    }}/>
+                  </label>
+                )}
+              </div>
             </div>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginTop:16}}>
               <Btn full icon="check" onClick={()=>{
