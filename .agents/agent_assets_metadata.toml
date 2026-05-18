@@ -47,3 +47,9 @@ id = "4-857DTQAgQUYdo2YvMBW"
 uri = "file://exports/goutstoso_index.txt"
 type = "text"
 title = "Goutstoso — code complet (.txt)"
+
+[[outputs]]
+id = "g398dxpnTT17hyXx7qOaV"
+uri = "file://goutstoso_code.zip"
+type = "unspecified"
+title = "Goutstoso — Code source complet"
