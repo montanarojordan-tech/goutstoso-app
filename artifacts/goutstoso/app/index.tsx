@@ -481,16 +481,9 @@ const depenses = sum((st.transactions||[]).filter(t=>t.type==="depense").map(t=>
 const resultat = recettes - depenses;
 const soldeBancaire = parseFloat(st.soldeBancaire||0);
 
-// Factures non payées (= montant à encaisser)
+// Créances clients = factures ouvertes (non payées), rabais inclus = même valeur que l'onglet Factures
 const facturesAttente = (st.factures||[]).filter(f=>f.statut!=="payée");
-const caAttente = sum(facturesAttente.map(f=>sum((f.lignes||[]).map(l=>{
-const prod=st.produits.find(pr=>pr.id===l.produitId);
-return ((f.typeClient==="revendeur"?prod?.prixRevendeur:prod?.prixClient)||0)*(l.qte||0);
-})))) + sum((st.commandes||[]).filter(c=>c.source!=="shopify"&&c.statut!=="payée"&&!c.factureNumero).map(c=>{
-const t=sum((c.lignes||[]).filter(l=>l.produitId).map(l=>{
-const p=st.produits.find(x=>x.id===l.produitId);
-return (c.typeClient==="revendeur"?(p?.prixRevendeur||0):(p?.prixClient||0))*(l.qte||0);}));
-return t-(parseFloat(c.rabais)||0)+(parseFloat(c.fraisPort)||0);}));
+const caAttente = sum(facturesAttente.map(f=>calcTotalNet(f,st.produits)));
 
 // === ALERTES ===
 const alertes = [];
@@ -5330,22 +5323,9 @@ const catRecettes = Object.values(parCategorie).filter(c=>c.type==="recette").so
 const catDepenses = Object.values(parCategorie).filter(c=>c.type==="depense").sort((a,b)=>b.total-a.total);
 
 // Bilan simplifié
+// Créances clients = factures ouvertes (non payées), calcul identique à l'onglet Factures
 const factAttente = (st.factures||[]).filter(f=>f.statut!=="payée");
-// Créances clients = factures en attente + commandes directes non soldées (Shopify = déjà payé au moment de la commande, pas une créance)
-const creancesFactures = sum(factAttente.map(f=>calcTotalNet(f,st.produits)));
-const cmdNonPayees = (st.commandes||[]).filter(c=>
-  c.source!=="shopify" &&   // Shopify = client a déjà payé Shopify
-  c.statut!=="payée" &&     // payée = déjà encaissé
-  !c.factureNumero          // avec facture = suivi via facture
-);
-const creancesCommandes = sum(cmdNonPayees.map(c=>{
-const t = sum((c.lignes||[]).filter(l=>l.produitId).map(l=>{
-const p = st.produits.find(x=>x.id===l.produitId);
-return (c.typeClient==="revendeur"?(p?.prixRevendeur||0):(p?.prixClient||0))*(l.qte||0);
-}));
-return t - (parseFloat(c.rabais)||0) + (parseFloat(c.fraisPort)||0);
-}));
-const creancesClients = creancesFactures + creancesCommandes;
+const creancesClients = sum(factAttente.map(f=>calcTotalNet(f,st.produits)));
 const valeurStock = sum(st.produits.filter(p=>!p.nom.includes("Coffret")).map(p=>{
 const qte = sum((st.stocks||[]).filter(s=>s.produitId===p.id).map(s=>s.qte));
 return qte*(p.coutRevient||0);
