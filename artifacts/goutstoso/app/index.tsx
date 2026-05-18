@@ -164,7 +164,7 @@ transactions:[
 {id:"t4",date:"2026-04-14",compte:"6700",libelle:"Commission Shopify",type:"depense",categorie:"Commissions",montant:1.58,description:"Commande #1004 - Commission"},
 {id:"t5",date:"2026-04-13",compte:"3001",libelle:"Vente Limonta",type:"recette",categorie:"Vente Limonta",montant:19.00,description:"Commande #1002 - Vente"},
 {id:"t6",date:"2026-04-13",compte:"3002",libelle:"Vente Limelo",type:"recette",categorie:"Vente Limelo",montant:22.00,description:"Commande #1002 - Vente"},
-{id:"t7",date:"2026-04-13",compte:"3600",libelle:"Frais expédition clients",type:"recette",categorie:"Expédition",montant:9.90,description:"Commande #1002 - Expédition"},
+{id:"t7",date:"2026-04-13",compte:"3600",libelle:"Frais expédition clients",type:"recette",categorie:"Frais expédition facturés",montant:9.90,description:"Commande #1002 - Expédition"},
 {id:"t8",date:"2026-04-13",compte:"6700",libelle:"Commission Shopify",type:"depense",categorie:"Commissions",montant:1.37,description:"Commande #1002 - Commission"},
 {id:"t9",date:"2026-04-13",compte:"3003",libelle:"Vente Clementino",type:"recette",categorie:"Vente Clementino",montant:32.00,description:"Commande #1003 - Vente"},
 {id:"t10",date:"2026-04-13",compte:"6700",libelle:"Commission Shopify",type:"depense",categorie:"Commissions",montant:0.98,description:"Commande #1003 - Commission"},
@@ -185,6 +185,11 @@ transactions:[
 {id:"t25",date:"2026-03-04",compte:"4010",libelle:"Achat matières premières",type:"depense",categorie:"Matières premières",montant:430.00,description:"Achat alcool - Larusée"},
 {id:"t26",date:"2026-04-15",compte:"4000",libelle:"Achats de matériel",type:"depense",categorie:"Matériel",montant:127.03,description:"Achat matériel"},
 {id:"t27",date:"2026-04-15",compte:"6610",libelle:"Marketing",type:"depense",categorie:"Marketing",montant:42.00,description:"Publicité Facebook"},
+{id:"tc1",date:"2025-01-01",compte:"2000",libelle:"Apport en capital — Jordan Montanaro",type:"capital",categorie:"Capital investi",montant:300,description:"Apport initial",apportId:"ap1"},
+{id:"tc2",date:"2025-01-01",compte:"2000",libelle:"Apport en capital — Associé 2",type:"capital",categorie:"Capital investi",montant:300,description:"Apport initial",apportId:"ap2"},
+{id:"tc3",date:"2025-01-01",compte:"2000",libelle:"Apport en capital — Associé 3",type:"capital",categorie:"Capital investi",montant:300,description:"Apport initial",apportId:"ap3"},
+{id:"tc4",date:"2025-01-01",compte:"2000",libelle:"Apport en capital — Associé 4",type:"capital",categorie:"Capital investi",montant:300,description:"Apport initial",apportId:"ap4"},
+{id:"tc5",date:"2025-01-01",compte:"2000",libelle:"Apport en capital — Associé 5",type:"capital",categorie:"Capital investi",montant:300,description:"Apport initial",apportId:"ap5"},
 ],
 soldeBancaire: 798.24,
 associes: [
@@ -4530,6 +4535,15 @@ return {Numero:f.numero,Date:f.date,Client:pv?.nom,Total:total,Statut:f.statut};
 // ══════════════════════════════════════════════════════════════
 
 const PLAN_COMPTABLE = {
+// ACTIFS
+"1020":"Compte PostFinance",
+"1021":"Caisse / Petite caisse",
+"1100":"Débiteurs (créances clients)",
+"3100":"Stock matières premières",
+"3200":"Stock produits finis",
+// CAPITAUX PROPRES
+"2000":"Capital social",
+"2800":"Réserves / Report à nouveau",
 // PRODUITS (ventes & recettes)
 "3001":"Vente Limonta",
 "3002":"Vente Limelo",
@@ -5583,57 +5597,74 @@ return (
   )}
 
   {/* BILAN SIMPLIFIÉ */}
-  {onglet==="bilan"&&(
+  {onglet==="bilan"&&(()=>{
+    const allTrans = st.transactions||[];
+    const capitalSocial = sum(allTrans.filter((t:any)=>t.type==="capital").map((t:any)=>+t.montant));
+    const recettesTot = sum(allTrans.filter((t:any)=>t.type==="recette").map((t:any)=>+t.montant));
+    const depensesTot = sum(allTrans.filter((t:any)=>t.type==="depense").map((t:any)=>+t.montant));
+    const resultatNet = recettesTot - depensesTot;
+    const totalActif = st.soldeBancaire + creancesClients + valeurStock;
+    const totalCapitaux = capitalSocial + resultatNet;
+    const ecart = totalActif - totalCapitaux;
+    return (
     <div>
       <Card style={{marginBottom:12}}>
-        <h3 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:17,marginBottom:10,color:"#1E3A5F"}}>💰 Actif (ce que je possède)</h3>
-        <div style={{display:"flex",justifyContent:"space-between",padding:"8px 0",borderBottom:"1px solid #F5F5F0"}}>
-          <div>
-            <p style={{fontSize:13,fontWeight:500}}>Compte bancaire PostFinance</p>
-            <p style={{fontSize:10,color:"#9CA3AF"}}>Liquidités</p>
+        <h3 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:17,marginBottom:10,color:"#1E3A5F"}}>💰 Actif</h3>
+        {[
+          {l:"Compte PostFinance (1020)",d:"Liquidités disponibles",v:st.soldeBancaire},
+          {l:"Créances clients (1100)",d:"Factures en attente",v:creancesClients},
+          {l:"Stocks produits finis (3200)",d:"Valeur au coût de revient",v:valeurStock},
+        ].map((row,i,arr)=>(
+          <div key={i} style={{display:"flex",justifyContent:"space-between",padding:"8px 0",borderBottom:i<arr.length-1?"1px solid #F5F5F0":"none"}}>
+            <div><p style={{fontSize:12,fontWeight:500}}>{row.l}</p><p style={{fontSize:10,color:"#9CA3AF"}}>{row.d}</p></div>
+            <span style={{fontWeight:700,fontSize:13}}>{chf(row.v)}</span>
           </div>
-          <span style={{fontWeight:700,fontSize:14}}>{chf(st.soldeBancaire)}</span>
+        ))}
+        <div style={{borderTop:"2px solid #1E3A5F",paddingTop:8,marginTop:8,display:"flex",justifyContent:"space-between",fontWeight:700}}>
+          <span style={{fontSize:13}}>TOTAL ACTIF</span><span style={{color:"#1E3A5F",fontSize:16}}>{chf(totalActif)}</span>
         </div>
+      </Card>
+
+      <Card style={{marginBottom:12}}>
+        <h3 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:17,marginBottom:10,color:"#4C1D95"}}>🏛 Capitaux propres</h3>
         <div style={{display:"flex",justifyContent:"space-between",padding:"8px 0",borderBottom:"1px solid #F5F5F0"}}>
-          <div>
-            <p style={{fontSize:13,fontWeight:500}}>Créances clients</p>
-            <p style={{fontSize:10,color:"#9CA3AF"}}>Factures en attente de paiement</p>
-          </div>
-          <span style={{fontWeight:700,fontSize:14}}>{chf(creancesClients)}</span>
+          <div><p style={{fontSize:12,fontWeight:500}}>Capital social (2000)</p><p style={{fontSize:10,color:"#9CA3AF"}}>Apports des {assocs.length} associés</p></div>
+          <span style={{fontWeight:700,fontSize:13,color:"#4C1D95"}}>{chf(capitalSocial)}</span>
         </div>
         <div style={{display:"flex",justifyContent:"space-between",padding:"8px 0"}}>
-          <div>
-            <p style={{fontSize:13,fontWeight:500}}>Stocks de produits finis</p>
-            <p style={{fontSize:10,color:"#9CA3AF"}}>Valeur au coût de revient</p>
-          </div>
-          <span style={{fontWeight:700,fontSize:14}}>{chf(valeurStock)}</span>
+          <div><p style={{fontSize:12,fontWeight:500}}>Résultat net cumulé</p><p style={{fontSize:10,color:"#9CA3AF"}}>Recettes − Dépenses (toutes périodes)</p></div>
+          <span style={{fontWeight:700,fontSize:13,color:resultatNet>=0?"#166534":"#B91C1C"}}>{resultatNet>=0?"+":""}{chf(resultatNet)}</span>
         </div>
-        <div style={{borderTop:"2px solid #1E3A5F",paddingTop:8,marginTop:8,display:"flex",justifyContent:"space-between",fontWeight:700}}>
-          <span>TOTAL ACTIF</span><span style={{color:"#1E3A5F",fontSize:16}}>{chf(st.soldeBancaire+creancesClients+valeurStock)}</span>
+        <div style={{borderTop:"2px solid #4C1D95",paddingTop:8,marginTop:8,display:"flex",justifyContent:"space-between",fontWeight:700}}>
+          <span style={{fontSize:13}}>TOTAL CAPITAUX PROPRES</span><span style={{color:"#4C1D95",fontSize:16}}>{chf(totalCapitaux)}</span>
         </div>
       </Card>
 
-      <Card>
-        <h3 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:17,marginBottom:10,color:"#92400E"}}>📉 Passif (ce que je dois)</h3>
-        <p style={{fontSize:12,color:"#9CA3AF",textAlign:"center",padding:"10px 0"}}>Aucune dette enregistrée</p>
-        <div style={{borderTop:"2px solid #92400E",paddingTop:8,marginTop:8,display:"flex",justifyContent:"space-between",fontWeight:700}}>
-          <span>TOTAL PASSIF</span><span style={{color:"#92400E",fontSize:16}}>{chf(0)}</span>
+      <Card style={{marginBottom:12}}>
+        <h3 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:17,marginBottom:10,color:"#92400E"}}>📉 Dettes / Passif</h3>
+        <p style={{fontSize:12,color:"#9CA3AF",textAlign:"center",padding:"8px 0"}}>Aucune dette enregistrée</p>
+        <div style={{borderTop:"2px solid #92400E",paddingTop:8,marginTop:4,display:"flex",justifyContent:"space-between",fontWeight:700}}>
+          <span style={{fontSize:13}}>TOTAL PASSIF</span><span style={{color:"#92400E",fontSize:16}}>{chf(0)}</span>
         </div>
       </Card>
 
-      <Card style={{marginTop:12,background:"#FEF9E7",border:"2px solid #F2C94C"}}>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+      <Card style={{background:"#FEF9E7",border:"2px solid #F2C94C"}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:ecart!==0?8:0}}>
           <div>
             <p style={{fontSize:13,fontWeight:700,color:"#92400E"}}>PATRIMOINE NET</p>
-            <p style={{fontSize:10,color:"#9CA3AF",marginTop:1}}>Actif - Passif</p>
+            <p style={{fontSize:10,color:"#9CA3AF",marginTop:1}}>Capitaux propres + Passif</p>
           </div>
-          <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:22,fontWeight:700,color:"#D4A017"}}>
-            {chf(st.soldeBancaire+creancesClients+valeurStock)}
-          </span>
+          <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:22,fontWeight:700,color:"#D4A017"}}>{chf(totalCapitaux)}</span>
         </div>
+        {Math.abs(ecart)>0.01&&(
+          <div style={{background:"#FFF7ED",borderRadius:8,padding:"6px 10px",fontSize:10,color:"#92400E"}}>
+            ⚠️ Écart actif/capitaux : {chf(Math.abs(ecart))} — normal en comptabilité simplifiée (stocks, immobilisations non comptabilisées en double écriture)
+          </div>
+        )}
       </Card>
     </div>
-  )}
+    );
+  })()}
 
   {/* DÉPENSES RÉCURRENTES */}
   {onglet==="recurrentes"&&(
@@ -5762,6 +5793,7 @@ return (
       <p style={{fontSize:11,color:"#737373",marginBottom:14}}>Goûtstoso · Raison individuelle suisse (PME simplifiée)</p>
       {[
         {titre:"ACTIFS",comptes:["1020","1021","1100","3200","3100"],color:"#DBEAFE",border:"#BFDBFE",txt:"#1E3A5F"},
+        {titre:"CAPITAUX PROPRES",comptes:["2000","2800"],color:"#EDE9FE",border:"#C4B5FD",txt:"#4C1D95"},
         {titre:"PRODUITS / RECETTES",comptes:["3001","3002","3003","3004","3600","3750","3900"],color:"#DCFCE7",border:"#86EFAC",txt:"#166534"},
         {titre:"CHARGES — MATIÈRES PREMIÈRES",comptes:["4000","4010","4100","4200","4210","4220","4400"],color:"#FEF9E7",border:"#FCD34D",txt:"#92400E"},
         {titre:"CHARGES — EXPLOITATION",comptes:["5000","5201","6000","6200","6300","6315","6400","6510","6512","6513","6530","6600","6610","6700","6800","6900","8900"],color:"#FEF2F2",border:"#FECACA",txt:"#991B1B"},
@@ -5999,7 +6031,14 @@ return (
                 const m=parseFloat(String(apportForm.montant).replace(",","."))||0;
                 if(!m){alert("Montant requis");return;}
                 const newAp={id:uid(),...apportForm,montant:m};
-                setSt((p:any)=>({...p,associes:(p.associes||[]).map((a:any)=>a.id===selectedAssocieId?{...a,apports:[...a.apports,newAp]}:a)}));
+                const assocNom=(st.associes||[]).find((a:any)=>a.id===selectedAssocieId)?.nom||"Associé";
+                const newCapTrans={id:"cap_"+newAp.id,date:newAp.date,compte:"2000",libelle:"Apport — "+assocNom,type:"capital",categorie:"Capital investi",montant:m,description:newAp.commentaire||newAp.type,apportId:newAp.id};
+                setSt((p:any)=>({
+                  ...p,
+                  associes:(p.associes||[]).map((a:any)=>a.id===selectedAssocieId?{...a,apports:[...a.apports,newAp]}:a),
+                  transactions:[...(p.transactions||[]),newCapTrans],
+                  soldeBancaire:newAp.type==="argent"?parseFloat((parseFloat(p.soldeBancaire||0)+m).toFixed(2)):parseFloat(p.soldeBancaire||0),
+                }));
                 setAssocieModal(null);
               }}>Enregistrer</Btn>
               <Btn full variant="ghost" onClick={()=>setAssocieModal(null)}>Annuler</Btn>
@@ -12416,11 +12455,26 @@ stocks: data.stocks||INIT.stocks,
 depotStocks: data.depotStocks||INIT.depotStocks,
 contrats: data.contrats||INIT.contrats,
 factures: data.factures||INIT.factures,
-transactions: (data.transactions||INIT.transactions).map((t:any)=>
-  t.id==="t16"&&t.compte==="3600"&&t.type==="depense"
-    ? {...t,compte:"6315",libelle:"Frais d'envoi des commandes",categorie:"Frais d'expédition (envois)"}
-    : t
-),
+transactions: (()=>{
+  const baseTrans = (data.transactions||INIT.transactions).map((t:any)=>
+    t.id==="t16"&&t.compte==="3600"&&t.type==="depense"
+      ? {...t,compte:"6315",libelle:"Frais d'envoi des commandes",categorie:"Frais d'expédition (envois)"}
+      : t.id==="t7"&&t.categorie==="Expédition"&&t.type==="recette"
+      ? {...t,categorie:"Frais expédition facturés"}
+      : t
+  );
+  const existingApportIds = new Set(baseTrans.filter((t:any)=>t.apportId).map((t:any)=>t.apportId));
+  const assocesSource = data.associes||INIT.associes;
+  const capitalTrans:any[] = [];
+  assocesSource.forEach((a:any)=>{
+    (a.apports||[]).forEach((ap:any)=>{
+      if(!existingApportIds.has(ap.id)){
+        capitalTrans.push({id:"cap_"+ap.id,date:ap.date,compte:"2000",libelle:"Apport — "+a.nom,type:"capital",categorie:"Capital investi",montant:parseFloat(ap.montant)||0,description:ap.commentaire||ap.type||"Apport",apportId:ap.id});
+      }
+    });
+  });
+  return [...baseTrans,...capitalTrans];
+})(),
 soldeBancaire: data.soldeBancaire ?? INIT.soldeBancaire,
 production: data.production||INIT.production,
 fournisseurs: fournisseursMigres,
