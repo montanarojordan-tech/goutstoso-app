@@ -1,0 +1,379 @@
+Tu es un développeur senior expert en architecture ERP SaaS, React, TypeScript, PostgreSQL, Prisma et comptabilité suisse.
+
+Tu dois refactoriser et améliorer mon application ERP EXISTANTE sans casser les fonctionnalités actuelles ni perdre les données déjà saisies.
+
+IMPORTANT :
+
+* conserver absolument toutes les données actuelles
+* conserver les contacts
+* conserver les produits
+* conserver les stocks
+* conserver les contrats
+* conserver les transactions
+* conserver les partenaires
+* conserver les recettes
+* conserver les factures
+* conserver la logique métier existante
+* ne pas supprimer les fonctionnalités existantes
+* ne pas réinitialiser la base
+* ne pas remplacer l’application par un template vide
+
+OBJECTIF :
+Transformer le prototype actuel en vrai ERP professionnel scalable, modulaire et maintenable.
+
+---
+
+## ARCHITECTURE À METTRE EN PLACE
+
+Refactoriser totalement l’architecture du projet.
+
+Créer une architecture propre :
+
+/components
+/pages
+/services
+/hooks
+/utils
+/types
+/store
+/api
+/lib
+
+Séparer :
+
+* UI
+* logique métier
+* accès données
+* calculs
+* comptabilité
+* stock
+* recettes
+
+Le fichier principal actuel est beaucoup trop gros.
+Le découper en composants réutilisables.
+
+---
+
+## STACK TECHNIQUE
+
+Frontend :
+
+* React
+* TypeScript strict
+* TailwindCSS
+* Zustand
+* TanStack Table
+* React Query
+
+Backend :
+
+* Node.js
+* Prisma
+* PostgreSQL
+
+IMPORTANT :
+Préparer une architecture compatible multi-utilisateurs et multi-sociétés.
+
+---
+
+## BASE DE DONNÉES
+
+Créer un vrai schéma Prisma professionnel.
+
+IMPORTANT :
+Migrer progressivement les données existantes sans perte.
+
+Créer les tables suivantes :
+
+AUTH / CORE
+
+* users
+* organizations
+* roles
+* permissions
+* audit_logs
+
+CRM
+
+* contacts
+* companies
+* activities
+* reminders
+
+VENTES
+
+* quotes
+* quote_lines
+* orders
+* invoices
+* invoice_lines
+* payments
+
+STOCK
+
+* products
+* product_variants
+* warehouses
+* stock_movements
+* inventory_adjustments
+
+COMPTABILITÉ
+
+* accounts
+* journal_entries
+* journal_lines
+* fiscal_years
+* vat_rates
+
+PRODUCTION
+
+* recipes
+* recipe_ingredients
+* production_batches
+* production_losses
+
+DOCUMENTS
+
+* documents
+* signatures
+* attachments
+
+---
+
+## IMPORTANT : STOCK
+
+Refaire complètement le système stock.
+
+Le stock ne doit JAMAIS être stocké comme valeur fixe.
+
+Le stock doit être calculé uniquement via :
+stock_movements
+
+Créer les mouvements :
+
+* entrée
+* sortie
+* vente
+* production
+* correction
+* inventaire
+* transfert
+
+Ajouter :
+
+* lots
+* traçabilité
+* historique complet
+
+---
+
+## IMPORTANT : COMPTABILITÉ
+
+Créer un vrai moteur comptable en double écriture.
+
+Créer :
+
+* débit
+* crédit
+* journal
+* grand livre
+* bilan
+* compte de résultat
+
+Automatiser les écritures :
+
+Quand :
+
+* facture créée
+* paiement reçu
+* achat stock
+* vente
+* production
+
+Alors :
+
+* générer écritures comptables automatiquement
+
+Compatible comptabilité suisse raison individuelle.
+
+---
+
+## IMPORTANT : RECETTES LIQUEURS
+
+Créer un vrai moteur de formulation dynamique.
+
+Fonctionnalités :
+
+* recettes
+* ingrédients
+* calcul degré alcool
+* adaptation automatique volumes
+* coût production
+* pertes production
+* rendement
+* calcul marges
+
+Pouvoir :
+
+* changer volume final
+* recalculer automatiquement ingrédients
+* recalculer degré final
+
+Créer calculateur alcool intelligent.
+
+---
+
+## IMPORTANT : SIGNATURE EN LIGNE
+
+Conserver et améliorer le système de signature en ligne.
+
+Ajouter :
+
+* audit légal
+* date
+* heure
+* IP
+* hash document
+* statut signature
+
+Documents signables :
+
+* devis
+* contrats
+* dépôt-vente
+* validation production
+
+Créer workflow :
+
+* pending
+* viewed
+* signed
+* refused
+* expired
+
+---
+
+## IMPORTANT : SÉCURITÉ
+
+Ajouter :
+
+* authentification réelle
+* rôles utilisateurs
+* permissions RBAC
+* validation backend
+* logs
+* protection API
+
+---
+
+## IMPORTANT : AUDIT LOGS
+
+Chaque modification doit enregistrer :
+
+* utilisateur
+* date
+* ancienne valeur
+* nouvelle valeur
+* table concernée
+
+---
+
+## IMPORTANT : UI / UX
+
+Moderniser l’interface sans casser les fonctionnalités.
+
+Créer :
+
+* dashboard moderne
+* sidebar propre
+* tables performantes
+* responsive
+* dark mode possible
+
+Éviter les inline styles.
+
+Utiliser Tailwind proprement.
+
+---
+
+## IMPORTANT : PERFORMANCE
+
+Optimiser :
+
+* rerenders
+* gros composants
+* tables
+* chargement données
+
+Ajouter :
+
+* pagination
+* lazy loading
+* memoization
+* virtualisation tables
+
+---
+
+## IMPORTANT : QUALITÉ CODE
+
+Activer :
+TypeScript strict = true
+
+Ajouter :
+
+* Zod validation
+* services métier
+* hooks propres
+* composants réutilisables
+
+Créer :
+
+* tests unitaires
+* tests intégration
+
+---
+
+## IMPORTANT : MIGRATION
+
+NE PAS perdre les données existantes.
+
+Créer :
+
+* scripts migration
+* adaptation progressive
+* compatibilité ancien système
+
+Conserver :
+
+* historique
+* contacts
+* recettes
+* stock
+* contrats
+* signatures
+* comptabilité existante
+
+---
+
+## OBJECTIF FINAL
+
+Obtenir un vrai ERP professionnel :
+
+* scalable
+* maintenable
+* modulaire
+* sécurisé
+* moderne
+* optimisé
+
+Tout en conservant les fonctionnalités et données actuelles.
+
+Commencer par :
+
+1. architecture
+2. base de données
+3. séparation modules
+4. migration données
+5. refactor progressif
+
+Ne jamais casser l’application existante.
