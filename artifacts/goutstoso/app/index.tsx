@@ -4590,7 +4590,7 @@ const Comptabilite = ({st,setSt}) => {
 const [modal,setModal] = useState(null);
 const [onglet,setOnglet] = useState("dashboard");
 const [periode,setPeriode] = useState(new Date().getFullYear()+"");
-const emptyT = {date:today(),type:"recette",compte:"3001",libelle:"",categorie:"Vente Limonta",montant:"",description:"",postfinance:true,justificatif:"",justificatifNom:""};
+const emptyT = {date:today(),type:"depense",compte:"4010",libelle:"",categorie:"Matières premières",montant:"",description:"",postfinance:true,justificatif:"",justificatifNom:""};
 const [form,setForm] = useState(emptyT);
 const [soldeModal,setSoldeModal] = useState(false);
 const [nouveauSolde,setNouveauSolde] = useState(st.soldeBancaire||0);
@@ -6122,13 +6122,18 @@ return (
   {modal==="form"&&(
     <Modal title={form.id?"Modifier écriture":"Nouvelle écriture"} onClose={()=>setModal(null)}>
       <div style={{display:"grid",gap:14}}>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-          <Sel label="Type" value={form.type} onChange={v=>{
-            const firstCat = v==="recette"?CATEGORIES_RECETTE[0]:CATEGORIES_DEPENSE[0];
-            setForm(p=>({...p,type:v,categorie:firstCat,compte:v==="recette"?"3001":"4000"}));
-          }} options={[{v:"recette",l:"Recette (+)"},{v:"depense",l:"Dépense (-)"}]}/>
-          <F label="Date" type="date" value={form.date} onChange={v=>setForm(p=>({...p,date:v}))}/>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:4}}>
+          {([{v:"depense",l:"− Dépense",bg:"#FEF2F2",bgA:"#B91C1C",border:"#FECACA",borderA:"#B91C1C",txt:"#B91C1C",txtA:"#fff"},
+             {v:"recette",l:"+ Recette",bg:"#F0FDF4",bgA:"#166534",border:"#86EFAC",borderA:"#166534",txt:"#166534",txtA:"#fff"}] as any[]).map(t=>(
+            <button key={t.v} onClick={()=>{
+              const firstCat = t.v==="recette"?CATEGORIES_RECETTE[0]:CATEGORIES_DEPENSE[0];
+              setForm((p:any)=>({...p,type:t.v,categorie:firstCat,compte:t.v==="recette"?"3001":"4010"}));
+            }} style={{background:form.type===t.v?t.bgA:t.bg,color:form.type===t.v?t.txtA:t.txt,border:"2px solid "+(form.type===t.v?t.borderA:t.border),borderRadius:10,padding:"10px 6px",fontSize:13,fontWeight:700,cursor:"pointer"}}>
+              {t.l}
+            </button>
+          ))}
         </div>
+        <F label="Date" type="date" value={form.date} onChange={v=>setForm((p:any)=>({...p,date:v}))}/>
         <F label="Montant (CHF)" type="number" value={form.montant||""} onChange={v=>setForm(p=>({...p,montant:v}))} required/>
         <Sel label="Catégorie" value={form.categorie} onChange={v=>{
           const compteAuto = v==="Frais de rappel"?"3750":form.compte;
