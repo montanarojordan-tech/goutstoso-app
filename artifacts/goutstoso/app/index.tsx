@@ -13156,14 +13156,15 @@ try {
 const saved = localStorage.getItem("goutstoso_v2");
 if(saved) {
 const p = JSON.parse(saved);
+// On a des données locales avec des produits → on sync vers le cloud
 if(p?.produits?.length > 0) { const next = hydrateData(p); setSt(next); cloudSave(next); }
-else { const next = hydrateData(INIT); setSt(next); cloudSave(next); }
+// Données locales vides → on repart de INIT mais on ne touche PAS au cloud (il peut contenir des vraies données)
+else { setSt(hydrateData(INIT)); }
 } else {
-const next = hydrateData(INIT);
-setSt(next);
-cloudSave(next);
+// Aucune donnée locale → on ne touche JAMAIS au cloud avec INIT
+setSt(hydrateData(INIT));
 }
-} catch(e){}
+} catch(e){ setSt(hydrateData(INIT)); }
 }
 setLoading(false);
 })();
