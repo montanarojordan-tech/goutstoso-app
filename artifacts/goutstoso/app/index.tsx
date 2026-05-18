@@ -5798,9 +5798,21 @@ return (
         {titre:"CHARGES — MATIÈRES PREMIÈRES",comptes:["4000","4010","4100","4200","4210","4220","4400"],color:"#FEF9E7",border:"#FCD34D",txt:"#92400E"},
         {titre:"CHARGES — EXPLOITATION",comptes:["5000","5201","6000","6200","6300","6315","6400","6510","6512","6513","6530","6600","6610","6700","6800","6900","8900"],color:"#FEF2F2",border:"#FECACA",txt:"#991B1B"},
       ].map((grp,gi)=>{
+        const getSolde = (k:string):number => {
+          if(k==="1020") return st.soldeBancaire||0;
+          if(k==="1100") return creancesClients||0;
+          if(k==="3200") return valeurStock||0;
+          if(k==="3100") return sum((st.produits||[]).filter((p:any)=>!p.nom.includes("Coffret")).map((p:any)=>{
+            const s=(st.stocks||[]).find((s2:any)=>s2.produitId===p.id);
+            return ((s?.qte||0)+(s?.qteEnCours||0))*(p.coutRevient||0);
+          }));
+          if(k==="2000") return sum((st.transactions||[]).filter((t:any)=>t.type==="capital").map((t:any)=>+t.montant));
+          if(k==="2800") return 0;
+          return (st.transactions||[]).filter((t:any)=>t.compte===k).reduce((acc:number,t:any)=>acc+(parseFloat(t.montant)||0),0);
+        };
         const cpts = grp.comptes.filter(k=>PLAN_COMPTABLE[k]);
         if(!cpts.length) return null;
-        const totalGrp = (st.transactions||[]).filter(t=>cpts.includes(t.compte)).reduce((acc,t)=>acc+(parseFloat(t.montant)||0),0);
+        const totalGrp = sum(cpts.map(getSolde));
         return (
           <Card key={gi} style={{marginBottom:12,padding:0,overflow:"hidden"}}>
             <div style={{background:grp.color,borderBottom:"1px solid "+grp.border,padding:"9px 14px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
@@ -5808,12 +5820,13 @@ return (
               {totalGrp>0&&<span style={{fontSize:11,fontWeight:700,color:grp.txt}}>{chf(totalGrp)}</span>}
             </div>
             {cpts.map(k=>{
-              const solde = (st.transactions||[]).filter(t=>t.compte===k).reduce((acc,t)=>acc+(parseFloat(t.montant)||0),0);
+              const solde = getSolde(k);
+              const isAuto = ["1020","1100","3200","3100","2000"].includes(k);
               return (
                 <div key={k} style={{display:"flex",alignItems:"center",gap:10,padding:"9px 14px",borderBottom:"1px solid #F5F5F0"}}>
                   <span style={{fontSize:10,fontFamily:"monospace",fontWeight:700,color:grp.txt,background:grp.color,padding:"2px 7px",borderRadius:5,flexShrink:0}}>{k}</span>
                   <span style={{fontSize:12,color:"#374151",flex:1}}>{PLAN_COMPTABLE[k]}</span>
-                  {solde>0&&<span style={{fontSize:11,fontWeight:600,color:"#525252",flexShrink:0}}>{chf(solde)}</span>}
+                  {solde>0&&<span style={{fontSize:11,fontWeight:600,color:"#525252",flexShrink:0}}>{chf(solde)}{isAuto&&<span style={{fontSize:8,color:"#9CA3AF",marginLeft:4}}>auto</span>}</span>}
                 </div>
               );
             })}
@@ -5821,7 +5834,7 @@ return (
         );
       })}
       {(()=>{
-        const tousComptes = ["1020","1021","1100","3200","3100","3001","3002","3003","3004","3600","3750","3900","4000","4010","4100","4200","4210","4220","4400","5000","5201","6000","6200","6300","6315","6400","6510","6512","6513","6530","6600","6610","6700","6800","6900","8900"];
+        const tousComptes = ["1020","1021","1100","3200","3100","2000","2800","3001","3002","3003","3004","3600","3750","3900","4000","4010","4100","4200","4210","4220","4400","5000","5201","6000","6200","6300","6315","6400","6510","6512","6513","6530","6600","6610","6700","6800","6900","8900"];
         const comptesInconnus = [...new Set((st.transactions||[]).map(t=>t.compte).filter(c=>c&&!tousComptes.includes(c)))].sort();
         if(!comptesInconnus.length) return null;
         const totalDiv = (st.transactions||[]).filter(t=>comptesInconnus.includes(t.compte)).reduce((acc,t)=>acc+(parseFloat(t.montant)||0),0);
