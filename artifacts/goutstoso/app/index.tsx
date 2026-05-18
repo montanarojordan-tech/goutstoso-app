@@ -7456,15 +7456,9 @@ return (c.typeClient==="revendeur"?(p?.prixRevendeur||0):(p?.prixClient||0))*(l.
 }));
 return t - (parseFloat(c.rabais)||0) + (parseFloat(c.fraisPort)||0);
 }));
-const cmdNonPayees = commandes.filter(c=>c.statut!=="payée"&&c.statut!=="livrée"&&c.statut!=="retirée");
-const aEncaisser = sum(cmdNonPayees.map(c=>{
-const t = sum((c.lignes||[]).filter(l=>l.produitId).map(l=>{
-const p = st.produits.find(x=>x.id===l.produitId);
-return (c.typeClient==="revendeur"?(p?.prixRevendeur||0):(p?.prixClient||0))*(l.qte||0);
-}));
-return t - (parseFloat(c.rabais)||0) + (parseFloat(c.fraisPort)||0);
-}));
-return {nbCommandes:commandes.length,ca,commandes,nbNonPayees:cmdNonPayees.length,aEncaisser,factures,offres,contrats};
+const facturesNonPayees = factures.filter(f=>f.statut!=="payée");
+const aEncaisser = sum(facturesNonPayees.map(f=>calcTotalNet(f,st.produits)));
+return {nbCommandes:commandes.length,ca,commandes,nbNonPayees:facturesNonPayees.length,aEncaisser,factures,offres,contrats,facturesNonPayees};
 };
 
 // Vue détail client
@@ -7539,43 +7533,27 @@ return (
       </Card>
     )}
 
-    {/* Commandes en attente de paiement */}
-    {(() => {
-      const cmdNonPayees = stats.commandes.filter(c=>c.statut!=="payée"&&c.statut!=="livrée"&&c.statut!=="retirée");
-      // Une commande est "en attente de paiement" si pas livrée/retirée/payée
-      // Sauf si elle est explicitement marquée payée
-      if(cmdNonPayees.length === 0) return null;
-      const totalAttente = sum(cmdNonPayees.map(c=>{
-        const t = sum((c.lignes||[]).filter(l=>l.produitId).map(l=>{
-          const p = st.produits.find(x=>x.id===l.produitId);
-          return (c.typeClient==="revendeur"?(p?.prixRevendeur||0):(p?.prixClient||0))*(l.qte||0);
-        }));
-        return t - (parseFloat(c.rabais)||0) + (parseFloat(c.fraisPort)||0);
-      }));
-      return (
-        <Card style={{padding:"12px 14px",marginBottom:14,background:"#FEF2F2",border:"1px solid #FECACA"}}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
-            <p style={{fontSize:11,fontWeight:700,color:"#B91C1C",textTransform:"uppercase"}}>⚠️ À encaisser ({cmdNonPayees.length})</p>
-            <p style={{fontSize:14,fontWeight:700,color:"#B91C1C"}}>{chf(totalAttente)}</p>
-          </div>
-          {cmdNonPayees.map(c=>{
-            const t = sum((c.lignes||[]).filter(l=>l.produitId).map(l=>{
-              const p = st.produits.find(x=>x.id===l.produitId);
-              return (c.typeClient==="revendeur"?(p?.prixRevendeur||0):(p?.prixClient||0))*(l.qte||0);
-            })) - (parseFloat(c.rabais)||0) + (parseFloat(c.fraisPort)||0);
-            return (
-              <div key={c.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 0",borderTop:"1px solid #FECACA"}}>
-                <div style={{flex:1,minWidth:0}}>
-                  <p style={{fontSize:12,fontWeight:600,color:"#0A0A0A"}}>{c.numero}</p>
-                  <p style={{fontSize:10,color:"#737373",marginTop:1}}>{fmt(c.date)} · {c.statut}</p>
-                </div>
-                <span style={{fontWeight:700,fontSize:13,color:"#B91C1C",marginLeft:8}}>{chf(t)}</span>
+    {/* Factures non payées — À encaisser */}
+    {stats.facturesNonPayees.length > 0 && (
+      <Card style={{padding:"12px 14px",marginBottom:14,background:"#FEF2F2",border:"1px solid #FECACA"}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+          <p style={{fontSize:11,fontWeight:700,color:"#B91C1C",textTransform:"uppercase"}}>⚠️ À encaisser ({stats.facturesNonPayees.length})</p>
+          <p style={{fontSize:14,fontWeight:700,color:"#B91C1C"}}>{chf(stats.aEncaisser)}</p>
+        </div>
+        {stats.facturesNonPayees.map((f:any)=>{
+          const t = calcTotalNet(f,st.produits);
+          return (
+            <div key={f.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 0",borderTop:"1px solid #FECACA"}}>
+              <div style={{flex:1,minWidth:0}}>
+                <p style={{fontSize:12,fontWeight:600,color:"#0A0A0A"}}>{f.numero}</p>
+                <p style={{fontSize:10,color:"#737373",marginTop:1}}>{fmt(f.date)} · {f.statut}</p>
               </div>
-            );
-          })}
-        </Card>
-      );
-    })()}
+              <span style={{fontWeight:700,fontSize:13,color:"#B91C1C",marginLeft:8}}>{chf(t)}</span>
+            </div>
+          );
+        })}
+      </Card>
+    )}
 
     {/* Historique complet par catégorie */}
     {(()=>{
