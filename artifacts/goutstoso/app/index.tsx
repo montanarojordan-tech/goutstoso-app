@@ -3130,12 +3130,12 @@ const getStatutContrat = (c) => {
 const nbExpires = contratsListe.filter(c=>getStatutContrat(c)==="expiré").length;
 const nbResilies = contratsListe.filter(c=>getStatutContrat(c)==="résilié").length;
 const filtresC = [
+  {id:"associe", l:"👥 Convention"},
   {id:"tous", l:`Tous (${contratsListe.length})`},
   {id:"actif", l:"Actifs"},
   {id:"brouillon", l:"Brouillons"},
   {id:"expiré", l:nbExpires>0?`Expirés (${nbExpires})`:"Expirés"},
   {id:"résilié", l:nbResilies>0?`Résiliés (${nbResilies})`:"Résiliés"},
-  {id:"associe", l:"👥 Convention associés"},
 ];
 
 const contratsFiltres = contratsListe.filter(c=>{
