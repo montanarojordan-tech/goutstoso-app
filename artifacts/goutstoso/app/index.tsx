@@ -2179,7 +2179,7 @@ doc.save("Convention_Associes_Goutstoso.pdf");
 }catch(e:any){alert("Erreur PDF : "+e.message);}
 };
 
-const genererFicheMacerationPDF = async ({recette, litres, btl25, btl50, numLot, dateDebut, notes}) => {
+const genererFicheMacerationPDF = async ({recette, litres, btl25, btl50, numLot, dateDebut, notes, preparePar="", controlePar="", signature=""}) => {
 try {
 await new Promise((res,rej)=>{
 if((window as any).jspdf){res(null);return;}
@@ -2331,13 +2331,20 @@ if(notes){
   y+=12;
 }
 
-// Ligne signature
+// Section signatures
 y+=10;
-if(y>270){doc.addPage();doc.setFillColor(242,201,76);doc.rect(0,0,W,6,"F");y=30;}
+if(y>255){doc.addPage();doc.setFillColor(242,201,76);doc.rect(0,0,W,6,"F");y=30;}
+// Image de signature
+if(signature){try{doc.addImage(signature,"PNG",mg,y,60,22);y+=24;}catch(e){}}
+// Lignes + noms
 doc.setDrawColor(200,200,200);doc.setLineWidth(0.3);
-doc.line(mg,y,mg+55,y);doc.line(W-mg-55,y,W-mg,y);
-doc.setFontSize(8);doc.setTextColor(150,150,150);
-doc.text("Préparé par",mg,y+4);doc.text("Contrôlé par",W-mg-55,y+4);
+doc.line(mg,y,mg+70,y);doc.line(W-mg-70,y,W-mg,y);
+y+=4;
+doc.setFontSize(8);doc.setFont("helvetica","normal");doc.setTextColor(120,120,120);
+doc.text("Préparé par",mg,y);
+doc.text("Contrôlé par",W-mg-70,y);
+if(preparePar){y+=5;doc.setFontSize(9);doc.setFont("helvetica","bold");doc.setTextColor(17,17,17);doc.text(preparePar,mg,y);}
+if(controlePar){doc.setFontSize(9);doc.setFont("helvetica","bold");doc.setTextColor(17,17,17);doc.text(controlePar,W-mg-70,preparePar?y:y+5);}
 
 // Bande jaune bas
 doc.setFillColor(242,201,76);doc.rect(0,291,W,6,"F");
@@ -11495,7 +11502,7 @@ const Production = ({st, setSt}) => {
   const bouteilles = calcRecette ? Math.floor(litres * calcRecette.rendementBouteilles) : 0;
 
   // ── MACERATION FORM ──
-  const emptyMaceration = () => ({id:uid(),recetteId:recettes[0]?.id||"",litresAlcool:"",dateDebut:today(),statut:"en_cours",notes:""});
+  const emptyMaceration = () => ({id:uid(),recetteId:recettes[0]?.id||"",litresAlcool:"",dateDebut:today(),numLot:"",btl25:"",btl50:"",titreAlcool:"",preparePar:"Jordan Montanaro",controlePar:"",signature:"",statut:"en_cours",notes:""});
   const [mForm, setMForm] = useState<any>(emptyMaceration());
   const openMaceration = (m=null) => { setMForm(m?{...m}:emptyMaceration()); setMacerationModal(m||"new"); };
   const saveMaceration = () => {
@@ -11530,6 +11537,46 @@ const Production = ({st, setSt}) => {
   const supprimerMaceration = (id) => {
     if(!window.confirm("Supprimer cette macération ?")) return;
     setProd(p=>({...p,macerations:(p.macerations||[]).filter(m=>m.id!==id)}));
+  };
+
+  // ── SIGNATURE PAD ──
+  const sigRef = useRef<HTMLCanvasElement|null>(null);
+  const sigDrawing = useRef(false);
+  const sigCtxRef = useRef<CanvasRenderingContext2D|null>(null);
+  const clearSignature = () => {
+    const c = sigRef.current; if(!c) return;
+    const ctx = c.getContext("2d"); if(!ctx) return;
+    ctx.fillStyle="#FAFAF7"; ctx.fillRect(0,0,c.width,c.height);
+    setMForm((p:any)=>({...p,signature:""}));
+  };
+  const getSigPos = (e:any,canvas:HTMLCanvasElement) => {
+    const rect=canvas.getBoundingClientRect();
+    const scaleX=canvas.width/rect.width, scaleY=canvas.height/rect.height;
+    const src=e.touches?e.touches[0]:e;
+    return {x:(src.clientX-rect.left)*scaleX,y:(src.clientY-rect.top)*scaleY};
+  };
+  const onSigStart = (e:any) => {
+    e.preventDefault();
+    const c=sigRef.current; if(!c) return;
+    const ctx=c.getContext("2d"); if(!ctx) return;
+    sigCtxRef.current=ctx; sigDrawing.current=true;
+    ctx.strokeStyle="#0A0A0A"; ctx.lineWidth=2.5; ctx.lineCap="round"; ctx.lineJoin="round";
+    const pos=getSigPos(e,c);
+    ctx.beginPath(); ctx.moveTo(pos.x,pos.y);
+  };
+  const onSigMove = (e:any) => {
+    e.preventDefault();
+    if(!sigDrawing.current||!sigCtxRef.current) return;
+    const c=sigRef.current; if(!c) return;
+    const pos=getSigPos(e,c);
+    sigCtxRef.current.lineTo(pos.x,pos.y); sigCtxRef.current.stroke();
+  };
+  const onSigEnd = (e:any) => {
+    e.preventDefault();
+    if(!sigDrawing.current) return;
+    sigDrawing.current=false;
+    const c=sigRef.current; if(!c) return;
+    setMForm((p:any)=>({...p,signature:c.toDataURL("image/png")}));
   };
 
   // ── DATE PRÊTE ──
@@ -12146,17 +12193,21 @@ const Production = ({st, setSt}) => {
             />
             <button style={{...btnPrimary,width:"100%",background:"#F2C94C",color:"#0A0A0A",fontWeight:900,fontSize:14}} onClick={()=>{
               const todayStr = today();
+              const lotStr = calcNumLot || genLot(todayStr);
               genererFicheMacerationPDF({
                 recette: calcRecette,
                 litres: litresEff,
                 btl25: eff25,
                 btl50: eff50,
-                numLot: calcNumLot || genLot(todayStr),
+                numLot: lotStr,
                 dateDebut: todayStr,
                 notes: "",
+                preparePar: "Jordan Montanaro",
+                controlePar: "",
+                signature: "",
               });
               openMaceration();
-              setMForm((m:any)=>({...m,recetteId:calcRecetteId,litresAlcool:String(litresEff.toFixed(1)),numLot:calcNumLot||genLot(todayStr)}));
+              setMForm((m:any)=>({...m,recetteId:calcRecetteId,litresAlcool:String(litresEff.toFixed(1)),btl25:String(eff25),btl50:String(eff50),numLot:lotStr,titreAlcool:String(calcRecette?.titreAlcool||"")}));
               setOnglet("macerations");
             }}>🫙 Démarrer cette macération + PDF</button>
           </div>
@@ -12195,6 +12246,10 @@ const Production = ({st, setSt}) => {
                 <p style={{fontSize:12,color:"#737373"}}>Démarré le {mac.dateDebut} · {litres}L alcool · ~{btl} bouteilles</p>
               </div>
               <div style={{display:"flex",gap:5,flexShrink:0}}>
+                <button style={btnSecondary} onClick={()=>{
+                  const recette=recettes.find(r=>r.id===mac.recetteId);
+                  genererFicheMacerationPDF({recette,litres:parseFloat(mac.litresAlcool)||0,btl25:parseInt(mac.btl25)||0,btl50:parseInt(mac.btl50)||0,numLot:mac.numLot||genLot(mac.dateDebut),dateDebut:mac.dateDebut,notes:mac.notes||"",preparePar:mac.preparePar||"",controlePar:mac.controlePar||"",signature:mac.signature||""});
+                }}>📄</button>
                 <button style={btnSecondary} onClick={()=>openMaceration(mac)}>✏️</button>
                 <button style={btnDanger} onClick={()=>supprimerMaceration(mac.id)}>✕</button>
               </div>
@@ -12375,28 +12430,105 @@ const Production = ({st, setSt}) => {
     {macerationModal && (
     <Modal title={macerationModal==="new"?"Nouvelle macération":"Modifier la macération"} onClose={()=>setMacerationModal(null)}>
       <div style={{display:"flex",flexDirection:"column",gap:10}}>
+
+        {/* Recette */}
         <div>
           <label style={labelStyle}>Recette *</label>
           <select style={inputStyle} value={mForm.recetteId} onChange={e=>setMForm(p=>({...p,recetteId:e.target.value}))}>
             {recettes.map(r=><option key={r.id} value={r.id}>{r.nom}</option>)}
           </select>
         </div>
+
+        {/* Lot + Date */}
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
           <div>
-            <label style={labelStyle}>Litres d'alcool *</label>
-            <input type="number" style={inputStyle} value={mForm.litresAlcool} onChange={e=>setMForm(p=>({...p,litresAlcool:e.target.value}))} min="0" step="0.5" placeholder="ex: 10"/>
+            <label style={labelStyle}>N° de lot</label>
+            <input style={inputStyle} value={mForm.numLot||""} onChange={e=>setMForm(p=>({...p,numLot:e.target.value}))} placeholder={genLot(mForm.dateDebut)}/>
           </div>
           <div>
             <label style={labelStyle}>Date de début</label>
             <input type="date" style={inputStyle} value={mForm.dateDebut} onChange={e=>setMForm(p=>({...p,dateDebut:e.target.value}))}/>
           </div>
         </div>
+
+        {/* Litres + Titre alcool */}
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+          <div>
+            <label style={labelStyle}>Litres d'alcool 80° *</label>
+            <input type="number" style={inputStyle} value={mForm.litresAlcool} onChange={e=>setMForm(p=>({...p,litresAlcool:e.target.value}))} min="0" step="0.5" placeholder="ex: 10"/>
+          </div>
+          <div>
+            <label style={labelStyle}>Titre alcoométrique (°)</label>
+            <input type="number" style={inputStyle} value={mForm.titreAlcool||(recettes.find(r=>r.id===mForm.recetteId)?.titreAlcool||"")} onChange={e=>setMForm(p=>({...p,titreAlcool:e.target.value}))} placeholder="ex: 30" step="0.5"/>
+          </div>
+        </div>
+
+        {/* Bouteilles */}
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+          <div>
+            <label style={labelStyle}>Bouteilles 25cl</label>
+            <input type="number" style={inputStyle} value={mForm.btl25||""} onChange={e=>setMForm(p=>({...p,btl25:e.target.value}))} min="0" placeholder="0"/>
+          </div>
+          <div>
+            <label style={labelStyle}>Bouteilles 50cl</label>
+            <input type="number" style={inputStyle} value={mForm.btl50||""} onChange={e=>setMForm(p=>({...p,btl50:e.target.value}))} min="0" placeholder="0"/>
+          </div>
+        </div>
+
+        {/* Notes */}
         <div>
           <label style={labelStyle}>Notes</label>
-          <textarea style={{...inputStyle,resize:"vertical",minHeight:50}} value={mForm.notes} onChange={e=>setMForm(p=>({...p,notes:e.target.value}))} placeholder="Notes..."/>
+          <textarea style={{...inputStyle,resize:"vertical",minHeight:50}} value={mForm.notes} onChange={e=>setMForm(p=>({...p,notes:e.target.value}))} placeholder="Notes de production..."/>
         </div>
-        <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:4}}>
+
+        {/* Signataires */}
+        <div style={{borderTop:"1px solid #EAE7E0",paddingTop:10}}>
+          <p style={{fontSize:12,fontWeight:700,color:"#374151",marginBottom:8}}>Signataires (PDF)</p>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+            <div>
+              <label style={labelStyle}>Préparé par</label>
+              <input style={inputStyle} value={mForm.preparePar||""} onChange={e=>setMForm(p=>({...p,preparePar:e.target.value}))} placeholder="Nom..."/>
+            </div>
+            <div>
+              <label style={labelStyle}>Contrôlé par</label>
+              <input style={inputStyle} value={mForm.controlePar||""} onChange={e=>setMForm(p=>({...p,controlePar:e.target.value}))} placeholder="Nom..."/>
+            </div>
+          </div>
+        </div>
+
+        {/* Signature pad */}
+        <div>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
+            <label style={{...labelStyle,marginBottom:0}}>Signature</label>
+            <button style={{...btnSecondary,padding:"3px 8px",fontSize:11}} onClick={clearSignature}>✕ Effacer</button>
+          </div>
+          <div style={{border:"1.5px solid #EAE7E0",borderRadius:8,overflow:"hidden",background:"#FAFAF7",touchAction:"none"}}>
+            <canvas
+              ref={(el:HTMLCanvasElement|null)=>{
+                sigRef.current=el;
+                if(el&&!(el as any)._init){
+                  (el as any)._init=true;
+                  const ctx=el.getContext("2d");
+                  if(ctx){ctx.fillStyle="#FAFAF7";ctx.fillRect(0,0,el.width,el.height);}
+                  if(mForm.signature){const img=new (window as any).Image();img.onload=()=>{const c=el.getContext("2d");if(c)c.drawImage(img,0,0,el.width,el.height);};img.src=mForm.signature;}
+                }
+              }}
+              width={480} height={110}
+              style={{width:"100%",height:110,display:"block",cursor:"crosshair"}}
+              onMouseDown={onSigStart} onMouseMove={onSigMove} onMouseUp={onSigEnd} onMouseLeave={onSigEnd}
+              onTouchStart={onSigStart} onTouchMove={onSigMove} onTouchEnd={onSigEnd}
+            />
+          </div>
+          <p style={{fontSize:10,color:"#9CA3AF",marginTop:4}}>Signez dans le cadre ci-dessus (doigt ou stylet)</p>
+        </div>
+
+        {/* Boutons */}
+        <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:4,flexWrap:"wrap"}}>
           <button style={btnSecondary} onClick={()=>setMacerationModal(null)}>Annuler</button>
+          <button style={btnSecondary} onClick={()=>{
+            const recette=recettes.find(r=>r.id===mForm.recetteId);
+            genererFicheMacerationPDF({recette,litres:parseFloat(mForm.litresAlcool)||0,btl25:parseInt(mForm.btl25)||0,btl50:parseInt(mForm.btl50)||0,numLot:mForm.numLot||genLot(mForm.dateDebut),dateDebut:mForm.dateDebut,notes:mForm.notes||"",preparePar:mForm.preparePar||"",controlePar:mForm.controlePar||"",signature:mForm.signature||""});
+          }}>📄 Générer PDF</button>
           <button style={btnPrimary} onClick={saveMaceration}>Enregistrer</button>
         </div>
       </div>
