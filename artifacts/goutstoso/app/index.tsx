@@ -7050,9 +7050,6 @@ try {
   } else {
     doc.setDrawColor(200,200,200); doc.setLineWidth(0.2); doc.rect(mg+30,y+22,70,24,"S");
   }
-  // Tampon Goûtstoso
-  doc.setFont("helvetica","bold"); doc.setFontSize(7); doc.setTextColor(150,150,150);
-  doc.text("Expédié par Goûtstoso le "+fmt(cmd.date),W-mg-4,y+32,{align:"right"});
   y+=58;
   // Pied
   doc.setDrawColor(220,220,215); doc.setLineWidth(0.3); doc.line(mg,280,W-mg,280);
