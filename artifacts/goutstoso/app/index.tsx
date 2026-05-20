@@ -3998,6 +3998,7 @@ const [filtre,setFiltre] = useState("toutes");
 const [sigMode,setSigMode] = useState(false);
 const [pjModal,setPjModal] = useState(false);
 const [recoveryTokenF, setRecoveryTokenF] = useState("");
+const [showArchived, setShowArchived] = useState(false);
 
 const emptyF = {partenaireId:st.partenaires[0]?.id||"",typeClient:"revendeur",lignes:[{produitId:"",qte:1}],lignesOffertes:[],comptOffert:"3900",notes:"",date:today(),envoyee:false};
 const [form,setForm] = useState(emptyF);
@@ -4590,6 +4591,8 @@ try {
 // Filtres
 const factures = (st.factures||[]).slice().reverse();
 const filtrees = factures.filter(f=>{
+if(showArchived) return !!f.archived;
+if(f.archived) return false;
 if(filtre==="toutes") return true;
 if(filtre==="attente") return f.statut!=="payée"&&!getInfosRetard(f);
 if(filtre==="echues") return f.statut!=="payée"&&getInfosRetard(f);
@@ -4904,6 +4907,11 @@ return (
       <summary style={{fontWeight:700,fontSize:13,color:"#111",cursor:"pointer",display:"flex",justifyContent:"space-between",listStyle:"none"}}>CGV - Annexe <span>▼</span></summary>
       <div style={{marginTop:10,lineHeight:1.7,whiteSpace:"pre-wrap"}}>{CGV}</div>
     </details>
+    {view.statut==="payée"&&(
+      <button onClick={()=>{setSt((p:any)=>({...p,factures:(p.factures||[]).map((f:any)=>f.id===view.id?{...f,archived:!f.archived}:f)}));setView(null);}} style={{display:"block",width:"calc(100% - 32px)",margin:"12px 16px 24px",background:"#F5F5F0",border:"1px solid #E5E5E0",borderRadius:10,padding:"11px",fontWeight:600,fontSize:12,cursor:"pointer",color:"#6B7280",textAlign:"center"}}>
+        {view.archived?"♻️ Désarchiver":"🗄 Archiver cette facture"}
+      </button>
+    )}
   </div>
 );
 
@@ -4920,6 +4928,7 @@ const total=calcTotalNet(f,st.produits);
 return {Numero:f.numero,Date:f.date,Client:pv?.nom,Total:total,Statut:f.statut};
 }),"goutstoso_factures.csv")}>Export</Btn>
 <Btn icon="plus" variant="ghost" small onClick={()=>{setSelectedForRegroup([]);setModalRegroup(true);}}>Regrouper</Btn>
+<button onClick={()=>{setShowArchived(x=>!x);setFiltre("toutes");}} style={{background:showArchived?"#0A0A0A":"#F4F4F2",color:showArchived?"#fff":"#6B7280",border:"none",borderRadius:8,padding:"6px 10px",fontSize:11,fontWeight:600,cursor:"pointer"}}>📦</button>
 <Btn icon="plus" onClick={()=>{setForm({...emptyF,id:null});setModal("form");}}>Nouvelle</Btn>
 </div>
 }>Factures</SectionTitle>
@@ -10745,6 +10754,7 @@ const [form, setForm] = useState<any>(null);
 const [recoveryToken, setRecoveryToken] = useState("");
 const [recoveryTokenProspect, setRecoveryTokenProspect] = useState("");
 const [sigJordanMode, setSigJordanMode] = useState(false);
+const [showArchived, setShowArchived] = useState(false);
 
 const offres = st.offres || [];
 const view = viewId ? offres.find(o=>o.id===viewId) : null;
@@ -11275,6 +11285,11 @@ if(view) return (
     <button onClick={()=>{setForm({...view,lignes:allProduitsLignes(view.lignes||[])});setModal("form");setViewId(null);}} style={{background:"#FEF9E7",border:"1.5px solid #F2C94C",borderRadius:10,padding:"11px 4px",fontWeight:600,fontSize:11,cursor:"pointer",color:"#92400E"}}>✏️ Modifier</button>
     <button onClick={()=>supprimerOffre(view.id)} style={{background:"#FEE2E2",border:"none",borderRadius:10,padding:"11px 4px",fontWeight:600,fontSize:11,cursor:"pointer",color:"#991B1B"}}>🗑 Suppr.</button>
   </div>
+  {(view.statut==="acceptée"||view.statut==="refusée")&&(
+    <button onClick={()=>{setSt((p:any)=>({...p,offres:(p.offres||[]).map((o:any)=>o.id===view.id?{...o,archived:!o.archived}:o)}));setViewId(null);}} style={{width:"100%",marginBottom:8,background:"#F5F5F0",border:"1px solid #E5E5E0",borderRadius:10,padding:"10px",fontWeight:600,fontSize:12,cursor:"pointer",color:"#6B7280",textAlign:"center"}}>
+      {view.archived?"♻️ Désarchiver":"🗄 Archiver cette offre"}
+    </button>
+  )}
   <button onClick={()=>creerContactDepuisOffre(view)} style={{width:"100%",marginBottom:8,background:"#EFF6FF",border:"1.5px solid #BFDBFE",borderRadius:10,padding:"10px",fontWeight:600,fontSize:12,color:"#1E40AF",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
     👤 Créer un contact depuis cette offre
   </button>
@@ -11386,7 +11401,7 @@ if(view) return (
 return (
 <div className="fade">
 <PipelineBanner current="offres"/>
-<SectionTitle action={<Btn icon="plus" onClick={()=>{setForm(emptyForm());setModal("form");}}>Nouvelle offre</Btn>}>Offres commerciales</SectionTitle>
+<SectionTitle action={<div style={{display:"flex",gap:8}}><button onClick={()=>setShowArchived(x=>!x)} style={{background:showArchived?"#0A0A0A":"#F4F4F2",color:showArchived?"#fff":"#6B7280",border:"none",borderRadius:8,padding:"7px 10px",fontSize:11,fontWeight:600,cursor:"pointer"}}>📦</button><Btn icon="plus" onClick={()=>{setForm(emptyForm());setModal("form");}}>Nouvelle offre</Btn></div>}>Offres commerciales</SectionTitle>
 
 {/* Stats pipeline */}
 {(()=>{
@@ -11427,7 +11442,7 @@ return (
   </div>
 ) : (
   <div style={{display:"grid",gap:10}}>
-    {offres.slice().reverse().map(o=>{
+    {offres.filter(o=>showArchived?!!o.archived:!o.archived).slice().reverse().map(o=>{
       const sc=statutConfig[o.statut]||statutConfig["brouillon"];
       const total=totalOffre(o);
       const expired=o.dateValidite&&o.dateValidite<today()&&o.statut==="envoyée";
@@ -12265,6 +12280,7 @@ const BulletinsCommande = ({st, setSt, setTab=(_any:any)=>{}}) => {
   const [modal, setModal] = useState<string|null>(null);
   const [viewId, setViewId] = useState<string|null>(null);
   const [form, setForm] = useState<any>({});
+  const [showArchived, setShowArchived] = useState(false);
 
   const bcs:any[] = st.bulletinsCommande || [];
   const view = viewId ? bcs.find((b:any)=>b.id===viewId) : null;
@@ -12353,11 +12369,16 @@ const BulletinsCommande = ({st, setSt, setTab=(_any:any)=>{}}) => {
           {(view.lignes||[]).map((l:any,i:number)=>{const prod=(st.produits||[]).find((p:any)=>p.id===l.produitId);if(!prod)return null;const tt=(l.prixUnitaire||0)*(l.qte||0);return(<div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 0",borderTop:i>0?"1px solid #F4F4F2":"none"}}><div><p style={{fontSize:12,fontWeight:600}}>{[prod.nom,prod.variante,prod.format].filter(Boolean).join(" ")}</p><p style={{fontSize:11,color:"#9CA3AF"}}>{l.qte} × CHF {(l.prixUnitaire||0).toFixed(2)}</p></div><p style={{fontSize:12,fontWeight:700}}>CHF {tt.toFixed(2)}</p></div>);})}
           <div style={{borderTop:"2px solid #0A0A0A",paddingTop:8,marginTop:4,display:"flex",justifyContent:"space-between"}}><p style={{fontSize:13,fontWeight:700}}>Total</p><p style={{fontSize:13,fontWeight:700}}>CHF {tot.toFixed(2)}</p></div>
         </Card>
-        <div style={{display:"flex",gap:8,marginBottom:24}}>
+        <div style={{display:"flex",gap:8,marginBottom:12}}>
           <button onClick={()=>genererBCPDF(view,st)} style={{flex:1,background:"#F4F4F2",border:"none",borderRadius:10,padding:"10px",fontWeight:600,fontSize:12,cursor:"pointer"}}>📋 PDF</button>
           <button onClick={()=>{const lignesAll=(st.produits||[]).filter((p:any)=>p.actif!==false).map((p:any)=>{const ex=(view.lignes||[]).find((l:any)=>l.produitId===p.id);return{produitId:p.id,qte:ex?.qte||0,prixUnitaire:ex?.prixUnitaire||p.prixRevendeur||0};});setForm({...view,lignes:lignesAll});setModal("form");setViewId(null);}} style={{flex:1,background:"#F4F4F2",border:"none",borderRadius:10,padding:"10px",fontWeight:600,fontSize:12,cursor:"pointer"}}>✏️ Modifier</button>
           <button onClick={()=>{if(!window.confirm("Supprimer ce BC ?"))return;setSt((p:any)=>({...p,bulletinsCommande:(p.bulletinsCommande||[]).filter((b:any)=>b.id!==view.id)}));setViewId(null);}} style={{flex:1,background:"#FEF2F2",border:"1px solid #FECACA",borderRadius:10,padding:"10px",fontWeight:600,fontSize:12,color:"#B91C1C",cursor:"pointer"}}>🗑 Suppr.</button>
         </div>
+        {view.statut==="signe"&&(
+          <button onClick={()=>{setSt((p:any)=>({...p,bulletinsCommande:(p.bulletinsCommande||[]).map((b:any)=>b.id===view.id?{...b,archived:!b.archived}:b)}));setViewId(null);}} style={{display:"block",width:"100%",marginBottom:24,background:"#F5F5F0",border:"1px solid #E5E5E0",borderRadius:10,padding:"11px",fontWeight:600,fontSize:12,cursor:"pointer",color:"#6B7280",textAlign:"center"}}>
+            {view.archived?"♻️ Désarchiver":"🗄 Archiver ce BC"}
+          </button>
+        )}
       </div>
     );
   }
@@ -12415,7 +12436,7 @@ const BulletinsCommande = ({st, setSt, setTab=(_any:any)=>{}}) => {
   return (
     <div className="fade">
       <PipelineBanner current="bc"/>
-      <SectionTitle action={<button onClick={()=>{setForm(emptyForm());setModal("form");}} style={{background:"#0A0A0A",color:"#fff",border:"none",borderRadius:9,padding:"9px 16px",fontSize:13,fontWeight:600,cursor:"pointer"}}>+ Nouveau</button>}>
+      <SectionTitle action={<div style={{display:"flex",gap:8}}><button onClick={()=>setShowArchived(x=>!x)} style={{background:showArchived?"#0A0A0A":"#F4F4F2",color:showArchived?"#fff":"#6B7280",border:"none",borderRadius:8,padding:"7px 10px",fontSize:11,fontWeight:600,cursor:"pointer"}}>📦</button><button onClick={()=>{setForm(emptyForm());setModal("form");}} style={{background:"#0A0A0A",color:"#fff",border:"none",borderRadius:9,padding:"9px 16px",fontSize:13,fontWeight:600,cursor:"pointer"}}>+ Nouveau</button></div>}>
         Bulletins de commande <span style={{fontSize:14,color:"#9CA3AF",fontWeight:400}}>({bcs.length})</span>
       </SectionTitle>
       {bcs.length===0?(
@@ -12425,7 +12446,7 @@ const BulletinsCommande = ({st, setSt, setTab=(_any:any)=>{}}) => {
         </div>
       ):(
         <div style={{display:"flex",flexDirection:"column",gap:8}}>
-          {[...bcs].sort((a:any,b:any)=>(b.date||"")>(a.date||"")?1:-1).map((bc:any)=>{
+          {[...bcs].filter((bc:any)=>showArchived?!!bc.archived:!bc.archived).sort((a:any,b:any)=>(b.date||"")>(a.date||"")?1:-1).map((bc:any)=>{
             const sc=SC(bc.statut); const tot=totalBC(bc);
             return(
               <div key={bc.id} onClick={()=>setViewId(bc.id)} style={{background:"#fff",borderRadius:12,padding:"12px 14px",border:"1px solid #EAE7E0",cursor:"pointer"}}>
@@ -12451,6 +12472,7 @@ const BulletinsCommande = ({st, setSt, setTab=(_any:any)=>{}}) => {
 const BulletinsLivraison = ({st, setSt, setTab=(_any:any)=>{}}) => {
   const [viewId, setViewId] = useState<string|null>(null);
   const [showSig, setShowSig] = useState(false);
+  const [showArchived, setShowArchived] = useState(false);
 
   const bls:any[] = st.bulletinsLivraison || [];
   const view = viewId ? bls.find((b:any)=>b.id===viewId) : null;
@@ -12554,10 +12576,15 @@ const BulletinsLivraison = ({st, setSt, setTab=(_any:any)=>{}}) => {
           <p style={{fontSize:10,fontWeight:700,color:"#737373",textTransform:"uppercase",letterSpacing:"0.04em",marginBottom:8}}>Produits livrés</p>
           {(view.lignes||[]).map((l:any,i:number)=>{const prod=(st.produits||[]).find((p:any)=>p.id===l.produitId);if(!prod)return null;return(<div key={i} style={{display:"flex",justifyContent:"space-between",padding:"5px 0",borderTop:i>0?"1px solid #F4F4F2":"none"}}><p style={{fontSize:12}}>{[prod.nom,prod.variante,prod.format].filter(Boolean).join(" ")}</p><p style={{fontSize:12,fontWeight:700}}>{l.qte} unités</p></div>);})}
         </Card>
-        <div style={{display:"flex",gap:8,marginBottom:24}}>
+        <div style={{display:"flex",gap:8,marginBottom:12}}>
           <button onClick={()=>genererBLPDF(view,st)} style={{flex:1,background:"#F4F4F2",border:"none",borderRadius:10,padding:"10px",fontWeight:600,fontSize:12,cursor:"pointer"}}>📋 PDF BL</button>
           {view.statut!=="livre"&&(<button onClick={()=>{if(!window.confirm("Supprimer ce BL ?"))return;setSt((p:any)=>({...p,bulletinsLivraison:(p.bulletinsLivraison||[]).filter((b:any)=>b.id!==view.id)}));setViewId(null);}} style={{flex:1,background:"#FEF2F2",border:"1px solid #FECACA",borderRadius:10,padding:"10px",fontWeight:600,fontSize:12,color:"#B91C1C",cursor:"pointer"}}>🗑 Supprimer</button>)}
         </div>
+        {view.statut==="livre"&&(
+          <button onClick={()=>{setSt((p:any)=>({...p,bulletinsLivraison:(p.bulletinsLivraison||[]).map((b:any)=>b.id===view.id?{...b,archived:!b.archived}:b)}));setViewId(null);}} style={{display:"block",width:"100%",marginBottom:24,background:"#F5F5F0",border:"1px solid #E5E5E0",borderRadius:10,padding:"11px",fontWeight:600,fontSize:12,cursor:"pointer",color:"#6B7280",textAlign:"center"}}>
+            {view.archived?"♻️ Désarchiver":"🗄 Archiver ce BL"}
+          </button>
+        )}
       </div>
     );
   }
@@ -12565,7 +12592,7 @@ const BulletinsLivraison = ({st, setSt, setTab=(_any:any)=>{}}) => {
   // ── LISTE ──
   return (
     <div className="fade">
-      <SectionTitle>
+      <SectionTitle action={<button onClick={()=>setShowArchived(x=>!x)} style={{background:showArchived?"#0A0A0A":"#F4F4F2",color:showArchived?"#fff":"#6B7280",border:"none",borderRadius:8,padding:"7px 10px",fontSize:11,fontWeight:600,cursor:"pointer"}}>📦</button>}>
         Bulletins de livraison <span style={{fontSize:14,color:"#9CA3AF",fontWeight:400}}>({bls.length})</span>
       </SectionTitle>
       {bls.length===0?(
@@ -12577,7 +12604,7 @@ const BulletinsLivraison = ({st, setSt, setTab=(_any:any)=>{}}) => {
         </div>
       ):(
         <div style={{display:"flex",flexDirection:"column",gap:8}}>
-          {[...bls].sort((a:any,b:any)=>(b.dateCreation||"")>(a.dateCreation||"")?1:-1).map((bl:any)=>{
+          {[...bls].filter((bl:any)=>showArchived?!!bl.archived:!bl.archived).sort((a:any,b:any)=>(b.dateCreation||"")>(a.dateCreation||"")?1:-1).map((bl:any)=>{
             const sc=SC(bl.statut);
             return(
               <div key={bl.id} onClick={()=>setViewId(bl.id)} style={{background:"#fff",borderRadius:12,padding:"12px 14px",border:"1px solid #EAE7E0",cursor:"pointer"}}>
