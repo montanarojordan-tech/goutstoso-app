@@ -8035,7 +8035,8 @@ Commandes
         "livree":{bg:"#DCFCE7",c:"#166534",label:"✅ Livrée"},
       };
       const es = expedStatut[s.statutExpedition]||{bg:"#F3F4F6",c:"#6B7280",label:s.statutExpedition||"—"};
-      const total = s.totalTTC || s.lignes?.reduce((acc:number,l:any)=>acc+(l.qte*(l.prixUnitaire||0)),0)+parseFloat(s.fraisPort||0);
+      const fpEnc = parseFloat(s.fraisPortEncaisse??s.fraisPort??0);
+      const total = s.totalTTC || s.lignes?.reduce((acc:number,l:any)=>acc+(l.qte*(l.prixUnitaire||0)),0)+fpEnc;
       return (
         <Card key={s.id} style={{marginBottom:10,padding:"12px 14px",borderLeft:"3px solid #7C3AED"}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
@@ -8070,10 +8071,16 @@ Commandes
                   </div>
                 );
               })}
-              {parseFloat(s.fraisPort||"0")>0 && (
+              {fpEnc>0 && (
                 <div style={{display:"flex",justifyContent:"space-between",fontSize:11,padding:"4px 0 0",borderTop:"1px solid #E5E7EB",marginTop:4}}>
                   <span style={{color:"#9CA3AF"}}>Frais de port</span>
-                  <span style={{fontWeight:600}}>{chf(parseFloat(s.fraisPort||"0"))}</span>
+                  <span style={{fontWeight:600}}>{chf(fpEnc)}</span>
+                </div>
+              )}
+              {parseFloat(s.commissionShopify||0)>0 && (
+                <div style={{display:"flex",justifyContent:"space-between",fontSize:11,padding:"2px 0 0"}}>
+                  <span style={{color:"#9CA3AF"}}>Commission Shopify</span>
+                  <span style={{fontWeight:600,color:"#B91C1C"}}>−{chf(parseFloat(s.commissionShopify||0))}</span>
                 </div>
               )}
             </div>
@@ -10704,6 +10711,33 @@ try {
 } catch(e){ alert("Erreur PDF : "+e.message); }
 };
 
+const PipelineBanner = ({current}:{current:string}) => {
+  const steps = [
+    {id:"prospects",label:"Prospect",emoji:"🎯"},
+    {id:"offres",label:"Offre",emoji:"📋"},
+    {id:"bc",label:"BC",emoji:"📑"},
+    {id:"bl",label:"BL",emoji:"🚚"},
+    {id:"factures",label:"Facture",emoji:"🧾"},
+    {id:"rappels",label:"Rappel",emoji:"📬"},
+  ];
+  const ci = steps.findIndex(s=>s.id===current);
+  return (
+    <div style={{display:"flex",alignItems:"center",marginBottom:16,overflowX:"auto",paddingBottom:2}}>
+      {steps.map((s,i)=>(
+        <React.Fragment key={s.id}>
+          <div style={{display:"flex",flexDirection:"column",alignItems:"center",minWidth:44}}>
+            <div style={{width:30,height:30,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",background:i===ci?"#0A0A0A":i<ci?"#DCFCE7":"#F4F4F2",border:i===ci?"2px solid #F2C94C":i<ci?"2px solid #86EFAC":"2px solid #E5E5E0",fontSize:13}}>
+              {i<ci?"✓":s.emoji}
+            </div>
+            <p style={{fontSize:7,fontWeight:i===ci?700:400,color:i===ci?"#0A0A0A":i<ci?"#15803D":"#9CA3AF",marginTop:3,textAlign:"center",whiteSpace:"nowrap"}}>{s.label}</p>
+          </div>
+          {i<steps.length-1&&<div style={{flex:1,height:1.5,background:i<ci?"#86EFAC":i===ci?"#F2C94C":"#E5E5E0",minWidth:8,marginBottom:14}}/>}
+        </React.Fragment>
+      ))}
+    </div>
+  );
+};
+
 const Offres = ({st, setSt}) => {
 const [modal, setModal] = useState(null);
 const [viewId, setViewId] = useState(null);
@@ -10752,7 +10786,7 @@ const emptyForm = () => ({
   introText:"Nous avons le plaisir de vous soumettre notre offre commerciale pour nos liqueurs artisanales Goûtstoso. Vous trouverez ci-dessous notre tarification partenaire ainsi que le détail de nos produits disponibles.",
   lignes:allProduitsLignes(),
   notes:"",
-  statut:"prospection",
+  statut:"brouillon",
   interetConfirme:false,
   typeContrat:"",
   contratId:"",
@@ -11351,11 +11385,12 @@ if(view) return (
 
 return (
 <div className="fade">
-<SectionTitle action={<Btn icon="plus" onClick={()=>{setForm(emptyForm());setModal("form");}}>Prospection</Btn>}>Pipeline Offres</SectionTitle>
+<PipelineBanner current="offres"/>
+<SectionTitle action={<Btn icon="plus" onClick={()=>{setForm(emptyForm());setModal("form");}}>Nouvelle offre</Btn>}>Offres commerciales</SectionTitle>
 
 {/* Stats pipeline */}
 {(()=>{
-  const prospections=offres.filter(o=>o.statut==="prospection").length;
+  const brouillons=offres.filter(o=>["prospection","brouillon"].includes(o.statut)).length;
   const interets=offres.filter(o=>o.statut==="intérêt").length;
   const envoyees=offres.filter(o=>o.statut==="envoyée").length;
   const acceptees=offres.filter(o=>o.statut==="acceptée").length;
@@ -11364,7 +11399,7 @@ return (
     <>
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:8,marginBottom:8}}>
       {[
-        {l:"Prospections",v:prospections,bg:"#DBEAFE",txt:"#1E40AF"},
+        {l:"En cours",v:brouillons,bg:"#DBEAFE",txt:"#1E40AF"},
         {l:"Intérêt",v:interets,bg:"#EDE9FE",txt:"#6D28D9"},
         {l:"Offres env.",v:envoyees,bg:"#FEF9E7",txt:"#92400E"},
         {l:"Signées",v:acceptees,bg:"#F0FDF4",txt:"#166534"},
@@ -11589,8 +11624,7 @@ return (
 
       {/* Statut */}
       <Sel label="Statut" value={form.statut} onChange={v=>setForm(p=>({...p,statut:v}))}
-        options={[{v:"prospection",l:"🔍 Prospection"},{v:"intérêt",l:"✅ Intérêt confirmé"},{v:"brouillon",l:"📝 Offre rédigée"},{v:"envoyée",l:"✉️ Offre envoyée"},{v:"acceptée",l:"✍️ Signée"},{v:"refusée",l:"❌ Refusée"}]}/>
-
+        options={[{v:"brouillon",l:"📝 Brouillon"},{v:"intérêt",l:"✅ Intérêt confirmé"},{v:"envoyée",l:"✉️ Offre envoyée"},{v:"acceptée",l:"✍️ Signée"},{v:"refusée",l:"❌ Refusée"}]}/>
       <Btn onClick={saveOffre} full icon="check">Enregistrer l'offre</Btn>
     </div>
   </Modal>
@@ -12124,6 +12158,19 @@ const Prospects = ({st, setSt, setTab=(_any:any)=>{}}) => {
     <div className="fade">
       <button onClick={()=>{setModal(null);if(form.id)setViewId(form.id);}} style={{display:"flex",alignItems:"center",gap:6,background:"none",border:"none",color:"#9CA3AF",fontSize:13,marginBottom:12,padding:0,cursor:"pointer"}}>← Annuler</button>
       <h2 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:24,fontWeight:700,marginBottom:16}}>{form.id?"Modifier le prospect":"Nouveau prospect"}</h2>
+      {!form.id && (st.clients||[]).length > 0 && (
+        <Card style={{marginBottom:12,background:"#F0F9FF",border:"1.5px solid #BAE6FD"}}>
+          <p style={{fontSize:10,fontWeight:700,color:"#0369A1",textTransform:"uppercase",letterSpacing:"0.04em",marginBottom:8}}>📇 Partir d'un contact existant (optionnel)</p>
+          <select onChange={e=>{
+            const c=(st.clients||[]).find((x:any)=>x.id===e.target.value);
+            if(c) setForm((f:any)=>({...f,nomEtablissement:c.nom||f.nomEtablissement,email:c.email||f.email,telephone:c.telephone||f.telephone,adresse:c.adresse||f.adresse,npa:c.npa||f.npa,ville:c.ville||f.ville,contactNom:c.contact||f.contactNom}));
+            e.target.value="";
+          }} defaultValue="" style={{width:"100%",padding:"9px 12px",borderRadius:8,border:"1px solid #BAE6FD",fontSize:13,background:"#fff",color:"#0369A1",fontWeight:600}}>
+            <option value="">— Choisir un client existant —</option>
+            {(st.clients||[]).map((c:any)=><option key={c.id} value={c.id}>{c.nom}{c.ville?" ("+c.ville+")":""}</option>)}
+          </select>
+        </Card>
+      )}
       <Card style={{marginBottom:12}}>
         <p style={{fontSize:10,fontWeight:700,color:"#737373",textTransform:"uppercase",letterSpacing:"0.04em",marginBottom:10}}>Établissement</p>
         <F label="Nom *" value={form.nomEtablissement||""} onChange={(v:string)=>setForm((f:any)=>({...f,nomEtablissement:v}))} required/>
@@ -12161,6 +12208,7 @@ const Prospects = ({st, setSt, setTab=(_any:any)=>{}}) => {
   const liste=prospects.filter((p:any)=>(filtreStatut==="tous"||p.statut===filtreStatut)&&(!search||p.nomEtablissement?.toLowerCase().includes(search.toLowerCase())||p.ville?.toLowerCase().includes(search.toLowerCase()))).sort((a:any,b:any)=>(b.dateCreation||"")>(a.dateCreation||"")?1:-1);
   return (
     <div className="fade">
+      <PipelineBanner current="prospects"/>
       <SectionTitle action={<button onClick={()=>{setForm(emptyForm());setModal("form");}} style={{background:"#0A0A0A",color:"#fff",border:"none",borderRadius:9,padding:"9px 16px",fontSize:13,fontWeight:600,cursor:"pointer"}}>+ Nouveau</button>}>
         Prospects <span style={{fontSize:14,color:"#9CA3AF",fontWeight:400}}>({prospects.length})</span>
       </SectionTitle>
@@ -12366,6 +12414,7 @@ const BulletinsCommande = ({st, setSt, setTab=(_any:any)=>{}}) => {
   // ── LISTE ──
   return (
     <div className="fade">
+      <PipelineBanner current="bc"/>
       <SectionTitle action={<button onClick={()=>{setForm(emptyForm());setModal("form");}} style={{background:"#0A0A0A",color:"#fff",border:"none",borderRadius:9,padding:"9px 16px",fontSize:13,fontWeight:600,cursor:"pointer"}}>+ Nouveau</button>}>
         Bulletins de commande <span style={{fontSize:14,color:"#9CA3AF",fontWeight:400}}>({bcs.length})</span>
       </SectionTitle>
@@ -14296,7 +14345,7 @@ const [form, setForm] = useState({
   orderNumber:"", dateCommande:today(),
   clientNom:"", clientEmail:"", clientTelephone:"",
   clientAdresse:"", clientNpa:"", clientVille:"", clientPays:"CH",
-  lignes:[] as any[], fraisPort:0, statutPaiement:"paye",
+  lignes:[] as any[], fraisPortEncaisse:0, fraisPortPaye:0, commissionShopify:0, statutPaiement:"paye",
   statutExpedition:"a_preparer", numeroSuivi:"", transporteur:"",
 });
 const [parsed, setParsed] = useState(null as any);
@@ -14315,7 +14364,7 @@ const parseShopifyText = (text:string) => {
     if(l.match(/^#\d+/)) result.orderNumber = l.replace("#","").trim();
     if(l.toLowerCase().includes("email:") || l.includes("@")) result.clientEmail = l.split(":").slice(1).join(":").trim()||l.trim();
     if(l.toLowerCase().startsWith("nom:") || l.toLowerCase().startsWith("name:")) result.clientNom = l.split(":").slice(1).join(":").trim();
-    if(l.toLowerCase().includes("livraison:") || l.toLowerCase().includes("shipping:")) result.fraisPort = parseFloat(l.replace(/[^\d.]/g,""))||0;
+    if(l.toLowerCase().includes("livraison:") || l.toLowerCase().includes("shipping:")) result.fraisPortEncaisse = parseFloat(l.replace(/[^\d.]/g,""))||0;
     if(l.toLowerCase().includes("total:")) result.totalTTC = parseFloat(l.replace(/[^\d.]/g,""))||0;
   });
   (st.produits||[]).forEach((p:any)=>{
@@ -14329,16 +14378,20 @@ const parseShopifyText = (text:string) => {
   return result;
 };
 
-const totalForm = form.lignes.reduce((s:number,l:any)=>s+(l.qte*(l.prixUnitaire||0)),0) + parseFloat(String(form.fraisPort)||"0");
+const totalForm = form.lignes.reduce((s:number,l:any)=>s+(l.qte*(l.prixUnitaire||0)),0) + (form.fraisPortEncaisse||0);
 
 const save = (data:any = null) => {
   const d = data || form;
+  const fpEnc = parseFloat(String(d.fraisPortEncaisse||d.fraisPort||"0"));
+  const fpPaye = parseFloat(String(d.fraisPortPaye||"0"));
+  const commission = parseFloat(String(d.commissionShopify||"0"));
+  const produitsTotal = (d.lignes||[]).reduce((s:number,l:any)=>s+(l.qte*(l.prixUnitaire||0)),0);
   const vd:any = {
     id:uid(), orderNumberShopify:d.orderNumber||genNumero(),
     dateCommande:d.dateCommande||today(),
     clientShopify:{nom:d.clientNom,email:d.clientEmail,telephone:d.clientTelephone,adresse:d.clientAdresse,npa:d.clientNpa,ville:d.clientVille,pays:d.clientPays||"CH"},
-    lignes:d.lignes, totalTTC:d.totalTTC||totalForm,
-    fraisPort:parseFloat(String(d.fraisPort)||"0"),
+    lignes:d.lignes, totalTTC:d.totalTTC||(produitsTotal+fpEnc),
+    fraisPortEncaisse:fpEnc, fraisPortPaye:fpPaye, commissionShopify:commission,
     statutPaiement:d.statutPaiement||"paye",
     statutExpedition:d.statutExpedition||"a_preparer",
     numeroSuivi:d.numeroSuivi||"", transporteur:d.transporteur||"",
@@ -14346,7 +14399,11 @@ const save = (data:any = null) => {
   };
   const newTrans = [...(st.transactions||[])];
   if(vd.statutPaiement==="paye") {
-    newTrans.push({id:"sh_"+vd.id,date:vd.dateCommande,compte:"3001",libelle:"Vente Shopify #"+vd.orderNumberShopify,type:"recette",categorie:"Vente Shopify",montant:vd.totalTTC,description:vd.clientShopify?.nom||""});
+    const tid = "sh_"+vd.id;
+    if(produitsTotal>0) newTrans.push({id:tid+"_v",date:vd.dateCommande,compte:"3001",libelle:"Vente Shopify #"+vd.orderNumberShopify,type:"recette",categorie:"Vente Shopify",montant:produitsTotal,description:vd.clientShopify?.nom||""});
+    if(fpEnc>0) newTrans.push({id:tid+"_pe",date:vd.dateCommande,compte:"3600",libelle:"Port encaissé Shopify #"+vd.orderNumberShopify,type:"recette",categorie:"Frais expédition facturés",montant:fpEnc,description:vd.clientShopify?.nom||""});
+    if(fpPaye>0) newTrans.push({id:tid+"_pp",date:vd.dateCommande,compte:"6315",libelle:"Frais envoi Shopify #"+vd.orderNumberShopify,type:"depense",categorie:"Frais d'expédition (envois)",montant:fpPaye,description:"Transporteur: "+(vd.transporteur||"—")});
+    if(commission>0) newTrans.push({id:tid+"_c",date:vd.dateCommande,compte:"6700",libelle:"Commission Shopify #"+vd.orderNumberShopify,type:"depense",categorie:"Commissions",montant:commission,description:"Commission Shopify"});
   }
   setSt((p:any)=>({...p,ventesShopify:[...(p.ventesShopify||[]),vd],transactions:newTrans}));
   onClose();
@@ -14403,14 +14460,29 @@ return (
       <input type="number" min="0" value={l?.qte||0} onChange={e=>{const q=parseInt(e.target.value)||0;const nl=form.lignes.filter((x:any)=>x.produitId!==p.id);if(q>0)nl.push({produitId:p.id,designation:p.nom+" "+p.format,qte:q,prixUnitaire:p.prixClient});setForm(f=>({...f,lignes:nl}));}} style={{width:52,padding:"5px",borderRadius:6,border:"1px solid #E5E5E0",fontSize:13,textAlign:"center"}}/>
     </div>;
   })}
-  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
+  <p style={{fontSize:11,fontWeight:700,color:"#737373",textTransform:"uppercase" as const,letterSpacing:".06em",marginBottom:6,marginTop:4}}>Frais & commissions</p>
+  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:4}}>
     <label style={{fontSize:11,color:"#737373",display:"flex",flexDirection:"column",gap:4}}>
-      Frais de port<input type="number" value={form.fraisPort} onChange={e=>setForm(f=>({...f,fraisPort:parseFloat(e.target.value)||0}))} style={{padding:"8px",borderRadius:8,border:"1px solid #E5E5E0",fontSize:13}}/>
+      Port encaissé (CHF)<span style={{fontSize:9,color:"#9CA3AF"}}>Payé par client</span><input type="number" min="0" step="0.01" value={form.fraisPortEncaisse} onChange={e=>setForm(f=>({...f,fraisPortEncaisse:parseFloat(e.target.value)||0}))} style={{padding:"8px",borderRadius:8,border:"1px solid #E5E5E0",fontSize:13}}/>
     </label>
     <label style={{fontSize:11,color:"#737373",display:"flex",flexDirection:"column",gap:4}}>
-      Transporteur<input value={form.transporteur} onChange={e=>setForm(f=>({...f,transporteur:e.target.value}))} placeholder="La Poste, DPD..." style={{padding:"8px",borderRadius:8,border:"1px solid #E5E5E0",fontSize:13}}/>
+      Port payé (CHF)<span style={{fontSize:9,color:"#9CA3AF"}}>Notre coût réel</span><input type="number" min="0" step="0.01" value={form.fraisPortPaye} onChange={e=>setForm(f=>({...f,fraisPortPaye:parseFloat(e.target.value)||0}))} style={{padding:"8px",borderRadius:8,border:"1px solid #E5E5E0",fontSize:13}}/>
+    </label>
+    <label style={{fontSize:11,color:"#737373",display:"flex",flexDirection:"column",gap:4}}>
+      Commission Shopify<span style={{fontSize:9,color:"#9CA3AF"}}>Frais plateforme</span><input type="number" min="0" step="0.01" value={form.commissionShopify} onChange={e=>setForm(f=>({...f,commissionShopify:parseFloat(e.target.value)||0}))} style={{padding:"8px",borderRadius:8,border:"1px solid #E5E5E0",fontSize:13}}/>
     </label>
   </div>
+  <label style={{fontSize:11,color:"#737373",display:"flex",flexDirection:"column",gap:4,marginBottom:8}}>
+    Transporteur<input value={form.transporteur} onChange={e=>setForm(f=>({...f,transporteur:e.target.value}))} placeholder="La Poste, DPD..." style={{padding:"8px",borderRadius:8,border:"1px solid #E5E5E0",fontSize:13}}/>
+  </label>
+  {(form.fraisPortPaye>0||form.commissionShopify>0) && (
+    <div style={{background:"#FFF7ED",borderRadius:8,padding:"8px 12px",marginBottom:8,fontSize:11}}>
+      <p style={{fontWeight:700,color:"#92400E",marginBottom:4}}>📊 Résumé compta</p>
+      {form.fraisPortEncaisse>0&&<p style={{color:"#166534"}}>+{form.fraisPortEncaisse.toFixed(2)} CHF → ct. 3600 (port encaissé)</p>}
+      {form.fraisPortPaye>0&&<p style={{color:"#B91C1C"}}>−{form.fraisPortPaye.toFixed(2)} CHF → ct. 6315 (frais envoi)</p>}
+      {form.commissionShopify>0&&<p style={{color:"#B91C1C"}}>−{form.commissionShopify.toFixed(2)} CHF → ct. 6700 (commission)</p>}
+    </div>
+  )}
   <div style={{background:"#F9F9F6",borderRadius:10,padding:"10px 14px",marginBottom:12,display:"flex",justifyContent:"space-between"}}>
     <span style={{fontWeight:700,fontSize:13}}>Total TTC</span>
     <span style={{fontWeight:800,fontSize:15}}>CHF {totalForm.toFixed(2)}</span>
