@@ -836,6 +836,37 @@ Bonjour {authUser.display_name||authUser.username}
     </div>
   )}
   
+  {/* PIPELINE COMMERCIAL */}
+  {(()=>{
+    const nProspects=(st.prospects||[]).filter((p:any)=>!["converti","perdu"].includes(p.statut)).length;
+    const nOffres=(st.offres||[]).filter((o:any)=>["envoyée","intérêt","brouillon"].includes(o.statut)).length;
+    const nBC=(st.bulletinsCommande||[]).filter((b:any)=>b.statut==="signe"&&!b.bulletinLivraisonId).length;
+    const nBL=(st.bulletinsLivraison||[]).filter((b:any)=>b.statut==="a_livrer").length;
+    const total=nProspects+nOffres+nBC+nBL;
+    if(total===0) return null;
+    return (
+      <div style={{marginBottom:18}}>
+        <p style={{fontSize:10,fontWeight:600,color:"#737373",textTransform:"uppercase",letterSpacing:"0.04em",marginBottom:10}}>
+          🏹 Pipeline commercial
+        </p>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:6}}>
+          {[
+            {label:"Prospects",n:nProspects,emoji:"🎯",tab:"prospects",color:"#1E40AF",bg:"#DBEAFE",border:"#93C5FD"},
+            {label:"Offres actives",n:nOffres,emoji:"📄",tab:"offres",color:"#6D28D9",bg:"#EDE9FE",border:"#C4B5FD"},
+            {label:"BC signés",n:nBC,emoji:"📋",tab:"bulletinsCommande",color:"#92400E",bg:"#FEF3C7",border:"#FCD34D"},
+            {label:"BL à livrer",n:nBL,emoji:"🚚",tab:"bulletinsLivraison",color:"#065F46",bg:"#DCFCE7",border:"#86EFAC"},
+          ].map((s:any,i:number)=>(
+            <div key={i} onClick={()=>goPage(s.tab)} style={{background:s.bg,borderRadius:10,padding:"10px 6px",textAlign:"center",cursor:"pointer",border:`1px solid ${s.border}`,opacity:s.n===0?.4:1}}>
+              <p style={{fontSize:18,marginBottom:2}}>{s.emoji}</p>
+              <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:22,fontWeight:700,color:s.color,lineHeight:1}}>{s.n}</p>
+              <p style={{fontSize:8,color:s.color,fontWeight:600,lineHeight:1.3,marginTop:2}}>{s.label}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  })()}
+
   {/* SUGGESTIONS DE PRODUCTION */}
   {suggestionsProduction.length > 0 && (
     <div style={{marginBottom:18}}>
@@ -10614,6 +10645,32 @@ const convertirEnCommande = (offre) => {
   creerCommandeAchat(offre);
 };
 
+const creerBulletinCommandeFromOffre = (offre:any) => {
+  if(!window.confirm("Créer un Bulletin de Commande depuis cette offre ?")) return;
+  const y2=new Date().getFullYear();
+  const ex=(st.bulletinsCommande||[]).map((b:any)=>b.numero||"");
+  let n=1; while(ex.includes("BC-"+y2+"-"+String(n).padStart(3,"0")))n++;
+  const numero="BC-"+y2+"-"+String(n).padStart(3,"0");
+  const id=uid();
+  const lignesOk=(offre.lignes||[]).filter((l:any)=>l.qte>0).map((l:any)=>({
+    produitId:l.produitId, qte:l.qte,
+    prixUnitaire:(st.produits||[]).find((p:any)=>p.id===l.produitId)?.prixRevendeur||0,
+  }));
+  const newBC:any={id,numero,date:today(),
+    clientNom:offre.clientNom,clientEmail:offre.clientEmail||"",
+    clientAdresse:offre.clientAdresse||"",clientNpa:offre.clientNpa||"",
+    clientVille:offre.clientVille||"",clientTel:offre.clientTel||"",
+    lignes:lignesOk,modeReglement:"virement",dateLivraisonPrevue:"",
+    notes:"Issu de l'offre "+offre.numero,statut:"brouillon",
+    offreId:offre.id,bulletinLivraisonId:null,factureId:null,
+  };
+  setSt((p:any)=>({...p,
+    bulletinsCommande:[...(p.bulletinsCommande||[]),newBC],
+    offres:(p.offres||[]).map((o:any)=>o.id===offre.id?{...o,typeContrat:"bc",bulletinCommandeId:id}:o),
+  }));
+  alert(`✅ BC ${numero} créé !\nRetrouve-le dans Bulletins de Commande.`);
+};
+
 const setStatut = (id, statut) => setSt(p=>({...p,offres:(p.offres||[]).map(o=>o.id===id?{...o,statut}:o)}));
 
 const totalOffre = (offre) => {
@@ -10678,9 +10735,11 @@ if(view) return (
     </div>
     <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:6,flexShrink:0,marginLeft:10}}>
       {view.clientLogo && <img src={view.clientLogo} alt="logo" style={{height:36,maxWidth:80,objectFit:"contain",borderRadius:6,border:"1px solid #EAE7E0",background:"#fff",padding:3}}/>}
-      <span style={{background:statutConfig[view.statut]?.bg||"#F3F4F6",color:statutConfig[view.statut]?.color||"#6B7280",borderRadius:20,padding:"4px 12px",fontSize:11,fontWeight:700}}>
-        {statutConfig[view.statut]?.label||view.statut}
-      </span>
+      {(()=>{
+        const scMap:any={"prospection":STATUTS_COULEURS.contacte,"intérêt":STATUTS_COULEURS.interesse,"brouillon":STATUTS_COULEURS.brouillon,"envoyée":STATUTS_COULEURS.envoye,"acceptée":STATUTS_COULEURS.accepte,"refusée":STATUTS_COULEURS.refuse};
+        const sc=scMap[view.statut]||{bg:"#F3F4F6",text:"#374151",border:"#D1D5DB",emoji:"📝",label:view.statut};
+        return <span style={{background:sc.bg,color:sc.text,border:`1px solid ${sc.border}`,borderRadius:20,padding:"4px 12px",fontSize:11,fontWeight:700}}>{sc.emoji} {sc.label||statutConfig[view.statut]?.label||view.statut}</span>;
+      })()}
     </div>
   </div>
   <p style={{fontSize:11,color:"#9CA3AF",marginBottom:10}}>Émise le {fmt(view.date)} · Valable jusqu'au {fmt(view.dateValidite||view.date)}</p>
@@ -10774,7 +10833,7 @@ if(view) return (
     <Card style={{padding:"14px",marginBottom:12,background:"#F0FDF4",border:"1.5px solid #86EFAC"}}>
       <p style={{fontSize:12,fontWeight:700,color:"#166534",marginBottom:4}}>🎉 Offre signée — Choisis le flux :</p>
       <p style={{fontSize:11,color:"#374151",marginBottom:12}}>Ce choix détermine les documents générés et le processus de facturation.</p>
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
         <button onClick={()=>creerContratDepotVente(view)}
           style={{background:"#0A0A0A",color:"#F2C94C",border:"none",borderRadius:10,padding:"14px 8px",fontWeight:700,fontSize:12,cursor:"pointer",textAlign:"center",lineHeight:1.5}}>
           🏪 Dépôt-vente<br/>
@@ -10786,6 +10845,26 @@ if(view) return (
           <span style={{fontSize:10,fontWeight:400,color:"#93C5FD"}}>Commande CMD-…<br/>+ confirmation + facture</span>
         </button>
       </div>
+      <button onClick={()=>creerBulletinCommandeFromOffre(view)}
+        style={{width:"100%",background:"#F4F4F2",border:"1.5px solid #D1D5DB",borderRadius:10,padding:"11px 8px",fontWeight:700,fontSize:12,cursor:"pointer",textAlign:"center",color:"#374151"}}>
+        📋 Bulletin de Commande (BC)<br/>
+        <span style={{fontSize:10,fontWeight:400,color:"#6B7280"}}>BC-{new Date().getFullYear()}-… · livraison + signature</span>
+      </button>
+    </Card>
+  )}
+  {view.statut==="acceptée" && view.typeContrat==="bc" && (
+    <Card style={{padding:"12px 14px",marginBottom:12,background:"#F9FAFB",border:"1.5px solid #D1D5DB"}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+        <p style={{fontSize:12,fontWeight:700,color:"#374151"}}>📋 Flux Bulletin de Commande</p>
+        <button onClick={()=>setSt((p:any)=>({...p,offres:(p.offres||[]).map((o:any)=>o.id===view.id?{...o,typeContrat:"",bulletinCommandeId:""}:o)}))} style={{background:"none",border:"none",fontSize:10,color:"#6B7280",cursor:"pointer"}}>changer</button>
+      </div>
+      {view.bulletinCommandeId ? (
+        <p style={{fontSize:11,color:"#374151"}}>BC créé — retrouve-le dans <strong>Bulletins de Commande</strong>.</p>
+      ) : (
+        <button onClick={()=>creerBulletinCommandeFromOffre(view)} style={{width:"100%",background:"#374151",color:"#fff",border:"none",borderRadius:8,padding:"10px",fontWeight:700,fontSize:12,cursor:"pointer"}}>
+          📋 Créer le Bulletin de Commande
+        </button>
+      )}
     </Card>
   )}
 
@@ -10899,16 +10978,25 @@ if(view) return (
   </div>)}
 
   {/* Statut */}
-  <div style={{display:"flex",gap:6,marginBottom:14,flexWrap:"wrap"}}>
-    {["prospection","intérêt","brouillon","envoyée","acceptée","refusée"].map(s=>(
-      <button key={s} onClick={()=>setStatut(view.id,s)}
-        style={{padding:"5px 10px",borderRadius:20,fontSize:10,fontWeight:700,cursor:"pointer",
-          background:view.statut===s?"#111":"#F3F4F6",color:view.statut===s?"#F2C94C":"#6B7280",
-          border:view.statut===s?"none":"1px solid #E5E7EB"}}>
-        {statutConfig[s]?.label||s}
-      </button>
-    ))}
-  </div>
+  {(()=>{
+    const scMap:any={"prospection":STATUTS_COULEURS.contacte,"intérêt":STATUTS_COULEURS.interesse,"brouillon":STATUTS_COULEURS.brouillon,"envoyée":STATUTS_COULEURS.envoye,"acceptée":STATUTS_COULEURS.accepte,"refusée":STATUTS_COULEURS.refuse};
+    return (
+      <div style={{display:"flex",gap:6,marginBottom:14,flexWrap:"wrap"}}>
+        {["prospection","intérêt","brouillon","envoyée","acceptée","refusée"].map((s:string)=>{
+          const sc=scMap[s]||{bg:"#F3F4F6",text:"#374151",border:"#D1D5DB",emoji:"📝"};
+          const active=view.statut===s;
+          return (
+            <button key={s} onClick={()=>setStatut(view.id,s)}
+              style={{padding:"5px 10px",borderRadius:20,fontSize:10,fontWeight:700,cursor:"pointer",
+                background:active?sc.bg:"transparent",color:active?sc.text:"#6B7280",
+                border:`1px solid ${active?sc.border:"#E5E7EB"}`}}>
+              {sc.emoji} {statutConfig[s]?.label||s}
+            </button>
+          );
+        })}
+      </div>
+    );
+  })()}
 
   {/* Convertir en commande */}
   {(view.statut==="envoyée"||view.statut==="acceptée") && (
