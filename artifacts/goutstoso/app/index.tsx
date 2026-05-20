@@ -7619,6 +7619,8 @@ if(filtre==="avec-facture") return !!c.factureNumero;
 return true;
 });
 const nbSansFacture = commandes.filter(c=>!c.factureNumero && (c.statut==="livrée"||c.statut==="expédiée")).length;
+const shopifyOrders = (st.ventesShopify||[]).slice().reverse();
+const nbShopify = shopifyOrders.length;
 
 const badgeStatut = (s) => s==="à préparer"?"yellow":s==="emballée"?"blue":s==="expédiée"?"blue":s==="livrée"?"green":s==="payée"?"green":"gray";
 
@@ -7999,10 +8001,11 @@ Commandes
       {id:"toutes",l:"Toutes"},
       {id:"sans-facture",l:`Sans facture${nbSansFacture>0?" ("+nbSansFacture+")":""}`},
       {id:"avec-facture",l:"Facturées"},
+      {id:"shopify",l:`🛒 Shopify${nbShopify>0?" ("+nbShopify+")":""}`,},
     ].map(f=>(
       <button key={f.id} onClick={()=>setFiltre(f.id)} style={{
-        background:filtre===f.id?"#111":"#F5F5F0",
-        color:filtre===f.id?"#F2C94C":"#6B7280",
+        background:filtre===f.id?(f.id==="shopify"?"#5B21B6":"#111"):"#F5F5F0",
+        color:filtre===f.id?"#fff":"#6B7280",
         border:"none",borderRadius:20,padding:"6px 14px",
         fontSize:12,fontWeight:filtre===f.id?700:400,
         cursor:"pointer",whiteSpace:"nowrap",flexShrink:0,
@@ -8010,7 +8013,88 @@ Commandes
     ))}
   </div>
 
-  {filtrees.length===0 ? (
+  {/* ── LISTE SHOPIFY ── */}
+  {filtre==="shopify" ? (
+    shopifyOrders.length===0 ? (
+      <div style={{textAlign:"center",padding:"40px 20px",color:"#9CA3AF"}}>
+        <p style={{fontSize:40,marginBottom:12}}>🛒</p>
+        <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:20,fontWeight:600,color:"#374151"}}>Aucune commande Shopify</p>
+        <p style={{fontSize:13,marginTop:6}}>Importe ta première commande via le bouton Shopify</p>
+        <button onClick={()=>setShowImportShopify(true)} style={{marginTop:16,background:"#5B21B6",color:"#fff",border:"none",borderRadius:12,padding:"12px 24px",fontWeight:700,fontSize:14,cursor:"pointer"}}>
+          🛒 Importer une commande
+        </button>
+      </div>
+    ) : shopifyOrders.map((s:any)=>{
+      const expedStatut:{[k:string]:{bg:string,c:string,label:string}} = {
+        "a_preparer":{bg:"#FEF9E7",c:"#92400E",label:"⏳ À préparer"},
+        "preparee":{bg:"#DBEAFE",c:"#1E3A5F",label:"📦 Préparée"},
+        "expediee":{bg:"#DCFCE7",c:"#166534",label:"🚀 Expédiée"},
+        "livree":{bg:"#DCFCE7",c:"#166534",label:"✅ Livrée"},
+      };
+      const es = expedStatut[s.statutExpedition]||{bg:"#F3F4F6",c:"#6B7280",label:s.statutExpedition||"—"};
+      const total = s.totalTTC || s.lignes?.reduce((acc:number,l:any)=>acc+(l.qte*(l.prixUnitaire||0)),0)+parseFloat(s.fraisPort||0);
+      return (
+        <Card key={s.id} style={{marginBottom:10,padding:"12px 14px",borderLeft:"3px solid #7C3AED"}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:2}}>
+                <p style={{fontWeight:700,fontSize:13,color:"#0A0A0A"}}>#{s.orderNumberShopify}</p>
+                <span style={{fontSize:9,fontWeight:700,padding:"2px 6px",borderRadius:4,background:"#EDE9FE",color:"#5B21B6"}}>SHOPIFY</span>
+              </div>
+              <p style={{fontSize:12,color:"#374151",fontWeight:600}}>{s.clientShopify?.nom||"—"}</p>
+              {s.clientShopify?.email && <p style={{fontSize:11,color:"#9CA3AF",marginTop:1}}>✉️ {s.clientShopify.email}</p>}
+              <p style={{fontSize:11,color:"#9CA3AF",marginTop:1}}>📅 {fmt(s.dateCommande)} · {(s.lignes||[]).length} article{s.lignes?.length>1?"s":""}</p>
+            </div>
+            <div style={{textAlign:"right",flexShrink:0}}>
+              <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:18,fontWeight:700,color:"#7C3AED"}}>{chf(total)}</p>
+              <span style={{fontSize:9,fontWeight:700,padding:"2px 7px",borderRadius:5,background:es.bg,color:es.c,marginTop:4,display:"inline-block"}}>{es.label}</span>
+              {s.statutPaiement==="paye" && <p style={{fontSize:9,color:"#166534",fontWeight:700,marginTop:3}}>✅ Payé</p>}
+            </div>
+          </div>
+          {/* Suivi */}
+          {s.numeroSuivi && (
+            <p style={{fontSize:11,color:"#6B7280",marginBottom:6}}>📦 Suivi : {s.numeroSuivi}{s.transporteur?" · "+s.transporteur:""}</p>
+          )}
+          {/* Lignes */}
+          {(s.lignes||[]).length>0 && (
+            <div style={{background:"#F9FAFB",borderRadius:8,padding:"8px 10px",marginBottom:8}}>
+              {(s.lignes||[]).map((l:any,i:number)=>{
+                const prod = (st.produits||[]).find((p:any)=>p.id===l.produitId);
+                return (
+                  <div key={i} style={{display:"flex",justifyContent:"space-between",fontSize:11,padding:"2px 0",borderBottom:i<s.lignes.length-1?"1px solid #F3F4F6":"none"}}>
+                    <span style={{color:"#374151"}}>{prod?.nom||l.designation||l.produitId} {prod?.format||""}</span>
+                    <span style={{fontWeight:600,color:"#0A0A0A"}}>{l.qte}× {chf(l.prixUnitaire||0)}</span>
+                  </div>
+                );
+              })}
+              {parseFloat(s.fraisPort||"0")>0 && (
+                <div style={{display:"flex",justifyContent:"space-between",fontSize:11,padding:"4px 0 0",borderTop:"1px solid #E5E7EB",marginTop:4}}>
+                  <span style={{color:"#9CA3AF"}}>Frais de port</span>
+                  <span style={{fontWeight:600}}>{chf(parseFloat(s.fraisPort||"0"))}</span>
+                </div>
+              )}
+            </div>
+          )}
+          {/* Actions expédition */}
+          <div style={{display:"flex",gap:6}}>
+            {s.statutExpedition==="a_preparer" && (
+              <button onClick={()=>setSt((p:any)=>({...p,ventesShopify:(p.ventesShopify||[]).map((x:any)=>x.id===s.id?{...x,statutExpedition:"preparee"}:x)}))} style={{flex:1,background:"#DBEAFE",color:"#1D4ED8",border:"none",borderRadius:8,padding:"7px",fontSize:11,fontWeight:700,cursor:"pointer"}}>📦 Marquer préparée</button>
+            )}
+            {s.statutExpedition==="preparee" && (
+              <button onClick={()=>{const suivi=window.prompt("Numéro de suivi (optionnel) :","");setSt((p:any)=>({...p,ventesShopify:(p.ventesShopify||[]).map((x:any)=>x.id===s.id?{...x,statutExpedition:"expediee",numeroSuivi:suivi||x.numeroSuivi,dateExpedition:today()}:x)}));}} style={{flex:1,background:"#0A0A0A",color:"#F2C94C",border:"none",borderRadius:8,padding:"7px",fontSize:11,fontWeight:700,cursor:"pointer"}}>🚀 Marquer expédiée</button>
+            )}
+            {s.statutExpedition==="expediee" && (
+              <button onClick={()=>setSt((p:any)=>({...p,ventesShopify:(p.ventesShopify||[]).map((x:any)=>x.id===s.id?{...x,statutExpedition:"livree"}:x)}))} style={{flex:1,background:"#DCFCE7",color:"#166534",border:"none",borderRadius:8,padding:"7px",fontSize:11,fontWeight:700,cursor:"pointer"}}>✅ Marquer livrée</button>
+            )}
+            {s.statutExpedition==="livree" && (
+              <span style={{flex:1,textAlign:"center",fontSize:11,color:"#166534",fontWeight:700,padding:"7px"}}>✅ Livrée</span>
+            )}
+            <button onClick={()=>{if(window.confirm("Supprimer cette commande Shopify ?")) setSt((p:any)=>({...p,ventesShopify:(p.ventesShopify||[]).filter((x:any)=>x.id!==s.id)}));}} style={{background:"#FEE2E2",border:"none",borderRadius:8,padding:"7px 10px",cursor:"pointer",display:"flex"}}><Ic n="trash" s={13}/></button>
+          </div>
+        </Card>
+      );
+    })
+  ) : filtrees.length===0 ? (
     <div style={{textAlign:"center",padding:"40px 20px",color:"#9CA3AF"}}>
       <p style={{fontSize:40,marginBottom:12}}>🛒</p>
       <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:20,fontWeight:600,color:"#374151"}}>Aucune commande</p>
