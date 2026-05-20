@@ -53,3 +53,9 @@ id = "g398dxpnTT17hyXx7qOaV"
 uri = "file://goutstoso_code.zip"
 type = "unspecified"
 title = "Goutstoso — Code source complet"
+
+[[outputs]]
+id = "al-JRxLvYMtSoa0wI7CGA"
+uri = "file://artifacts/goutstoso/app/index_export.txt"
+type = "text"
+title = "Goutstoso — code complet (index.tsx)"
