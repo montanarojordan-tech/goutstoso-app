@@ -15,6 +15,9 @@
     ".expo/types/**/*.ts",
     "expo-env.d.ts"
   ],
+  "exclude": [
+    "app/index_tsx_BACKUP_AVANT_REFONTE.tsx"
+  ],
   "references": [
     {
       "path": "../../lib/api-client-react"

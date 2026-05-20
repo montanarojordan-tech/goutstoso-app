@@ -963,23 +963,31 @@ Bonjour {authUser.display_name||authUser.username}
   {/* ACTIONS RAPIDES */}
   <Card style={{marginBottom:14}}>
     <p style={{fontSize:11,fontWeight:600,color:"#737373",textTransform:"uppercase",letterSpacing:"0.04em",marginBottom:10}}>
-      Accès rapide
+      Actions rapides
     </p>
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:8}}>
+      <button onClick={()=>goPage("prospects")} style={{background:"#DBEAFE",border:"1px solid #93C5FD",borderRadius:10,padding:"12px 6px",fontSize:11,fontWeight:700,cursor:"pointer",textAlign:"center",color:"#1E40AF",lineHeight:1.4}}>
+        🎯<br/>Prospect
+      </button>
+      <button onClick={()=>goPage("offres")} style={{background:"#EDE9FE",border:"1px solid #C4B5FD",borderRadius:10,padding:"12px 6px",fontSize:11,fontWeight:700,cursor:"pointer",textAlign:"center",color:"#6D28D9",lineHeight:1.4}}>
+        📄<br/>Offre
+      </button>
+      <button onClick={()=>goPage("factures")} style={{background:"#F0FDF4",border:"1px solid #86EFAC",borderRadius:10,padding:"12px 6px",fontSize:11,fontWeight:700,cursor:"pointer",textAlign:"center",color:"#15803D",lineHeight:1.4}}>
+        🧾<br/>Facture
+      </button>
+    </div>
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
-      <button onClick={()=>goPage("factures")} style={{background:"#F4F4F2",border:"none",borderRadius:8,padding:"10px",fontSize:12,fontWeight:500,cursor:"pointer",textAlign:"left"}}>
-        📄 Nouvelle facture
+      <button onClick={()=>goPage("bulletinsCommande")} style={{background:"#FEF3C7",border:"1px solid #FCD34D",borderRadius:10,padding:"10px 8px",fontSize:11,fontWeight:700,cursor:"pointer",textAlign:"center",color:"#92400E"}}>
+        📋 BC
       </button>
-      <button onClick={()=>goPage("commandes")} style={{background:"#F4F4F2",border:"none",borderRadius:8,padding:"10px",fontSize:12,fontWeight:500,cursor:"pointer",textAlign:"left"}}>
-        🛒 Nouvelle commande
+      <button onClick={()=>goPage("bulletinsLivraison")} style={{background:"#DCFCE7",border:"1px solid #86EFAC",borderRadius:10,padding:"10px 8px",fontSize:11,fontWeight:700,cursor:"pointer",textAlign:"center",color:"#065F46"}}>
+        🚚 BL
       </button>
-      <button onClick={()=>goPage("contrats")} style={{background:"#F4F4F2",border:"none",borderRadius:8,padding:"10px",fontSize:12,fontWeight:500,cursor:"pointer",textAlign:"left"}}>
-        💼 Nouvelle offre
+      <button onClick={()=>goPage("commandes")} style={{background:"#F4F4F2",border:"1px solid #E5E7EB",borderRadius:10,padding:"10px 8px",fontSize:11,fontWeight:500,cursor:"pointer",textAlign:"center",color:"#374151"}}>
+        🛒 Commande
       </button>
-      <button onClick={()=>goPage("compta")} style={{background:"#F4F4F2",border:"none",borderRadius:8,padding:"10px",fontSize:12,fontWeight:500,cursor:"pointer",textAlign:"left"}}>
-        💰 Nouvelle écriture
-      </button>
-      <button onClick={()=>goPage("fournisseurs")} style={{background:"#F4F4F2",border:"none",borderRadius:8,padding:"10px",fontSize:12,fontWeight:500,cursor:"pointer",textAlign:"left",gridColumn:"1 / -1"}}>
-        📥 Factures fournisseurs
+      <button onClick={()=>goPage("compta")} style={{background:"#F4F4F2",border:"1px solid #E5E7EB",borderRadius:10,padding:"10px 8px",fontSize:11,fontWeight:500,cursor:"pointer",textAlign:"center",color:"#374151"}}>
+        💰 Compta
       </button>
     </div>
   </Card>
@@ -12121,6 +12129,37 @@ const BulletinsLivraison = ({st, setSt, setTab=(_any:any)=>{}}) => {
     alert("✅ Livraison enregistrée !");
   };
 
+  const creerFactureFromBL = (bl:any) => {
+    if(!window.confirm("Créer une facture depuis ce bulletin de livraison ?")) return;
+    const y=new Date().getFullYear();
+    const existing=(st.factures||[]).map((f:any)=>f.numero);
+    let n=1; while(existing.includes("FAC-"+y+"-"+String(n).padStart(3,"0")))n++;
+    const numero="FAC-"+y+"-"+String(n).padStart(3,"0");
+    const fId=uid();
+    const lignesOk=(bl.lignes||[]).filter((l:any)=>l.qte>0).map((l:any)=>{
+      const prod=(st.produits||[]).find((p:any)=>p.id===l.produitId);
+      return {produitId:l.produitId,designation:prod?[prod.nom,prod.variante,prod.format].filter(Boolean).join(" "):l.produitId,qte:l.qte,prix:l.prixUnitaire||(prod?.prixRevendeur||0)};
+    });
+    const total=lignesOk.reduce((s:number,l:any)=>s+l.qte*l.prix,0);
+    const newFac:any={
+      id:fId,numero,date:today(),dateEcheance:"",statut:"en attente",envoyee:false,
+      typeClient:"revendeur",
+      clientNom:bl.clientNom,clientEmail:bl.clientEmail||"",
+      clientAdresse:bl.clientAdresse||"",clientNpa:bl.clientNpa||"",clientVille:bl.clientVille||"",
+      partenaireId:"",
+      lignes:lignesOk,lignesOffertes:[],total,
+      totalRabais:0,comptOffert:"3800",
+      notes:"Issue du bulletin de livraison "+bl.numero,
+      bulletinLivraisonId:bl.id,
+    };
+    setSt((p:any)=>({
+      ...p,
+      factures:[...(p.factures||[]),newFac],
+      bulletinsLivraison:(p.bulletinsLivraison||[]).map((b:any)=>b.id===bl.id?{...b,factureId:fId,factureNumero:numero}:b),
+    }));
+    alert(`✅ Facture ${numero} créée !\nRetrouve-la dans Comptabilité → Factures.\n\nUne fois marquée payée, les écritures comptables seront générées automatiquement.`);
+  };
+
   // ── VUE DÉTAIL ──
   if(view) {
     const sc=SC(view.statut);
@@ -12149,9 +12188,25 @@ const BulletinsLivraison = ({st, setSt, setTab=(_any:any)=>{}}) => {
           </Card>
         )}
         {view.statut==="livre"&&(
-          <div style={{background:"#DCFCE7",border:"1px solid #86EFAC",borderRadius:12,padding:"12px 14px",marginBottom:14}}>
-            <p style={{fontSize:12,fontWeight:700,color:"#15803D"}}>📦 Livré le {fmt(view.dateLivraison)}</p>
-            {view.signatureNom&&<p style={{fontSize:11,color:"#166534",marginTop:2}}>Signé par : {view.signatureNom}</p>}
+          <div style={{marginBottom:14}}>
+            <div style={{background:"#DCFCE7",border:"1px solid #86EFAC",borderRadius:12,padding:"12px 14px",marginBottom:8}}>
+              <p style={{fontSize:12,fontWeight:700,color:"#15803D"}}>📦 Livré le {fmt(view.dateLivraison)}</p>
+              {view.signatureNom&&<p style={{fontSize:11,color:"#166534",marginTop:2}}>Signé par : {view.signatureNom}</p>}
+            </div>
+            {!view.factureId&&(
+              <div style={{background:"#0A0A0A",borderRadius:12,padding:"14px"}}>
+                <p style={{fontSize:10,color:"#E8B64C",fontWeight:600,textTransform:"uppercase",letterSpacing:"0.04em",marginBottom:8}}>⚡ Action suivante</p>
+                <button onClick={()=>creerFactureFromBL(view)} style={{width:"100%",background:"#E8B64C",color:"#0A0A0A",border:"none",borderRadius:9,padding:"12px",fontWeight:700,fontSize:13,cursor:"pointer"}}>
+                  🧾 Créer la facture
+                </button>
+              </div>
+            )}
+            {view.factureId&&(
+              <div style={{background:"#F0FDF4",border:"1px solid #86EFAC",borderRadius:12,padding:"10px 14px"}}>
+                <p style={{fontSize:12,fontWeight:700,color:"#15803D"}}>🧾 Facture créée : {view.factureNumero||"—"}</p>
+                <button onClick={()=>setTab("factures")} style={{background:"none",border:"none",color:"#15803D",fontSize:11,cursor:"pointer",padding:0,textDecoration:"underline",marginTop:2}}>→ Voir les factures</button>
+              </div>
+            )}
           </div>
         )}
         <Card style={{marginBottom:12}}>
@@ -13943,6 +13998,7 @@ React.useEffect(()=>{
 const [tab,setTab] = useState("dashboard");
 const [showMore,setShowMore] = useState(false);
 const [showMenu,setShowMenu] = useState(false);
+const [showFAB,setShowFAB] = useState(false);
 const [st,setSt] = useState(INIT);
 
 const [loading, setLoading] = React.useState(true);
@@ -14427,6 +14483,29 @@ return (
       </div>
     </div>
 
+    {/* ── FAB "+" FLOTTANT ──────────────────────────── */}
+    {showFAB && <div onClick={()=>setShowFAB(false)} style={{position:"fixed",inset:0,zIndex:390,background:"rgba(0,0,0,.35)"}}/>}
+    <div style={{position:"fixed",bottom:"calc(24px + env(safe-area-inset-bottom))",right:"max(16px, calc(50% - 224px))",zIndex:400,display:"flex",flexDirection:"column",alignItems:"flex-end",gap:8}}>
+      {showFAB && (
+        <div style={{display:"flex",flexDirection:"column",gap:8,alignItems:"flex-end",marginBottom:4}}>
+          {[
+            {emoji:"🎯",label:"Nouveau prospect",tab:"prospects"},
+            {emoji:"📄",label:"Nouvelle offre",tab:"offres"},
+            {emoji:"📋",label:"Nouveau BC",tab:"bulletinsCommande"},
+            {emoji:"🧾",label:"Nouvelle facture",tab:"factures"},
+          ].map((a,i)=>(
+            <button key={i} onClick={()=>{setShowFAB(false);goTo(a.tab);}}
+              style={{display:"flex",alignItems:"center",gap:10,background:"#fff",border:"none",borderRadius:50,padding:"10px 16px 10px 12px",boxShadow:"0 4px 16px rgba(0,0,0,.18)",fontSize:13,fontWeight:600,color:"#0A0A0A",cursor:"pointer",whiteSpace:"nowrap"}}>
+              <span style={{fontSize:16}}>{a.emoji}</span>{a.label}
+            </button>
+          ))}
+        </div>
+      )}
+      <button onClick={()=>setShowFAB(p=>!p)}
+        style={{width:52,height:52,borderRadius:"50%",background:"#0A0A0A",border:"none",color:"#F2C94C",fontSize:26,fontWeight:300,cursor:"pointer",boxShadow:"0 4px 20px rgba(0,0,0,.3)",display:"flex",alignItems:"center",justifyContent:"center",transition:"transform .15s",transform:showFAB?"rotate(45deg)":"rotate(0deg)"}}>
+        +
+      </button>
+    </div>
 
   </div>
 </>
