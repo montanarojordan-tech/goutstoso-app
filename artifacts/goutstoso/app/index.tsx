@@ -474,6 +474,33 @@ const getProchainRappelFn = (f) => {
 // ══════════════════════════════════════════════════════════════
 // PAGE: TABLEAU DE BORD
 // ══════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════
+// COMPOSANT BREADCRUMB
+// ══════════════════════════════════════════════════════════════
+const Breadcrumb = ({crumbs}:{crumbs:{label:string;onClick?:()=>void}[]}) => (
+  <div style={{display:"flex",alignItems:"center",gap:2,marginBottom:12,flexWrap:"wrap" as const}}>
+    {crumbs.map((c,i)=>(
+      <React.Fragment key={i}>
+        {i>0&&<span style={{color:"#D1D5DB",fontSize:12,margin:"0 2px",flexShrink:0}}>›</span>}
+        {c.onClick
+          ? <button onClick={c.onClick} style={{background:"none",border:"none",padding:0,color:"#9CA3AF",fontSize:11,fontWeight:500,cursor:"pointer",textDecoration:"underline",textDecorationColor:"#D1D5DB"}}>{c.label}</button>
+          : <span style={{fontSize:11,fontWeight:700,color:"#0A0A0A",maxWidth:200,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" as const}}>{c.label}</span>
+        }
+      </React.Fragment>
+    ))}
+  </div>
+);
+
+// ── Helper: chargement JSZip depuis CDN ──────────────────────
+const loadJSZip = ():Promise<any> => new Promise((res,rej) => {
+  if((window as any).JSZip){res((window as any).JSZip);return;}
+  const s=document.createElement("script");
+  s.src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js";
+  s.onload=()=>res((window as any).JSZip);
+  s.onerror=rej;
+  document.head.appendChild(s);
+});
+
 const Dashboard = ({st, setSt, setTab, authUser, sendEmail}) => {
 const now = new Date();
 const today_str = today();
@@ -863,6 +890,44 @@ Bonjour {authUser.display_name||authUser.username}
             </div>
           ))}
         </div>
+      </div>
+    );
+  })()}
+
+  {/* CA PAR CANAL */}
+  {(()=>{
+    const facturesPaid=(st.factures||[]).filter((f:any)=>f.statut==="payée");
+    const pvIds=new Set((st.partenaires||[]).map((p:any)=>p.id));
+    const caRevendeurs=sum(facturesPaid.filter((f:any)=>f.typeClient==="revendeur"&&!pvIds.has(f.partenaireId)).map((f:any)=>calcTotalNet(f,st.produits)));
+    const caDepotVente=sum(facturesPaid.filter((f:any)=>pvIds.has(f.partenaireId)).map((f:any)=>calcTotalNet(f,st.produits)));
+    const caWeb=sum((st.commandes||[]).filter((c:any)=>["payée","livrée","expédiée"].includes(c.statut)).map((c:any)=>{
+      const t=sum((c.lignes||[]).filter((l:any)=>l.produitId).map((l:any)=>{const p=(st.produits||[]).find((x:any)=>x.id===l.produitId);return (p?.prixClient||0)*(l.qte||0);}));
+      return t-(parseFloat(c.rabais)||0)+(parseFloat(c.fraisPort)||0);
+    }));
+    const caTotal=caRevendeurs+caDepotVente+caWeb;
+    if(caTotal===0)return null;
+    const pct=(v:number)=>caTotal>0?Math.round(v/caTotal*100):0;
+    return (
+      <div style={{marginBottom:18}}>
+        <p style={{fontSize:10,fontWeight:600,color:"#737373",textTransform:"uppercase" as const,letterSpacing:"0.04em",marginBottom:10}}>📊 CA par canal</p>
+        <Card style={{padding:"12px 14px"}}>
+          {[
+            {label:"🤝 Revendeurs",ca:caRevendeurs,color:"#1E40AF"},
+            {label:"🏪 Dépôts-vente",ca:caDepotVente,color:"#065F46"},
+            {label:"🛒 Web / Shopify",ca:caWeb,color:"#6D28D9"},
+          ].map((ch,i)=>(
+            <div key={i} style={{marginBottom:i<2?10:0}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:3}}>
+                <span style={{fontSize:12,fontWeight:600}}>{ch.label}</span>
+                <span style={{fontSize:12,fontWeight:700,color:ch.color}}>{chf(ch.ca)} <span style={{fontSize:10,fontWeight:400,color:"#9CA3AF"}}>{pct(ch.ca)}%</span></span>
+              </div>
+              <div style={{height:5,background:"#F3F4F6",borderRadius:3,overflow:"hidden"}}>
+                <div style={{height:"100%",width:pct(ch.ca)+"%",background:ch.color,borderRadius:3}}/>
+              </div>
+            </div>
+          ))}
+          <p style={{fontSize:10,color:"#9CA3AF",marginTop:8,borderTop:"1px solid #F3F4F6",paddingTop:6}}>CA facturé total : {chf(caTotal)}</p>
+        </Card>
       </div>
     );
   })()}
@@ -8182,6 +8247,8 @@ const nbPartenaire = clients.filter(c=>c.categorie==="partenaire").length;
 
 // Stats par client (inclut lookup via partenaire lié)
 const getStats = (clientId) => {
+const clientObj=(st.clients||[]).find((c:any)=>c.id===clientId);
+const clientNom=clientObj?.nom||"";
 const linkedPv = (st.partenaires||[]).find(pv=>pv.clientId===clientId);
 const commandes = (st.commandes||[]).filter(c=>
   c.clientId===clientId || (linkedPv && c.partenaireId===linkedPv.id)
@@ -8195,6 +8262,11 @@ const offres = (st.contrats||[]).filter(c=>
 const contrats = (st.contrats||[]).filter(c=>
   c.type!=="offre" && !c.livraison && linkedPv && c.partenaireId===linkedPv.id
 );
+const offresV5=(st.offres||[]).filter((o:any)=>
+  (clientNom&&o.clientNom===clientNom)||(linkedPv&&o.partenaireId===linkedPv.id)
+);
+const bcsClient=(st.bulletinsCommande||[]).filter((b:any)=>clientNom&&b.clientNom===clientNom);
+const blsClient=(st.bulletinsLivraison||[]).filter((b:any)=>clientNom&&b.clientNom===clientNom);
 const ca = sum(commandes.map(c=>{
 const t = sum((c.lignes||[]).filter(l=>l.produitId).map(l=>{
 const p = st.produits.find(x=>x.id===l.produitId);
@@ -8204,7 +8276,7 @@ return t - (parseFloat(c.rabais)||0) + (parseFloat(c.fraisPort)||0);
 }));
 const facturesNonPayees = factures.filter(f=>f.statut!=="payée");
 const aEncaisser = sum(facturesNonPayees.map(f=>calcTotalNet(f,st.produits)));
-return {nbCommandes:commandes.length,ca,commandes,nbNonPayees:facturesNonPayees.length,aEncaisser,factures,offres,contrats,facturesNonPayees};
+return {nbCommandes:commandes.length,ca,commandes,nbNonPayees:facturesNonPayees.length,aEncaisser,factures,offres,contrats,facturesNonPayees,offresV5,bcsClient,blsClient};
 };
 
 // Vue détail client
@@ -8212,7 +8284,7 @@ if(view) {
 const stats = getStats(view.id);
 return (
 <div className="fade">
-<button onClick={()=>setViewId(null)} style={{display:"flex",alignItems:"center",gap:6,background:"none",border:"none",color:"#9CA3AF",fontSize:13,marginBottom:12,padding:0,cursor:"pointer"}}>← Retour clients</button>
+<Breadcrumb crumbs={[{label:"Clients",onClick:()=>setViewId(null)},{label:view.nom}]}/>
 
     <div style={{background:"#111",borderRadius:14,padding:"16px",marginBottom:14}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8}}>
@@ -8239,7 +8311,7 @@ return (
     )}
 
     {/* Actions */}
-    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:14}}>
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
       <button onClick={()=>{setForm({...view});setModal("form");setViewId(null);}} style={{background:"#F5F5F0",border:"none",borderRadius:12,padding:"12px",fontWeight:600,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
         <Ic n="edit" s={14}/> Modifier
       </button>
@@ -8247,6 +8319,30 @@ return (
         <Ic n="trash" s={14}/> Supprimer
       </button>
     </div>
+    <button onClick={async()=>{
+      try {
+        const JSZip=await loadJSZip();
+        const zip=new JSZip();
+        const s=getStats(view.id);
+        zip.file("client.json",JSON.stringify({...view},null,2));
+        if(s.factures.length)zip.file("factures.json",JSON.stringify(s.factures,null,2));
+        if(s.commandes.length)zip.file("commandes.json",JSON.stringify(s.commandes,null,2));
+        if(s.offresV5.length)zip.file("offres.json",JSON.stringify(s.offresV5,null,2));
+        if(s.bcsClient.length)zip.file("bulletins_commande.json",JSON.stringify(s.bcsClient,null,2));
+        if(s.blsClient.length)zip.file("bulletins_livraison.json",JSON.stringify(s.blsClient,null,2));
+        const resume=[
+          `Dossier client : ${view.nom}`,`Exporté le : ${new Date().toLocaleDateString("fr-CH")}`,``,
+          `CA total : CHF ${s.ca.toFixed(2)}`,`Commandes : ${s.nbCommandes}`,`Factures impayées : ${s.nbNonPayees} (CHF ${s.aEncaisser.toFixed(2)})`,
+          `Offres V5 : ${s.offresV5.length}`,`BC : ${s.bcsClient.length}`,`BL : ${s.blsClient.length}`,
+        ].join("\n");
+        zip.file("resume.txt",resume);
+        const blob=await zip.generateAsync({type:"blob"});
+        const a=document.createElement("a"); a.href=URL.createObjectURL(blob);
+        a.download=`dossier_${view.nom.replace(/[^a-z0-9]/gi,"_")}.zip`; a.click();
+      } catch(e){ alert("Erreur lors de la génération du ZIP. Vérifie ta connexion internet."); }
+    }} style={{width:"100%",background:"#0A0A0A",color:"#F2C94C",border:"none",borderRadius:12,padding:"11px",fontWeight:600,fontSize:12,cursor:"pointer",marginBottom:14,display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+      📦 Télécharger le dossier ZIP
+    </button>
 
     {/* Stats */}
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:14}}>
@@ -8311,12 +8407,15 @@ return (
         "en retard":{bg:"#FEF2F2",c:"#991B1B"},"résilié":{bg:"#FEF2F2",c:"#991B1B"},
         "refusé":{bg:"#FEF2F2",c:"#991B1B"},
       }[s]||{bg:"#F3F4F6",c:"#6B7280"});
-      const total = stats.offres.length+stats.contrats.length+stats.commandes.length+stats.factures.length;
+      const total = stats.offresV5.length+stats.offres.length+stats.bcsClient.length+stats.blsClient.length+stats.contrats.length+stats.commandes.length+stats.factures.length;
       const groupes = [
-        {label:"📋 Offres",items:stats.offres,type:"offre"},
+        {label:"📄 Offres",items:stats.offresV5,type:"offre"},
+        {label:"📋 Bulletins de commande",items:stats.bcsClient,type:"bc"},
+        {label:"🚚 Bulletins de livraison",items:stats.blsClient,type:"bl"},
+        {label:"📋 Offres contrats (ancien)",items:stats.offres,type:"offre"},
         {label:"📑 Contrats dépôt-vente",items:stats.contrats,type:"contrat"},
-        {label:"🛒 Commandes",items:stats.commandes,type:"commande"},
-        {label:"📄 Factures",items:stats.factures,type:"facture"},
+        {label:"🛒 Commandes web",items:stats.commandes,type:"commande"},
+        {label:"🧾 Factures",items:stats.factures,type:"facture"},
       ].filter(g=>g.items.length>0);
       if(total===0) return (
         <Card style={{padding:"16px",textAlign:"center" as const}}>
@@ -11758,7 +11857,7 @@ const Prospects = ({st, setSt, setTab=(_any:any)=>{}}) => {
     const act=actionSuggeree(view);
     return (
       <div className="fade">
-        <button onClick={()=>setViewId(null)} style={{display:"flex",alignItems:"center",gap:6,background:"none",border:"none",color:"#9CA3AF",fontSize:13,marginBottom:12,padding:0,cursor:"pointer"}}>← Prospects</button>
+        <Breadcrumb crumbs={[{label:"Prospects",onClick:()=>setViewId(null)},{label:view.nom}]}/>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:10}}>
           <div style={{flex:1}}>
             <h2 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:22,fontWeight:700}}>{view.nomEtablissement}</h2>
@@ -11983,7 +12082,7 @@ const BulletinsCommande = ({st, setSt, setTab=(_any:any)=>{}}) => {
     const sc=SC(view.statut); const tot=totalBC(view);
     return (
       <div className="fade">
-        <button onClick={()=>setViewId(null)} style={{display:"flex",alignItems:"center",gap:6,background:"none",border:"none",color:"#9CA3AF",fontSize:13,marginBottom:12,padding:0,cursor:"pointer"}}>← Bulletins de commande</button>
+        <Breadcrumb crumbs={[{label:"Bulletins de commande",onClick:()=>setViewId(null)},{label:view.numero}]}/>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:10}}>
           <div><h2 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:22,fontWeight:700}}>{view.numero}</h2><p style={{fontSize:12,color:"#737373"}}>{view.clientNom} · {fmt(view.date)}</p></div>
           <span style={{background:sc.bg,color:sc.text,border:`1px solid ${sc.border}`,borderRadius:20,padding:"4px 12px",fontSize:11,fontWeight:700,flexShrink:0}}>{sc.emoji} {sc.label}</span>
@@ -12165,7 +12264,7 @@ const BulletinsLivraison = ({st, setSt, setTab=(_any:any)=>{}}) => {
     const sc=SC(view.statut);
     return (
       <div className="fade">
-        <button onClick={()=>{setViewId(null);setShowSig(false);}} style={{display:"flex",alignItems:"center",gap:6,background:"none",border:"none",color:"#9CA3AF",fontSize:13,marginBottom:12,padding:0,cursor:"pointer"}}>← Bulletins de livraison</button>
+        <Breadcrumb crumbs={[{label:"Bulletins de livraison",onClick:()=>{setViewId(null);setShowSig(false);}},{label:view.numero}]}/>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:10}}>
           <div>
             <h2 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:22,fontWeight:700}}>{view.numero}</h2>
