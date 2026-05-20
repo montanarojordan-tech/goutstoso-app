@@ -932,10 +932,13 @@ Bonjour {authUser.display_name||authUser.username}
     const pvIds=new Set((st.partenaires||[]).map((p:any)=>p.id));
     const caRevendeurs=sum(facturesPaid.filter((f:any)=>f.typeClient==="revendeur"&&!pvIds.has(f.partenaireId)).map((f:any)=>calcTotalNet(f,st.produits)));
     const caDepotVente=sum(facturesPaid.filter((f:any)=>pvIds.has(f.partenaireId)).map((f:any)=>calcTotalNet(f,st.produits)));
-    const caWeb=sum((st.commandes||[]).filter((c:any)=>["payée","livrée","expédiée"].includes(c.statut)).map((c:any)=>{
-      const t=sum((c.lignes||[]).filter((l:any)=>l.produitId).map((l:any)=>{const p=(st.produits||[]).find((x:any)=>x.id===l.produitId);return (p?.prixClient||0)*(l.qte||0);}));
-      return t-(parseFloat(c.rabais)||0)+(parseFloat(c.fraisPort)||0);
-    }));
+    const caWeb=sum([
+      ...((st.commandes||[]).filter((c:any)=>["payée","livrée","expédiée"].includes(c.statut)&&(c.source==="direct"||c.source==="shopify")).map((c:any)=>{
+        const t=sum((c.lignes||[]).filter((l:any)=>l.produitId).map((l:any)=>{const p=(st.produits||[]).find((x:any)=>x.id===l.produitId);return (p?.prixClient||0)*(l.qte||0);}));
+        return t-(parseFloat(c.rabais)||0)+(parseFloat(c.fraisPort)||0);
+      })),
+      ...((st.ventesShopify||[]).filter((s:any)=>s.statutPaiement==="paye").map((s:any)=>parseFloat(s.totalTTC)||0)),
+    ]);
     const caTotal=caRevendeurs+caDepotVente+caWeb;
     if(caTotal===0)return null;
     const pct=(v:number)=>caTotal>0?Math.round(v/caTotal*100):0;
@@ -946,7 +949,7 @@ Bonjour {authUser.display_name||authUser.username}
           {[
             {label:"🤝 Revendeurs",ca:caRevendeurs,color:"#1E40AF"},
             {label:"🏪 Dépôts-vente",ca:caDepotVente,color:"#065F46"},
-            {label:"🛒 Web / Shopify",ca:caWeb,color:"#6D28D9"},
+            {label:"🛒 Web & clients directs",ca:caWeb,color:"#6D28D9"},
           ].map((ch,i)=>(
             <div key={i} style={{marginBottom:i<2?10:0}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:3}}>
