@@ -274,6 +274,9 @@ contrats:[
 ],
 factures:[],
 offres:[],
+prospects:[],
+bulletinsCommande:[],
+bulletinsLivraison:[],
 production:{recettes:[], macerations:[], historique:[]},
 transactions:[
 // Journal comptable réel - extrait des images
@@ -980,6 +983,28 @@ const COULEURS = {
 "3×50cl sans verres": {bg:"#F3E5F5",accent:"#6A1B9A",light:"#E1BEE7"},
 "3×25cl + 2 verres": {bg:"#F3E5F5",accent:"#6A1B9A",light:"#E1BEE7"},
 "3×25cl sans verres": {bg:"#F3E5F5",accent:"#6A1B9A",light:"#E1BEE7"},
+};
+
+// ── STATUTS COULEURS UNIVERSELS (V5) ──────────────────────────
+const STATUTS_COULEURS: Record<string,{bg:string,border:string,text:string,emoji:string,label:string}> = {
+  brouillon:      {bg:"#F9FAFB",border:"#D1D5DB",text:"#374151",emoji:"📝",label:"Brouillon"},
+  a_contacter:    {bg:"#F3F4F6",border:"#D1D5DB",text:"#374151",emoji:"⚪",label:"À contacter"},
+  contacte:       {bg:"#DBEAFE",border:"#93C5FD",text:"#1E40AF",emoji:"🔵",label:"Contacté"},
+  interesse:      {bg:"#FEF3C7",border:"#FCD34D",text:"#92400E",emoji:"🟡",label:"Intéressé"},
+  en_discussion:  {bg:"#FFEDD5",border:"#FDBA74",text:"#9A3412",emoji:"🟠",label:"En discussion"},
+  offre_en_cours: {bg:"#EDE9FE",border:"#C4B5FD",text:"#6D28D9",emoji:"📋",label:"Offre en cours"},
+  envoye:         {bg:"#FFEDD5",border:"#FDBA74",text:"#9A3412",emoji:"📤",label:"Envoyé"},
+  en_attente:     {bg:"#FFEDD5",border:"#FDBA74",text:"#9A3412",emoji:"⏳",label:"En attente"},
+  signe:          {bg:"#DCFCE7",border:"#86EFAC",text:"#15803D",emoji:"✅",label:"Signé"},
+  accepte:        {bg:"#DCFCE7",border:"#86EFAC",text:"#15803D",emoji:"✅",label:"Accepté"},
+  paye:           {bg:"#DCFCE7",border:"#86EFAC",text:"#15803D",emoji:"💚",label:"Payé"},
+  livre:          {bg:"#DCFCE7",border:"#86EFAC",text:"#15803D",emoji:"📦",label:"Livré"},
+  converti:       {bg:"#D1FAE5",border:"#6EE7B7",text:"#065F46",emoji:"🟢",label:"Converti"},
+  refuse:         {bg:"#FEE2E2",border:"#FCA5A5",text:"#991B1B",emoji:"🔴",label:"Refusé"},
+  perdu:          {bg:"#FEE2E2",border:"#FCA5A5",text:"#991B1B",emoji:"🔴",label:"Perdu"},
+  expire:         {bg:"#F3F4F6",border:"#D1D5DB",text:"#6B7280",emoji:"⚫",label:"Expiré"},
+  annule:         {bg:"#F3F4F6",border:"#D1D5DB",text:"#6B7280",emoji:"⚫",label:"Annulé"},
+  a_livrer:       {bg:"#DBEAFE",border:"#93C5FD",text:"#1E40AF",emoji:"🚚",label:"À livrer"},
 };
 
 const Produits = ({st,setSt}) => {
@@ -11433,6 +11458,670 @@ const RECETTES_DEFAULT = [
   },
 ];
 
+// ══════════════════════════════════════════════════════════════
+// PDF : BULLETIN DE COMMANDE (BC)
+// ══════════════════════════════════════════════════════════════
+const genererBCPDF = async (bc:any, st:any) => {
+try {
+  await new Promise<void>((res,rej)=>{ if((window as any).jspdf){res();return;} const s=document.createElement("script"); s.src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"; s.onload=()=>res(); s.onerror=rej; document.head.appendChild(s); });
+  const {jsPDF}=(window as any).jspdf;
+  const doc=new jsPDF({unit:"mm",format:"a4"});
+  const mg=15;
+  doc.setFillColor(10,10,10); doc.rect(0,0,210,38,"F");
+  pdfLogo(doc,mg);
+  doc.setTextColor(242,201,76); doc.setFontSize(9); doc.setFont("helvetica","bold");
+  doc.text("BULLETIN DE COMMANDE",mg+36,16);
+  doc.setTextColor(255,255,255); doc.setFontSize(7); doc.setFont("helvetica","normal");
+  doc.text(`${bc.numero} · ${fmt(bc.date)}`,mg+36,22);
+  doc.text("Goûtstoso · Rue des Sources 19 · 2613 Villeret · admin@goutstoso.ch",mg+36,28);
+  let y=48;
+  doc.setTextColor(0,0,0); doc.setFontSize(8); doc.setFont("helvetica","bold");
+  doc.text("DESTINATAIRE",mg,y); y+=5;
+  doc.setFont("helvetica","normal"); doc.setFontSize(8);
+  if(bc.clientNom){doc.text(bc.clientNom,mg,y);y+=4.5;}
+  if(bc.clientAdresse){doc.text(bc.clientAdresse,mg,y);y+=4.5;}
+  if(bc.clientNpa||bc.clientVille){doc.text([bc.clientNpa,bc.clientVille].filter(Boolean).join(" "),mg,y);y+=4.5;}
+  if(bc.clientEmail){doc.text(bc.clientEmail,mg,y);y+=4.5;}
+  const rx=120; let ry=48;
+  doc.setFont("helvetica","bold"); doc.text("DÉTAILS",rx,ry); ry+=5;
+  doc.setFont("helvetica","normal");
+  doc.text(`Numéro : ${bc.numero}`,rx,ry);ry+=4.5;
+  doc.text(`Date : ${fmt(bc.date)}`,rx,ry);ry+=4.5;
+  if(bc.dateLivraisonPrevue){doc.text(`Livraison : ${fmt(bc.dateLivraisonPrevue)}`,rx,ry);ry+=4.5;}
+  if(bc.modeReglement){doc.text(`Règlement : ${bc.modeReglement}`,rx,ry);ry+=4.5;}
+  y=Math.max(y,ry,85);
+  doc.setFillColor(10,10,10);doc.rect(mg,y,180,7,"F");
+  doc.setTextColor(255,255,255);doc.setFontSize(8);doc.setFont("helvetica","bold");
+  doc.text("Produit",mg+2,y+5); doc.text("Qté",132,y+5); doc.text("P.U.",152,y+5); doc.text("Total CHF",170,y+5);
+  y+=7; let total=0;
+  (bc.lignes||[]).forEach((l:any,i:number)=>{
+    const prod=(st.produits||[]).find((p:any)=>p.id===l.produitId); if(!prod)return;
+    const nm=[prod.nom,prod.variante,prod.format].filter(Boolean).join(" ");
+    const pu=l.prixUnitaire||prod.prixRevendeur||0; const tt=pu*(l.qte||0); total+=tt;
+    doc.setFillColor(i%2===0?249:255,i%2===0?249:255,i%2===0?246:255); doc.rect(mg,y,180,6,"F");
+    doc.setTextColor(0,0,0);doc.setFont("helvetica","normal");doc.setFontSize(8);
+    doc.text(nm.substring(0,44),mg+2,y+4.5); doc.text(String(l.qte||0),133,y+4.5); doc.text(pu.toFixed(2),151,y+4.5); doc.text(tt.toFixed(2),172,y+4.5);
+    y+=6;
+  });
+  y+=2; doc.setDrawColor(10,10,10);doc.setLineWidth(0.3);doc.line(mg,y,mg+180,y);y+=5;
+  doc.setFont("helvetica","bold");doc.setFontSize(9); doc.setTextColor(0,0,0);
+  const totTxt=`TOTAL : CHF ${total.toFixed(2)}`;
+  doc.text(totTxt,mg+180-doc.getTextWidth(totTxt),y); y+=10;
+  if(bc.notes){doc.setFont("helvetica","normal");doc.setFontSize(7);doc.setTextColor(80,80,80);doc.text("Notes : "+bc.notes,mg,y,{maxWidth:180});y+=10;}
+  doc.setFontSize(6);doc.setTextColor(100,100,100);
+  doc.text("Goûtstoso · Rue des Sources 19 · 2613 Villeret · admin@goutstoso.ch · Conformément à nos CGV",mg,285);
+  doc.save(`BC_${bc.numero}.pdf`);
+} catch(e){alert("Erreur PDF BC : "+(e as any).message);}
+};
+
+// ══════════════════════════════════════════════════════════════
+// PDF : BULLETIN DE LIVRAISON (BL)
+// ══════════════════════════════════════════════════════════════
+const genererBLPDF = async (bl:any, st:any) => {
+try {
+  await new Promise<void>((res,rej)=>{ if((window as any).jspdf){res();return;} const s=document.createElement("script"); s.src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"; s.onload=()=>res(); s.onerror=rej; document.head.appendChild(s); });
+  const {jsPDF}=(window as any).jspdf;
+  const doc=new jsPDF({unit:"mm",format:"a4"});
+  const mg=15;
+  doc.setFillColor(10,10,10); doc.rect(0,0,210,38,"F");
+  pdfLogo(doc,mg);
+  doc.setTextColor(242,201,76); doc.setFontSize(9); doc.setFont("helvetica","bold");
+  doc.text("BULLETIN DE LIVRAISON",mg+36,16);
+  doc.setTextColor(255,255,255); doc.setFontSize(7); doc.setFont("helvetica","normal");
+  doc.text(`${bl.numero} · ${fmt(bl.dateLivraison||bl.dateCreation)}`,mg+36,22);
+  doc.text("Goûtstoso · Rue des Sources 19 · 2613 Villeret · admin@goutstoso.ch",mg+36,28);
+  let y=48;
+  doc.setTextColor(0,0,0); doc.setFontSize(8); doc.setFont("helvetica","bold");
+  doc.text("DESTINATAIRE",mg,y); y+=5;
+  doc.setFont("helvetica","normal"); doc.setFontSize(8);
+  if(bl.clientNom){doc.text(bl.clientNom,mg,y);y+=4.5;}
+  if(bl.clientAdresse){doc.text(bl.clientAdresse,mg,y);y+=4.5;}
+  if(bl.clientNpa||bl.clientVille){doc.text([bl.clientNpa,bl.clientVille].filter(Boolean).join(" "),mg,y);y+=4.5;}
+  const rx=120; let ry=48;
+  doc.setFont("helvetica","bold"); doc.text("DÉTAILS",rx,ry); ry+=5;
+  doc.setFont("helvetica","normal");
+  doc.text(`Numéro : ${bl.numero}`,rx,ry);ry+=4.5;
+  doc.text(`Date livraison : ${fmt(bl.dateLivraison||bl.dateCreation)}`,rx,ry);ry+=4.5;
+  if(bl.bcNumero){doc.text(`BC réf. : ${bl.bcNumero}`,rx,ry);ry+=4.5;}
+  y=Math.max(y,ry,85);
+  doc.setFillColor(10,10,10);doc.rect(mg,y,180,7,"F");
+  doc.setTextColor(255,255,255);doc.setFontSize(8);doc.setFont("helvetica","bold");
+  doc.text("Produit",mg+2,y+5); doc.text("Qté",142,y+5); doc.text("Lot",162,y+5);
+  y+=7;
+  (bl.lignes||[]).forEach((l:any,i:number)=>{
+    const prod=(st.produits||[]).find((p:any)=>p.id===l.produitId); if(!prod)return;
+    const nm=[prod.nom,prod.variante,prod.format].filter(Boolean).join(" ");
+    doc.setFillColor(i%2===0?249:255,i%2===0?249:255,i%2===0?246:255); doc.rect(mg,y,180,6,"F");
+    doc.setTextColor(0,0,0);doc.setFont("helvetica","normal");doc.setFontSize(8);
+    doc.text(nm.substring(0,50),mg+2,y+4.5); doc.text(String(l.qte||0),143,y+4.5);
+    if(l.lot){doc.text(l.lot,162,y+4.5);}
+    y+=6;
+  });
+  y+=10;
+  doc.setFont("helvetica","bold");doc.setFontSize(8);doc.setTextColor(0,0,0);
+  doc.text("Signature du client (bon pour réception) :",mg,y); y+=8;
+  if(bl.signatureClient){
+    try{doc.addImage(bl.signatureClient,"PNG",mg,y,60,25);}catch(e){}
+    if(bl.signatureNom){doc.setFont("helvetica","normal");doc.setFontSize(8);doc.text(bl.signatureNom,mg,y+28);}
+    y+=32;
+  } else {
+    doc.setDrawColor(150,150,150);doc.setLineWidth(0.3);doc.rect(mg,y,60,20);y+=25;
+  }
+  doc.setFontSize(6);doc.setTextColor(100,100,100);
+  doc.text("Goûtstoso · Rue des Sources 19 · 2613 Villeret · admin@goutstoso.ch · www.goutstoso.ch",mg,285);
+  doc.save(`BL_${bl.numero}.pdf`);
+} catch(e){alert("Erreur PDF BL : "+(e as any).message);}
+};
+
+// ══════════════════════════════════════════════════════════════
+// MODULE : PROSPECTS (V5)
+// ══════════════════════════════════════════════════════════════
+const Prospects = ({st, setSt, setTab=(_any:any)=>{}}) => {
+  const [modal, setModal] = useState<string|null>(null);
+  const [viewId, setViewId] = useState<string|null>(null);
+  const [form, setForm] = useState<any>({});
+  const [filtreStatut, setFiltreStatut] = useState("tous");
+  const [search, setSearch] = useState("");
+  const [newInterType, setNewInterType] = useState("email");
+  const [newInterNote, setNewInterNote] = useState("");
+
+  const prospects:any[] = st.prospects || [];
+  const view = viewId ? prospects.find((p:any)=>p.id===viewId) : null;
+
+  const TYPES = ["cave","épicerie fine","restaurant","bar","hôtel","autre"];
+  const SOURCES = ["instagram","facebook","bouche à oreille","salon","site web","email","autre"];
+  const STATUTS_P = [
+    {id:"a_contacter",label:"À contacter"},{id:"contacte",label:"Contacté"},
+    {id:"interesse",label:"Intéressé"},{id:"en_discussion",label:"En discussion"},
+    {id:"offre_en_cours",label:"Offre en cours"},{id:"converti",label:"Converti"},{id:"perdu",label:"Perdu"},
+  ];
+  const SC = (s:string) => STATUTS_COULEURS[s]||{bg:"#F3F4F6",border:"#D1D5DB",text:"#374151",emoji:"⚪",label:s};
+
+  const emptyForm = () => ({
+    id:null,dateCreation:today(),nomEtablissement:"",typeEtab:"cave",
+    contactNom:"",contactFonction:"",email:"",telephone:"",
+    adresse:"",npa:"",ville:"",site:"",source:"instagram",
+    statut:"a_contacter",score:3,notes:"",interactions:[],
+    prochaineActionDate:"",prochaineActionType:"",offreId:null,
+  });
+
+  const save = () => {
+    if(!form.nomEtablissement?.trim()){alert("Nom de l'établissement requis");return;}
+    const saved={...form,id:form.id||uid(),modifieLe:today()};
+    if(form.id) setSt((p:any)=>({...p,prospects:(p.prospects||[]).map((x:any)=>x.id===form.id?saved:x)}));
+    else setSt((p:any)=>({...p,prospects:[...(p.prospects||[]),saved]}));
+    setModal(null); setViewId(saved.id);
+  };
+
+  const addInteraction = (pid:string, type:string, notes:string) => {
+    if(!notes.trim())return;
+    setSt((p:any)=>({...p,prospects:(p.prospects||[]).map((x:any)=>x.id===pid?{...x,interactions:[...(x.interactions||[]),{id:uid(),date:today(),type,notes}]}:x)}));
+    setNewInterNote("");
+  };
+
+  const convertirClient = (prospect:any) => {
+    if(!window.confirm(`Convertir "${prospect.nomEtablissement}" en client ?`))return;
+    const deja=(st.clients||[]).find((c:any)=>c.nom?.toLowerCase()===prospect.nomEtablissement.toLowerCase());
+    if(deja){alert("Un client avec ce nom existe déjà.");return;}
+    const nc={id:uid(),nom:prospect.nomEtablissement,email:prospect.email||"",telephone:prospect.telephone||"",adresse:prospect.adresse||"",npa:prospect.npa||"",ville:prospect.ville||"",categorie:"Client",notes:prospect.notes||""};
+    setSt((p:any)=>({...p,clients:[...(p.clients||[]),nc],prospects:(p.prospects||[]).map((x:any)=>x.id===prospect.id?{...x,statut:"converti",convertiEnClientId:nc.id}:x)}));
+    alert(`✅ "${prospect.nomEtablissement}" converti en client !`);
+  };
+
+  const creerOffre = (prospect:any) => {
+    const y2=new Date().getFullYear();
+    const ex=(st.offres||[]).map((o:any)=>o.numero||"");
+    let n=1; while(ex.includes("OFF-"+y2+"-"+String(n).padStart(3,"0")))n++;
+    const numero="OFF-"+y2+"-"+String(n).padStart(3,"0");
+    const id=uid();
+    const dv=new Date(); dv.setDate(dv.getDate()+30);
+    const newOffre:any={id,numero,date:today(),dateValidite:dv.toISOString().slice(0,10),prospectId:prospect.id,
+      clientNom:prospect.nomEtablissement,clientContact:prospect.contactNom||"",
+      clientAdresse:prospect.adresse||"",clientNpa:prospect.npa||"",clientVille:prospect.ville||"",
+      clientEmail:prospect.email||"",clientTel:prospect.telephone||"",clientSite:prospect.site||"",clientLogo:"",
+      lignes:[],notes:"",statut:"brouillon",
+      introText:"Nous avons le plaisir de vous soumettre notre offre commerciale pour nos liqueurs artisanales Goûtstoso.",
+      createdAt:today()};
+    setSt((p:any)=>({...p,offres:[...(p.offres||[]),newOffre],
+      prospects:(p.prospects||[]).map((x:any)=>x.id===prospect.id?{...x,statut:"offre_en_cours",offreId:id}:x)}));
+    setTab("offres");
+    alert(`✅ Offre ${numero} créée ! Redirection vers Offres.`);
+  };
+
+  const actionSuggeree = (p:any) => {
+    if(p.statut==="a_contacter") return {label:"📧 Envoyer email de présentation",direct:true};
+    if(p.statut==="contacte")    return {label:"📞 Relancer (J+7)",direct:false};
+    if(p.statut==="interesse"||p.statut==="en_discussion") return {label:"💼 Créer une offre",isOffre:true};
+    if(p.statut==="offre_en_cours") return {label:"🔄 Relancer (sans réponse)",direct:false};
+    return null;
+  };
+
+  // ── VUE DÉTAIL ──
+  if(view) {
+    const sc=SC(view.statut);
+    const act=actionSuggeree(view);
+    return (
+      <div className="fade">
+        <button onClick={()=>setViewId(null)} style={{display:"flex",alignItems:"center",gap:6,background:"none",border:"none",color:"#9CA3AF",fontSize:13,marginBottom:12,padding:0,cursor:"pointer"}}>← Prospects</button>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:10}}>
+          <div style={{flex:1}}>
+            <h2 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:22,fontWeight:700}}>{view.nomEtablissement}</h2>
+            <p style={{fontSize:12,color:"#737373"}}>{view.typeEtab}{view.ville?" · "+view.ville:""}</p>
+            <div style={{display:"flex",gap:2,marginTop:4}}>{[1,2,3,4,5].map((i:number)=><span key={i} style={{fontSize:13,opacity:i<=(view.score||0)?1:.2}}>⭐</span>)}</div>
+          </div>
+          <span style={{background:sc.bg,color:sc.text,border:`1px solid ${sc.border}`,borderRadius:20,padding:"4px 12px",fontSize:11,fontWeight:700,flexShrink:0,marginLeft:8}}>{sc.emoji} {sc.label}</span>
+        </div>
+        {act && view.statut!=="converti" && view.statut!=="perdu" && (
+          <div style={{background:"#0A0A0A",borderRadius:12,padding:"14px",marginBottom:14}}>
+            <p style={{fontSize:10,color:"#E8B64C",fontWeight:600,textTransform:"uppercase",letterSpacing:"0.04em",marginBottom:8}}>⚡ Action suggérée</p>
+            {(act as any).isOffre ? (
+              <button onClick={()=>creerOffre(view)} style={{width:"100%",background:"#E8B64C",color:"#0A0A0A",border:"none",borderRadius:9,padding:"12px",fontWeight:700,fontSize:13,cursor:"pointer"}}>{act.label}</button>
+            ) : (act as any).direct ? (
+              <button onClick={()=>{
+                window.open(`mailto:${view.email||""}?subject=${encodeURIComponent("Goûtstoso · Présentation de nos liqueurs artisanales")}&body=${encodeURIComponent("Bonjour "+(view.contactNom||"")+",\n\nJe vous contacte depuis Villeret, en Suisse, où je fabrique des liqueurs artisanales Goûtstoso.\n\nJe souhaiterais vous présenter notre gamme et nos tarifs partenaires.\n\nCordialement,\nJordan Montanaro\nGoûtstoso · admin@goutstoso.ch")}`,"_blank");
+                setSt((p:any)=>({...p,prospects:(p.prospects||[]).map((x:any)=>x.id===view.id?{...x,statut:"contacte",interactions:[...(x.interactions||[]),{id:uid(),date:today(),type:"email",notes:"Email de présentation envoyé"}]}:x)}));
+              }} style={{width:"100%",background:"#E8B64C",color:"#0A0A0A",border:"none",borderRadius:9,padding:"12px",fontWeight:700,fontSize:13,cursor:"pointer"}}>{act.label}</button>
+            ) : (
+              <button onClick={()=>setViewId(view.id)} style={{width:"100%",background:"#E8B64C",color:"#0A0A0A",border:"none",borderRadius:9,padding:"12px",fontWeight:700,fontSize:13,cursor:"pointer"}}>{act.label} →</button>
+            )}
+          </div>
+        )}
+        {view.statut==="converti" && (
+          <div style={{background:"#DCFCE7",border:"1px solid #86EFAC",borderRadius:12,padding:"12px 14px",marginBottom:14}}>
+            <p style={{fontSize:13,fontWeight:700,color:"#15803D"}}>🟢 Converti en client</p>
+          </div>
+        )}
+        <Card style={{marginBottom:12}}>
+          <p style={{fontSize:10,fontWeight:700,color:"#737373",textTransform:"uppercase",letterSpacing:"0.04em",marginBottom:8}}>Coordonnées</p>
+          <div style={{display:"grid",gap:5,fontSize:12}}>
+            {view.contactNom&&<div style={{display:"flex",gap:8}}><span style={{color:"#9CA3AF",minWidth:70,flexShrink:0}}>Contact</span><span style={{fontWeight:600}}>{view.contactNom}{view.contactFonction?" · "+view.contactFonction:""}</span></div>}
+            {view.email&&<div style={{display:"flex",gap:8}}><span style={{color:"#9CA3AF",minWidth:70,flexShrink:0}}>Email</span><a href={`mailto:${view.email}`} style={{color:"#1E40AF"}}>{view.email}</a></div>}
+            {view.telephone&&<div style={{display:"flex",gap:8}}><span style={{color:"#9CA3AF",minWidth:70,flexShrink:0}}>Tél.</span><a href={`tel:${view.telephone}`} style={{color:"#1E40AF"}}>{view.telephone}</a></div>}
+            {(view.adresse||view.ville)&&<div style={{display:"flex",gap:8}}><span style={{color:"#9CA3AF",minWidth:70,flexShrink:0}}>Adresse</span><span>{[view.adresse,[view.npa,view.ville].filter(Boolean).join(" ")].filter(Boolean).join(", ")}</span></div>}
+            {view.site&&<div style={{display:"flex",gap:8}}><span style={{color:"#9CA3AF",minWidth:70,flexShrink:0}}>Site</span><a href={view.site} target="_blank" style={{color:"#1E40AF",overflow:"hidden",textOverflow:"ellipsis"}}>{view.site}</a></div>}
+            <div style={{display:"flex",gap:8}}><span style={{color:"#9CA3AF",minWidth:70,flexShrink:0}}>Source</span><span>{view.source}</span></div>
+          </div>
+        </Card>
+        <Card style={{marginBottom:12}}>
+          <p style={{fontSize:10,fontWeight:700,color:"#737373",textTransform:"uppercase",letterSpacing:"0.04em",marginBottom:8}}>Statut</p>
+          <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
+            {STATUTS_P.map((s:any)=>{const sc2=SC(s.id);const active=view.statut===s.id;return(<button key={s.id} onClick={()=>setSt((p:any)=>({...p,prospects:(p.prospects||[]).map((x:any)=>x.id===view.id?{...x,statut:s.id}:x)}))} style={{padding:"5px 11px",borderRadius:20,border:`1px solid ${active?sc2.border:"#EAE7E0"}`,background:active?sc2.bg:"transparent",color:active?sc2.text:"#737373",fontSize:10,fontWeight:active?700:400,cursor:"pointer"}}>{sc2.emoji} {s.label}</button>);})}
+          </div>
+        </Card>
+        <Card style={{marginBottom:12}}>
+          <p style={{fontSize:10,fontWeight:700,color:"#737373",textTransform:"uppercase",letterSpacing:"0.04em",marginBottom:8}}>Interactions ({(view.interactions||[]).length})</p>
+          <div style={{display:"flex",gap:6,marginBottom:8}}>
+            <select value={newInterType} onChange={e=>setNewInterType(e.target.value)} style={{width:100,fontSize:11,padding:"6px 8px"}}>
+              {["email","appel","visite","réunion","autre"].map((t:string)=><option key={t} value={t}>{t}</option>)}
+            </select>
+            <input value={newInterNote} onChange={e=>setNewInterNote(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")addInteraction(view.id,newInterType,newInterNote);}} placeholder="Note…" style={{flex:1,fontSize:12,padding:"6px 10px"}}/>
+            <button onClick={()=>addInteraction(view.id,newInterType,newInterNote)} style={{background:"#0A0A0A",color:"#fff",border:"none",borderRadius:8,padding:"6px 12px",fontSize:11,fontWeight:600,cursor:"pointer",flexShrink:0}}>+</button>
+          </div>
+          {[...(view.interactions||[])].reverse().slice(0,6).map((inter:any,i:number)=>(
+            <div key={i} style={{display:"flex",gap:8,padding:"6px 0",borderTop:"1px solid #F4F4F2"}}>
+              <span style={{fontSize:14,flexShrink:0}}>{inter.type==="email"?"📧":inter.type==="appel"?"📞":inter.type==="visite"?"🚗":"🤝"}</span>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{display:"flex",justifyContent:"space-between"}}><p style={{fontSize:11,fontWeight:600}}>{inter.type}</p><p style={{fontSize:10,color:"#9CA3AF"}}>{fmt(inter.date)}</p></div>
+                <p style={{fontSize:11,color:"#525252"}}>{inter.notes}</p>
+              </div>
+            </div>
+          ))}
+        </Card>
+        {view.notes&&(<Card style={{marginBottom:12}}><p style={{fontSize:10,fontWeight:700,color:"#737373",textTransform:"uppercase",letterSpacing:"0.04em",marginBottom:6}}>Notes</p><p style={{fontSize:12,color:"#525252"}}>{view.notes}</p></Card>)}
+        <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:24}}>
+          {view.statut!=="converti"&&view.statut!=="perdu"&&(<button onClick={()=>convertirClient(view)} style={{width:"100%",background:"#DCFCE7",border:"1.5px solid #86EFAC",borderRadius:10,padding:"11px",fontWeight:700,fontSize:12,color:"#15803D",cursor:"pointer"}}>✅ Convertir en client</button>)}
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+            <button onClick={()=>{setForm({...view});setModal("form");setViewId(null);}} style={{background:"#F4F4F2",border:"none",borderRadius:10,padding:"10px",fontWeight:600,fontSize:12,cursor:"pointer"}}>✏️ Modifier</button>
+            <button onClick={()=>{if(!window.confirm("Supprimer ce prospect ?"))return;setSt((p:any)=>({...p,prospects:(p.prospects||[]).filter((x:any)=>x.id!==view.id)}));setViewId(null);}} style={{background:"#FEF2F2",border:"1px solid #FECACA",borderRadius:10,padding:"10px",fontWeight:600,fontSize:12,color:"#B91C1C",cursor:"pointer"}}>🗑 Supprimer</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── FORMULAIRE ──
+  if(modal==="form") return (
+    <div className="fade">
+      <button onClick={()=>{setModal(null);if(form.id)setViewId(form.id);}} style={{display:"flex",alignItems:"center",gap:6,background:"none",border:"none",color:"#9CA3AF",fontSize:13,marginBottom:12,padding:0,cursor:"pointer"}}>← Annuler</button>
+      <h2 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:24,fontWeight:700,marginBottom:16}}>{form.id?"Modifier le prospect":"Nouveau prospect"}</h2>
+      <Card style={{marginBottom:12}}>
+        <p style={{fontSize:10,fontWeight:700,color:"#737373",textTransform:"uppercase",letterSpacing:"0.04em",marginBottom:10}}>Établissement</p>
+        <F label="Nom *" value={form.nomEtablissement||""} onChange={(v:string)=>setForm((f:any)=>({...f,nomEtablissement:v}))} required/>
+        <Sel label="Type" value={form.typeEtab||"cave"} onChange={(v:string)=>setForm((f:any)=>({...f,typeEtab:v}))} options={TYPES.map(t=>({value:t,label:t}))}/>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+          <F label="NPA" value={form.npa||""} onChange={(v:string)=>setForm((f:any)=>({...f,npa:v}))}/>
+          <F label="Ville" value={form.ville||""} onChange={(v:string)=>setForm((f:any)=>({...f,ville:v}))}/>
+        </div>
+        <F label="Adresse" value={form.adresse||""} onChange={(v:string)=>setForm((f:any)=>({...f,adresse:v}))}/>
+        <F label="Site web" value={form.site||""} onChange={(v:string)=>setForm((f:any)=>({...f,site:v}))}/>
+      </Card>
+      <Card style={{marginBottom:12}}>
+        <p style={{fontSize:10,fontWeight:700,color:"#737373",textTransform:"uppercase",letterSpacing:"0.04em",marginBottom:10}}>Contact</p>
+        <F label="Nom du contact" value={form.contactNom||""} onChange={(v:string)=>setForm((f:any)=>({...f,contactNom:v}))}/>
+        <F label="Fonction" value={form.contactFonction||""} onChange={(v:string)=>setForm((f:any)=>({...f,contactFonction:v}))}/>
+        <F label="Email" type="email" value={form.email||""} onChange={(v:string)=>setForm((f:any)=>({...f,email:v}))}/>
+        <F label="Téléphone" value={form.telephone||""} onChange={(v:string)=>setForm((f:any)=>({...f,telephone:v}))}/>
+      </Card>
+      <Card style={{marginBottom:16}}>
+        <p style={{fontSize:10,fontWeight:700,color:"#737373",textTransform:"uppercase",letterSpacing:"0.04em",marginBottom:10}}>Qualification</p>
+        <Sel label="Source" value={form.source||"instagram"} onChange={(v:string)=>setForm((f:any)=>({...f,source:v}))} options={SOURCES.map(s=>({value:s,label:s}))}/>
+        <Sel label="Statut" value={form.statut||"a_contacter"} onChange={(v:string)=>setForm((f:any)=>({...f,statut:v}))} options={STATUTS_P.map(s=>({value:s.id,label:SC(s.id).emoji+" "+s.label}))}/>
+        <div><label style={{fontSize:12,fontWeight:600,color:"#525252",display:"block",marginBottom:6}}>Score</label><div style={{display:"flex",gap:6}}>{[1,2,3,4,5].map(n=><button key={n} onClick={()=>setForm((f:any)=>({...f,score:n}))} style={{flex:1,padding:"8px",borderRadius:8,border:`1.5px solid ${(form.score||0)>=n?"#E8B64C":"#EAE7E0"}`,background:(form.score||0)>=n?"#FDF6E3":"transparent",fontSize:15,cursor:"pointer"}}>⭐</button>)}</div></div>
+        <div style={{marginTop:10}}><label style={{fontSize:12,fontWeight:600,color:"#525252",display:"block",marginBottom:4}}>Notes</label><textarea value={form.notes||""} onChange={e=>setForm((f:any)=>({...f,notes:e.target.value}))} rows={3} style={{width:"100%",fontSize:12,border:"1px solid #EAE7E0",borderRadius:10,padding:"10px 12px",fontFamily:"Inter,sans-serif",resize:"vertical"}}/></div>
+      </Card>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:24}}>
+        <button onClick={()=>{setModal(null);if(form.id)setViewId(form.id);}} style={{background:"#F4F4F2",border:"none",borderRadius:10,padding:"12px",fontWeight:600,fontSize:13,cursor:"pointer"}}>Annuler</button>
+        <button onClick={save} style={{background:"#0A0A0A",color:"#fff",border:"none",borderRadius:10,padding:"12px",fontWeight:700,fontSize:13,cursor:"pointer"}}>{form.id?"Enregistrer":"Créer le prospect"}</button>
+      </div>
+    </div>
+  );
+
+  // ── LISTE ──
+  const FILTRES=[{id:"tous",label:"Tous"},...STATUTS_P.map(s=>({id:s.id,label:SC(s.id).emoji+" "+s.label}))];
+  const liste=prospects.filter((p:any)=>(filtreStatut==="tous"||p.statut===filtreStatut)&&(!search||p.nomEtablissement?.toLowerCase().includes(search.toLowerCase())||p.ville?.toLowerCase().includes(search.toLowerCase()))).sort((a:any,b:any)=>(b.dateCreation||"")>(a.dateCreation||"")?1:-1);
+  return (
+    <div className="fade">
+      <SectionTitle action={<button onClick={()=>{setForm(emptyForm());setModal("form");}} style={{background:"#0A0A0A",color:"#fff",border:"none",borderRadius:9,padding:"9px 16px",fontSize:13,fontWeight:600,cursor:"pointer"}}>+ Nouveau</button>}>
+        Prospects <span style={{fontSize:14,color:"#9CA3AF",fontWeight:400}}>({prospects.length})</span>
+      </SectionTitle>
+      {prospects.length>0&&(
+        <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8,marginBottom:12}}>
+          {[
+            {l:"À contacter",n:prospects.filter((p:any)=>p.statut==="a_contacter").length,e:"⚪"},
+            {l:"En cours",n:prospects.filter((p:any)=>["contacte","interesse","en_discussion","offre_en_cours"].includes(p.statut)).length,e:"🟡"},
+            {l:"Convertis",n:prospects.filter((p:any)=>p.statut==="converti").length,e:"🟢"},
+          ].map((s:any,i:number)=>(
+            <div key={i} style={{background:"#fff",borderRadius:10,padding:"10px",textAlign:"center",border:"1px solid #EAE7E0"}}>
+              <p style={{fontSize:16}}>{s.e}</p>
+              <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:18,fontWeight:700}}>{s.n}</p>
+              <p style={{fontSize:9,color:"#737373"}}>{s.l}</p>
+            </div>
+          ))}
+        </div>
+      )}
+      <div style={{display:"flex",gap:5,overflowX:"auto",marginBottom:10,paddingBottom:4}}>
+        {FILTRES.slice(0,6).map((f:any)=><button key={f.id} onClick={()=>setFiltreStatut(f.id)} style={{background:filtreStatut===f.id?"#0A0A0A":"#F4F4F2",color:filtreStatut===f.id?"#fff":"#525252",border:"none",borderRadius:20,padding:"6px 12px",fontSize:10,fontWeight:filtreStatut===f.id?700:400,cursor:"pointer",whiteSpace:"nowrap",flexShrink:0}}>{f.label}</button>)}
+      </div>
+      <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="🔍 Rechercher…" style={{marginBottom:12,fontSize:13}}/>
+      {liste.length===0?(
+        <div style={{textAlign:"center",padding:"40px 0",color:"#9CA3AF"}}>
+          <p style={{fontSize:32,marginBottom:8}}>🎯</p>
+          <p style={{fontSize:14,fontWeight:600}}>{prospects.length===0?"Aucun prospect":"Aucun résultat"}</p>
+          {prospects.length===0&&<button onClick={()=>{setForm(emptyForm());setModal("form");}} style={{marginTop:16,background:"#0A0A0A",color:"#fff",border:"none",borderRadius:10,padding:"11px 24px",fontSize:13,fontWeight:600,cursor:"pointer"}}>+ Premier prospect</button>}
+        </div>
+      ):(
+        <div style={{display:"flex",flexDirection:"column",gap:8}}>
+          {liste.map((p:any)=>{
+            const sc=SC(p.statut); const act=actionSuggeree(p);
+            return(
+              <div key={p.id} onClick={()=>setViewId(p.id)} style={{background:"#fff",borderRadius:12,padding:"12px 14px",border:"1px solid #EAE7E0",cursor:"pointer"}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:3}}>
+                  <div style={{flex:1,minWidth:0}}><p style={{fontSize:13,fontWeight:700}}>{p.nomEtablissement}</p><p style={{fontSize:11,color:"#737373"}}>{p.typeEtab}{p.ville?" · "+p.ville:""}</p></div>
+                  <span style={{background:sc.bg,color:sc.text,border:`1px solid ${sc.border}`,borderRadius:20,padding:"3px 9px",fontSize:10,fontWeight:700,flexShrink:0,marginLeft:8}}>{sc.emoji} {sc.label}</span>
+                </div>
+                {act&&p.statut!=="converti"&&p.statut!=="perdu"&&<p style={{fontSize:10,color:"#9CA3AF",marginTop:3}}>→ {act.label}</p>}
+                {p.prochaineActionDate&&<p style={{fontSize:10,color:"#E8B64C",marginTop:2}}>📅 {p.prochaineActionType||"Action"} le {fmt(p.prochaineActionDate)}</p>}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ══════════════════════════════════════════════════════════════
+// MODULE : BULLETINS DE COMMANDE (BC) (V5)
+// ══════════════════════════════════════════════════════════════
+const BulletinsCommande = ({st, setSt, setTab=(_any:any)=>{}}) => {
+  const [modal, setModal] = useState<string|null>(null);
+  const [viewId, setViewId] = useState<string|null>(null);
+  const [form, setForm] = useState<any>({});
+
+  const bcs:any[] = st.bulletinsCommande || [];
+  const view = viewId ? bcs.find((b:any)=>b.id===viewId) : null;
+  const SC = (s:string) => STATUTS_COULEURS[s]||{bg:"#F3F4F6",border:"#D1D5DB",text:"#374151",emoji:"📝",label:s};
+
+  const nextNumero = () => {
+    const y2=new Date().getFullYear(); const ex=bcs.map((b:any)=>b.numero||"");
+    let n=1; while(ex.includes("BC-"+y2+"-"+String(n).padStart(3,"0")))n++;
+    return "BC-"+y2+"-"+String(n).padStart(3,"0");
+  };
+
+  const emptyForm = () => ({
+    id:null,numero:nextNumero(),date:today(),
+    clientNom:"",clientEmail:"",clientAdresse:"",clientNpa:"",clientVille:"",clientTel:"",
+    lignes:(st.produits||[]).filter((p:any)=>p.actif!==false).map((p:any)=>({produitId:p.id,qte:0,prixUnitaire:p.prixRevendeur||0})),
+    modeReglement:"virement",dateLivraisonPrevue:"",notes:"",statut:"brouillon",
+    offreId:null,bulletinLivraisonId:null,factureId:null,
+  });
+
+  const totalBC = (bc:any) => (bc.lignes||[]).reduce((s:number,l:any)=>s+(l.prixUnitaire||0)*(l.qte||0),0);
+
+  const save = () => {
+    if(!form.clientNom?.trim()){alert("Nom client requis");return;}
+    const lignesOk=(form.lignes||[]).filter((l:any)=>l.qte>0);
+    if(!lignesOk.length){alert("Ajoute au moins un produit");return;}
+    const saved={...form,id:form.id||uid(),lignes:lignesOk,modifieLe:today()};
+    if(form.id) setSt((p:any)=>({...p,bulletinsCommande:(p.bulletinsCommande||[]).map((b:any)=>b.id===form.id?saved:b)}));
+    else setSt((p:any)=>({...p,bulletinsCommande:[...(p.bulletinsCommande||[]),saved]}));
+    setModal(null); setViewId(saved.id);
+  };
+
+  const creerBL = (bc:any) => {
+    if(!window.confirm("Créer un Bulletin de Livraison depuis ce BC ?"))return;
+    const y2=new Date().getFullYear(); const ex=(st.bulletinsLivraison||[]).map((b:any)=>b.numero||"");
+    let n=1; while(ex.includes("BL-"+y2+"-"+String(n).padStart(3,"0")))n++;
+    const numero="BL-"+y2+"-"+String(n).padStart(3,"0"); const blId=uid();
+    const newBL:any={id:blId,numero,dateCreation:today(),dateLivraison:today(),bulletinCommandeId:bc.id,bcNumero:bc.numero,
+      clientNom:bc.clientNom,clientEmail:bc.clientEmail,clientAdresse:bc.clientAdresse,clientNpa:bc.clientNpa,clientVille:bc.clientVille,
+      lignes:bc.lignes.map((l:any)=>({...l})),statut:"a_livrer",signatureClient:null,signatureNom:"",notes:""};
+    setSt((p:any)=>({...p,bulletinsLivraison:[...(p.bulletinsLivraison||[]),newBL],
+      bulletinsCommande:(p.bulletinsCommande||[]).map((b:any)=>b.id===bc.id?{...b,bulletinLivraisonId:blId,statut:"signe"}:b)}));
+    setViewId(null); setTab("bulletinsLivraison");
+    alert(`✅ BL ${numero} créé !`);
+  };
+
+  // ── VUE DÉTAIL ──
+  if(view) {
+    const sc=SC(view.statut); const tot=totalBC(view);
+    return (
+      <div className="fade">
+        <button onClick={()=>setViewId(null)} style={{display:"flex",alignItems:"center",gap:6,background:"none",border:"none",color:"#9CA3AF",fontSize:13,marginBottom:12,padding:0,cursor:"pointer"}}>← Bulletins de commande</button>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:10}}>
+          <div><h2 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:22,fontWeight:700}}>{view.numero}</h2><p style={{fontSize:12,color:"#737373"}}>{view.clientNom} · {fmt(view.date)}</p></div>
+          <span style={{background:sc.bg,color:sc.text,border:`1px solid ${sc.border}`,borderRadius:20,padding:"4px 12px",fontSize:11,fontWeight:700,flexShrink:0}}>{sc.emoji} {sc.label}</span>
+        </div>
+        {view.statut==="brouillon"&&(<div style={{background:"#0A0A0A",borderRadius:12,padding:"14px",marginBottom:14}}>
+          <p style={{fontSize:10,color:"#E8B64C",fontWeight:600,textTransform:"uppercase",letterSpacing:"0.04em",marginBottom:8}}>⚡ Action suivante</p>
+          <button onClick={()=>{genererBCPDF(view,st);setSt((p:any)=>({...p,bulletinsCommande:(p.bulletinsCommande||[]).map((b:any)=>b.id===view.id?{...b,statut:"envoye"}:b)}));}} style={{width:"100%",background:"#E8B64C",color:"#0A0A0A",border:"none",borderRadius:9,padding:"12px",fontWeight:700,fontSize:13,cursor:"pointer"}}>📤 Envoyer (PDF + statut → Envoyé)</button>
+        </div>)}
+        {view.statut==="envoye"&&(<div style={{background:"#0A0A0A",borderRadius:12,padding:"14px",marginBottom:14}}>
+          <p style={{fontSize:10,color:"#E8B64C",fontWeight:600,textTransform:"uppercase",letterSpacing:"0.04em",marginBottom:8}}>⚡ Action suivante</p>
+          <button onClick={()=>setSt((p:any)=>({...p,bulletinsCommande:(p.bulletinsCommande||[]).map((b:any)=>b.id===view.id?{...b,statut:"signe"}:b)}))} style={{width:"100%",background:"#E8B64C",color:"#0A0A0A",border:"none",borderRadius:9,padding:"12px",fontWeight:700,fontSize:13,cursor:"pointer",marginBottom:8}}>✅ Marquer comme signé</button>
+          <button onClick={()=>genererBCPDF(view,st)} style={{width:"100%",background:"#fff",border:"1.5px solid #E8B64C",borderRadius:9,padding:"10px",fontWeight:600,fontSize:12,cursor:"pointer"}}>📋 Re-télécharger le PDF</button>
+        </div>)}
+        {view.statut==="signe"&&!view.bulletinLivraisonId&&(<div style={{background:"#0A0A0A",borderRadius:12,padding:"14px",marginBottom:14}}>
+          <p style={{fontSize:10,color:"#E8B64C",fontWeight:600,textTransform:"uppercase",letterSpacing:"0.04em",marginBottom:8}}>⚡ Action suivante</p>
+          <button onClick={()=>creerBL(view)} style={{width:"100%",background:"#E8B64C",color:"#0A0A0A",border:"none",borderRadius:9,padding:"12px",fontWeight:700,fontSize:13,cursor:"pointer"}}>🚚 Créer le Bulletin de Livraison</button>
+        </div>)}
+        {view.bulletinLivraisonId&&(<div style={{background:"#DCFCE7",border:"1px solid #86EFAC",borderRadius:12,padding:"12px 14px",marginBottom:14}}>
+          <p style={{fontSize:12,fontWeight:700,color:"#15803D",marginBottom:4}}>🟢 Bulletin de livraison créé</p>
+          <button onClick={()=>setTab("bulletinsLivraison")} style={{background:"none",border:"none",color:"#15803D",fontSize:11,cursor:"pointer",padding:0,textDecoration:"underline"}}>→ Voir les bulletins de livraison</button>
+        </div>)}
+        <Card style={{marginBottom:12}}>
+          <p style={{fontSize:10,fontWeight:700,color:"#737373",textTransform:"uppercase",letterSpacing:"0.04em",marginBottom:8}}>Client</p>
+          <div style={{fontSize:12,display:"grid",gap:4}}>
+            {view.clientNom&&<p><span style={{color:"#9CA3AF"}}>Nom : </span>{view.clientNom}</p>}
+            {view.clientEmail&&<p><span style={{color:"#9CA3AF"}}>Email : </span>{view.clientEmail}</p>}
+            {view.clientTel&&<p><span style={{color:"#9CA3AF"}}>Tél. : </span>{view.clientTel}</p>}
+            {(view.clientAdresse||view.clientVille)&&<p><span style={{color:"#9CA3AF"}}>Adresse : </span>{[view.clientAdresse,[view.clientNpa,view.clientVille].filter(Boolean).join(" ")].filter(Boolean).join(", ")}</p>}
+            {view.modeReglement&&<p><span style={{color:"#9CA3AF"}}>Règlement : </span>{view.modeReglement}</p>}
+            {view.dateLivraisonPrevue&&<p><span style={{color:"#9CA3AF"}}>Livraison prévue : </span>{fmt(view.dateLivraisonPrevue)}</p>}
+          </div>
+        </Card>
+        <Card style={{marginBottom:12}}>
+          <p style={{fontSize:10,fontWeight:700,color:"#737373",textTransform:"uppercase",letterSpacing:"0.04em",marginBottom:8}}>Produits</p>
+          {(view.lignes||[]).map((l:any,i:number)=>{const prod=(st.produits||[]).find((p:any)=>p.id===l.produitId);if(!prod)return null;const tt=(l.prixUnitaire||0)*(l.qte||0);return(<div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 0",borderTop:i>0?"1px solid #F4F4F2":"none"}}><div><p style={{fontSize:12,fontWeight:600}}>{[prod.nom,prod.variante,prod.format].filter(Boolean).join(" ")}</p><p style={{fontSize:11,color:"#9CA3AF"}}>{l.qte} × CHF {(l.prixUnitaire||0).toFixed(2)}</p></div><p style={{fontSize:12,fontWeight:700}}>CHF {tt.toFixed(2)}</p></div>);})}
+          <div style={{borderTop:"2px solid #0A0A0A",paddingTop:8,marginTop:4,display:"flex",justifyContent:"space-between"}}><p style={{fontSize:13,fontWeight:700}}>Total</p><p style={{fontSize:13,fontWeight:700}}>CHF {tot.toFixed(2)}</p></div>
+        </Card>
+        <div style={{display:"flex",gap:8,marginBottom:24}}>
+          <button onClick={()=>genererBCPDF(view,st)} style={{flex:1,background:"#F4F4F2",border:"none",borderRadius:10,padding:"10px",fontWeight:600,fontSize:12,cursor:"pointer"}}>📋 PDF</button>
+          <button onClick={()=>{const lignesAll=(st.produits||[]).filter((p:any)=>p.actif!==false).map((p:any)=>{const ex=(view.lignes||[]).find((l:any)=>l.produitId===p.id);return{produitId:p.id,qte:ex?.qte||0,prixUnitaire:ex?.prixUnitaire||p.prixRevendeur||0};});setForm({...view,lignes:lignesAll});setModal("form");setViewId(null);}} style={{flex:1,background:"#F4F4F2",border:"none",borderRadius:10,padding:"10px",fontWeight:600,fontSize:12,cursor:"pointer"}}>✏️ Modifier</button>
+          <button onClick={()=>{if(!window.confirm("Supprimer ce BC ?"))return;setSt((p:any)=>({...p,bulletinsCommande:(p.bulletinsCommande||[]).filter((b:any)=>b.id!==view.id)}));setViewId(null);}} style={{flex:1,background:"#FEF2F2",border:"1px solid #FECACA",borderRadius:10,padding:"10px",fontWeight:600,fontSize:12,color:"#B91C1C",cursor:"pointer"}}>🗑 Suppr.</button>
+        </div>
+      </div>
+    );
+  }
+
+  // ── FORMULAIRE ──
+  if(modal==="form") return (
+    <div className="fade">
+      <button onClick={()=>{setModal(null);if(form.id)setViewId(form.id);}} style={{display:"flex",alignItems:"center",gap:6,background:"none",border:"none",color:"#9CA3AF",fontSize:13,marginBottom:12,padding:0,cursor:"pointer"}}>← Annuler</button>
+      <h2 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:24,fontWeight:700,marginBottom:16}}>{form.id?"Modifier le BC":"Nouveau Bulletin de Commande"}</h2>
+      <Card style={{marginBottom:12}}>
+        <p style={{fontSize:10,fontWeight:700,color:"#737373",textTransform:"uppercase",letterSpacing:"0.04em",marginBottom:10}}>Informations</p>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+          <F label="Numéro" value={form.numero||""} onChange={(v:string)=>setForm((f:any)=>({...f,numero:v}))}/>
+          <F label="Date" type="date" value={form.date||""} onChange={(v:string)=>setForm((f:any)=>({...f,date:v}))}/>
+        </div>
+        <F label="Livraison prévue" type="date" value={form.dateLivraisonPrevue||""} onChange={(v:string)=>setForm((f:any)=>({...f,dateLivraisonPrevue:v}))}/>
+        <Sel label="Mode de règlement" value={form.modeReglement||"virement"} onChange={(v:string)=>setForm((f:any)=>({...f,modeReglement:v}))} options={[{value:"virement",label:"Virement bancaire"},{value:"twint",label:"TWINT"},{value:"espèces",label:"Espèces"},{value:"facture",label:"Facture 30j"}]}/>
+      </Card>
+      <Card style={{marginBottom:12}}>
+        <p style={{fontSize:10,fontWeight:700,color:"#737373",textTransform:"uppercase",letterSpacing:"0.04em",marginBottom:10}}>Client</p>
+        <F label="Nom *" value={form.clientNom||""} onChange={(v:string)=>setForm((f:any)=>({...f,clientNom:v}))} required/>
+        <F label="Email" value={form.clientEmail||""} onChange={(v:string)=>setForm((f:any)=>({...f,clientEmail:v}))}/>
+        <F label="Téléphone" value={form.clientTel||""} onChange={(v:string)=>setForm((f:any)=>({...f,clientTel:v}))}/>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 2fr",gap:8}}>
+          <F label="NPA" value={form.clientNpa||""} onChange={(v:string)=>setForm((f:any)=>({...f,clientNpa:v}))}/>
+          <F label="Ville" value={form.clientVille||""} onChange={(v:string)=>setForm((f:any)=>({...f,clientVille:v}))}/>
+        </div>
+        <F label="Adresse" value={form.clientAdresse||""} onChange={(v:string)=>setForm((f:any)=>({...f,clientAdresse:v}))}/>
+      </Card>
+      <Card style={{marginBottom:16}}>
+        <p style={{fontSize:10,fontWeight:700,color:"#737373",textTransform:"uppercase",letterSpacing:"0.04em",marginBottom:10}}>Produits</p>
+        {(form.lignes||[]).map((l:any,i:number)=>{
+          const prod=(st.produits||[]).find((p:any)=>p.id===l.produitId); if(!prod)return null;
+          return(
+            <div key={i} style={{display:"flex",alignItems:"center",gap:8,marginBottom:8,padding:"8px",background:"#FAFAF7",borderRadius:8}}>
+              <div style={{flex:1}}><p style={{fontSize:12,fontWeight:600}}>{[prod.nom,prod.variante,prod.format].filter(Boolean).join(" ")}</p><p style={{fontSize:10,color:"#9CA3AF"}}>CHF {(l.prixUnitaire||0).toFixed(2)} / u</p></div>
+              <div style={{display:"flex",alignItems:"center",gap:6,flexShrink:0}}>
+                <button onClick={()=>setForm((f:any)=>({...f,lignes:f.lignes.map((x:any,j:number)=>j===i?{...x,qte:Math.max(0,(x.qte||0)-1)}:x)}))} style={{width:28,height:28,borderRadius:"50%",border:"1.5px solid #EAE7E0",background:"#fff",fontSize:14,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>−</button>
+                <span style={{minWidth:24,textAlign:"center",fontSize:13,fontWeight:700}}>{l.qte||0}</span>
+                <button onClick={()=>setForm((f:any)=>({...f,lignes:f.lignes.map((x:any,j:number)=>j===i?{...x,qte:(x.qte||0)+1}:x)}))} style={{width:28,height:28,borderRadius:"50%",border:"1.5px solid #EAE7E0",background:"#fff",fontSize:14,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>+</button>
+              </div>
+            </div>
+          );
+        })}
+        {(form.lignes||[]).filter((l:any)=>l.qte>0).length>0&&(<div style={{borderTop:"1px solid #EAE7E0",paddingTop:8,marginTop:4,display:"flex",justifyContent:"space-between"}}><p style={{fontSize:12,fontWeight:700}}>Total estimé</p><p style={{fontSize:12,fontWeight:700}}>CHF {(form.lignes||[]).reduce((s:number,l:any)=>s+(l.prixUnitaire||0)*(l.qte||0),0).toFixed(2)}</p></div>)}
+      </Card>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:24}}>
+        <button onClick={()=>{setModal(null);if(form.id)setViewId(form.id);}} style={{background:"#F4F4F2",border:"none",borderRadius:10,padding:"12px",fontWeight:600,fontSize:13,cursor:"pointer"}}>Annuler</button>
+        <button onClick={save} style={{background:"#0A0A0A",color:"#fff",border:"none",borderRadius:10,padding:"12px",fontWeight:700,fontSize:13,cursor:"pointer"}}>{form.id?"Enregistrer":"Créer le BC"}</button>
+      </div>
+    </div>
+  );
+
+  // ── LISTE ──
+  return (
+    <div className="fade">
+      <SectionTitle action={<button onClick={()=>{setForm(emptyForm());setModal("form");}} style={{background:"#0A0A0A",color:"#fff",border:"none",borderRadius:9,padding:"9px 16px",fontSize:13,fontWeight:600,cursor:"pointer"}}>+ Nouveau</button>}>
+        Bulletins de commande <span style={{fontSize:14,color:"#9CA3AF",fontWeight:400}}>({bcs.length})</span>
+      </SectionTitle>
+      {bcs.length===0?(
+        <div style={{textAlign:"center",padding:"40px 0",color:"#9CA3AF"}}>
+          <p style={{fontSize:32,marginBottom:8}}>📋</p><p style={{fontSize:14,fontWeight:600}}>Aucun bulletin de commande</p>
+          <button onClick={()=>{setForm(emptyForm());setModal("form");}} style={{marginTop:16,background:"#0A0A0A",color:"#fff",border:"none",borderRadius:10,padding:"11px 24px",fontSize:13,fontWeight:600,cursor:"pointer"}}>+ Premier BC</button>
+        </div>
+      ):(
+        <div style={{display:"flex",flexDirection:"column",gap:8}}>
+          {[...bcs].sort((a:any,b:any)=>(b.date||"")>(a.date||"")?1:-1).map((bc:any)=>{
+            const sc=SC(bc.statut); const tot=totalBC(bc);
+            return(
+              <div key={bc.id} onClick={()=>setViewId(bc.id)} style={{background:"#fff",borderRadius:12,padding:"12px 14px",border:"1px solid #EAE7E0",cursor:"pointer"}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+                  <div><p style={{fontSize:13,fontWeight:700}}>{bc.numero}</p><p style={{fontSize:11,color:"#737373"}}>{bc.clientNom} · {fmt(bc.date)}</p></div>
+                  <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:4}}>
+                    <span style={{background:sc.bg,color:sc.text,border:`1px solid ${sc.border}`,borderRadius:20,padding:"3px 9px",fontSize:10,fontWeight:700}}>{sc.emoji} {sc.label}</span>
+                    <p style={{fontSize:12,fontWeight:700}}>CHF {tot.toFixed(2)}</p>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ══════════════════════════════════════════════════════════════
+// MODULE : BULLETINS DE LIVRAISON (BL) (V5)
+// ══════════════════════════════════════════════════════════════
+const BulletinsLivraison = ({st, setSt, setTab=(_any:any)=>{}}) => {
+  const [viewId, setViewId] = useState<string|null>(null);
+  const [showSig, setShowSig] = useState(false);
+
+  const bls:any[] = st.bulletinsLivraison || [];
+  const view = viewId ? bls.find((b:any)=>b.id===viewId) : null;
+  const SC = (s:string) => STATUTS_COULEURS[s]||{bg:"#F3F4F6",border:"#D1D5DB",text:"#374151",emoji:"📝",label:s};
+
+  const marquerLivre = (blId:string, sig?:string, nom?:string) => {
+    setSt((p:any)=>({...p,bulletinsLivraison:(p.bulletinsLivraison||[]).map((b:any)=>b.id===blId?{...b,statut:"livre",signatureClient:sig||b.signatureClient||null,signatureNom:nom||b.signatureNom||"",dateLivraison:today()}:b)}));
+    setShowSig(false);
+    alert("✅ Livraison enregistrée !");
+  };
+
+  // ── VUE DÉTAIL ──
+  if(view) {
+    const sc=SC(view.statut);
+    return (
+      <div className="fade">
+        <button onClick={()=>{setViewId(null);setShowSig(false);}} style={{display:"flex",alignItems:"center",gap:6,background:"none",border:"none",color:"#9CA3AF",fontSize:13,marginBottom:12,padding:0,cursor:"pointer"}}>← Bulletins de livraison</button>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:10}}>
+          <div>
+            <h2 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:22,fontWeight:700}}>{view.numero}</h2>
+            <p style={{fontSize:12,color:"#737373"}}>{view.clientNom} · {fmt(view.dateLivraison||view.dateCreation)}</p>
+            {view.bcNumero&&<p style={{fontSize:11,color:"#9CA3AF"}}>BC réf. : {view.bcNumero}</p>}
+          </div>
+          <span style={{background:sc.bg,color:sc.text,border:`1px solid ${sc.border}`,borderRadius:20,padding:"4px 12px",fontSize:11,fontWeight:700,flexShrink:0}}>{sc.emoji} {sc.label}</span>
+        </div>
+        {view.statut==="a_livrer"&&!showSig&&(
+          <div style={{background:"#0A0A0A",borderRadius:12,padding:"14px",marginBottom:14}}>
+            <p style={{fontSize:10,color:"#E8B64C",fontWeight:600,textTransform:"uppercase",letterSpacing:"0.04em",marginBottom:8}}>⚡ Action suivante</p>
+            <button onClick={()=>setShowSig(true)} style={{width:"100%",background:"#E8B64C",color:"#0A0A0A",border:"none",borderRadius:9,padding:"12px",fontWeight:700,fontSize:13,cursor:"pointer",marginBottom:8}}>✍️ Faire signer la livraison</button>
+            <button onClick={()=>marquerLivre(view.id)} style={{width:"100%",background:"#fff",border:"1.5px solid #E8B64C",borderRadius:9,padding:"10px",fontWeight:600,fontSize:12,cursor:"pointer"}}>📦 Marquer livré (sans signature)</button>
+          </div>
+        )}
+        {view.statut==="a_livrer"&&showSig&&(
+          <Card style={{marginBottom:14}}>
+            <p style={{fontSize:12,fontWeight:700,marginBottom:8}}>✍️ Signature du client</p>
+            <SignaturePad onSave={(sig:string)=>{const nom=prompt("Nom du signataire","")||""; marquerLivre(view.id,sig,nom);}} onCancel={()=>setShowSig(false)}/>
+          </Card>
+        )}
+        {view.statut==="livre"&&(
+          <div style={{background:"#DCFCE7",border:"1px solid #86EFAC",borderRadius:12,padding:"12px 14px",marginBottom:14}}>
+            <p style={{fontSize:12,fontWeight:700,color:"#15803D"}}>📦 Livré le {fmt(view.dateLivraison)}</p>
+            {view.signatureNom&&<p style={{fontSize:11,color:"#166534",marginTop:2}}>Signé par : {view.signatureNom}</p>}
+          </div>
+        )}
+        <Card style={{marginBottom:12}}>
+          <p style={{fontSize:10,fontWeight:700,color:"#737373",textTransform:"uppercase",letterSpacing:"0.04em",marginBottom:8}}>Destinataire</p>
+          <div style={{fontSize:12,display:"grid",gap:4}}>
+            {view.clientNom&&<p>{view.clientNom}</p>}
+            {view.clientEmail&&<p style={{color:"#1E40AF"}}>{view.clientEmail}</p>}
+            {(view.clientAdresse||view.clientVille)&&<p>{[view.clientAdresse,[view.clientNpa,view.clientVille].filter(Boolean).join(" ")].filter(Boolean).join(", ")}</p>}
+          </div>
+        </Card>
+        <Card style={{marginBottom:12}}>
+          <p style={{fontSize:10,fontWeight:700,color:"#737373",textTransform:"uppercase",letterSpacing:"0.04em",marginBottom:8}}>Produits livrés</p>
+          {(view.lignes||[]).map((l:any,i:number)=>{const prod=(st.produits||[]).find((p:any)=>p.id===l.produitId);if(!prod)return null;return(<div key={i} style={{display:"flex",justifyContent:"space-between",padding:"5px 0",borderTop:i>0?"1px solid #F4F4F2":"none"}}><p style={{fontSize:12}}>{[prod.nom,prod.variante,prod.format].filter(Boolean).join(" ")}</p><p style={{fontSize:12,fontWeight:700}}>{l.qte} unités</p></div>);})}
+        </Card>
+        <div style={{display:"flex",gap:8,marginBottom:24}}>
+          <button onClick={()=>genererBLPDF(view,st)} style={{flex:1,background:"#F4F4F2",border:"none",borderRadius:10,padding:"10px",fontWeight:600,fontSize:12,cursor:"pointer"}}>📋 PDF BL</button>
+          {view.statut!=="livre"&&(<button onClick={()=>{if(!window.confirm("Supprimer ce BL ?"))return;setSt((p:any)=>({...p,bulletinsLivraison:(p.bulletinsLivraison||[]).filter((b:any)=>b.id!==view.id)}));setViewId(null);}} style={{flex:1,background:"#FEF2F2",border:"1px solid #FECACA",borderRadius:10,padding:"10px",fontWeight:600,fontSize:12,color:"#B91C1C",cursor:"pointer"}}>🗑 Supprimer</button>)}
+        </div>
+      </div>
+    );
+  }
+
+  // ── LISTE ──
+  return (
+    <div className="fade">
+      <SectionTitle>
+        Bulletins de livraison <span style={{fontSize:14,color:"#9CA3AF",fontWeight:400}}>({bls.length})</span>
+      </SectionTitle>
+      {bls.length===0?(
+        <div style={{textAlign:"center",padding:"40px 0",color:"#9CA3AF"}}>
+          <p style={{fontSize:32,marginBottom:8}}>🚚</p>
+          <p style={{fontSize:14,fontWeight:600}}>Aucun bulletin de livraison</p>
+          <p style={{fontSize:12,marginTop:4}}>Les BL sont créés depuis un Bulletin de Commande signé</p>
+          <button onClick={()=>setTab("bulletinsCommande")} style={{marginTop:16,background:"#0A0A0A",color:"#fff",border:"none",borderRadius:10,padding:"11px 24px",fontSize:13,fontWeight:600,cursor:"pointer"}}>→ Voir les BC</button>
+        </div>
+      ):(
+        <div style={{display:"flex",flexDirection:"column",gap:8}}>
+          {[...bls].sort((a:any,b:any)=>(b.dateCreation||"")>(a.dateCreation||"")?1:-1).map((bl:any)=>{
+            const sc=SC(bl.statut);
+            return(
+              <div key={bl.id} onClick={()=>setViewId(bl.id)} style={{background:"#fff",borderRadius:12,padding:"12px 14px",border:"1px solid #EAE7E0",cursor:"pointer"}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+                  <div>
+                    <p style={{fontSize:13,fontWeight:700}}>{bl.numero}</p>
+                    <p style={{fontSize:11,color:"#737373"}}>{bl.clientNom} · {fmt(bl.dateLivraison||bl.dateCreation)}</p>
+                    {bl.bcNumero&&<p style={{fontSize:10,color:"#9CA3AF"}}>BC : {bl.bcNumero}</p>}
+                  </div>
+                  <span style={{background:sc.bg,color:sc.text,border:`1px solid ${sc.border}`,borderRadius:20,padding:"3px 9px",fontSize:10,fontWeight:700,flexShrink:0}}>{sc.emoji} {sc.label}</span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+};
+
 const Production = ({st, setSt}) => {
   const prod = st.production || {recettes: RECETTES_DEFAULT, macerations:[], historique:[]};
   const setProd = (fn) => setSt(p=>{
@@ -13373,6 +14062,9 @@ factures:    <Factures     st={st} setSt={setSt}/>,
 commandes:   <Commandes    st={st} setSt={setSt} setTab={setTab}/>,
 fournisseurs:<Fournisseurs st={st} setSt={setSt}/>,
 offres:      <Offres       st={st} setSt={setSt}/>,
+prospects:         <Prospects         st={st} setSt={setSt} setTab={setTab}/>,
+bulletinsCommande: <BulletinsCommande st={st} setSt={setSt} setTab={setTab}/>,
+bulletinsLivraison:<BulletinsLivraison st={st} setSt={setSt} setTab={setTab}/>,
 documents:   <Documents    st={st} setSt={setSt}/>,
 sauvegardes: <Sauvegardes  authUser={authUser} st={st} setSt={setSt}/>,
 };
@@ -13415,8 +14107,11 @@ return (
             {id:"compta",     label:"Comptabilité",emoji:"📊"},
           ]},
           {groupe:"Modules détaillés", items:[
+            {id:"prospects",        label:"Prospects",      emoji:"🎯"},
+            {id:"bulletinsCommande",label:"Bulletins CMD",  emoji:"📋"},
+            {id:"bulletinsLivraison",label:"Bulletins BL",  emoji:"🚚"},
             {id:"partenaires", label:"Dépôts-vente",emoji:"🤝"},
-            {id:"offres",      label:"Offres",      emoji:"📋"},
+            {id:"offres",      label:"Offres",      emoji:"📄"},
             {id:"factures",    label:"Factures",    emoji:"🧾"},
             {id:"commandes",   label:"Commandes",   emoji:"📦"},
             {id:"contrats",    label:"Contrats",    emoji:"📋"},
@@ -13584,8 +14279,11 @@ return (
             {id:"compta",     label:"Compta",     emoji:"📊"},
           ]},
           {groupe:"Modules détaillés", items:[
+            {id:"prospects",        label:"Prospects",     emoji:"🎯"},
+            {id:"bulletinsCommande",label:"BC",            emoji:"📋"},
+            {id:"bulletinsLivraison",label:"BL",           emoji:"🚚"},
             {id:"partenaires", label:"Dépôts-vente",emoji:"🤝"},
-            {id:"offres",      label:"Offres",      emoji:"📋"},
+            {id:"offres",      label:"Offres",      emoji:"📄"},
             {id:"factures",    label:"Factures",    emoji:"🧾"},
             {id:"commandes",   label:"Commandes",   emoji:"📦"},
             {id:"contrats",    label:"Contrats",    emoji:"📋"},
