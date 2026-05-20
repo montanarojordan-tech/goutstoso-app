@@ -8210,6 +8210,7 @@ const [modal,setModal] = useState(null);
 const [viewId,setViewId] = useState(null);
 const [search,setSearch] = useState("");
 const [catTab,setCatTab] = useState<"tous"|"client"|"partenaire">("tous");
+const [clientViewTab,setClientViewTab] = useState<"infos"|"offres"|"factures"|"archives">("infos");
 
 const view = viewId ? (st.clients||[]).find(c=>c.id===viewId) : null;
 
@@ -8316,183 +8317,238 @@ const aEncaisser = sum(facturesNonPayees.map(f=>calcTotalNet(f,st.produits)));
 return {nbCommandes:commandes.length,ca,commandes,nbNonPayees:facturesNonPayees.length,aEncaisser,factures,offres,contrats,facturesNonPayees,offresV5,bcsClient,blsClient};
 };
 
-// Vue détail client
+// Vue détail client — 360°
 if(view) {
 const stats = getStats(view.id);
-return (
-<div className="fade">
-<Breadcrumb crumbs={[{label:"Clients",onClick:()=>setViewId(null)},{label:view.nom}]}/>
-
-    <div style={{background:"#111",borderRadius:14,padding:"16px",marginBottom:14}}>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8}}>
+const TABS360 = [
+  {id:"infos",    label:"Infos",     emoji:"ℹ️",  count:0},
+  {id:"offres",   label:"Offres",    emoji:"📄",  count:stats.offresV5.length+stats.bcsClient.length+stats.blsClient.length+stats.offres.length+stats.contrats.length},
+  {id:"factures", label:"Factures",  emoji:"🧾",  count:stats.factures.length+stats.commandes.length},
+  {id:"archives", label:"Archives",  emoji:"📦",  count:0},
+] as const;
+const badgeSty360 = (s:string) => ({
+  "actif":{bg:"#DCFCE7",c:"#166534"},"signé":{bg:"#DCFCE7",c:"#166534"},
+  "accepté":{bg:"#DCFCE7",c:"#166534"},"payée":{bg:"#DCFCE7",c:"#166534"},
+  "livrée":{bg:"#DCFCE7",c:"#166534"},"expédiée":{bg:"#DBEAFE",c:"#1E3A5F"},
+  "emballée":{bg:"#DBEAFE",c:"#1E3A5F"},"à préparer":{bg:"#FEF9E7",c:"#92400E"},
+  "en retard":{bg:"#FEF2F2",c:"#991B1B"},"résilié":{bg:"#FEF2F2",c:"#991B1B"},
+  "refusé":{bg:"#FEF2F2",c:"#991B1B"},
+}[s]||{bg:"#F3F4F6",c:"#6B7280"});
+const renderDocList = (items:any[], type:string) => items.length===0 ? null : (
+  <>
+  {items.slice().sort((a:any,b:any)=>(b.date||b.dateSignature||"").localeCompare(a.date||a.dateSignature||"")).map((item:any)=>{
+    const sty=badgeSty360(item.statut||"");
+    let montant=0;
+    if(type==="facture") montant=calcTotalNet(item,st.produits);
+    else if(type==="commande") montant=sum((item.lignes||[]).filter((l:any)=>l.produitId).map((l:any)=>{const p=st.produits.find((x:any)=>x.id===l.produitId);return(item.typeClient==="revendeur"?(p?.prixRevendeur||0):(p?.prixClient||0))*(l.qte||0);}))-(parseFloat(item.rabais)||0)+(parseFloat(item.fraisPort)||0);
+    return (
+      <div key={item.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"9px 0",borderBottom:"1px solid #F5F5F0"}}>
         <div style={{flex:1,minWidth:0}}>
-          <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:24,fontWeight:700,color:"#fff"}}>{view.nom}</p>
-          {view.contact && <p style={{fontSize:12,color:"#F2C94C",marginTop:3}}>👤 {view.contact}</p>}
-          {view.email && <p style={{fontSize:12,color:"#aaa",marginTop:3}}>✉️ {view.email}</p>}
-          {view.telephone && <p style={{fontSize:12,color:"#aaa",marginTop:2}}>📞 {view.telephone}</p>}
-          {view.site && <p style={{fontSize:11,color:"#60A5FA",marginTop:2}}>🌐 {view.site}</p>}
+          <p style={{fontSize:12,fontWeight:600,color:"#0A0A0A"}}>{item.numero||("…"+item.id.slice(-6))}</p>
+          <p style={{fontSize:10,color:"#9CA3AF",marginTop:1}}>{fmt(item.date||item.dateSignature||"")} {type==="commande"?"· "+(item.lignes||[]).length+" art.":""}</p>
         </div>
-        <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:6}}>
-          {view.statut && <span style={{fontSize:10,fontWeight:700,padding:"3px 8px",borderRadius:6,background:view.statut==="actif"?"#166534":view.statut==="inactif"?"#4B5563":"#1E40AF",color:"#fff"}}>{view.statut==="actif"?"✅ Actif":view.statut==="inactif"?"⏸ Inactif":"🔍 Prospection"}</span>}
-          {view.prixDefaut && <span style={{fontSize:10,fontWeight:600,padding:"3px 8px",borderRadius:6,background:"#1f2937",color:view.prixDefaut==="revendeur"?"#86EFAC":"#93C5FD"}}>{view.prixDefaut==="revendeur"?"🤝 Prix partenaire":"💰 Prix public"}</span>}
-          {(view.delaiPaiement||30) && <span style={{fontSize:10,color:"#9CA3AF"}}>⏱ {view.delaiPaiement||30}j</span>}
+        <div style={{display:"flex",alignItems:"center",gap:6,flexShrink:0}}>
+          <span style={{fontSize:9,fontWeight:700,padding:"2px 6px",borderRadius:5,background:sty.bg,color:sty.c}}>{item.statut||"—"}</span>
+          {montant>0&&<span style={{fontWeight:700,fontSize:13}}>{chf(montant)}</span>}
         </div>
       </div>
+    );
+  })}
+  </>
+);
+return (
+<div className="fade">
+<Breadcrumb crumbs={[{label:"Clients",onClick:()=>{setViewId(null);setClientViewTab("infos");}},{label:view.nom}]}/>
+
+  {/* Header card */}
+  <div style={{background:"#111",borderRadius:14,padding:"16px",marginBottom:12}}>
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8}}>
+      <div style={{flex:1,minWidth:0}}>
+        <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:24,fontWeight:700,color:"#fff"}}>{view.nom}</p>
+        {view.contact && <p style={{fontSize:12,color:"#F2C94C",marginTop:3}}>👤 {view.contact}</p>}
+        {view.email && (
+          <a href={`mailto:${view.email}`} style={{fontSize:12,color:"#aaa",marginTop:3,display:"block",textDecoration:"none"}}>✉️ {view.email}</a>
+        )}
+        {view.telephone && (
+          <a href={`tel:${view.telephone}`} style={{fontSize:12,color:"#aaa",marginTop:2,display:"block",textDecoration:"none"}}>📞 {view.telephone}</a>
+        )}
+        {view.site && <p style={{fontSize:11,color:"#60A5FA",marginTop:2}}>🌐 {view.site}</p>}
+      </div>
+      <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:5}}>
+        {view.statut && <span style={{fontSize:10,fontWeight:700,padding:"3px 8px",borderRadius:6,background:view.statut==="actif"?"#166534":view.statut==="inactif"?"#4B5563":"#1E40AF",color:"#fff"}}>{view.statut==="actif"?"✅ Actif":view.statut==="inactif"?"⏸ Inactif":"🔍 Prospection"}</span>}
+        {view.prixDefaut && <span style={{fontSize:10,fontWeight:600,padding:"3px 8px",borderRadius:6,background:"#1f2937",color:view.prixDefaut==="revendeur"?"#86EFAC":"#93C5FD"}}>{view.prixDefaut==="revendeur"?"🤝 Partenaire":"💰 Public"}</span>}
+        <span style={{fontSize:10,color:"#9CA3AF"}}>⏱ {view.delaiPaiement||30}j</span>
+      </div>
     </div>
-
-    {view.conditions && (
-      <Card style={{marginBottom:14,padding:"10px 14px",background:"#FEF9E7",border:"1px solid #F2C94C"}}>
-        <p style={{fontSize:10,color:"#92400E",fontWeight:700,textTransform:"uppercase",marginBottom:4}}>📋 Conditions commerciales</p>
-        <p style={{fontSize:12,color:"#374151",lineHeight:1.5}}>{view.conditions}</p>
-      </Card>
+    {/* Alerte encaisser */}
+    {stats.aEncaisser>0 && (
+      <div style={{marginTop:10,background:"rgba(239,68,68,.15)",border:"1px solid rgba(239,68,68,.3)",borderRadius:8,padding:"7px 10px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+        <span style={{fontSize:11,color:"#FCA5A5",fontWeight:600}}>⚠️ À encaisser ({stats.nbNonPayees} fact.)</span>
+        <span style={{fontSize:14,fontWeight:700,color:"#FCA5A5"}}>{chf(stats.aEncaisser)}</span>
+      </div>
     )}
-
-    {/* Actions */}
-    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
-      <button onClick={()=>{setForm({...view});setModal("form");setViewId(null);}} style={{background:"#F5F5F0",border:"none",borderRadius:12,padding:"12px",fontWeight:600,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
-        <Ic n="edit" s={14}/> Modifier
-      </button>
-      <button onClick={()=>supprimer(view.id)} style={{background:"#FEE2E2",color:"#991B1B",border:"none",borderRadius:12,padding:"12px",fontWeight:600,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
-        <Ic n="trash" s={14}/> Supprimer
-      </button>
-    </div>
-    <button onClick={async()=>{
-      try {
-        const JSZip=await loadJSZip();
-        const zip=new JSZip();
-        const s=getStats(view.id);
-        zip.file("client.json",JSON.stringify({...view},null,2));
-        if(s.factures.length)zip.file("factures.json",JSON.stringify(s.factures,null,2));
-        if(s.commandes.length)zip.file("commandes.json",JSON.stringify(s.commandes,null,2));
-        if(s.offresV5.length)zip.file("offres.json",JSON.stringify(s.offresV5,null,2));
-        if(s.bcsClient.length)zip.file("bulletins_commande.json",JSON.stringify(s.bcsClient,null,2));
-        if(s.blsClient.length)zip.file("bulletins_livraison.json",JSON.stringify(s.blsClient,null,2));
-        const resume=[
-          `Dossier client : ${view.nom}`,`Exporté le : ${new Date().toLocaleDateString("fr-CH")}`,``,
-          `CA total : CHF ${s.ca.toFixed(2)}`,`Commandes : ${s.nbCommandes}`,`Factures impayées : ${s.nbNonPayees} (CHF ${s.aEncaisser.toFixed(2)})`,
-          `Offres V5 : ${s.offresV5.length}`,`BC : ${s.bcsClient.length}`,`BL : ${s.blsClient.length}`,
-        ].join("\n");
-        zip.file("resume.txt",resume);
-        const blob=await zip.generateAsync({type:"blob"});
-        const a=document.createElement("a"); a.href=URL.createObjectURL(blob);
-        a.download=`dossier_${view.nom.replace(/[^a-z0-9]/gi,"_")}.zip`; a.click();
-      } catch(e){ alert("Erreur lors de la génération du ZIP. Vérifie ta connexion internet."); }
-    }} style={{width:"100%",background:"#0A0A0A",color:"#F2C94C",border:"none",borderRadius:12,padding:"11px",fontWeight:600,fontSize:12,cursor:"pointer",marginBottom:14,display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
-      📦 Télécharger le dossier ZIP
-    </button>
-
-    {/* Stats */}
-    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:14}}>
-      <Card style={{padding:"12px",textAlign:"center",background:"#DBEAFE"}}>
-        <p style={{fontSize:10,color:"#1E3A5F",fontWeight:700,textTransform:"uppercase"}}>Commandes</p>
-        <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:24,fontWeight:700,color:"#1E3A5F",marginTop:2}}>{stats.nbCommandes}</p>
-      </Card>
-      <Card style={{padding:"12px",textAlign:"center",background:"#DCFCE7"}}>
-        <p style={{fontSize:10,color:"#166534",fontWeight:700,textTransform:"uppercase"}}>CA total</p>
-        <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:20,fontWeight:700,color:"#166534",marginTop:2}}>{chf(stats.ca)}</p>
-      </Card>
-    </div>
-
-    {/* Adresse */}
-    <Card style={{marginBottom:14,padding:"12px 14px"}}>
-      <p style={{fontSize:10,color:"#9CA3AF",fontWeight:700,textTransform:"uppercase",marginBottom:6}}>Adresse de livraison</p>
-      {(view.adresse||view.npa||view.ville) ? (
-        <p style={{fontSize:13,lineHeight:1.6}}>
-          {view.adresse && <>{view.adresse}<br/></>}
-          {view.npa} {view.ville}
-        </p>
-      ) : <p style={{fontSize:12,color:"#9CA3AF",fontStyle:"italic"}}>Pas d'adresse enregistrée</p>}
-    </Card>
-
-    {/* Notes */}
-    {view.notes && (
-      <Card style={{marginBottom:14,padding:"10px 14px",background:"#FEF9E7"}}>
-        <p style={{fontSize:10,color:"#92400E",fontWeight:700,textTransform:"uppercase",marginBottom:4}}>Notes</p>
-        <p style={{fontSize:12,color:"#374151"}}>{view.notes}</p>
-      </Card>
-    )}
-
-    {/* Factures non payées — À encaisser */}
-    {stats.facturesNonPayees.length > 0 && (
-      <Card style={{padding:"12px 14px",marginBottom:14,background:"#FEF2F2",border:"1px solid #FECACA"}}>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
-          <p style={{fontSize:11,fontWeight:700,color:"#B91C1C",textTransform:"uppercase"}}>⚠️ À encaisser ({stats.facturesNonPayees.length})</p>
-          <p style={{fontSize:14,fontWeight:700,color:"#B91C1C"}}>{chf(stats.aEncaisser)}</p>
-        </div>
-        {stats.facturesNonPayees.map((f:any)=>{
-          const t = calcTotalNet(f,st.produits);
-          return (
-            <div key={f.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 0",borderTop:"1px solid #FECACA"}}>
-              <div style={{flex:1,minWidth:0}}>
-                <p style={{fontSize:12,fontWeight:600,color:"#0A0A0A"}}>{f.numero}</p>
-                <p style={{fontSize:10,color:"#737373",marginTop:1}}>{fmt(f.date)} · {f.statut}</p>
-              </div>
-              <span style={{fontWeight:700,fontSize:13,color:"#B91C1C",marginLeft:8}}>{chf(t)}</span>
-            </div>
-          );
-        })}
-      </Card>
-    )}
-
-    {/* Historique complet par catégorie */}
-    {(()=>{
-      const badgeSty = (s:string) => ({
-        "actif":{bg:"#DCFCE7",c:"#166534"},"signé":{bg:"#DCFCE7",c:"#166534"},
-        "accepté":{bg:"#DCFCE7",c:"#166534"},"payée":{bg:"#DCFCE7",c:"#166534"},
-        "livrée":{bg:"#DCFCE7",c:"#166534"},"expédiée":{bg:"#DBEAFE",c:"#1E3A5F"},
-        "emballée":{bg:"#DBEAFE",c:"#1E3A5F"},"à préparer":{bg:"#FEF9E7",c:"#92400E"},
-        "en retard":{bg:"#FEF2F2",c:"#991B1B"},"résilié":{bg:"#FEF2F2",c:"#991B1B"},
-        "refusé":{bg:"#FEF2F2",c:"#991B1B"},
-      }[s]||{bg:"#F3F4F6",c:"#6B7280"});
-      const total = stats.offresV5.length+stats.offres.length+stats.bcsClient.length+stats.blsClient.length+stats.contrats.length+stats.commandes.length+stats.factures.length;
-      const groupes = [
-        {label:"📄 Offres",items:stats.offresV5,type:"offre"},
-        {label:"📋 Bulletins de commande",items:stats.bcsClient,type:"bc"},
-        {label:"🚚 Bulletins de livraison",items:stats.blsClient,type:"bl"},
-        {label:"📋 Offres contrats (ancien)",items:stats.offres,type:"offre"},
-        {label:"📑 Contrats dépôt-vente",items:stats.contrats,type:"contrat"},
-        {label:"🛒 Commandes web",items:stats.commandes,type:"commande"},
-        {label:"🧾 Factures",items:stats.factures,type:"facture"},
-      ].filter(g=>g.items.length>0);
-      if(total===0) return (
-        <Card style={{padding:"16px",textAlign:"center" as const}}>
-          <p style={{fontSize:12,color:"#9CA3AF"}}>Aucun historique</p>
-        </Card>
-      );
-      return (
-        <>
-          {groupes.map((grp,gi)=>(
-            <Card key={gi} style={{padding:"12px 14px",marginBottom:10}}>
-              <p style={{fontSize:11,fontWeight:700,color:"#9CA3AF",textTransform:"uppercase" as const,marginBottom:8}}>
-                {grp.label} ({grp.items.length})
-              </p>
-              {grp.items.slice().sort((a:any,b:any)=>(b.date||b.dateSignature||"").localeCompare(a.date||a.dateSignature||"")).map((item:any)=>{
-                const sty = badgeSty(item.statut||"");
-                let montant = 0;
-                if(grp.type==="facture") montant = calcTotalNet(item,st.produits);
-                else if(grp.type==="commande") montant = sum((item.lignes||[]).filter((l:any)=>l.produitId).map((l:any)=>{
-                  const p = st.produits.find((x:any)=>x.id===l.produitId);
-                  return (item.typeClient==="revendeur"?(p?.prixRevendeur||0):(p?.prixClient||0))*(l.qte||0);
-                }))-(parseFloat(item.rabais)||0)+(parseFloat(item.fraisPort)||0);
-                return (
-                  <div key={item.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderBottom:"1px solid #F5F5F0"}}>
-                    <div style={{flex:1,minWidth:0}}>
-                      <p style={{fontSize:12,fontWeight:600}}>{item.numero||("…"+item.id.slice(-6))}</p>
-                      <p style={{fontSize:10,color:"#9CA3AF",marginTop:1}}>{fmt(item.date||item.dateSignature||"")} {grp.type==="commande"?"· "+(item.lignes||[]).length+" produit(s)":""}</p>
-                    </div>
-                    <div style={{display:"flex",alignItems:"center",gap:6,flexShrink:0}}>
-                      <span style={{fontSize:9,fontWeight:700,padding:"2px 6px",borderRadius:5,background:sty.bg,color:sty.c}}>{item.statut||"—"}</span>
-                      {montant>0&&<span style={{fontWeight:700,fontSize:13,marginLeft:2}}>{chf(montant)}</span>}
-                    </div>
-                  </div>
-                );
-              })}
-            </Card>
-          ))}
-        </>
-      );
-    })()}
   </div>
+
+  {/* Barre d'onglets 360° */}
+  <div style={{display:"flex",gap:0,marginBottom:14,background:"#F3F4F6",borderRadius:10,padding:3}}>
+    {TABS360.map(t=>{
+      const active=clientViewTab===t.id;
+      return (
+        <button key={t.id} onClick={()=>setClientViewTab(t.id as any)} style={{flex:1,padding:"8px 4px",border:"none",borderRadius:8,background:active?"#fff":"transparent",fontWeight:active?700:400,fontSize:11,color:active?"#0A0A0A":"#6B7280",cursor:"pointer",boxShadow:active?"0 1px 3px rgba(0,0,0,.1)":"none",transition:"all .15s",display:"flex",flexDirection:"column",alignItems:"center",gap:1}}>
+          <span style={{fontSize:13}}>{t.emoji}</span>
+          <span>{t.label}</span>
+          {t.count>0 && <span style={{fontSize:9,background:active?"#F2C94C":"#D1D5DB",color:active?"#0A0A0A":"#6B7280",borderRadius:10,padding:"1px 5px",fontWeight:700}}>{t.count}</span>}
+        </button>
+      );
+    })}
+  </div>
+
+  {/* ── ONGLET INFOS ── */}
+  {clientViewTab==="infos" && (
+    <>
+      {/* Stats */}
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:14}}>
+        <Card style={{padding:"12px",textAlign:"center",background:"#DBEAFE"}}>
+          <p style={{fontSize:10,color:"#1E3A5F",fontWeight:700,textTransform:"uppercase"}}>Commandes</p>
+          <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:28,fontWeight:700,color:"#1E3A5F",marginTop:2}}>{stats.nbCommandes}</p>
+        </Card>
+        <Card style={{padding:"12px",textAlign:"center",background:"#DCFCE7"}}>
+          <p style={{fontSize:10,color:"#166534",fontWeight:700,textTransform:"uppercase"}}>CA total</p>
+          <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:22,fontWeight:700,color:"#166534",marginTop:2}}>{chf(stats.ca)}</p>
+        </Card>
+      </div>
+      {/* Adresse */}
+      <Card style={{marginBottom:12,padding:"12px 14px"}}>
+        <p style={{fontSize:10,color:"#9CA3AF",fontWeight:700,textTransform:"uppercase",marginBottom:6}}>📍 Adresse</p>
+        {(view.adresse||view.npa||view.ville) ? (
+          <p style={{fontSize:13,lineHeight:1.7}}>{view.adresse && <>{view.adresse}<br/></>}{view.npa} {view.ville}</p>
+        ) : <p style={{fontSize:12,color:"#9CA3AF",fontStyle:"italic"}}>Non renseignée</p>}
+      </Card>
+      {/* Conditions */}
+      {view.conditions && (
+        <Card style={{marginBottom:12,padding:"10px 14px",background:"#FEF9E7",border:"1px solid #F2C94C"}}>
+          <p style={{fontSize:10,color:"#92400E",fontWeight:700,textTransform:"uppercase",marginBottom:4}}>📋 Conditions commerciales</p>
+          <p style={{fontSize:12,color:"#374151",lineHeight:1.6}}>{view.conditions}</p>
+        </Card>
+      )}
+      {/* Notes */}
+      {view.notes && (
+        <Card style={{marginBottom:12,padding:"10px 14px",background:"#F9FAFB"}}>
+          <p style={{fontSize:10,color:"#6B7280",fontWeight:700,textTransform:"uppercase",marginBottom:4}}>📝 Notes</p>
+          <p style={{fontSize:12,color:"#374151",lineHeight:1.6}}>{view.notes}</p>
+        </Card>
+      )}
+      {/* Actions */}
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8,marginTop:4}}>
+        <button onClick={()=>{setForm({...view});setModal("form");setViewId(null);}} style={{background:"#F5F5F0",border:"none",borderRadius:12,padding:"12px",fontWeight:600,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+          <Ic n="edit" s={14}/> Modifier
+        </button>
+        <button onClick={()=>supprimer(view.id)} style={{background:"#FEE2E2",color:"#991B1B",border:"none",borderRadius:12,padding:"12px",fontWeight:600,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+          <Ic n="trash" s={14}/> Supprimer
+        </button>
+      </div>
+    </>
+  )}
+
+  {/* ── ONGLET OFFRES ── */}
+  {clientViewTab==="offres" && (
+    <>
+      {stats.offresV5.length===0&&stats.bcsClient.length===0&&stats.blsClient.length===0&&stats.offres.length===0&&stats.contrats.length===0 ? (
+        <Card style={{padding:"24px",textAlign:"center"as const}}><p style={{fontSize:12,color:"#9CA3AF"}}>Aucun document commercial</p></Card>
+      ) : (
+        <>
+          {stats.offresV5.length>0 && <Card style={{padding:"12px 14px",marginBottom:10}}><p style={{fontSize:10,fontWeight:700,color:"#9CA3AF",textTransform:"uppercase"as const,marginBottom:6}}>📄 Offres ({stats.offresV5.length})</p>{renderDocList(stats.offresV5,"offre")}</Card>}
+          {stats.bcsClient.length>0 && <Card style={{padding:"12px 14px",marginBottom:10}}><p style={{fontSize:10,fontWeight:700,color:"#9CA3AF",textTransform:"uppercase"as const,marginBottom:6}}>📋 Bulletins de commande ({stats.bcsClient.length})</p>{renderDocList(stats.bcsClient,"bc")}</Card>}
+          {stats.blsClient.length>0 && <Card style={{padding:"12px 14px",marginBottom:10}}><p style={{fontSize:10,fontWeight:700,color:"#9CA3AF",textTransform:"uppercase"as const,marginBottom:6}}>🚚 Bulletins de livraison ({stats.blsClient.length})</p>{renderDocList(stats.blsClient,"bl")}</Card>}
+          {stats.offres.length>0 && <Card style={{padding:"12px 14px",marginBottom:10}}><p style={{fontSize:10,fontWeight:700,color:"#9CA3AF",textTransform:"uppercase"as const,marginBottom:6}}>📋 Offres (ancien format) ({stats.offres.length})</p>{renderDocList(stats.offres,"offre")}</Card>}
+          {stats.contrats.length>0 && <Card style={{padding:"12px 14px",marginBottom:10}}><p style={{fontSize:10,fontWeight:700,color:"#9CA3AF",textTransform:"uppercase"as const,marginBottom:6}}>📑 Contrats dépôt-vente ({stats.contrats.length})</p>{renderDocList(stats.contrats,"contrat")}</Card>}
+        </>
+      )}
+    </>
+  )}
+
+  {/* ── ONGLET FACTURES ── */}
+  {clientViewTab==="factures" && (
+    <>
+      {/* Alerte impayés */}
+      {stats.facturesNonPayees.length>0 && (
+        <Card style={{padding:"12px 14px",marginBottom:12,background:"#FEF2F2",border:"1px solid #FECACA"}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+            <p style={{fontSize:11,fontWeight:700,color:"#B91C1C",textTransform:"uppercase"as const}}>⚠️ À encaisser ({stats.facturesNonPayees.length})</p>
+            <p style={{fontSize:15,fontWeight:700,color:"#B91C1C"}}>{chf(stats.aEncaisser)}</p>
+          </div>
+          {stats.facturesNonPayees.map((f:any)=>(
+            <div key={f.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 0",borderTop:"1px solid #FECACA"}}>
+              <div><p style={{fontSize:12,fontWeight:600,color:"#0A0A0A"}}>{f.numero}</p><p style={{fontSize:10,color:"#737373"}}>{fmt(f.date)} · {f.statut}</p></div>
+              <span style={{fontWeight:700,fontSize:13,color:"#B91C1C"}}>{chf(calcTotalNet(f,st.produits))}</span>
+            </div>
+          ))}
+        </Card>
+      )}
+      {stats.factures.length===0&&stats.commandes.length===0 ? (
+        <Card style={{padding:"24px",textAlign:"center"as const}}><p style={{fontSize:12,color:"#9CA3AF"}}>Aucune facture</p></Card>
+      ) : (
+        <>
+          {stats.factures.length>0 && <Card style={{padding:"12px 14px",marginBottom:10}}><p style={{fontSize:10,fontWeight:700,color:"#9CA3AF",textTransform:"uppercase"as const,marginBottom:6}}>🧾 Factures ({stats.factures.length})</p>{renderDocList(stats.factures,"facture")}</Card>}
+          {stats.commandes.length>0 && <Card style={{padding:"12px 14px",marginBottom:10}}><p style={{fontSize:10,fontWeight:700,color:"#9CA3AF",textTransform:"uppercase"as const,marginBottom:6}}>🛒 Commandes web ({stats.commandes.length})</p>{renderDocList(stats.commandes,"commande")}</Card>}
+        </>
+      )}
+    </>
+  )}
+
+  {/* ── ONGLET ARCHIVES ── */}
+  {clientViewTab==="archives" && (
+    <>
+      {/* Résumé */}
+      <Card style={{padding:"14px",marginBottom:12}}>
+        <p style={{fontSize:10,fontWeight:700,color:"#9CA3AF",textTransform:"uppercase"as const,marginBottom:10}}>📊 Résumé complet</p>
+        {[
+          ["CA total encaissé",chf(stats.ca)],
+          ["À encaisser",chf(stats.aEncaisser)],
+          ["Offres",String(stats.offresV5.length+stats.offres.length)],
+          ["Bulletins commande",String(stats.bcsClient.length)],
+          ["Bulletins livraison",String(stats.blsClient.length)],
+          ["Factures",String(stats.factures.length)+" ("+stats.nbNonPayees+" impayée"+(stats.nbNonPayees>1?"s":"")+")"],
+          ["Commandes web",String(stats.commandes.length)],
+          ["Contrats / dépôts",String(stats.contrats.length)],
+        ].map(([k,v])=>(
+          <div key={k} style={{display:"flex",justifyContent:"space-between",padding:"5px 0",borderBottom:"1px solid #F5F5F0"}}>
+            <span style={{fontSize:12,color:"#525252"}}>{k}</span>
+            <span style={{fontSize:12,fontWeight:700,color:"#0A0A0A"}}>{v}</span>
+          </div>
+        ))}
+      </Card>
+      {/* ZIP Download */}
+      <button onClick={async()=>{
+        try {
+          const JSZip=await loadJSZip();
+          const zip=new JSZip();
+          const s=getStats(view.id);
+          zip.file("client.json",JSON.stringify({...view},null,2));
+          if(s.factures.length) zip.file("factures.json",JSON.stringify(s.factures,null,2));
+          if(s.commandes.length) zip.file("commandes.json",JSON.stringify(s.commandes,null,2));
+          if(s.offresV5.length) zip.file("offres.json",JSON.stringify(s.offresV5,null,2));
+          if(s.bcsClient.length) zip.file("bulletins_commande.json",JSON.stringify(s.bcsClient,null,2));
+          if(s.blsClient.length) zip.file("bulletins_livraison.json",JSON.stringify(s.blsClient,null,2));
+          if(s.contrats.length) zip.file("contrats.json",JSON.stringify(s.contrats,null,2));
+          const resume=[
+            `Dossier client : ${view.nom}`,`Exporté le : ${new Date().toLocaleDateString("fr-CH")}`,``,
+            `CA total : CHF ${s.ca.toFixed(2)}`,`À encaisser : CHF ${s.aEncaisser.toFixed(2)}`,
+            `Commandes : ${s.nbCommandes}`,`Factures : ${s.factures.length} (${s.nbNonPayees} impayée(s))`,
+            `Offres V5 : ${s.offresV5.length}`,`BC : ${s.bcsClient.length}`,`BL : ${s.blsClient.length}`,`Contrats : ${s.contrats.length}`,
+          ].join("\n");
+          zip.file("resume.txt",resume);
+          const blob=await zip.generateAsync({type:"blob"});
+          const a=document.createElement("a"); a.href=URL.createObjectURL(blob);
+          a.download=`dossier_${view.nom.replace(/[^a-z0-9]/gi,"_")}.zip`; a.click();
+        } catch(e){ alert("Erreur ZIP. Vérifie ta connexion."); }
+      }} style={{width:"100%",background:"#0A0A0A",color:"#F2C94C",border:"none",borderRadius:12,padding:"14px",fontWeight:700,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
+        📦 Télécharger le dossier complet (ZIP)
+      </button>
+      <p style={{fontSize:10,color:"#9CA3AF",textAlign:"center"as const,marginTop:6}}>Inclut toutes les données : infos, offres, BC, BL, factures, contrats</p>
+    </>
+  )}
+</div>
 );
 
 }
@@ -15307,6 +15363,8 @@ return (
             {emoji:"📄",label:"Nouvelle offre",tab:"offres"},
             {emoji:"📋",label:"Nouveau BC",tab:"bulletinsCommande"},
             {emoji:"🧾",label:"Nouvelle facture",tab:"factures"},
+            {emoji:"🏠",label:"Vente directe",tab:"ventesDirectes"},
+            {emoji:"🛒",label:"Import Shopify",tab:"commandes"},
           ].map((a,i)=>(
             <button key={i} onClick={()=>{setShowFAB(false);goTo(a.tab);}}
               style={{display:"flex",alignItems:"center",gap:10,background:"#fff",border:"none",borderRadius:50,padding:"10px 16px 10px 12px",boxShadow:"0 4px 16px rgba(0,0,0,.18)",fontSize:13,fontWeight:600,color:"#0A0A0A",cursor:"pointer",whiteSpace:"nowrap"}}>
