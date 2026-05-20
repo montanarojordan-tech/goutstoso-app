@@ -277,6 +277,8 @@ offres:[],
 prospects:[],
 bulletinsCommande:[],
 bulletinsLivraison:[],
+ventesDirectes:[],
+ventesShopify:[],
 production:{recettes:[], macerations:[], historique:[]},
 transactions:[
 // Journal comptable réel - extrait des images
@@ -600,6 +602,24 @@ if(joursDepuis >= 7) {
 });
 
 
+// Prospects à relancer (contacté/intéressé + ≥7j sans interaction)
+(st.prospects||[]).filter(p=>
+  ["contacté","intéressé","contacte","interesse"].includes(p.statut) && p.derniereInteraction
+).forEach(p=>{
+  const j = Math.floor((now - new Date(p.derniereInteraction))/86400000);
+  if(j >= 7) {
+    alertes.push({
+      type:"prospect_relance",
+      priorite: j >= 21 ? "haute" : "moyenne",
+      icone: j >= 21 ? "📣" : "🔁",
+      titre:"Relancer — "+p.nom+" ("+j+"j sans contact)",
+      desc:(p.email||p.telephone||"Aucun contact")+" · Statut : "+p.statut,
+      action:"prospects",
+      id: p.id,
+    });
+  }
+});
+
 // Stock bas chez partenaires
 const stocksBas = {};
 (st.depotStocks||[]).filter(ds=>{
@@ -798,7 +818,7 @@ Bonjour {authUser.display_name||authUser.username}
       {alertes.slice(0,5).map((a,i)=>{
         const bg = a.priorite==="haute"?"#FEF2F2":a.priorite==="moyenne"?"#FDF6E3":"#F4F4F2";
         const border = a.priorite==="haute"?"#FECACA":a.priorite==="moyenne"?"#FCD34D":"#EAE7E0";
-        const isRelance = a.type==="offre_relance";
+        const isRelance = a.type==="offre_relance" || a.type==="prospect_relance";
         return (
           <div key={i} style={{background:bg,border:"1px solid "+border,borderRadius:10,padding:"10px 12px",marginBottom:6}}>
             <div onClick={()=>goPage(a.action)} style={{cursor:"pointer",display:"flex",alignItems:"center",gap:10}}>
@@ -814,22 +834,30 @@ Bonjour {authUser.display_name||authUser.username}
                 <button
                   onClick={(e)=>{
                     e.stopPropagation();
-                    const o = (st.offres||[]).find(x=>x.id===a.id);
-                    if(!o){alert("Offre introuvable");return;}
-                    const email = o.clientEmail;
-                    if(!email){alert("Aucun email pour ce client");return;}
-                    const contact = o.clientNom||"";
-                    const dateEnvoi = new Date(o.date).toLocaleDateString("fr-CH",{day:"numeric",month:"long",year:"numeric"});
-                    const expStr = o.dateValidite ? new Date(o.dateValidite).toLocaleDateString("fr-CH",{day:"numeric",month:"long",year:"numeric"}) : "date à confirmer";
-                    const subj = "Relance — Offre "+o.numero+" - Goûtstoso";
-                    const body =
-                      "Bonjour "+contact+",\n\n"+
-                      "Je me permets de revenir vers vous au sujet de notre offre commerciale N° "+o.numero+" que nous vous avons transmise le "+dateEnvoi+".\n\n"+
-                      "Cette offre reste valable jusqu'au "+expStr+". Avez-vous eu l'occasion d'en prendre connaissance ? Nous sommes bien entendu disponibles pour répondre à toutes vos questions.\n\n"+
-                      "N'hésitez pas à nous faire part de votre retour.\n\n"+
-                      "Cordialement,\n\nJordan Montanaro\nGoûtstoso\nadmin@goutstoso.ch · www.goutstoso.ch";
-                    sendEmail({to:email, toName:contact, subject:subj, body});
-                    setSt(p=>({...p, offres:(p.offres||[]).map(x=>x.id===a.id?{...x,dateRelance:today()}:x)}));
+                    if(a.type==="prospect_relance") {
+                      const p = (st.prospects||[]).find(x=>x.id===a.id);
+                      if(!p){alert("Prospect introuvable");return;}
+                      const email = p.email;
+                      if(!email){alert("Aucun email pour ce prospect");return;}
+                      sendEmail({to:email, toName:p.nom,
+                        subject:"Relance — Goûtstoso",
+                        body:"Bonjour "+p.nom+",\n\nJe me permets de reprendre contact avec vous concernant nos liqueurs artisanales Goûtstoso.\n\nSeriez-vous disponible pour qu'on échange quelques minutes ?\n\nBonne journée,\nJordan Montanaro\nGoûtstoso\nadmin@goutstoso.ch"
+                      });
+                      setSt(prev=>({...prev, prospects:(prev.prospects||[]).map(x=>x.id===a.id?{...x,derniereInteraction:today()}:x)}));
+                    } else {
+                      const o = (st.offres||[]).find(x=>x.id===a.id);
+                      if(!o){alert("Offre introuvable");return;}
+                      const email = o.clientEmail;
+                      if(!email){alert("Aucun email pour ce client");return;}
+                      const contact = o.clientNom||"";
+                      const dateEnvoi = new Date(o.date).toLocaleDateString("fr-CH",{day:"numeric",month:"long",year:"numeric"});
+                      const expStr = o.dateValidite ? new Date(o.dateValidite).toLocaleDateString("fr-CH",{day:"numeric",month:"long",year:"numeric"}) : "date à confirmer";
+                      sendEmail({to:email, toName:contact,
+                        subject:"Relance — Offre "+o.numero+" - Goûtstoso",
+                        body:"Bonjour "+contact+",\n\nJe me permets de revenir vers vous au sujet de notre offre commerciale N° "+o.numero+" transmise le "+dateEnvoi+".\n\nCette offre reste valable jusqu'au "+expStr+". Avez-vous eu l'occasion d'en prendre connaissance ?\n\nN'hésitez pas à nous faire part de votre retour.\n\nCordialement,\nJordan Montanaro\nGoûtstoso\nadmin@goutstoso.ch · www.goutstoso.ch"
+                      });
+                      setSt(p=>({...p, offres:(p.offres||[]).map(x=>x.id===a.id?{...x,dateRelance:today()}:x)}));
+                    }
                   }}
                   style={{flex:1,background:"#92400E",color:"#FEF9C3",border:"none",borderRadius:8,padding:"7px 10px",fontSize:11,fontWeight:700,cursor:"pointer"}}>
                   ✉️ Envoyer la relance
@@ -837,7 +865,11 @@ Bonjour {authUser.display_name||authUser.username}
                 <button
                   onClick={(e)=>{
                     e.stopPropagation();
-                    setSt(p=>({...p, offres:(p.offres||[]).map(x=>x.id===a.id?{...x,dateRelance:today()}:x)}));
+                    if(a.type==="prospect_relance") {
+                      setSt(prev=>({...prev, prospects:(prev.prospects||[]).map(x=>x.id===a.id?{...x,derniereInteraction:today()}:x)}));
+                    } else {
+                      setSt(p=>({...p, offres:(p.offres||[]).map(x=>x.id===a.id?{...x,dateRelance:today()}:x)}));
+                    }
                   }}
                   style={{background:"#D1FAE5",color:"#065F46",border:"1px solid #6EE7B7",borderRadius:8,padding:"7px 10px",fontSize:11,fontWeight:700,cursor:"pointer",whiteSpace:"nowrap"}}>
                   ✅ Relancée
@@ -2675,7 +2707,7 @@ if(signingBulletin) return (
 return (
 <>
 <div className="fade">
-<button onClick={()=>setView(null)} style={{display:"flex",alignItems:"center",gap:6,background:"none",border:"none",color:"#9CA3AF",fontSize:13,marginBottom:16,padding:0,cursor:"pointer"}}>← Retour</button>
+<Breadcrumb crumbs={[{label:"Dépôts-vente",onClick:()=>setView(null)},{label:pv.nom}]}/>
 
 {/* Carte identité partenaire */}
 <div style={{background:"#111",borderRadius:14,padding:"16px",marginBottom:14}}>
@@ -3338,7 +3370,7 @@ const typeL = view.type==="depot-vente"?"Dépôt-vente":view.type==="partenariat
 
 return (
   <div className="fade">
-    <button onClick={()=>setViewId(null)} style={{display:"flex",alignItems:"center",gap:6,background:"none",border:"none",color:"#9CA3AF",fontSize:13,marginBottom:12,padding:0,cursor:"pointer"}}>← Retour aux contrats</button>
+    <Breadcrumb crumbs={[{label:"Contrats",onClick:()=>setViewId(null)},{label:view.numero}]}/>
 
     {/* Header */}
     <div style={{background:"#111",borderRadius:14,padding:"14px 16px",marginBottom:12}}>
@@ -4578,7 +4610,7 @@ const rappelsEnvoyes = view.rappels||[];
 
 return (
   <div className="fade">
-    <button onClick={()=>{setView(null);setPjModal(false);}} style={{display:"flex",alignItems:"center",gap:6,background:"none",border:"none",color:"#9CA3AF",fontSize:13,marginBottom:16,padding:0,cursor:"pointer"}}>← Retour</button>
+    <Breadcrumb crumbs={[{label:"Factures",onClick:()=>{setView(null);setPjModal(false);}},{label:view.numero}]}/>
 
     {/* Alerte retard + prochain rappel */}
     {retard&&(
@@ -7233,6 +7265,7 @@ const [editingBLInfo,setEditingBLInfo] = useState(false);
 const [sigJordanCmd,setSigJordanCmd] = useState(false);
 const [blReceptionnaire,setBlReceptionnaire] = useState("");
 const [blDateSaisie,setBlDateSaisie] = useState(today());
+const [showImportShopify,setShowImportShopify] = useState(false);
 
 const genBLNumero = () => {
   const y = new Date().getFullYear();
@@ -7714,7 +7747,7 @@ if(signingBL) {
 
 return (
 <div className="fade">
-<button onClick={()=>setViewId(null)} style={{display:"flex",alignItems:"center",gap:6,background:"none",border:"none",color:"#9CA3AF",fontSize:13,marginBottom:12,padding:0,cursor:"pointer"}}>← Retour</button>
+<Breadcrumb crumbs={[{label:"Commandes",onClick:()=>setViewId(null)},{label:view.numero}]}/>
 
     <div style={{background:"#111",borderRadius:14,padding:"14px 16px",marginBottom:12}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
@@ -7947,9 +7980,13 @@ return (
 // Vue liste
 return (
 <div className="fade">
-<SectionTitle action={<Btn icon="plus" onClick={()=>{setForm(emptyC());setModal("form");}}>Nouvelle</Btn>}>
+<SectionTitle action={<div style={{display:"flex",gap:6}}>
+  <button onClick={()=>setShowImportShopify(true)} style={{padding:"6px 10px",borderRadius:8,background:"#EDE9FE",border:"none",color:"#5B21B6",fontSize:12,fontWeight:700,cursor:"pointer"}}>🛒 Shopify</button>
+  <Btn icon="plus" onClick={()=>{setForm(emptyC());setModal("form");}}>Nouvelle</Btn>
+</div>}>
 Commandes
 </SectionTitle>
+{showImportShopify && <ImportShopifyModal st={st} setSt={setSt} onClose={()=>setShowImportShopify(false)}/>}
 
   {nbSansFacture>0 && (
     <div style={{background:"#FEF9E7",border:"1px solid #F2C94C",borderRadius:12,padding:"10px 14px",marginBottom:14}}>
@@ -9776,7 +9813,7 @@ if(subTab==="contacts" && cView) {
 const stats = getContactStats((cView as any).nom);
 return (
 <div className="fade">
-<button onClick={()=>setCViewId(null)} style={{display:"flex",alignItems:"center",gap:6,background:"none",border:"none",color:"#9CA3AF",fontSize:13,marginBottom:12,padding:0,cursor:"pointer"}}>← Retour fournisseurs</button>
+<Breadcrumb crumbs={[{label:"Fournisseurs",onClick:()=>setCViewId(null)},{label:(cView as any).nom}]}/>
 
   <div style={{background:"#111",borderRadius:14,padding:"16px",marginBottom:14}}>
     <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:24,fontWeight:700,color:"#fff"}}>{(cView as any).nom}</p>
@@ -10429,6 +10466,8 @@ try {
   doc.text("Goûtstoso - Jordan Montanaro · Rue des Sources 19 · 2613 Villeret · admin@goutstoso.ch · www.goutstoso.ch",W/2,286,{align:"center"});
   doc.setFillColor(242,201,76); doc.rect(0,292,W,5,"F");
 
+  ajouterDocAnnexe(doc, "cgv", st);
+  ajouterDocAnnexe(doc, "charte_alcool", st);
   doc.save(offre.numero+".pdf");
 } catch(e){ alert("Erreur PDF : "+e.message); }
 };
@@ -11705,6 +11744,8 @@ try {
   if(bc.notes){doc.setFont("helvetica","normal");doc.setFontSize(7);doc.setTextColor(80,80,80);doc.text("Notes : "+bc.notes,mg,y,{maxWidth:180});y+=10;}
   doc.setFontSize(6);doc.setTextColor(100,100,100);
   doc.text("Goûtstoso · Rue des Sources 19 · 2613 Villeret · admin@goutstoso.ch · Conformément à nos CGV",mg,285);
+  ajouterDocAnnexe(doc, "cgv", st);
+  ajouterDocAnnexe(doc, "charte_alcool", st);
   doc.save(`BC_${bc.numero}.pdf`);
 } catch(e){alert("Erreur PDF BC : "+(e as any).message);}
 };
@@ -11764,6 +11805,7 @@ try {
   }
   doc.setFontSize(6);doc.setTextColor(100,100,100);
   doc.text("Goûtstoso · Rue des Sources 19 · 2613 Villeret · admin@goutstoso.ch · www.goutstoso.ch",mg,285);
+  ajouterDocAnnexe(doc, "charte_alcool", st);
   doc.save(`BL_${bl.numero}.pdf`);
 } catch(e){alert("Erreur PDF BL : "+(e as any).message);}
 };
@@ -13566,6 +13608,675 @@ const Parametres = ({st, setSt, authUser}) => {
 // APP SHELL - Navigation
 // ══════════════════════════════════════════════════════════════
 
+// ══════════════════════════════════════════════════════════════
+// MODULE : VENTES DIRECTES
+// ══════════════════════════════════════════════════════════════
+const VentesDirectes = ({st, setSt}) => {
+const [modal, setModal] = useState(null);
+const [viewId, setViewId] = useState(null);
+const [filtre, setFiltre] = useState("toutes");
+
+const genNumero = () => {
+  const y = new Date().getFullYear();
+  const ex = (st.ventesDirectes||[]).map((v:any)=>v.numero);
+  let n=1; while(ex.includes("VD-"+y+"-"+String(n).padStart(3,"0"))) n++;
+  return "VD-"+y+"-"+String(n).padStart(3,"0");
+};
+
+const empty = () => ({
+  id:uid(), numero:genNumero(), dateVente:today(),
+  typeVente:"sur_place", canalContact:"visite",
+  client:{nom:"",email:"",telephone:""},
+  lignes:[], totalTTC:0, modeReglement:"twint",
+  statutPaiement:"paye", recuPDFGenere:false, notes:""
+});
+
+const [form, setForm] = useState(empty());
+
+const view = viewId ? (st.ventesDirectes||[]).find((v:any)=>v.id===viewId) : null;
+
+const totalForm = (st.produits||[]).reduce((acc,p)=>{
+  const l = form.lignes.find((x:any)=>x.produitId===p.id);
+  return acc + (l ? l.qte * p.prixClient : 0);
+},0);
+
+const save = () => {
+  const vd = {...form, totalTTC:totalForm};
+  const isNew = !(st.ventesDirectes||[]).find((v:any)=>v.id===vd.id);
+  const newVD = isNew ? [...(st.ventesDirectes||[]),vd] : (st.ventesDirectes||[]).map((v:any)=>v.id===vd.id?vd:v);
+  const newTrans = [...(st.transactions||[])];
+  if(isNew && vd.statutPaiement==="paye") {
+    newTrans.push({id:"vd_"+vd.id,date:vd.dateVente,compte:"3001",libelle:"Vente directe "+vd.numero,type:"recette",categorie:"Vente directe",montant:vd.totalTTC,description:vd.client?.nom||"Vente directe"});
+  }
+  setSt((p:any)=>({...p, ventesDirectes:newVD, transactions:newTrans}));
+  setModal(null);
+};
+
+const types = {sur_place:"🏠 Sur place",marche:"🏪 Marché",foire:"🎪 Foire",livraison:"🚗 Livraison directe"};
+const canaux = {visite:"👋 Visite",instagram:"📸 Instagram",facebook:"👤 Facebook",bouche_a_oreille:"🗣 Bouche à oreille",site_web:"🌐 Site web",autre:"📋 Autre"};
+const reglements = {twint:"📱 Twint",cash:"💵 Cash",virement:"🏦 Virement",carte:"💳 Carte"};
+
+const filtered = (st.ventesDirectes||[]).filter((v:any)=>
+  filtre==="toutes" || v.typeVente===filtre
+).sort((a:any,b:any)=>b.dateVente.localeCompare(a.dateVente));
+
+if(view) return (
+<div className="fade">
+  <Breadcrumb crumbs={[{label:"Ventes directes",onClick:()=>setViewId(null)},{label:view.numero}]}/>
+  <div style={{background:"#111",borderRadius:14,padding:"16px",marginBottom:12}}>
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+      <div>
+        <p style={{fontSize:10,color:"#F2C94C",fontWeight:700,textTransform:"uppercase",letterSpacing:".08em"}}>{types[view.typeVente]||view.typeVente}</p>
+        <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:22,fontWeight:700,color:"#fff",marginTop:2}}>{view.numero}</p>
+        <p style={{fontSize:11,color:"#aaa",marginTop:4}}>{fmt(view.dateVente)}</p>
+      </div>
+      <Badge c={view.statutPaiement==="paye"?"#34D399":"#FB923C"}>{view.statutPaiement==="paye"?"✅ Payé":"⏳ En attente"}</Badge>
+    </div>
+  </div>
+  {view.client?.nom && <div style={{background:"#F9F9F6",borderRadius:12,padding:"12px 14px",marginBottom:10}}>
+    <p style={{fontWeight:700,fontSize:13,color:"#111"}}>{view.client.nom}</p>
+    {view.client.email && <p style={{fontSize:11,color:"#737373",marginTop:2}}>✉️ {view.client.email}</p>}
+    {view.client.telephone && <p style={{fontSize:11,color:"#737373",marginTop:2}}>📞 {view.client.telephone}</p>}
+    <p style={{fontSize:11,color:"#9CA3AF",marginTop:4}}>Canal : {canaux[view.canalContact]||view.canalContact} · {reglements[view.modeReglement]||view.modeReglement}</p>
+  </div>}
+  <div style={{background:"#fff",borderRadius:12,border:"1px solid #E5E5E0",padding:"12px 14px",marginBottom:10}}>
+    {(view.lignes||[]).map((l:any,i:number)=>{
+      const p = (st.produits||[]).find((x:any)=>x.id===l.produitId);
+      return <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",paddingBottom:6,marginBottom:6,borderBottom:i<(view.lignes||[]).length-1?"1px solid #F0F0EC":"none"}}>
+        <span style={{fontSize:12,color:"#111"}}>{p?p.nom+" "+p.format:l.produitId} × {l.qte}</span>
+        <span style={{fontSize:12,fontWeight:700,color:"#111"}}>CHF {(l.qte*p?.prixClient).toFixed(2)}</span>
+      </div>;
+    })}
+    <div style={{display:"flex",justifyContent:"space-between",borderTop:"1.5px solid #111",paddingTop:8,marginTop:4}}>
+      <span style={{fontSize:13,fontWeight:700,color:"#111"}}>Total TTC</span>
+      <span style={{fontSize:15,fontWeight:800,color:"#111"}}>CHF {parseFloat(view.totalTTC||0).toFixed(2)}</span>
+    </div>
+  </div>
+  <button onClick={()=>{setForm({...view});setModal("form");setViewId(null);}} style={{width:"100%",background:"#F5F5F0",border:"none",borderRadius:12,padding:"12px",fontWeight:600,fontSize:13,cursor:"pointer",marginBottom:6}}>✏️ Modifier</button>
+  {view.statutPaiement!=="paye" && <button onClick={()=>{
+    const newVD = (st.ventesDirectes||[]).map((v:any)=>v.id===view.id?{...v,statutPaiement:"paye"}:v);
+    const newTrans = [...(st.transactions||[]),{id:"vd_"+view.id,date:today(),compte:"3001",libelle:"Vente directe "+view.numero,type:"recette",categorie:"Vente directe",montant:view.totalTTC,description:view.client?.nom||""}];
+    setSt((p:any)=>({...p,ventesDirectes:newVD,transactions:newTrans}));
+    setViewId(null);
+  }} style={{width:"100%",background:"#DCFCE7",border:"none",borderRadius:12,padding:"12px",fontWeight:700,fontSize:13,color:"#166534",cursor:"pointer"}}>✅ Marquer comme payée</button>}
+</div>
+);
+
+return (
+<div className="fade">
+  <SectionTitle action={<Btn icon="plus" onClick={()=>{setForm(empty());setModal("form");}}>Nouveau</Btn>}>Ventes directes</SectionTitle>
+  <div style={{display:"flex",gap:6,marginBottom:12,overflowX:"auto",paddingBottom:4}}>
+    {["toutes","sur_place","marche","foire","livraison"].map(f=>(
+      <button key={f} onClick={()=>setFiltre(f)} style={{flexShrink:0,padding:"5px 12px",borderRadius:20,border:"1.5px solid "+(filtre===f?"#111":"#E5E5E0"),background:filtre===f?"#111":"#fff",color:filtre===f?"#F2C94C":"#374151",fontSize:12,fontWeight:600,cursor:"pointer"}}>
+        {f==="toutes"?"Toutes":types[f]}
+      </button>
+    ))}
+  </div>
+  {filtered.length===0 && <p style={{fontSize:13,color:"#9CA3AF",textAlign:"center",padding:"32px 0"}}>Aucune vente directe</p>}
+  {filtered.map((v:any)=>(
+    <div key={v.id} onClick={()=>setViewId(v.id)} style={{background:"#fff",borderRadius:12,border:"1px solid #E5E5E0",padding:"12px 14px",marginBottom:8,cursor:"pointer"}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+        <div>
+          <p style={{fontSize:13,fontWeight:700,color:"#111"}}>{v.numero} — {v.client?.nom||"Client inconnu"}</p>
+          <p style={{fontSize:11,color:"#737373",marginTop:2}}>{fmt(v.dateVente)} · {types[v.typeVente]||v.typeVente}</p>
+        </div>
+        <div style={{textAlign:"right"}}>
+          <p style={{fontWeight:800,fontSize:14,color:"#111"}}>CHF {parseFloat(v.totalTTC||0).toFixed(2)}</p>
+          <Badge c={v.statutPaiement==="paye"?"#34D399":"#FB923C"}>{v.statutPaiement==="paye"?"✅ Payé":"⏳ Attente"}</Badge>
+        </div>
+      </div>
+    </div>
+  ))}
+  {modal==="form" && (
+    <Modal onClose={()=>setModal(null)} title={form.id&&(st.ventesDirectes||[]).find((v:any)=>v.id===form.id)?"Modifier la vente":"Nouvelle vente directe"}>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
+        <label style={{fontSize:11,color:"#737373",display:"flex",flexDirection:"column",gap:4}}>
+          Type
+          <select value={form.typeVente} onChange={e=>setForm({...form,typeVente:e.target.value})} style={{padding:"8px",borderRadius:8,border:"1px solid #E5E5E0",fontSize:13}}>
+            {Object.entries(types).map(([k,v])=><option key={k} value={k}>{v}</option>)}
+          </select>
+        </label>
+        <label style={{fontSize:11,color:"#737373",display:"flex",flexDirection:"column",gap:4}}>
+          Canal contact
+          <select value={form.canalContact} onChange={e=>setForm({...form,canalContact:e.target.value})} style={{padding:"8px",borderRadius:8,border:"1px solid #E5E5E0",fontSize:13}}>
+            {Object.entries(canaux).map(([k,v])=><option key={k} value={k}>{v}</option>)}
+          </select>
+        </label>
+      </div>
+      <label style={{fontSize:11,color:"#737373",display:"flex",flexDirection:"column",gap:4,marginBottom:8}}>
+        Date
+        <input type="date" value={form.dateVente} onChange={e=>setForm({...form,dateVente:e.target.value})} style={{padding:"8px",borderRadius:8,border:"1px solid #E5E5E0",fontSize:13}}/>
+      </label>
+      <p style={{fontSize:11,fontWeight:700,color:"#737373",textTransform:"uppercase",letterSpacing:".06em",marginBottom:6}}>Client</p>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
+        {[["nom","Nom"],["email","Email"],["telephone","Téléphone"]].map(([k,l])=>(
+          <label key={k} style={{fontSize:11,color:"#737373",display:"flex",flexDirection:"column",gap:4,gridColumn:k==="nom"?"1/3":"auto"}}>
+            {l}
+            <input value={(form.client as any)[k]||""} onChange={e=>setForm({...form,client:{...(form.client as any),[k]:e.target.value}})} style={{padding:"8px",borderRadius:8,border:"1px solid #E5E5E0",fontSize:13}}/>
+          </label>
+        ))}
+      </div>
+      <p style={{fontSize:11,fontWeight:700,color:"#737373",textTransform:"uppercase",letterSpacing:".06em",marginBottom:6}}>Produits</p>
+      {(st.produits||[]).filter((p:any)=>p.actif).map((p:any)=>{
+        const l = form.lignes.find((x:any)=>x.produitId===p.id);
+        return <div key={p.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
+          <span style={{fontSize:12,color:"#111"}}>{p.nom} {p.format}</span>
+          <div style={{display:"flex",alignItems:"center",gap:8}}>
+            <span style={{fontSize:11,color:"#737373"}}>CHF {p.prixClient}</span>
+            <input type="number" min="0" value={l?.qte||0} onChange={e=>{const q=parseInt(e.target.value)||0;const newL=form.lignes.filter((x:any)=>x.produitId!==p.id);if(q>0)newL.push({produitId:p.id,qte:q});setForm({...form,lignes:newL});}} style={{width:50,padding:"5px",borderRadius:6,border:"1px solid #E5E5E0",fontSize:13,textAlign:"center"}}/>
+          </div>
+        </div>;
+      })}
+      <div style={{background:"#F9F9F6",borderRadius:10,padding:"10px 14px",marginBottom:12,display:"flex",justifyContent:"space-between"}}>
+        <span style={{fontWeight:700,fontSize:13}}>Total</span>
+        <span style={{fontWeight:800,fontSize:15}}>CHF {totalForm.toFixed(2)}</span>
+      </div>
+      <label style={{fontSize:11,color:"#737373",display:"flex",flexDirection:"column",gap:4,marginBottom:8}}>
+        Règlement
+        <select value={form.modeReglement} onChange={e=>setForm({...form,modeReglement:e.target.value})} style={{padding:"8px",borderRadius:8,border:"1px solid #E5E5E0",fontSize:13}}>
+          {Object.entries(reglements).map(([k,v])=><option key={k} value={k}>{v}</option>)}
+        </select>
+      </label>
+      <label style={{fontSize:11,color:"#737373",display:"flex",alignItems:"center",gap:8,marginBottom:12}}>
+        <input type="checkbox" checked={form.statutPaiement==="paye"} onChange={e=>setForm({...form,statutPaiement:e.target.checked?"paye":"attente"})}/>
+        Payé immédiatement
+      </label>
+      <button onClick={save} style={{width:"100%",background:"#111",color:"#F2C94C",border:"none",borderRadius:12,padding:"13px",fontWeight:700,fontSize:14,cursor:"pointer"}}>✅ Enregistrer la vente</button>
+    </Modal>
+  )}
+</div>
+);
+};
+
+// ══════════════════════════════════════════════════════════════
+// TEMPLATES EMAILS
+// ══════════════════════════════════════════════════════════════
+const EMAIL_TEMPLATES = [
+{cat:"🎯 Prospection",templates:[
+  {code:"P1",sujet:"Liqueurs artisanales du Jura - Goûtstoso",corps:`Bonjour [NOM],
+
+Je vous écris depuis Villeret où je fabrique des liqueurs artisanales sous le nom Goûtstoso.
+
+Ma gamme actuelle compte sept liqueurs : Limonta (citron), Limelo (citron vert), Clementino, Pescato (pêche), Fraisetta, Lamponia (framboise) et Caffetto (café). Toutes sont produites à la main, en petites séries, à 30% vol.
+
+J'aimerais beaucoup vous les faire goûter. Auriez-vous quelques minutes la semaine prochaine pour que je passe vous présenter le travail ?
+
+Je peux me déplacer chez vous quand cela vous arrange.
+
+Bonne journée,
+Jordan Montanaro
+Goûtstoso
+admin@goutstoso.ch`},
+  {code:"P2",sujet:"Liqueurs artisanales suisses pour votre cave",corps:`Bonjour [NOM],
+
+J'ai découvert votre cave [NOM_CAVE] et je pense que mes liqueurs pourraient avoir leur place chez vous.
+
+Je m'appelle Jordan Montanaro, je suis basé à Villeret dans le Jura bernois, et je fabrique sept liqueurs artisanales à 30% vol. : agrumes, fruits rouges, pêche et café. Production en petites séries, ingrédients frais, sans arôme artificiel.
+
+Si vous êtes ouvert à la dégustation, je peux passer chez vous avec quelques échantillons quand cela vous convient.
+
+Au plaisir d'échanger,
+Jordan Montanaro
+Goûtstoso`},
+  {code:"P3",sujet:"Suite à notre rencontre - Goûtstoso",corps:`Bonjour [NOM],
+
+Merci pour l'accueil lors de ma visite. C'était un plaisir d'échanger avec vous.
+
+Je me permets de vous envoyer notre catalogue avec les tarifs revendeurs. Nos conditions de dépôt-vente sont souples et sans engagement minimum.
+
+N'hésitez pas à revenir vers moi pour toute question.
+
+Bonne journée,
+Jordan Montanaro
+Goûtstoso`},
+  {code:"P4",sujet:"Relance - Goûtstoso",corps:`Bonjour [NOM],
+
+Je me permets de reprendre contact. Avez-vous eu le temps de regarder notre offre ?
+
+Nous restons disponibles pour une dégustation ou pour répondre à vos questions.
+
+Bonne journée,
+Jordan Montanaro
+Goûtstoso`},
+  {code:"P5",sujet:"Dernière relance - Goûtstoso",corps:`Bonjour [NOM],
+
+Je me permets un dernier message au sujet de notre proposition. Si le moment n'est pas idéal, pas de souci - je reste disponible pour une prochaine occasion.
+
+Bonne journée,
+Jordan Montanaro
+Goûtstoso`},
+]},
+{cat:"💼 Suivi offres",templates:[
+  {code:"O1",sujet:"Votre offre [NUMERO] - Goûtstoso",corps:`Bonjour [NOM],
+
+Veuillez trouver ci-joint votre offre N° [NUMERO] valable jusqu'au [DATE_VALIDITE].
+
+Pour toute question, je suis joignable par email ou téléphone.
+
+Cordialement,
+Jordan Montanaro
+Goûtstoso`},
+  {code:"O2",sujet:"Relance offre [NUMERO] - Goûtstoso",corps:`Bonjour [NOM],
+
+Je reviens vers vous au sujet de l'offre N° [NUMERO] transmise le [DATE_ENVOI].
+
+Cette offre reste valable jusqu'au [DATE_VALIDITE]. Avez-vous eu l'occasion d'en prendre connaissance ?
+
+N'hésitez pas à nous faire part de votre retour.
+
+Cordialement,
+Jordan Montanaro
+Goûtstoso`},
+  {code:"O3",sujet:"Offre [NUMERO] - Dernière relance",corps:`Bonjour [NOM],
+
+L'offre N° [NUMERO] expire bientôt. Si vous souhaitez y donner suite, merci de nous le faire savoir rapidement.
+
+Cordialement,
+Jordan Montanaro
+Goûtstoso`},
+]},
+{cat:"📦 Commandes",templates:[
+  {code:"C1",sujet:"Confirmation commande [NUMERO] - Goûtstoso",corps:`Bonjour [NOM],
+
+Nous avons bien reçu votre commande N° [NUMERO]. Elle sera préparée dans les plus brefs délais.
+
+Nous vous confirmerons la date de livraison sous peu.
+
+Cordialement,
+Jordan Montanaro
+Goûtstoso`},
+  {code:"C2",sujet:"Livraison effectuée - Commande [NUMERO]",corps:`Bonjour [NOM],
+
+La livraison de votre commande N° [NUMERO] a bien été effectuée ce jour.
+
+Le bulletin de livraison signé est joint à ce message.
+
+Cordialement,
+Jordan Montanaro
+Goûtstoso`},
+]},
+{cat:"💰 Facturation",templates:[
+  {code:"F1",sujet:"Facture [NUMERO] - Goûtstoso",corps:`Bonjour [NOM],
+
+Veuillez trouver ci-joint la facture N° [NUMERO] d'un montant de CHF [MONTANT].
+
+Echéance de paiement : [DATE_ECHEANCE].
+
+IBAN : CH00 0000 0000 0000 0000 0 (PostFinance)
+
+Cordialement,
+Jordan Montanaro
+Goûtstoso`},
+  {code:"F2",sujet:"Confirmation paiement facture [NUMERO]",corps:`Bonjour [NOM],
+
+Nous avons bien reçu votre paiement pour la facture N° [NUMERO]. Merci.
+
+N'hésitez pas à nous contacter pour toute question.
+
+Cordialement,
+Jordan Montanaro
+Goûtstoso`},
+]},
+{cat:"⚠️ Relances",templates:[
+  {code:"R1",sujet:"Rappel - Facture [NUMERO] échue",corps:`Bonjour [NOM],
+
+Sauf erreur de notre part, la facture N° [NUMERO] d'un montant de CHF [MONTANT] est arrivée à échéance le [DATE_ECHEANCE].
+
+Pourriez-vous procéder au règlement dans les meilleurs délais ?
+
+IBAN : CH00 0000 0000 0000 0000 0 (PostFinance)
+
+Cordialement,
+Jordan Montanaro
+Goûtstoso`},
+  {code:"R2",sujet:"2e rappel - Facture [NUMERO]",corps:`Bonjour [NOM],
+
+Malgré notre premier rappel, la facture N° [NUMERO] d'un montant de CHF [MONTANT] reste impayée.
+
+Nous vous prions de bien vouloir régulariser cette situation dans les 10 jours.
+
+IBAN : CH00 0000 0000 0000 0000 0 (PostFinance)
+
+Cordialement,
+Jordan Montanaro
+Goûtstoso`},
+  {code:"R3",sujet:"Mise en demeure - Facture [NUMERO]",corps:`Bonjour [NOM],
+
+En l'absence de réponse à nos précédents rappels, nous vous mettons en demeure de régler la facture N° [NUMERO] d'un montant de CHF [MONTANT] dans un délai de 10 jours.
+
+A défaut, nous nous verrons contraints d'engager une procédure de recouvrement.
+
+Cordialement,
+Jordan Montanaro
+Goûtstoso`},
+]},
+{cat:"🤝 Relation client",templates:[
+  {code:"RC1",sujet:"Inventaire dépôt - [NOM_PDV]",corps:`Bonjour [NOM],
+
+Nous nous permettons de vous contacter pour effectuer l'inventaire de notre dépôt.
+
+Pourriez-vous nous confirmer les quantités vendues et le stock restant ?
+
+Merci d'avance pour votre retour.
+
+Cordialement,
+Jordan Montanaro
+Goûtstoso`},
+  {code:"RC2",sujet:"Nouveau produit Goûtstoso",corps:`Bonjour [NOM],
+
+Nous avons le plaisir de vous présenter notre nouvelle liqueur [NOM_PRODUIT].
+
+[DESCRIPTION_COURTE]
+
+Souhaitez-vous l'intégrer à votre assortiment ? Nous pouvons vous faire parvenir des échantillons.
+
+Cordialement,
+Jordan Montanaro
+Goûtstoso`},
+  {code:"RC3",sujet:"Satisfaction - Commande [NUMERO]",corps:`Bonjour [NOM],
+
+Nous espérons que votre dernière commande vous a donné entière satisfaction.
+
+N'hésitez pas à nous faire part de vos retours.
+
+Cordialement,
+Jordan Montanaro
+Goûtstoso`},
+]},
+{cat:"🎉 Saisonnier",templates:[
+  {code:"S1",sujet:"Offre de fin d'année - Goûtstoso",corps:`Bonjour [NOM],
+
+Les fêtes approchent et nos liqueurs artisanales font d'excellents cadeaux.
+
+Nos coffrets découverte sont disponibles dès maintenant. Commande avant le [DATE_LIMITE] pour livraison garantie avant Noël.
+
+Cordialement,
+Jordan Montanaro
+Goûtstoso`},
+  {code:"S2",sujet:"Réassort printemps - Goûtstoso",corps:`Bonjour [NOM],
+
+La saison printanière approche. Pensez à renouveler votre stock de liqueurs fraîches Goûtstoso.
+
+N'hésitez pas à nous contacter pour passer commande.
+
+Cordialement,
+Jordan Montanaro
+Goûtstoso`},
+]},
+{cat:"📰 Newsletter",templates:[
+  {code:"N1",sujet:"Actualités Goûtstoso",corps:`Bonjour [NOM],
+
+Voici les dernières nouvelles de Goûtstoso.
+
+[CONTENU_NEWSLETTER]
+
+Merci pour votre fidélité.
+
+Cordialement,
+Jordan Montanaro
+Goûtstoso`},
+]},
+{cat:"🌐 Shopify B2C",templates:[
+  {code:"SH1",sujet:"Confirmation de commande [NUMERO] - Goûtstoso",corps:`Bonjour [NOM],
+
+Merci pour votre commande N° [NUMERO] ! Nous l'avons bien reçue.
+
+Vos liqueurs artisanales seront expédiées dans 2-3 jours ouvrés.
+
+Cordialement,
+Jordan Montanaro
+Goûtstoso`},
+  {code:"SH2",sujet:"Votre commande [NUMERO] a été expédiée",corps:`Bonjour [NOM],
+
+Bonne nouvelle ! Votre commande N° [NUMERO] a été expédiée aujourd'hui.
+
+Numéro de suivi : [NUMERO_SUIVI]
+Transporteur : [TRANSPORTEUR]
+
+Livraison estimée dans 2-3 jours.
+
+Cordialement,
+Jordan Montanaro
+Goûtstoso`},
+  {code:"SH3",sujet:"Avez-vous reçu votre commande ? - Goûtstoso",corps:`Bonjour [NOM],
+
+Nous espérons que votre commande N° [NUMERO] vous est bien parvenue.
+
+Si vous avez le moindre souci, n'hésitez pas à nous écrire directement à admin@goutstoso.ch.
+
+Cordialement,
+Jordan Montanaro
+Goûtstoso`},
+]},
+];
+
+const EmailTemplates = ({st, setSt}) => {
+const [search, setSearch] = useState("");
+const [selected, setSelected] = useState(null as any);
+const [copied, setCopied] = useState("");
+const [sendTo, setSendTo] = useState("");
+const [sendModal, setSendModal] = useState(false);
+
+const allTpl = EMAIL_TEMPLATES.flatMap(c=>c.templates.map(t=>({...t,cat:c.cat})));
+const filtered = allTpl.filter(t=>
+  !search || t.code.toLowerCase().includes(search.toLowerCase()) || t.sujet.toLowerCase().includes(search.toLowerCase()) || t.cat.toLowerCase().includes(search.toLowerCase())
+);
+
+const copyText = (text:string, key:string) => {
+  navigator.clipboard?.writeText(text).catch(()=>{});
+  setCopied(key);
+  setTimeout(()=>setCopied(""),2000);
+};
+
+if(selected) return (
+<div className="fade">
+  <Breadcrumb crumbs={[{label:"Templates emails",onClick:()=>setSelected(null)},{label:selected.code+" — "+selected.cat}]}/>
+  <div style={{background:"#111",borderRadius:14,padding:"14px 16px",marginBottom:12}}>
+    <p style={{fontSize:10,color:"#F2C94C",fontWeight:700,textTransform:"uppercase",letterSpacing:".08em",marginBottom:4}}>{selected.cat} · {selected.code}</p>
+    <p style={{fontSize:16,fontWeight:700,color:"#fff"}}>{selected.sujet}</p>
+  </div>
+  <div style={{background:"#F9F9F6",borderRadius:12,border:"1px solid #E5E5E0",padding:"14px",marginBottom:12}}>
+    <p style={{fontWeight:700,fontSize:11,color:"#737373",textTransform:"uppercase",letterSpacing:".06em",marginBottom:8}}>Sujet</p>
+    <p style={{fontSize:13,color:"#111",marginBottom:12}}>{selected.sujet}</p>
+    <p style={{fontWeight:700,fontSize:11,color:"#737373",textTransform:"uppercase",letterSpacing:".06em",marginBottom:8}}>Corps</p>
+    <pre style={{fontSize:12,color:"#374151",whiteSpace:"pre-wrap",fontFamily:"inherit",margin:0}}>{selected.corps}</pre>
+  </div>
+  <div style={{display:"flex",flexDirection:"column",gap:8}}>
+    <button onClick={()=>copyText(selected.sujet+"\n\n"+selected.corps,"full")} style={{width:"100%",background:"#111",color:"#F2C94C",border:"none",borderRadius:12,padding:"12px",fontWeight:700,fontSize:13,cursor:"pointer"}}>
+      {copied==="full"?"✅ Copié !":"📋 Copier sujet + corps"}
+    </button>
+    <button onClick={()=>copyText(selected.corps,"corps")} style={{width:"100%",background:"#F5F5F0",border:"none",borderRadius:12,padding:"11px",fontWeight:600,fontSize:13,cursor:"pointer"}}>
+      {copied==="corps"?"✅ Copié !":"📋 Copier le corps seulement"}
+    </button>
+    <button onClick={()=>setSendModal(true)} style={{width:"100%",background:"#EFF6FF",border:"1.5px solid #BFDBFE",borderRadius:12,padding:"11px",fontWeight:600,fontSize:13,color:"#1D4ED8",cursor:"pointer"}}>
+      ✉️ Envoyer par email
+    </button>
+  </div>
+  {sendModal && (
+    <Modal onClose={()=>setSendModal(false)} title="Envoyer le template">
+      <p style={{fontSize:12,color:"#737373",marginBottom:8}}>Destinataire</p>
+      <input value={sendTo} onChange={e=>setSendTo(e.target.value)} placeholder="email@exemple.com" style={{width:"100%",padding:"10px",borderRadius:8,border:"1px solid #E5E5E0",fontSize:13,marginBottom:12,boxSizing:"border-box"}}/>
+      <button onClick={()=>{
+        if(!sendTo){alert("Entrez un email");return;}
+        // sendEmail is not accessible here — we use window.goutstoso_sendEmail if available
+        alert("Template copié. Collez-le dans votre client email.");
+        copyText(selected.sujet+"\n\n"+selected.corps,"full");
+        setSendModal(false);
+      }} style={{width:"100%",background:"#111",color:"#F2C94C",border:"none",borderRadius:12,padding:"12px",fontWeight:700,fontSize:13,cursor:"pointer"}}>✉️ Envoyer</button>
+    </Modal>
+  )}
+</div>
+);
+
+return (
+<div className="fade">
+  <SectionTitle>Templates emails</SectionTitle>
+  <p style={{fontSize:12,color:"#737373",marginBottom:12}}>27 modèles pré-rédigés · {EMAIL_TEMPLATES.length} catégories</p>
+  <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="🔍 Rechercher un template..." style={{width:"100%",padding:"10px 12px",borderRadius:10,border:"1.5px solid #E5E5E0",fontSize:13,marginBottom:14,boxSizing:"border-box"}}/>
+  {search
+    ? filtered.map(t=>(
+        <div key={t.code} onClick={()=>setSelected(t)} style={{background:"#fff",borderRadius:10,border:"1px solid #E5E5E0",padding:"12px 14px",marginBottom:6,cursor:"pointer"}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <div>
+              <p style={{fontSize:12,fontWeight:700,color:"#111"}}>{t.code} — {t.sujet}</p>
+              <p style={{fontSize:10,color:"#9CA3AF",marginTop:2}}>{t.cat}</p>
+            </div>
+            <span style={{color:"#9CA3AF"}}>›</span>
+          </div>
+        </div>
+      ))
+    : EMAIL_TEMPLATES.map(cat=>(
+        <div key={cat.cat} style={{marginBottom:16}}>
+          <p style={{fontSize:11,fontWeight:700,color:"#737373",textTransform:"uppercase",letterSpacing:".06em",marginBottom:8}}>{cat.cat}</p>
+          {cat.templates.map(t=>(
+            <div key={t.code} onClick={()=>setSelected(t)} style={{background:"#fff",borderRadius:10,border:"1px solid #E5E5E0",padding:"10px 14px",marginBottom:6,cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <div>
+                <p style={{fontSize:12,fontWeight:700,color:"#111"}}>{t.code} — {t.sujet.substring(0,45)}{t.sujet.length>45?"...":""}</p>
+              </div>
+              <span style={{color:"#9CA3AF",flexShrink:0}}>›</span>
+            </div>
+          ))}
+        </div>
+      ))
+  }
+</div>
+);
+};
+
+// ══════════════════════════════════════════════════════════════
+// IMPORT SHOPIFY MODAL (dans Commandes)
+// ══════════════════════════════════════════════════════════════
+const ImportShopifyModal = ({st, setSt, onClose}) => {
+const [step, setStep] = useState<"choose"|"form"|"paste">("choose");
+const [rawText, setRawText] = useState("");
+const [form, setForm] = useState({
+  orderNumber:"", dateCommande:today(),
+  clientNom:"", clientEmail:"", clientTelephone:"",
+  clientAdresse:"", clientNpa:"", clientVille:"", clientPays:"CH",
+  lignes:[] as any[], fraisPort:0, statutPaiement:"paye",
+  statutExpedition:"a_preparer", numeroSuivi:"", transporteur:"",
+});
+const [parsed, setParsed] = useState(null as any);
+
+const genNumero = () => {
+  const y = new Date().getFullYear();
+  const ex = (st.ventesShopify||[]).map((v:any)=>v.orderNumberShopify);
+  let n = (st.ventesShopify||[]).length + 1;
+  return String(n).padStart(4,"0");
+};
+
+const parseShopifyText = (text:string) => {
+  const lines = text.split("\n").map(l=>l.trim()).filter(Boolean);
+  const result:any = {clientNom:"",clientEmail:"",lignes:[],fraisPort:0,totalTTC:0,orderNumber:""};
+  lines.forEach(l=>{
+    if(l.match(/^#\d+/)) result.orderNumber = l.replace("#","").trim();
+    if(l.toLowerCase().includes("email:") || l.includes("@")) result.clientEmail = l.split(":").slice(1).join(":").trim()||l.trim();
+    if(l.toLowerCase().startsWith("nom:") || l.toLowerCase().startsWith("name:")) result.clientNom = l.split(":").slice(1).join(":").trim();
+    if(l.toLowerCase().includes("livraison:") || l.toLowerCase().includes("shipping:")) result.fraisPort = parseFloat(l.replace(/[^\d.]/g,""))||0;
+    if(l.toLowerCase().includes("total:")) result.totalTTC = parseFloat(l.replace(/[^\d.]/g,""))||0;
+  });
+  (st.produits||[]).forEach((p:any)=>{
+    const regex = new RegExp(p.nom+"|"+p.format,"i");
+    const match = lines.find(l=>regex.test(l) && l.match(/\d/));
+    if(match) {
+      const qte = parseInt(match.match(/(\d+)\s*×?x?/i)?.[1]||"1");
+      result.lignes.push({produitId:p.id,designation:p.nom+" "+p.format,qte,prixUnitaire:p.prixClient});
+    }
+  });
+  return result;
+};
+
+const totalForm = form.lignes.reduce((s:number,l:any)=>s+(l.qte*(l.prixUnitaire||0)),0) + parseFloat(String(form.fraisPort)||"0");
+
+const save = (data:any = null) => {
+  const d = data || form;
+  const vd:any = {
+    id:uid(), orderNumberShopify:d.orderNumber||genNumero(),
+    dateCommande:d.dateCommande||today(),
+    clientShopify:{nom:d.clientNom,email:d.clientEmail,telephone:d.clientTelephone,adresse:d.clientAdresse,npa:d.clientNpa,ville:d.clientVille,pays:d.clientPays||"CH"},
+    lignes:d.lignes, totalTTC:d.totalTTC||totalForm,
+    fraisPort:parseFloat(String(d.fraisPort)||"0"),
+    statutPaiement:d.statutPaiement||"paye",
+    statutExpedition:d.statutExpedition||"a_preparer",
+    numeroSuivi:d.numeroSuivi||"", transporteur:d.transporteur||"",
+    bulletinLivraisonId:null, importeMethode:"manuel_formulaire", dateImport:today()
+  };
+  const newTrans = [...(st.transactions||[])];
+  if(vd.statutPaiement==="paye") {
+    newTrans.push({id:"sh_"+vd.id,date:vd.dateCommande,compte:"3001",libelle:"Vente Shopify #"+vd.orderNumberShopify,type:"recette",categorie:"Vente Shopify",montant:vd.totalTTC,description:vd.clientShopify?.nom||""});
+  }
+  setSt((p:any)=>({...p,ventesShopify:[...(p.ventesShopify||[]),vd],transactions:newTrans}));
+  onClose();
+};
+
+if(step==="choose") return (
+<Modal onClose={onClose} title="Import Shopify">
+  <p style={{fontSize:13,color:"#737373",marginBottom:16}}>Choisissez votre méthode d'import</p>
+  <button onClick={()=>setStep("form")} style={{width:"100%",background:"#111",color:"#F2C94C",border:"none",borderRadius:12,padding:"14px",fontWeight:700,fontSize:13,cursor:"pointer",marginBottom:10,textAlign:"left"}}>
+    📝 Formulaire manuel<br/><span style={{fontSize:11,fontWeight:400,color:"#9CA3AF"}}>Saisir les données manuellement</span>
+  </button>
+  <button onClick={()=>setStep("paste")} style={{width:"100%",background:"#F9F9F6",border:"1.5px solid #E5E5E0",borderRadius:12,padding:"14px",fontWeight:700,fontSize:13,cursor:"pointer",textAlign:"left"}}>
+    📋 Copier-coller<br/><span style={{fontSize:11,fontWeight:400,color:"#9CA3AF"}}>Coller le texte d'une commande Shopify</span>
+  </button>
+</Modal>
+);
+
+if(step==="paste") return (
+<Modal onClose={onClose} title="Copier-coller commande Shopify">
+  <p style={{fontSize:12,color:"#737373",marginBottom:8}}>Collez le texte de la commande Shopify ci-dessous</p>
+  <textarea value={rawText} onChange={e=>setRawText(e.target.value)} placeholder={"#1234\nNom: Jean Dupont\nEmail: jean@exemple.com\nLimonta 25cl x 2\nTotal: 38.00"} style={{width:"100%",minHeight:160,padding:"10px",borderRadius:8,border:"1.5px solid #E5E5E0",fontSize:12,fontFamily:"monospace",resize:"vertical",boxSizing:"border-box",marginBottom:12}}/>
+  <button onClick={()=>{
+    const p = parseShopifyText(rawText);
+    setParsed(p);
+    setForm(f=>({...f,...p,dateCommande:today()}));
+    setStep("form");
+  }} style={{width:"100%",background:"#111",color:"#F2C94C",border:"none",borderRadius:12,padding:"12px",fontWeight:700,fontSize:13,cursor:"pointer",marginBottom:8}}>🔍 Analyser et continuer</button>
+  <button onClick={()=>setStep("choose")} style={{width:"100%",background:"#F5F5F0",border:"none",borderRadius:12,padding:"10px",fontWeight:600,fontSize:13,cursor:"pointer"}}>← Retour</button>
+</Modal>
+);
+
+return (
+<Modal onClose={onClose} title="Importer une commande Shopify">
+  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
+    {[["orderNumber","N° commande Shopify"],["dateCommande","Date"]].map(([k,l])=>(
+      <label key={k} style={{fontSize:11,color:"#737373",display:"flex",flexDirection:"column",gap:4}}>
+        {l}<input type={k==="dateCommande"?"date":"text"} value={(form as any)[k]} onChange={e=>setForm(f=>({...f,[k]:e.target.value}))} style={{padding:"8px",borderRadius:8,border:"1px solid #E5E5E0",fontSize:13}}/>
+      </label>
+    ))}
+  </div>
+  <p style={{fontSize:11,fontWeight:700,color:"#737373",textTransform:"uppercase",letterSpacing:".06em",marginBottom:6}}>Client</p>
+  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
+    {[["clientNom","Nom","1/3"],["clientEmail","Email","1/3"],["clientTelephone","Téléphone","auto"],["clientVille","Ville","auto"]].map(([k,l,gc])=>(
+      <label key={k} style={{fontSize:11,color:"#737373",display:"flex",flexDirection:"column",gap:4,gridColumn:gc}}>
+        {l}<input value={(form as any)[k]} onChange={e=>setForm(f=>({...f,[k]:e.target.value}))} style={{padding:"8px",borderRadius:8,border:"1px solid #E5E5E0",fontSize:13}}/>
+      </label>
+    ))}
+  </div>
+  <p style={{fontSize:11,fontWeight:700,color:"#737373",textTransform:"uppercase",letterSpacing:".06em",marginBottom:6}}>Produits</p>
+  {(st.produits||[]).filter((p:any)=>p.actif).map((p:any)=>{
+    const l = form.lignes.find((x:any)=>x.produitId===p.id);
+    return <div key={p.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
+      <span style={{fontSize:12,color:"#111"}}>{p.nom} {p.format}</span>
+      <input type="number" min="0" value={l?.qte||0} onChange={e=>{const q=parseInt(e.target.value)||0;const nl=form.lignes.filter((x:any)=>x.produitId!==p.id);if(q>0)nl.push({produitId:p.id,designation:p.nom+" "+p.format,qte:q,prixUnitaire:p.prixClient});setForm(f=>({...f,lignes:nl}));}} style={{width:52,padding:"5px",borderRadius:6,border:"1px solid #E5E5E0",fontSize:13,textAlign:"center"}}/>
+    </div>;
+  })}
+  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
+    <label style={{fontSize:11,color:"#737373",display:"flex",flexDirection:"column",gap:4}}>
+      Frais de port<input type="number" value={form.fraisPort} onChange={e=>setForm(f=>({...f,fraisPort:parseFloat(e.target.value)||0}))} style={{padding:"8px",borderRadius:8,border:"1px solid #E5E5E0",fontSize:13}}/>
+    </label>
+    <label style={{fontSize:11,color:"#737373",display:"flex",flexDirection:"column",gap:4}}>
+      Transporteur<input value={form.transporteur} onChange={e=>setForm(f=>({...f,transporteur:e.target.value}))} placeholder="La Poste, DPD..." style={{padding:"8px",borderRadius:8,border:"1px solid #E5E5E0",fontSize:13}}/>
+    </label>
+  </div>
+  <div style={{background:"#F9F9F6",borderRadius:10,padding:"10px 14px",marginBottom:12,display:"flex",justifyContent:"space-between"}}>
+    <span style={{fontWeight:700,fontSize:13}}>Total TTC</span>
+    <span style={{fontWeight:800,fontSize:15}}>CHF {totalForm.toFixed(2)}</span>
+  </div>
+  <button onClick={()=>save()} style={{width:"100%",background:"#111",color:"#F2C94C",border:"none",borderRadius:12,padding:"13px",fontWeight:700,fontSize:14,cursor:"pointer"}}>✅ Importer la commande</button>
+</Modal>
+);
+};
+
 const NAV_MAIN = [
   {id:"dashboard", label:"Accueil",    icon:"dash",    emoji:"🏠"},
   {id:"clients",   label:"Clients",    icon:"prod",    emoji:"👥"},
@@ -13576,13 +14287,15 @@ const NAV_MAIN = [
 ];
 
 const NAV_MORE = [
-  {id:"documents",  label:"Documents légaux", icon:"contrat", emoji:"📜"},
-  {id:"production", label:"Recettes",         icon:"prod",    emoji:"🏭"},
-  {id:"parametres", label:"Paramètres",       icon:"settings",emoji:"⚙️"},
-  {id:"contrats",   label:"Contrats",         icon:"contrat", emoji:"📋"},
-  {id:"fournisseurs",label:"Fournisseurs",    icon:"facture", emoji:"🏭"},
-  {id:"produits",   label:"Produits",         icon:"prod",    emoji:"🍋"},
-  {id:"sauvegardes",label:"Sauvegardes",      icon:"stock",   emoji:"💾"},
+  {id:"documents",      label:"Documents légaux",  icon:"contrat", emoji:"📜"},
+  {id:"production",     label:"Recettes",           icon:"prod",    emoji:"🏭"},
+  {id:"parametres",     label:"Paramètres",         icon:"settings",emoji:"⚙️"},
+  {id:"contrats",       label:"Contrats",           icon:"contrat", emoji:"📋"},
+  {id:"fournisseurs",   label:"Fournisseurs",       icon:"facture", emoji:"🏭"},
+  {id:"produits",       label:"Produits",           icon:"prod",    emoji:"🍋"},
+  {id:"ventesDirectes", label:"Ventes directes",    icon:"facture", emoji:"🏠"},
+  {id:"emailTemplates", label:"Templates emails",   icon:"contrat", emoji:"✉️"},
+  {id:"sauvegardes",    label:"Sauvegardes",        icon:"stock",   emoji:"💾"},
 ];
 
 // Icône "more" (hamburger)
@@ -14308,7 +15021,9 @@ offres:      <Offres       st={st} setSt={setSt}/>,
 prospects:         <Prospects         st={st} setSt={setSt} setTab={setTab}/>,
 bulletinsCommande: <BulletinsCommande st={st} setSt={setSt} setTab={setTab}/>,
 bulletinsLivraison:<BulletinsLivraison st={st} setSt={setSt} setTab={setTab}/>,
-documents:   <Documents    st={st} setSt={setSt}/>,
+documents:        <Documents       st={st} setSt={setSt}/>,
+ventesDirectes:   <VentesDirectes  st={st} setSt={setSt}/>,
+emailTemplates:   <EmailTemplates  st={st} setSt={setSt}/>,
 sauvegardes: <Sauvegardes  authUser={authUser} st={st} setSt={setSt}/>,
 };
 
