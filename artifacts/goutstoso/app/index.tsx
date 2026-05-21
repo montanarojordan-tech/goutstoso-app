@@ -10724,27 +10724,14 @@ try {
     });
     y+=10;
   });
-  y+=10;
-  doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.setTextColor(10,10,10);
-  doc.text("RETOUR D'INTERET",mg,y); y+=8;
-  doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.setTextColor(60,60,60);
-  doc.text("Veuillez cocher votre choix et retourner ce document a admin@goutstoso.ch",mg,y); y+=10;
-  const checks=[
-    {label:"Interesse(e) — je souhaite referencer vos produits",checked:false},
-    {label:"Pas interesse(e) pour le moment",checked:false},
-  ];
-  checks.forEach(c=>{
-    doc.setDrawColor(80,80,80); doc.setLineWidth(0.5);
-    doc.rect(mg,y-4,5,5);
-    doc.setFont("helvetica","normal");doc.setFontSize(10);doc.setTextColor(10,10,10);
-    doc.text(c.label,mg+8,y);
-    y+=10;
-  });
-  y+=4;
-  doc.setFillColor(240,240,238); doc.rect(mg,y,W-mg*2,20,"F");
-  doc.setFont("helvetica","normal"); doc.setFontSize(8); doc.setTextColor(100,100,100);
-  doc.text("Nom & prénom : ___________________________   Fonction : ___________________________",mg+4,y+6);
-  doc.text("Date : ___________________   Signature / cachet : ___________________________",mg+4,y+14);
+  y+=12;
+  doc.setFillColor(242,201,76); doc.rect(mg,y,W-mg*2,18,"F");
+  doc.setFont("helvetica","bold"); doc.setFontSize(9); doc.setTextColor(10,10,10);
+  const contactLine="Si vous etes interesse(e) par nos produits, veuillez nous confirmer votre interet par e-mail a :";
+  doc.text(contactLine,W/2,y+6,{align:"center"});
+  doc.setFontSize(11); doc.setTextColor(10,10,10);
+  doc.text("admin@goutstoso.ch",W/2,y+14,{align:"center"});
+  y+=24;
   doc.setDrawColor(230,230,228); doc.setLineWidth(0.3); doc.line(mg,282,W-mg,282);
   doc.setFont("helvetica","normal"); doc.setFontSize(7); doc.setTextColor(150,150,150);
   doc.text("Goûtstoso - Jordan Montanaro · Rue des Sources 19 · 2613 Villeret · admin@goutstoso.ch · www.goutstoso.ch",W/2,286,{align:"center"});
