@@ -4264,6 +4264,17 @@ const echeance=new Date(new Date(f.date).getTime()+30*86400000).toISOString().sl
   doc.text("Date : "+fmt(f.date),W-mg,33,{align:"right"});
   doc.text("Échéance : "+fmt(echeance),W-mg,38,{align:"right"});
 
+  // Références liées
+  const cmdRef = f.commandeId ? (st.commandes||[]).find((c:any)=>c.id===f.commandeId) : null;
+  const blRef = f.bulletinLivraisonId ? (st.bulletinsLivraison||[]).find((b:any)=>b.id===f.bulletinLivraisonId) : null;
+  let refY = 38;
+  doc.setFontSize(8);doc.setTextColor(120,120,120);doc.setFont("helvetica","normal");
+  if(cmdRef){refY+=4.5;doc.text("Réf. commande : "+cmdRef.numero,W-mg,refY,{align:"right"});}
+  if(blRef){
+    refY+=4.5;doc.text("Réf. BL : "+blRef.numero,W-mg,refY,{align:"right"});
+    if(blRef.bcNumero){refY+=4.5;doc.text("Réf. BC : "+blRef.bcNumero,W-mg,refY,{align:"right"});}
+  }
+
   // Alerte retard
   if(retard) {
     doc.setFillColor(254,226,226);doc.setDrawColor(252,165,165);
@@ -4273,7 +4284,7 @@ const echeance=new Date(new Date(f.date).getTime()+30*86400000).toISOString().sl
   }
 
   // Sépar
-  const yBase=retard?60:50;
+  const yBase=retard?Math.max(60,refY+10):Math.max(50,refY+6);
   doc.setDrawColor(230,230,228);doc.setLineWidth(0.3);doc.line(mg,yBase,W-mg,yBase);
 
   // Parties
