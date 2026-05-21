@@ -9841,6 +9841,36 @@ const readFileAsBase64 = (file: File): Promise<string> =>
     r.readAsDataURL(file);
   });
 
+const ouvrirFichier = (dataUrl: string, nom: string) => {
+  try {
+    const arr = dataUrl.split(',');
+    const mime = arr[0].match(/:(.*?);/)?.[1] || 'application/octet-stream';
+    const bstr = atob(arr[1]);
+    let n = bstr.length;
+    const u8arr = new Uint8Array(n);
+    while(n--) u8arr[n] = bstr.charCodeAt(n);
+    const blob = new Blob([u8arr], {type: mime});
+    const url = URL.createObjectURL(blob);
+    const win = window.open(url, '_blank');
+    setTimeout(() => URL.revokeObjectURL(url), 30000);
+    if(!win) {
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = nom;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    }
+  } catch(e) {
+    const a = document.createElement('a');
+    a.href = dataUrl;
+    a.download = nom;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }
+};
+
 const [form, setForm] = useState(empty());
 
 const getCompte = (cat) => {
@@ -10130,26 +10160,30 @@ return (
         <p style={{fontSize:10,color:"#525252",fontWeight:600,textTransform:"uppercase",letterSpacing:"0.04em",marginBottom:10}}>Pièces jointes</p>
         <div style={{display:"grid",gap:8}}>
           {view.pdfFacture && (
-            <a href={view.pdfFacture} download={view.pdfFactureNom||"facture-fournisseur.pdf"}
-              style={{display:"flex",alignItems:"center",gap:10,background:"#FEF9E7",border:"1px solid #FDE68A",borderRadius:10,padding:"10px 12px",textDecoration:"none",color:"#92400E"}}>
+            <div style={{display:"flex",alignItems:"center",gap:10,background:"#FEF9E7",border:"1px solid #FDE68A",borderRadius:10,padding:"10px 12px"}}>
               <span style={{fontSize:20,flexShrink:0}}>📄</span>
               <div style={{flex:1,minWidth:0}}>
-                <p style={{fontSize:12,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{view.pdfFactureNom||"facture-fournisseur.pdf"}</p>
-                <p style={{fontSize:10,color:"#9A3412",marginTop:1}}>Facture originale · Télécharger</p>
+                <p style={{fontSize:12,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",color:"#92400E"}}>{view.pdfFactureNom||"facture-fournisseur.pdf"}</p>
+                <p style={{fontSize:10,color:"#9A3412",marginTop:1}}>Facture originale</p>
               </div>
-              <span style={{fontSize:14,flexShrink:0}}>⬇️</span>
-            </a>
+              <button onClick={()=>ouvrirFichier(view.pdfFacture!, view.pdfFactureNom||"facture-fournisseur.pdf")}
+                style={{background:"#92400E",color:"#fff",border:"none",borderRadius:7,padding:"6px 10px",fontSize:11,fontWeight:700,cursor:"pointer",flexShrink:0}}>
+                📂 Ouvrir
+              </button>
+            </div>
           )}
           {view.pdfBonLivraison && (
-            <a href={view.pdfBonLivraison} download={view.pdfBonLivraisonNom||"bon-livraison.pdf"}
-              style={{display:"flex",alignItems:"center",gap:10,background:"#F0FDF4",border:"1px solid #BBF7D0",borderRadius:10,padding:"10px 12px",textDecoration:"none",color:"#14532D"}}>
+            <div style={{display:"flex",alignItems:"center",gap:10,background:"#F0FDF4",border:"1px solid #BBF7D0",borderRadius:10,padding:"10px 12px"}}>
               <span style={{fontSize:20,flexShrink:0}}>📦</span>
               <div style={{flex:1,minWidth:0}}>
-                <p style={{fontSize:12,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{view.pdfBonLivraisonNom||"bon-livraison.pdf"}</p>
-                <p style={{fontSize:10,color:"#166534",marginTop:1}}>Bon de livraison · Télécharger</p>
+                <p style={{fontSize:12,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",color:"#14532D"}}>{view.pdfBonLivraisonNom||"bon-livraison.pdf"}</p>
+                <p style={{fontSize:10,color:"#166534",marginTop:1}}>Bon de livraison</p>
               </div>
-              <span style={{fontSize:14,flexShrink:0}}>⬇️</span>
-            </a>
+              <button onClick={()=>ouvrirFichier(view.pdfBonLivraison!, view.pdfBonLivraisonNom||"bon-livraison.pdf")}
+                style={{background:"#166534",color:"#fff",border:"none",borderRadius:7,padding:"6px 10px",fontSize:11,fontWeight:700,cursor:"pointer",flexShrink:0}}>
+                📂 Ouvrir
+              </button>
+            </div>
           )}
         </div>
       </Card>
