@@ -15248,19 +15248,22 @@ setSt(p=>{
 
 // Sauvegarder à chaque changement
 const saveTimer = React.useRef(null);
+const lastLocalChange = React.useRef(0);
 React.useEffect(()=>{
 if(loading) return;
+lastLocalChange.current = Date.now();
 try { localStorage.setItem("goutstoso_v2", JSON.stringify(st)); } catch(e){}
 if(saveTimer.current) clearTimeout(saveTimer.current);
 saveTimer.current = setTimeout(async()=>{ setSyncing(true); await cloudSave(st); setSyncing(false); }, 2000);
 },[st, loading]);
 
-// Rafraîchir toutes les 30s
+// Rafraîchir toutes les 5 minutes — mais jamais si un changement local date de moins de 15s
 React.useEffect(()=>{
 const iv = setInterval(async()=>{
+if(Date.now() - lastLocalChange.current < 15000) return;
 const remote = await cloudLoad();
 if(remote) { const next = hydrateData(remote); setSt(next); try { localStorage.setItem("goutstoso_v2", JSON.stringify(next)); } catch(e){} }
-}, 30000);
+}, 5*60*1000);
 return ()=>clearInterval(iv);
 },[]);
 
