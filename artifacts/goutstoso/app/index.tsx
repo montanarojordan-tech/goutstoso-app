@@ -6338,9 +6338,11 @@ return (
     const recettesTot = sum(allTrans.filter((t:any)=>t.type==="recette").map((t:any)=>+t.montant));
     const depensesTot = sum(allTrans.filter((t:any)=>t.type==="depense").map((t:any)=>+t.montant));
     const resultatNet = recettesTot - depensesTot;
+    const detteFournisseurs = sum((st.facturesFournisseurs||[]).filter((f:any)=>f.statut==="à payer").map((f:any)=>+(f.montant||0)));
     const totalActif = st.soldeBancaire + creancesClients + valeurStock;
+    const totalPassif = detteFournisseurs;
     const totalCapitaux = capitalSocial + resultatNet;
-    const ecart = totalActif - totalCapitaux;
+    const ecart = totalActif - (totalCapitaux + totalPassif);
     return (
     <div>
       <Card style={{marginBottom:12}}>
@@ -6377,9 +6379,19 @@ return (
 
       <Card style={{marginBottom:12}}>
         <h3 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:17,marginBottom:10,color:"#92400E"}}>📉 Dettes / Passif</h3>
-        <p style={{fontSize:12,color:"#9CA3AF",textAlign:"center",padding:"8px 0"}}>Aucune dette enregistrée</p>
+        {detteFournisseurs>0 ? (
+          <div style={{display:"flex",justifyContent:"space-between",padding:"8px 0"}}>
+            <div>
+              <p style={{fontSize:12,fontWeight:500}}>Dettes fournisseurs (2000)</p>
+              <p style={{fontSize:10,color:"#9CA3AF"}}>Factures fournisseurs non payées</p>
+            </div>
+            <span style={{fontWeight:700,fontSize:13,color:"#92400E"}}>{chf(detteFournisseurs)}</span>
+          </div>
+        ) : (
+          <p style={{fontSize:12,color:"#9CA3AF",textAlign:"center",padding:"8px 0"}}>Aucune dette enregistrée</p>
+        )}
         <div style={{borderTop:"2px solid #92400E",paddingTop:8,marginTop:4,display:"flex",justifyContent:"space-between",fontWeight:700}}>
-          <span style={{fontSize:13}}>TOTAL PASSIF</span><span style={{color:"#92400E",fontSize:16}}>{chf(0)}</span>
+          <span style={{fontSize:13}}>TOTAL PASSIF</span><span style={{color:"#92400E",fontSize:16}}>{chf(totalPassif)}</span>
         </div>
       </Card>
 
@@ -6389,11 +6401,11 @@ return (
             <p style={{fontSize:13,fontWeight:700,color:"#92400E"}}>PATRIMOINE NET</p>
             <p style={{fontSize:10,color:"#9CA3AF",marginTop:1}}>Capitaux propres + Passif</p>
           </div>
-          <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:22,fontWeight:700,color:"#D4A017"}}>{chf(totalCapitaux)}</span>
+          <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:22,fontWeight:700,color:"#D4A017"}}>{chf(totalCapitaux+totalPassif)}</span>
         </div>
         {Math.abs(ecart)>0.01&&(
           <div style={{background:"#FFF7ED",borderRadius:8,padding:"6px 10px",fontSize:10,color:"#92400E"}}>
-            ⚠️ Écart actif/capitaux : {chf(Math.abs(ecart))} — normal en comptabilité simplifiée (stocks, immobilisations non comptabilisées en double écriture)
+            ⚠️ Écart actif/passif : {chf(Math.abs(ecart))} — normal en comptabilité simplifiée
           </div>
         )}
       </Card>
