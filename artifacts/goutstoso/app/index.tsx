@@ -12258,7 +12258,10 @@ const Prospects = ({st, setSt, setTab=(_any:any)=>{}}) => {
   return (
     <div className="fade">
       <PipelineBanner current="prospects"/>
-      <SectionTitle action={<button onClick={()=>{setForm(emptyForm());setModal("form");}} style={{background:"#0A0A0A",color:"#fff",border:"none",borderRadius:9,padding:"9px 16px",fontSize:13,fontWeight:600,cursor:"pointer"}}>+ Nouveau</button>}>
+      <SectionTitle action={<div style={{display:"flex",gap:8}}>
+        <button onClick={()=>genererProspectionPDF({clientNom:"",clientContact:""},st.produits)} style={{background:"#1E40AF",color:"#fff",border:"none",borderRadius:9,padding:"9px 12px",fontSize:12,fontWeight:600,cursor:"pointer",display:"flex",alignItems:"center",gap:5}}>📋 Fiche PDF</button>
+        <button onClick={()=>{setForm(emptyForm());setModal("form");}} style={{background:"#0A0A0A",color:"#fff",border:"none",borderRadius:9,padding:"9px 16px",fontSize:13,fontWeight:600,cursor:"pointer"}}>+ Nouveau</button>
+      </div>}>
         Prospects <span style={{fontSize:14,color:"#9CA3AF",fontWeight:400}}>({prospects.length})</span>
       </SectionTitle>
       {prospects.length>0&&(
