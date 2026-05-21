@@ -6538,10 +6538,7 @@ return (
           if(k==="1020") return st.soldeBancaire||0;
           if(k==="1100") return creancesClients||0;
           if(k==="3200") return valeurStock||0;
-          if(k==="3100") return sum((st.produits||[]).filter((p:any)=>!p.nom.includes("Coffret")).map((p:any)=>{
-            const s=(st.stocks||[]).find((s2:any)=>s2.produitId===p.id);
-            return ((s?.qte||0)+(s?.qteEnCours||0))*(p.coutRevient||0);
-          }));
+          if(k==="3100") return 0;
           if(k==="2000") return sum((st.transactions||[]).filter((t:any)=>t.type==="capital").map((t:any)=>+t.montant));
           if(k==="2800") return 0;
           return (st.transactions||[]).filter((t:any)=>t.compte===k).reduce((acc:number,t:any)=>acc+(parseFloat(t.montant)||0),0);
