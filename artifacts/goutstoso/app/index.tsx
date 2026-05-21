@@ -15319,9 +15319,11 @@ return (
             {id:"produits",    label:"Produits",    emoji:"🍋"},
           ]},
           {groupe:"Plus", items:[
-            {id:"documents",  label:"Documents légaux",emoji:"📜"},
-            {id:"parametres", label:"Paramètres",      emoji:"⚙️"},
-            {id:"sauvegardes",label:"Sauvegardes",     emoji:"💾"},
+            {id:"documents",      label:"Documents légaux", emoji:"📜"},
+            {id:"ventesDirectes", label:"Ventes directes",  emoji:"🏠"},
+            {id:"emailTemplates", label:"Templates emails", emoji:"✉️"},
+            {id:"parametres",     label:"Paramètres",       emoji:"⚙️"},
+            {id:"sauvegardes",    label:"Sauvegardes",      emoji:"💾"},
           ]},
         ].map((section,si)=>(
           <div key={si} style={{marginBottom:4}}>
@@ -15491,9 +15493,11 @@ return (
             {id:"produits",    label:"Produits",    emoji:"🍋"},
           ]},
           {groupe:"Plus", items:[
-            {id:"documents",  label:"Documents légaux",emoji:"📜"},
-            {id:"parametres", label:"Paramètres",      emoji:"⚙️"},
-            {id:"sauvegardes",label:"Sauvegardes",     emoji:"💾"},
+            {id:"documents",      label:"Documents légaux", emoji:"📜"},
+            {id:"ventesDirectes", label:"Ventes directes",  emoji:"🏠"},
+            {id:"emailTemplates", label:"Templates emails", emoji:"✉️"},
+            {id:"parametres",     label:"Paramètres",       emoji:"⚙️"},
+            {id:"sauvegardes",    label:"Sauvegardes",      emoji:"💾"},
           ]},
         ].map((section,si)=>(
           <div key={si} style={{marginBottom:6}}>
