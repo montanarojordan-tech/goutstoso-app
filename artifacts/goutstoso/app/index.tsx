@@ -423,7 +423,7 @@ const Sel = ({label,value,onChange,options,required}) => (
   <div style={{display:"flex",flexDirection:"column",gap:4}}>
     {label && <label style={{fontSize:11,fontWeight:600,color:"#9CA3AF",textTransform:"uppercase",letterSpacing:".06em"}}>{label}{required&&" *"}</label>}
     <select value={value} onChange={e=>onChange(e.target.value)}>
-      {options.map(o=><option key={o.v} value={o.v}>{o.l}</option>)}
+      {options.map(o=>{const v=o.v!==undefined?o.v:o.value;const l=o.l!==undefined?o.l:o.label;return <option key={v} value={v}>{l}</option>;})}
     </select>
   </div>
 );
