@@ -14014,85 +14014,84 @@ const EMAIL_TEMPLATES = [
 {cat:"🎯 Prospection",templates:[
   {code:"P1",sujet:"Liqueurs artisanales du Jura - Goûtstoso",corps:`Bonjour [NOM],
 
-Je vous écris depuis Villeret où je fabrique des liqueurs artisanales sous le nom Goûtstoso.
+Nous vous contactons depuis Villeret, dans le Jura bernois, où nous produisons des liqueurs artisanales suisses sous le nom Goûtstoso.
 
-Ma gamme actuelle compte sept liqueurs : Limonta (citron), Limelo (citron vert), Clementino, Pescato (pêche), Fraisetta, Lamponia (framboise) et Caffetto (café). Toutes sont produites à la main, en petites séries, à 30% vol.
+Notre gamme compte sept liqueurs : Limonta (citron), Limelo (citron vert), Clementino, Pescato (pêche), Fraisetta, Lamponia (framboise) et Caffetto (café). Toutes sont élaborées à la main, en petites séries, à 30 % vol., avec des ingrédients frais et sans arôme artificiel.
 
-J'aimerais beaucoup vous les faire goûter. Auriez-vous quelques minutes la semaine prochaine pour que je passe vous présenter le travail ?
+Nous aimerions beaucoup vous les faire goûter. Auriez-vous quelques minutes la semaine prochaine pour que nous passions vous présenter notre travail ?
 
-Je peux me déplacer chez vous quand cela vous arrange.
+Nous pouvons nous déplacer chez vous quand cela vous arrange.
 
 Bonne journée,
-Jordan Montanaro
-Goûtstoso
+L'équipe Goûtstoso
 admin@goutstoso.ch`},
   {code:"P2",sujet:"Liqueurs artisanales suisses pour votre cave",corps:`Bonjour [NOM],
 
-J'ai découvert votre cave [NOM_CAVE] et je pense que mes liqueurs pourraient avoir leur place chez vous.
+Nous avons découvert votre cave [NOM_CAVE] et nous pensons que nos liqueurs pourraient avoir leur place chez vous.
 
-Je m'appelle Jordan Montanaro, je suis basé à Villeret dans le Jura bernois, et je fabrique sept liqueurs artisanales à 30% vol. : agrumes, fruits rouges, pêche et café. Production en petites séries, ingrédients frais, sans arôme artificiel.
+Nous sommes basés à Villeret dans le Jura bernois et nous fabriquons sept liqueurs artisanales à 30 % vol. : agrumes, fruits rouges, pêche et café. Production en petites séries, ingrédients frais, sans arôme artificiel.
 
-Si vous êtes ouvert à la dégustation, je peux passer chez vous avec quelques échantillons quand cela vous convient.
+Si vous êtes ouvert à la dégustation, nous pouvons passer chez vous avec quelques échantillons quand cela vous convient.
 
 Au plaisir d'échanger,
-Jordan Montanaro
-Goûtstoso`},
+L'équipe Goûtstoso
+admin@goutstoso.ch`},
   {code:"P3",sujet:"Suite à notre rencontre - Goûtstoso",corps:`Bonjour [NOM],
 
-Merci pour l'accueil lors de ma visite. C'était un plaisir d'échanger avec vous.
+Merci pour l'accueil lors de notre visite. C'était un plaisir d'échanger avec vous.
 
-Je me permets de vous envoyer notre catalogue avec les tarifs revendeurs. Nos conditions de dépôt-vente sont souples et sans engagement minimum.
+Nous nous permettons de vous envoyer notre catalogue avec les tarifs revendeurs. Nos conditions de dépôt-vente sont souples et sans engagement minimum.
 
-N'hésitez pas à revenir vers moi pour toute question.
+N'hésitez pas à revenir vers nous pour toute question.
 
 Bonne journée,
-Jordan Montanaro
-Goûtstoso`},
+L'équipe Goûtstoso
+admin@goutstoso.ch`},
   {code:"P4",sujet:"Relance - Goûtstoso",corps:`Bonjour [NOM],
 
-Je me permets de reprendre contact. Avez-vous eu le temps de regarder notre offre ?
+Nous nous permettons de reprendre contact. Avez-vous eu le temps de regarder notre offre ?
 
 Nous restons disponibles pour une dégustation ou pour répondre à vos questions.
 
 Bonne journée,
-Jordan Montanaro
-Goûtstoso`},
+L'équipe Goûtstoso
+admin@goutstoso.ch`},
   {code:"P5",sujet:"Dernière relance - Goûtstoso",corps:`Bonjour [NOM],
 
-Je me permets un dernier message au sujet de notre proposition. Si le moment n'est pas idéal, pas de souci - je reste disponible pour une prochaine occasion.
+Nous nous permettons un dernier message au sujet de notre proposition. Si le moment n'est pas idéal, pas de souci — nous restons disponibles pour une prochaine occasion.
 
 Bonne journée,
-Jordan Montanaro
-Goûtstoso`},
+L'équipe Goûtstoso
+admin@goutstoso.ch`},
 ]},
 {cat:"💼 Suivi offres",templates:[
   {code:"O1",sujet:"Votre offre [NUMERO] - Goûtstoso",corps:`Bonjour [NOM],
 
 Veuillez trouver ci-joint votre offre N° [NUMERO] valable jusqu'au [DATE_VALIDITE].
 
-Pour toute question, je suis joignable par email ou téléphone.
+Pour toute question, nous sommes joignables par email ou téléphone.
 
 Cordialement,
-Jordan Montanaro
-Goûtstoso`},
+L'équipe Goûtstoso
+admin@goutstoso.ch`},
   {code:"O2",sujet:"Relance offre [NUMERO] - Goûtstoso",corps:`Bonjour [NOM],
 
-Je reviens vers vous au sujet de l'offre N° [NUMERO] transmise le [DATE_ENVOI].
+Nous revenons vers vous au sujet de l'offre N° [NUMERO] transmise le [DATE_ENVOI].
 
 Cette offre reste valable jusqu'au [DATE_VALIDITE]. Avez-vous eu l'occasion d'en prendre connaissance ?
 
 N'hésitez pas à nous faire part de votre retour.
 
 Cordialement,
-Jordan Montanaro
-Goûtstoso`},
+L'équipe Goûtstoso
+admin@goutstoso.ch`},
   {code:"O3",sujet:"Offre [NUMERO] - Dernière relance",corps:`Bonjour [NOM],
 
 L'offre N° [NUMERO] expire bientôt. Si vous souhaitez y donner suite, merci de nous le faire savoir rapidement.
 
 Cordialement,
-Jordan Montanaro
-Goûtstoso`},
+L'équipe Goûtstoso
+admin@goutstoso.ch`},
 ]},
 {cat:"📦 Commandes",templates:[
   {code:"C1",sujet:"Confirmation commande [NUMERO] - Goûtstoso",corps:`Bonjour [NOM],
@@ -14102,8 +14101,8 @@ Nous avons bien reçu votre commande N° [NUMERO]. Elle sera préparée dans les
 Nous vous confirmerons la date de livraison sous peu.
 
 Cordialement,
-Jordan Montanaro
-Goûtstoso`},
+L'équipe Goûtstoso
+admin@goutstoso.ch`},
   {code:"C2",sujet:"Livraison effectuée - Commande [NUMERO]",corps:`Bonjour [NOM],
 
 La livraison de votre commande N° [NUMERO] a bien été effectuée ce jour.
@@ -14111,21 +14110,21 @@ La livraison de votre commande N° [NUMERO] a bien été effectuée ce jour.
 Le bulletin de livraison signé est joint à ce message.
 
 Cordialement,
-Jordan Montanaro
-Goûtstoso`},
+L'équipe Goûtstoso
+admin@goutstoso.ch`},
 ]},
 {cat:"💰 Facturation",templates:[
   {code:"F1",sujet:"Facture [NUMERO] - Goûtstoso",corps:`Bonjour [NOM],
 
 Veuillez trouver ci-joint la facture N° [NUMERO] d'un montant de CHF [MONTANT].
 
-Echéance de paiement : [DATE_ECHEANCE].
+Échéance de paiement : [DATE_ECHEANCE].
 
 IBAN : CH00 0000 0000 0000 0000 0 (PostFinance)
 
 Cordialement,
-Jordan Montanaro
-Goûtstoso`},
+L'équipe Goûtstoso
+admin@goutstoso.ch`},
   {code:"F2",sujet:"Confirmation paiement facture [NUMERO]",corps:`Bonjour [NOM],
 
 Nous avons bien reçu votre paiement pour la facture N° [NUMERO]. Merci.
@@ -14133,8 +14132,8 @@ Nous avons bien reçu votre paiement pour la facture N° [NUMERO]. Merci.
 N'hésitez pas à nous contacter pour toute question.
 
 Cordialement,
-Jordan Montanaro
-Goûtstoso`},
+L'équipe Goûtstoso
+admin@goutstoso.ch`},
 ]},
 {cat:"⚠️ Relances",templates:[
   {code:"R1",sujet:"Rappel - Facture [NUMERO] échue",corps:`Bonjour [NOM],
@@ -14146,8 +14145,8 @@ Pourriez-vous procéder au règlement dans les meilleurs délais ?
 IBAN : CH00 0000 0000 0000 0000 0 (PostFinance)
 
 Cordialement,
-Jordan Montanaro
-Goûtstoso`},
+L'équipe Goûtstoso
+admin@goutstoso.ch`},
   {code:"R2",sujet:"2e rappel - Facture [NUMERO]",corps:`Bonjour [NOM],
 
 Malgré notre premier rappel, la facture N° [NUMERO] d'un montant de CHF [MONTANT] reste impayée.
@@ -14157,30 +14156,30 @@ Nous vous prions de bien vouloir régulariser cette situation dans les 10 jours.
 IBAN : CH00 0000 0000 0000 0000 0 (PostFinance)
 
 Cordialement,
-Jordan Montanaro
-Goûtstoso`},
+L'équipe Goûtstoso
+admin@goutstoso.ch`},
   {code:"R3",sujet:"Mise en demeure - Facture [NUMERO]",corps:`Bonjour [NOM],
 
 En l'absence de réponse à nos précédents rappels, nous vous mettons en demeure de régler la facture N° [NUMERO] d'un montant de CHF [MONTANT] dans un délai de 10 jours.
 
-A défaut, nous nous verrons contraints d'engager une procédure de recouvrement.
+À défaut, nous nous verrons contraints d'engager une procédure de recouvrement.
 
 Cordialement,
-Jordan Montanaro
-Goûtstoso`},
+L'équipe Goûtstoso
+admin@goutstoso.ch`},
 ]},
 {cat:"🤝 Relation client",templates:[
   {code:"RC1",sujet:"Inventaire dépôt - [NOM_PDV]",corps:`Bonjour [NOM],
 
-Nous nous permettons de vous contacter pour effectuer l'inventaire de notre dépôt.
+Nous nous permettons de vous contacter pour effectuer l'inventaire de notre dépôt chez vous.
 
 Pourriez-vous nous confirmer les quantités vendues et le stock restant ?
 
 Merci d'avance pour votre retour.
 
 Cordialement,
-Jordan Montanaro
-Goûtstoso`},
+L'équipe Goûtstoso
+admin@goutstoso.ch`},
   {code:"RC2",sujet:"Nouveau produit Goûtstoso",corps:`Bonjour [NOM],
 
 Nous avons le plaisir de vous présenter notre nouvelle liqueur [NOM_PRODUIT].
@@ -14190,17 +14189,17 @@ Nous avons le plaisir de vous présenter notre nouvelle liqueur [NOM_PRODUIT].
 Souhaitez-vous l'intégrer à votre assortiment ? Nous pouvons vous faire parvenir des échantillons.
 
 Cordialement,
-Jordan Montanaro
-Goûtstoso`},
+L'équipe Goûtstoso
+admin@goutstoso.ch`},
   {code:"RC3",sujet:"Satisfaction - Commande [NUMERO]",corps:`Bonjour [NOM],
 
 Nous espérons que votre dernière commande vous a donné entière satisfaction.
 
-N'hésitez pas à nous faire part de vos retours.
+N'hésitez pas à nous faire part de vos retours — ils nous aident à progresser.
 
 Cordialement,
-Jordan Montanaro
-Goûtstoso`},
+L'équipe Goûtstoso
+admin@goutstoso.ch`},
 ]},
 {cat:"🎉 Saisonnier",templates:[
   {code:"S1",sujet:"Offre de fin d'année - Goûtstoso",corps:`Bonjour [NOM],
@@ -14210,8 +14209,8 @@ Les fêtes approchent et nos liqueurs artisanales font d'excellents cadeaux.
 Nos coffrets découverte sont disponibles dès maintenant. Commande avant le [DATE_LIMITE] pour livraison garantie avant Noël.
 
 Cordialement,
-Jordan Montanaro
-Goûtstoso`},
+L'équipe Goûtstoso
+admin@goutstoso.ch`},
   {code:"S2",sujet:"Réassort printemps - Goûtstoso",corps:`Bonjour [NOM],
 
 La saison printanière approche. Pensez à renouveler votre stock de liqueurs fraîches Goûtstoso.
@@ -14219,21 +14218,21 @@ La saison printanière approche. Pensez à renouveler votre stock de liqueurs fr
 N'hésitez pas à nous contacter pour passer commande.
 
 Cordialement,
-Jordan Montanaro
-Goûtstoso`},
+L'équipe Goûtstoso
+admin@goutstoso.ch`},
 ]},
 {cat:"📰 Newsletter",templates:[
   {code:"N1",sujet:"Actualités Goûtstoso",corps:`Bonjour [NOM],
 
-Voici les dernières nouvelles de Goûtstoso.
+Voici les dernières nouvelles de notre atelier.
 
 [CONTENU_NEWSLETTER]
 
 Merci pour votre fidélité.
 
 Cordialement,
-Jordan Montanaro
-Goûtstoso`},
+L'équipe Goûtstoso
+admin@goutstoso.ch`},
 ]},
 {cat:"🌐 Shopify B2C",templates:[
   {code:"SH1",sujet:"Confirmation de commande [NUMERO] - Goûtstoso",corps:`Bonjour [NOM],
@@ -14243,8 +14242,8 @@ Merci pour votre commande N° [NUMERO] ! Nous l'avons bien reçue.
 Vos liqueurs artisanales seront expédiées dans 2-3 jours ouvrés.
 
 Cordialement,
-Jordan Montanaro
-Goûtstoso`},
+L'équipe Goûtstoso
+admin@goutstoso.ch`},
   {code:"SH2",sujet:"Votre commande [NUMERO] a été expédiée",corps:`Bonjour [NOM],
 
 Bonne nouvelle ! Votre commande N° [NUMERO] a été expédiée aujourd'hui.
@@ -14255,17 +14254,17 @@ Transporteur : [TRANSPORTEUR]
 Livraison estimée dans 2-3 jours.
 
 Cordialement,
-Jordan Montanaro
-Goûtstoso`},
+L'équipe Goûtstoso
+admin@goutstoso.ch`},
   {code:"SH3",sujet:"Avez-vous reçu votre commande ? - Goûtstoso",corps:`Bonjour [NOM],
 
 Nous espérons que votre commande N° [NUMERO] vous est bien parvenue.
 
-Si vous avez le moindre souci, n'hésitez pas à nous écrire directement à admin@goutstoso.ch.
+Si vous avez le moindre souci, n'hésitez pas à nous écrire à admin@goutstoso.ch.
 
 Cordialement,
-Jordan Montanaro
-Goûtstoso`},
+L'équipe Goûtstoso
+admin@goutstoso.ch`},
 ]},
 ];
 
