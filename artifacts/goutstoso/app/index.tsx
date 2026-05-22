@@ -14625,6 +14625,227 @@ return (
 );
 };
 
+// ═══════════════════════════════════════
+// DIAGNOSTICS
+// ═══════════════════════════════════════
+const Diagnostics = ({st}:{st:any}) => {
+  const [results, setResults] = React.useState<any[]|null>(null);
+  const [detail, setDetail] = React.useState<any|null>(null);
+  const [running, setRunning] = React.useState(false);
+
+  const fmt = (n:number) => n.toFixed(2);
+
+  const runTests = () => {
+    setRunning(true);
+    setDetail(null);
+    setTimeout(()=>{
+      const tests:any[] = [];
+
+      // ── TEST 1 : Cohérence du solde PostFinance ──────────────────────────
+      const allTrans = st.transactions||[];
+      const recettesPostfinance = allTrans.filter((t:any)=>t.postfinance&&t.type==="recette").reduce((s:number,t:any)=>s+parseFloat(t.montant||0),0);
+      const depensesPostfinance = allTrans.filter((t:any)=>t.postfinance&&(t.type==="depense"||t.type==="capital")).reduce((s:number,t:any)=>s+parseFloat(t.montant||0),0);
+      const netPostfinance = recettesPostfinance - depensesPostfinance;
+      const soldeBancaire = parseFloat(st.soldeBancaire||0);
+      const soldeImpliciteInitial = soldeBancaire - netPostfinance;
+      const test1Ok = soldeImpliciteInitial >= 0;
+      tests.push({
+        id:1,
+        label:"Cohérence du solde PostFinance",
+        statut: test1Ok ? "ok" : "erreur",
+        resume: test1Ok
+          ? `Solde initial implicite : CHF ${fmt(soldeImpliciteInitial)} — Recettes postfinance : +${fmt(recettesPostfinance)} — Dépenses : -${fmt(depensesPostfinance)} — Solde actuel : ${fmt(soldeBancaire)}`
+          : `Solde négatif implicite (${fmt(soldeImpliciteInitial)} CHF) — Des opérations PostFinance ne sont pas reflétées dans le solde.`,
+        details:[
+          {label:"Solde actuel affiché", val:`CHF ${fmt(soldeBancaire)}`},
+          {label:"Recettes PostFinance (journal)", val:`+CHF ${fmt(recettesPostfinance)}`},
+          {label:"Dépenses PostFinance (journal)", val:`-CHF ${fmt(depensesPostfinance)}`},
+          {label:"Impact net journal", val:`CHF ${fmt(netPostfinance)}`},
+          {label:"Solde initial implicite", val:`CHF ${fmt(soldeImpliciteInitial)}`},
+        ],
+      });
+
+      // ── TEST 2 : Factures payées sans écriture compta ───────────────────
+      const facturesPayees = (st.factures||[]).filter((f:any)=>f.statut==="payée");
+      const factureIdsAvecTrans = new Set(allTrans.filter((t:any)=>t.factureId).map((t:any)=>t.factureId));
+      const sansEcriture = facturesPayees.filter((f:any)=>!factureIdsAvecTrans.has(f.id));
+      tests.push({
+        id:2,
+        label:"Factures payées sans écriture compta",
+        statut: sansEcriture.length===0 ? "ok" : "erreur",
+        resume: sansEcriture.length===0
+          ? `Toutes les ${facturesPayees.length} factures payées ont une écriture comptable.`
+          : `${sansEcriture.length} facture(s) payée(s) sans écriture comptable.`,
+        details: sansEcriture.map((f:any)=>{
+          const pv = (st.partenaires||[]).find((p:any)=>p.id===f.partenaireId);
+          return {label:f.numero, val:`CHF ${fmt(f.total||0)} — ${pv?.nom||"?"} — payée le ${f.datePaiement||"?"}`};
+        }),
+      });
+
+      // ── TEST 3 : Écritures orphelines ───────────────────────────────────
+      const factureIds = new Set((st.factures||[]).map((f:any)=>f.id));
+      const commandeIds = new Set((st.commandes||[]).map((c:any)=>c.id));
+      const ffIds = new Set((st.facturesFournisseurs||[]).map((f:any)=>f.id));
+      const apportIds = new Set((st.associes||[]).flatMap((a:any)=>(a.apports||[]).map((ap:any)=>ap.id)));
+      const orphelines = allTrans.filter((t:any)=>{
+        if(t.factureId && !factureIds.has(t.factureId)) return true;
+        if(t.commandeId && !commandeIds.has(t.commandeId)) return true;
+        if(t.factureFournisseurId && !ffIds.has(t.factureFournisseurId)) return true;
+        if(t.apportId && !apportIds.has(t.apportId)) return true;
+        return false;
+      });
+      tests.push({
+        id:3,
+        label:"Écritures orphelines (référence introuvable)",
+        statut: orphelines.length===0 ? "ok" : "attention",
+        resume: orphelines.length===0
+          ? "Aucune écriture orpheline détectée."
+          : `${orphelines.length} écriture(s) avec une référence introuvable.`,
+        details: orphelines.map((t:any)=>({
+          label:`${t.date} — ${t.libelle}`,
+          val:`CHF ${fmt(parseFloat(t.montant||0))} [${t.factureId?"factureId:"+t.factureId:t.commandeId?"cmdId:"+t.commandeId:t.factureFournisseurId?"ffId:"+t.factureFournisseurId:"apportId:"+t.apportId}]`,
+        })),
+      });
+
+      // ── TEST 4 : Stocks négatifs ─────────────────────────────────────────
+      const stocksNegatifs:any[] = [];
+      (st.produits||[]).forEach((p:any)=>{
+        const qte = (st.stocks||[]).filter((s:any)=>s.produitId===p.id).reduce((a:number,s:any)=>a+parseFloat(s.qte||0),0);
+        if(qte < 0) stocksNegatifs.push({produit:p.nom+" "+p.variante, qte});
+      });
+      tests.push({
+        id:4,
+        label:"Stock produits cohérent (pas de négatif)",
+        statut: stocksNegatifs.length===0 ? "ok" : "erreur",
+        resume: stocksNegatifs.length===0
+          ? "Aucun stock négatif détecté."
+          : `${stocksNegatifs.length} produit(s) avec stock négatif.`,
+        details: stocksNegatifs.map((s:any)=>({label:s.produit, val:`${s.qte} unités`})),
+      });
+
+      // ── TEST 5 : Stocks dépôts cohérents ────────────────────────────────
+      const depotProblemes:any[] = [];
+      (st.depotStocks||[]).forEach((d:any)=>{
+        const deposee = parseFloat(d.qteDeposee||0);
+        const vendue = parseFloat(d.qteVendue||0);
+        const retournee = parseFloat(d.qteRetournee||0);
+        if(vendue + retournee > deposee + 0.001) {
+          const pv = (st.partenaires||[]).find((p:any)=>p.id===d.partenaireId);
+          const prod = (st.produits||[]).find((p:any)=>p.id===d.produitId);
+          depotProblemes.push({
+            label:`${pv?.nom||"?"} — ${prod?.nom||"?"} ${prod?.variante||""}`.trim(),
+            val:`Déposé: ${deposee}, Vendu+Retourné: ${vendue+retournee}`,
+          });
+        }
+      });
+      tests.push({
+        id:5,
+        label:"Stocks dépôts cohérents",
+        statut: depotProblemes.length===0 ? "ok" : "erreur",
+        resume: depotProblemes.length===0
+          ? "Tous les dépôts sont cohérents."
+          : `${depotProblemes.length} dépôt(s) avec incohérence (vendu > déposé).`,
+        details: depotProblemes,
+      });
+
+      // ── TEST 6 : Numérotation continue des factures ──────────────────────
+      const facNums = (st.factures||[])
+        .map((f:any)=>f.numero)
+        .filter((n:string)=>n&&/^FAC-\d{4}-\d+$/.test(n));
+      const byYear:{[y:string]:number[]} = {};
+      facNums.forEach((n:string)=>{
+        const [,y,seq] = n.split("-");
+        if(!byYear[y]) byYear[y]=[];
+        byYear[y].push(parseInt(seq,10));
+      });
+      const sauts:any[] = [];
+      Object.entries(byYear).forEach(([y,seqs])=>{
+        const sorted = [...seqs].sort((a,b)=>a-b);
+        sorted.forEach((s,i)=>{
+          if(i>0 && s !== sorted[i-1]+1) {
+            sauts.push({label:`Année ${y}`, val:`Saut de FAC-${y}-${String(sorted[i-1]).padStart(3,"0")} → FAC-${y}-${String(s).padStart(3,"0")}`});
+          }
+        });
+      });
+      tests.push({
+        id:6,
+        label:"Numérotation continue des factures",
+        statut: sauts.length===0 ? "ok" : "attention",
+        resume: sauts.length===0
+          ? `Numérotation continue sur ${facNums.length} facture(s).`
+          : `${sauts.length} saut(s) détecté(s) dans la numérotation.`,
+        details: sauts,
+      });
+
+      setResults(tests);
+      setRunning(false);
+    }, 200);
+  };
+
+  const couleur = (s:string) => s==="ok"?"#22C55E":s==="erreur"?"#EF4444":"#F59E0B";
+  const emoji = (s:string) => s==="ok"?"✅":s==="erreur"?"❌":"⚠️";
+  const nb_ok = results ? results.filter(r=>r.statut==="ok").length : 0;
+  const nb_err = results ? results.filter(r=>r.statut==="erreur").length : 0;
+  const nb_att = results ? results.filter(r=>r.statut==="attention").length : 0;
+
+  return (
+    <div style={{padding:16,maxWidth:700,margin:"0 auto"}}>
+      <div style={{background:"#1A1A1A",borderRadius:16,padding:20,marginBottom:16}}>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4}}>
+          <div>
+            <h2 style={{color:"#F2C94C",fontWeight:800,fontSize:18,margin:0}}>🔧 Tests & Diagnostics</h2>
+            <p style={{color:"#9CA3AF",fontSize:12,margin:"4px 0 0"}}>Vérification automatique de la cohérence des données</p>
+          </div>
+          <button onClick={runTests} disabled={running} style={{background:"#F2C94C",color:"#111",border:"none",borderRadius:10,padding:"10px 20px",fontWeight:700,fontSize:14,cursor:running?"not-allowed":"pointer",opacity:running?0.7:1}}>
+            {running ? "⏳ Analyse..." : results ? "🔄 Relancer" : "▶ Lancer les tests"}
+          </button>
+        </div>
+        {results && (
+          <div style={{display:"flex",gap:12,marginTop:12}}>
+            <span style={{background:"#16532720",color:"#22C55E",borderRadius:8,padding:"4px 12px",fontSize:13,fontWeight:700}}>✅ {nb_ok} OK</span>
+            {nb_err>0&&<span style={{background:"#EF444420",color:"#EF4444",borderRadius:8,padding:"4px 12px",fontSize:13,fontWeight:700}}>❌ {nb_err} Erreur{nb_err>1?"s":""}</span>}
+            {nb_att>0&&<span style={{background:"#F59E0B20",color:"#F59E0B",borderRadius:8,padding:"4px 12px",fontSize:13,fontWeight:700}}>⚠️ {nb_att} Attention</span>}
+          </div>
+        )}
+      </div>
+
+      {!results && !running && (
+        <div style={{background:"#1A1A1A",borderRadius:16,padding:32,textAlign:"center",color:"#6B7280"}}>
+          <div style={{fontSize:40,marginBottom:12}}>🔍</div>
+          <p style={{margin:0,fontSize:14}}>Clique sur <strong style={{color:"#F2C94C"}}>▶ Lancer les tests</strong> pour analyser la cohérence de toutes les données.</p>
+        </div>
+      )}
+
+      {results && (
+        <div style={{display:"flex",flexDirection:"column",gap:10}}>
+          {results.map(r=>(
+            <div key={r.id} style={{background:"#1A1A1A",borderRadius:14,overflow:"hidden",border:`1.5px solid ${couleur(r.statut)}30`}}>
+              <div style={{display:"flex",alignItems:"center",gap:12,padding:"14px 16px",cursor:r.details?.length>0?"pointer":"default"}} onClick={()=>r.details?.length>0&&setDetail(detail?.id===r.id?null:r)}>
+                <div style={{width:36,height:36,borderRadius:10,background:couleur(r.statut)+"20",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,flexShrink:0}}>{emoji(r.statut)}</div>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontWeight:700,fontSize:14,color:"#F5F0E8"}}>Test {r.id} — {r.label}</div>
+                  <div style={{fontSize:12,color:"#9CA3AF",marginTop:2}}>{r.resume}</div>
+                </div>
+                {r.details?.length>0&&<div style={{color:couleur(r.statut),fontSize:12,flexShrink:0}}>{detail?.id===r.id?"▲":"▼"} Détails</div>}
+              </div>
+              {detail?.id===r.id&&detail.details?.length>0&&(
+                <div style={{borderTop:`1px solid #2A2A2A`,padding:"12px 16px",background:"#111"}}>
+                  {detail.details.map((d:any,i:number)=>(
+                    <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",padding:"6px 0",borderBottom:i<detail.details.length-1?"1px solid #2A2A2A":"none",gap:12}}>
+                      <span style={{color:"#D1C9BE",fontSize:13,flex:1}}>{d.label}</span>
+                      <span style={{color:couleur(r.statut),fontSize:13,fontWeight:600,textAlign:"right",flexShrink:0}}>{d.val}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
 const NAV_MAIN = [
   {id:"dashboard", label:"Accueil",    icon:"dash",    emoji:"🏠"},
   {id:"clients",   label:"Clients",    icon:"prod",    emoji:"👥"},
@@ -14644,6 +14865,7 @@ const NAV_MORE = [
   {id:"ventesDirectes", label:"Ventes directes",    icon:"facture", emoji:"🏠"},
   {id:"emailTemplates", label:"Templates emails",   icon:"contrat", emoji:"✉️"},
   {id:"sauvegardes",    label:"Sauvegardes",        icon:"stock",   emoji:"💾"},
+  {id:"diagnostics",    label:"Tests & Diagnostics",icon:"settings",emoji:"🔧"},
 ];
 
 // Icône "more" (hamburger)
@@ -15376,6 +15598,7 @@ documents:        <Documents       st={st} setSt={setSt}/>,
 ventesDirectes:   <VentesDirectes  st={st} setSt={setSt}/>,
 emailTemplates:   <EmailTemplates  st={st} setSt={setSt}/>,
 sauvegardes: <Sauvegardes  authUser={authUser} st={st} setSt={setSt}/>,
+diagnostics:      <Diagnostics     st={st}/>,
 };
 
 const allTabs = [...NAV_MAIN.filter(t=>t.id!=="more"), ...NAV_MORE];
@@ -15433,6 +15656,7 @@ return (
             {id:"emailTemplates", label:"Templates emails", emoji:"✉️"},
             {id:"parametres",     label:"Paramètres",       emoji:"⚙️"},
             {id:"sauvegardes",    label:"Sauvegardes",      emoji:"💾"},
+            {id:"diagnostics",    label:"Tests & Diagnostics", emoji:"🔧"},
           ]},
         ].map((section,si)=>(
           <div key={si} style={{marginBottom:4}}>
@@ -15607,6 +15831,7 @@ return (
             {id:"emailTemplates", label:"Templates emails", emoji:"✉️"},
             {id:"parametres",     label:"Paramètres",       emoji:"⚙️"},
             {id:"sauvegardes",    label:"Sauvegardes",      emoji:"💾"},
+            {id:"diagnostics",    label:"Tests & Diagnostics", emoji:"🔧"},
           ]},
         ].map((section,si)=>(
           <div key={si} style={{marginBottom:6}}>
