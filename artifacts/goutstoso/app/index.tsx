@@ -7795,6 +7795,24 @@ return (
           {view.factureNumero && <span style={{fontSize:9,color:"#F2C94C",background:"#ffffff15",borderRadius:6,padding:"3px 7px",fontWeight:700}}>🧾 {view.factureNumero}</span>}
         </div>
       </div>
+      {(()=>{
+        const cycleStatuts=["à préparer","emballée","expédiée","livrée","payée"];
+        const idx=cycleStatuts.indexOf(view.statut);
+        const nextS=idx>=0&&idx<cycleStatuts.length-1?cycleStatuts[idx+1]:null;
+        if(view.statut==="payée") return (
+          <div style={{borderTop:"1px solid #333",marginTop:10,paddingTop:10,textAlign:"center"}}>
+            <span style={{color:"#4ADE80",fontSize:12,fontWeight:700}}>✅ Commande payée</span>
+            <button onClick={()=>toggleStatut(view)} style={{display:"block",marginTop:6,width:"100%",background:"#333",color:"#9CA3AF",border:"none",borderRadius:8,padding:"6px",fontSize:11,cursor:"pointer"}}>↩ Repasser à : à préparer</button>
+          </div>
+        );
+        return nextS ? (
+          <div style={{borderTop:"1px solid #333",marginTop:10,paddingTop:10}}>
+            <button onClick={()=>toggleStatut(view)} style={{width:"100%",background:nextS==="payée"?"#22C55E":"#F2C94C",color:nextS==="payée"?"#fff":"#0A0A0A",border:"none",borderRadius:8,padding:"9px",fontWeight:700,fontSize:12,cursor:"pointer"}}>
+              {nextS==="payée"?"💳 Marquer payée":"→ Passer à : "+nextS}
+            </button>
+          </div>
+        ) : null;
+      })()}
     </div>
 
     {/* Confirmation de commande */}
@@ -8125,8 +8143,11 @@ Commandes
             {s.statutExpedition==="expediee" && (
               <button onClick={()=>setSt((p:any)=>({...p,ventesShopify:(p.ventesShopify||[]).map((x:any)=>x.id===s.id?{...x,statutExpedition:"livree"}:x)}))} style={{flex:1,background:"#DCFCE7",color:"#166534",border:"none",borderRadius:8,padding:"7px",fontSize:11,fontWeight:700,cursor:"pointer"}}>✅ Marquer livrée</button>
             )}
-            {s.statutExpedition==="livree" && (
-              <span style={{flex:1,textAlign:"center",fontSize:11,color:"#166534",fontWeight:700,padding:"7px"}}>✅ Livrée</span>
+            {s.statutExpedition==="livree" && s.statutPaiement!=="paye" && (
+              <button onClick={()=>setSt((p:any)=>({...p,ventesShopify:(p.ventesShopify||[]).map((x:any)=>x.id===s.id?{...x,statutPaiement:"paye",datePaiement:today()}:x)}))} style={{flex:1,background:"#22C55E",color:"#fff",border:"none",borderRadius:8,padding:"7px",fontSize:11,fontWeight:700,cursor:"pointer"}}>💳 Marquer payée</button>
+            )}
+            {s.statutExpedition==="livree" && s.statutPaiement==="paye" && (
+              <span style={{flex:1,textAlign:"center",fontSize:11,color:"#166534",fontWeight:700,padding:"7px"}}>✅ Livrée & payée</span>
             )}
             <button onClick={()=>{if(window.confirm("Supprimer cette commande Shopify ?")) setSt((p:any)=>({...p,ventesShopify:(p.ventesShopify||[]).filter((x:any)=>x.id!==s.id)}));}} style={{background:"#FEE2E2",border:"none",borderRadius:8,padding:"7px 10px",cursor:"pointer",display:"flex"}}><Ic n="trash" s={13}/></button>
           </div>
