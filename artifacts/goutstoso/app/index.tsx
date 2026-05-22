@@ -8186,13 +8186,21 @@ Commandes
             </div>
           </div>
         </div>
-        <div style={{display:"flex",gap:6,marginTop:8}}>
+        <div style={{display:"flex",gap:6,marginTop:8,flexWrap:"wrap"}}>
+          {(()=>{
+            const cycleC=["à préparer","emballée","expédiée","livrée","payée"];
+            const idxC=cycleC.indexOf(c.statut);
+            const nextC=idxC>=0&&idxC<cycleC.length-1?cycleC[idxC+1]:null;
+            if(c.statut==="payée") return <span style={{flex:1,textAlign:"center",fontSize:11,color:"#166534",fontWeight:700,padding:"7px",background:"#DCFCE7",borderRadius:8}}>✅ Payée</span>;
+            if(!nextC) return null;
+            return <button onClick={()=>toggleStatut(c)} style={{flex:1,background:nextC==="payée"?"#22C55E":"#F2C94C",color:nextC==="payée"?"#fff":"#0A0A0A",border:"none",borderRadius:8,padding:"7px",fontSize:11,fontWeight:700,cursor:"pointer"}}>{nextC==="payée"?"💳 Marquer payée":"→ "+nextC}</button>;
+          })()}
           {!c.factureNumero ? (
-            <button onClick={()=>genererFactureDepuisCommande(c,st,setSt)} style={{flex:1,background:"#0A0A0A",color:"#F2C94C",border:"none",borderRadius:8,padding:"7px",fontSize:11,fontWeight:700,cursor:"pointer"}}>🧾 Créer la facture</button>
+            <button onClick={()=>genererFactureDepuisCommande(c,st,setSt)} style={{flex:1,background:"#0A0A0A",color:"#F2C94C",border:"none",borderRadius:8,padding:"7px",fontSize:11,fontWeight:700,cursor:"pointer"}}>🧾 Facture</button>
           ) : (
             <button onClick={()=>setTab("factures")} style={{flex:1,background:"#DCFCE7",color:"#166534",border:"none",borderRadius:8,padding:"7px",fontSize:11,fontWeight:700,cursor:"pointer"}}>🧾 {c.factureNumero}</button>
           )}
-          <button onClick={()=>setViewId(c.id)} style={{flex:1,background:"#F5F5F0",border:"none",borderRadius:8,padding:"7px",fontSize:11,fontWeight:600,cursor:"pointer"}}>👁 Voir</button>
+          <button onClick={()=>setViewId(c.id)} style={{background:"#F5F5F0",border:"none",borderRadius:8,padding:"7px 10px",fontSize:11,fontWeight:600,cursor:"pointer"}}>👁</button>
           <button onClick={()=>supprimer(c.id)} style={{background:"#FEE2E2",border:"none",borderRadius:8,padding:"7px 10px",cursor:"pointer",display:"flex"}}><Ic n="trash" s={13}/></button>
         </div>
       </Card>
