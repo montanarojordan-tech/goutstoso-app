@@ -1415,6 +1415,31 @@ setSt(p=>({...p,
 }));
 };
 
+const annulerMouvement = (m:any) => {
+  const prod = st.produits.find((p:any)=>p.id===m.produitId);
+  if(!window.confirm(`Annuler ce mouvement ?\n\n${prod?.nom||""} ${prod?.variante||""} · ${m.qte>0?"+":""}${m.qte}\n${m.source||""}\n\nUn mouvement inverse sera créé pour corriger le stock.`)) return;
+  const reverseQte = -(m.qte);
+  setSt((p:any)=>{
+    let newStocks = [...(p.stocks||[])];
+    if(reverseQte>0) {
+      let done=false;
+      newStocks=newStocks.map((s:any)=>{if(s.produitId!==m.produitId||done)return s;done=true;return{...s,qte:(s.qte||0)+reverseQte};});
+      if(!done)newStocks.push({id:uid(),produitId:m.produitId,qte:reverseQte,lot:"",dateEntree:today(),notes:"Annulation mouvement"});
+    } else {
+      let restant=Math.abs(reverseQte);
+      newStocks=newStocks.map((s:any)=>{if(s.produitId!==m.produitId||restant<=0)return s;const d=Math.min(s.qte||0,restant);restant-=d;return{...s,qte:(s.qte||0)-d};});
+    }
+    return {
+      ...p,
+      stocks:newStocks,
+      mouvementsStock:[
+        ...(p.mouvementsStock||[]).map((x:any)=>x.id===m.id?{...x,annule:true}:x),
+        {id:uid(),date:today(),type:"annulation",produitId:m.produitId,qte:reverseQte,source:`Annulation — ${m.source||""}`,annuleMouvId:m.id},
+      ],
+    };
+  });
+};
+
 const syncMouvements = () => {
 let added = 0;
 setSt(p=>{
@@ -1560,7 +1585,7 @@ sendEmail({to:"admin@goutstoso.ch",subject:subj2,body:bodyAlerte});
   {/* Mouvements de stock */}
   {(() => {
     const mouvements = (st.mouvementsStock||[]).slice().sort((a,b)=>(b.date||"").localeCompare(a.date||""));
-    const typeStyle = (t) => t==="entrée"
+    const typeStyle = (t:string) => t==="entrée"
       ? {bg:"#DCFCE7",color:"#166534",label:"↑ Entrée"}
       : t==="sortie"
       ? {bg:"#FEE2E2",color:"#991B1B",label:"↓ Sortie"}
@@ -1568,6 +1593,8 @@ sendEmail({to:"admin@goutstoso.ch",subject:subj2,body:bodyAlerte});
       ? {bg:"#DBEAFE",color:"#1E40AF",label:"↩ Restauration"}
       : t==="régularisation"
       ? {bg:"#FEF3C7",color:"#92400E",label:"⚖ Régul."}
+      : t==="annulation"
+      ? {bg:"#F3F4F6",color:"#6B7280",label:"✕ Annulation"}
       : {bg:"#F4F4F2",color:"#525252",label:"✎ Correction"};
 
     return (
@@ -1591,13 +1618,14 @@ sendEmail({to:"admin@goutstoso.ch",subject:subj2,body:bodyAlerte});
               const prod = st.produits.find(x=>x.id===m.produitId);
               const ts = typeStyle(m.type);
               return (
-                <div key={m.id} style={{display:"flex",alignItems:"center",gap:10,padding:"9px 0",borderBottom:i<mouvements.length-1?"1px solid #F5F5F0":"none"}}>
+                <div key={m.id} style={{display:"flex",alignItems:"center",gap:10,padding:"9px 0",borderBottom:i<mouvements.length-1?"1px solid #F5F5F0":"none",opacity:m.annule?0.45:1}}>
                   {/* Badge type */}
                   <span style={{background:ts.bg,color:ts.color,borderRadius:6,padding:"3px 8px",fontSize:10,fontWeight:700,whiteSpace:"nowrap",flexShrink:0}}>{ts.label}</span>
                   {/* Infos */}
                   <div style={{flex:1,minWidth:0}}>
                     <p style={{fontSize:12,fontWeight:600,color:"#111",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
                       {prod?.nom} {prod?.variante} {prod?.format}
+                      {m.annule && <span style={{fontSize:9,color:"#9CA3AF",fontStyle:"italic",marginLeft:6}}>annulé</span>}
                     </p>
                     <p style={{fontSize:10,color:"#9CA3AF",marginTop:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
                       {fmt(m.date)}{m.lot?` · Lot ${m.lot}`:""} · {m.source}
@@ -1608,9 +1636,15 @@ sendEmail({to:"admin@goutstoso.ch",subject:subj2,body:bodyAlerte});
                     {m.qte>0?"+":""}{m.qte}
                   </span>
                   {/* Supprimer si c'est une entrée manuelle */}
-                  {m.stockEntreeId && (
+                  {m.stockEntreeId && !m.annule && (
                     <button onClick={()=>del(m.stockEntreeId)} style={{background:"#FEE2E2",border:"none",borderRadius:8,padding:5,cursor:"pointer",display:"flex",flexShrink:0}}>
                       <Ic n="trash" s={12}/>
+                    </button>
+                  )}
+                  {/* Annuler si ce n'est pas déjà annulé ni une annulation */}
+                  {!m.annule && !m.stockEntreeId && m.type!=="annulation" && (
+                    <button onClick={()=>annulerMouvement(m)} style={{background:"#FEF3C7",border:"1px solid #FCD34D",borderRadius:8,padding:"4px 8px",fontSize:10,fontWeight:700,color:"#92400E",cursor:"pointer",flexShrink:0,whiteSpace:"nowrap"}}>
+                      ✕ Annuler
                     </button>
                   )}
                 </div>
