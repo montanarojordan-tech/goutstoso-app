@@ -4148,33 +4148,70 @@ setSt(p=>({...p,factures:[...(p.factures||[]),{...form,id:uid(),numero,statut:"e
 setModal(null);
 };
 
-const marquerPayee = (id) => setSt(p => {
-  const facture = (p.factures||[]).find(f=>f.id===id);
-  const rappels = facture?.rappels||[];
+const marquerPayee = (id) => {
+  const facture = (st.factures||[]).find(f=>f.id===id);
+  if(!facture) return;
+  const rappels = facture.rappels||[];
   const dernierRappel = rappels[rappels.length-1];
   const frais = dernierRappel ? (dernierRappel.degree>=3?25:dernierRappel.degree>=2?15:0) : 0;
-  const pv = (p.partenaires||[]).find(par=>par.id===facture?.partenaireId);
-  const newTransactions = frais>0 ? [
-    ...p.transactions,
-    {
-      id: "rappel-"+id+"-"+Date.now(),
+  const pv = (st.partenaires||[]).find(par=>par.id===facture.partenaireId);
+  const montant = parseFloat(facture.total||0);
+  const viaPostFinance = window.confirm("Paiement reçu sur PostFinance ?\n(OK = oui, Annuler = autre moyen de paiement)");
+  setSt(p => {
+    const newTrans = [...(p.transactions||[])];
+    newTrans.push({
+      id: uid(),
+      factureId: id,
       date: today(),
-      compte: "3750",
-      libelle: "Frais de rappel",
+      compte: "3200",
+      libelle: "Paiement "+facture.numero,
       type: "recette",
-      categorie: "Frais de rappel",
-      montant: frais,
-      description: "Frais rappel "+dernierRappel.degree+" — "+((facture?.numero)||"")+" ("+((pv?.nom)||"")+")",
-      postfinance: true,
+      categorie: "Encaissement facture",
+      montant,
+      description: "Paiement facture "+(facture.numero||"")+" — "+((pv?.nom)||""),
+      postfinance: viaPostFinance,
+    });
+    if(frais>0) {
+      newTrans.push({
+        id: "rappel-"+id+"-"+Date.now(),
+        factureId: id,
+        date: today(),
+        compte: "3750",
+        libelle: "Frais de rappel",
+        type: "recette",
+        categorie: "Frais de rappel",
+        montant: frais,
+        description: "Frais rappel "+dernierRappel.degree+" — "+((facture.numero)||"")+" ("+((pv?.nom)||"")+")",
+        postfinance: viaPostFinance,
+      });
     }
-  ] : p.transactions;
-  return {
-    ...p,
-    factures: p.factures.map(f=>f.id===id?{...f,statut:"payée",datePaiement:today()}:f),
-    transactions: newTransactions,
-  };
-});
-const del = id => setSt(p=>({...p,factures:p.factures.filter(f=>f.id!==id)}));
+    const soldeDiff = viaPostFinance ? montant+(frais>0?frais:0) : 0;
+    return {
+      ...p,
+      factures: p.factures.map(f=>f.id===id?{...f,statut:"payée",datePaiement:today()}:f),
+      transactions: newTrans,
+      soldeBancaire: parseFloat((parseFloat(p.soldeBancaire||0)+soldeDiff).toFixed(2)),
+    };
+  });
+};
+const demarquerPayee = (id) => {
+  if(!window.confirm("Dé-marquer cette facture comme payée ?\nLes écritures comptables liées seront supprimées.")) return;
+  setSt(p => {
+    const lieees = (p.transactions||[]).filter(t=>t.factureId===id && t.postfinance);
+    const montantARestorer = lieees.reduce((sum,t)=>sum+parseFloat(t.montant||0),0);
+    return {
+      ...p,
+      factures: p.factures.map(f=>f.id===id?{...f,statut:"en attente de paiement",datePaiement:""}:f),
+      transactions: (p.transactions||[]).filter(t=>t.factureId!==id),
+      soldeBancaire: parseFloat((parseFloat(p.soldeBancaire||0)-montantARestorer).toFixed(2)),
+    };
+  });
+};
+const del = id => setSt(p=>({
+  ...p,
+  factures: p.factures.filter(f=>f.id!==id),
+  transactions: (p.transactions||[]).filter(t=>t.factureId!==id),
+}));
 
 const addLigne = () => setForm(p=>({...p,lignes:[...p.lignes,{produitId:"",qte:1}]}));
 const updLigne = (i,k,v) => setForm(p=>({...p,lignes:p.lignes.map((l,j)=>j===i?{...l,[k]:v}:l)}));
@@ -4821,6 +4858,14 @@ return (
             </p>
           ):null;
         })()}
+      </div>
+    )}
+    {view.statut==="payée"&&(
+      <div style={{marginBottom:12}}>
+        <button onClick={()=>{demarquerPayee(view.id);setView(null);}} style={{width:"100%",background:"#FEF2F2",border:"1px solid #FECACA",borderRadius:10,padding:"10px",fontWeight:600,fontSize:12,color:"#991B1B",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+          ↩️ Dé-marquer comme payée
+        </button>
+        <p style={{fontSize:10,color:"#9CA3AF",textAlign:"center",marginTop:4}}>Annule l'écriture comptable et corrige le solde PostFinance</p>
       </div>
     )}
 
@@ -7562,9 +7607,16 @@ if(parseFloat(c.rabais)>0) {
 // Nettoyer anciennes transactions de cette commande
 const oldTrans = (st.transactions||[]).filter(t=>t.commandeId!==c.id);
 
+const removedTrans = (st.transactions||[]).filter(t=>t.commandeId===c.id);
+const oldPFImpact = c.envoyeeCompta
+  ? removedTrans.filter(t=>t.postfinance).reduce((s,t)=>t.type==="recette"?s+parseFloat(t.montant||0):s-parseFloat(t.montant||0),0)
+  : 0;
+const newPFImpact = newTrans.filter(t=>t.postfinance).reduce((s,t)=>t.type==="recette"?s+parseFloat(t.montant||0):s-parseFloat(t.montant||0),0);
+const diffSoldeCompta = newPFImpact - oldPFImpact;
 setSt(p=>({...p,
   transactions:[...oldTrans,...newTrans],
   commandes:p.commandes.map(x=>x.id===c.id?{...x,envoyeeCompta:true}:x),
+  soldeBancaire:parseFloat((parseFloat(p.soldeBancaire||0)+diffSoldeCompta).toFixed(2)),
 }));
 alert(newTrans.length+" écriture(s) créée(s) en compta !");
 
