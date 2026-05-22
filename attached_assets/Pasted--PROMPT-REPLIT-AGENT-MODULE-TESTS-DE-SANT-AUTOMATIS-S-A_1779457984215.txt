@@ -1,0 +1,1086 @@
+# 🔧 PROMPT REPLIT AGENT — MODULE TESTS DE SANTÉ AUTOMATISÉS
+
+## Ajout d'un système de vérification automatique pour Goûtstoso
+
+---
+
+## 🎯 OBJECTIF
+
+Ajouter à l'application Goûtstoso un **module de tests automatisés** qui permet à Jordan de vérifier en 1 clic que :
+
+1. ✅ La compta est cohérente
+2. ✅ Le stock est cohérent
+3. ✅ Les automatismes fonctionnent
+4. ✅ Les données sont intègres
+5. ✅ L'application n'a pas de bug
+
+Le tout sans toucher aux données réelles.
+
+---
+
+## ⛔ RÈGLES ABSOLUES
+
+1. **NE PAS modifier** les données existantes lors des tests
+2. **NE PAS supprimer** les composants existants
+3. **TOUJOURS travailler sur des données fictives** clairement marquées (préfixe "TEST_")
+4. **NETTOYER automatiquement** les données de test après chaque exécution
+5. **MAINTENIR** tous les automatismes compta existants
+6. **AFFICHER les erreurs clairement** avec explication et solution
+
+---
+
+## 🏗️ ARCHITECTURE DU MODULE
+
+### Nouveau composant `TestsSante`
+
+Accessible depuis le menu Plus :
+```
+⋯ Plus
+   ├─ 📜 Documents légaux
+   ├─ 📧 Templates emails
+   ├─ 🍋 Recettes
+   ├─ 🏭 Fournisseurs
+   ├─ ⚙️ Paramètres
+   └─ 🔧 Tests de santé  ← NOUVEAU
+```
+
+### Interface utilisateur
+
+```
+┌─────────────────────────────────────────────┐
+│  🔧 TESTS DE SANTÉ                           │
+│  Dernière exécution : 22.05.2026 à 14:30    │
+├─────────────────────────────────────────────┤
+│                                              │
+│  [▶️ LANCER TOUS LES TESTS]                  │
+│                                              │
+├─────────────────────────────────────────────┤
+│  RÉSULTATS DU DERNIER TEST                   │
+│                                              │
+│  ✅ Tests réussis : 24/25                    │
+│  ❌ Erreurs détectées : 1                    │
+│                                              │
+│  ┌─────────────────────────────────────┐    │
+│  │ ❌ Test cascade compta facture payée│    │
+│  │                                      │    │
+│  │ Problème : Quand une facture est    │    │
+│  │ marquée payée, l'écriture compta    │    │
+│  │ n'est pas créée automatiquement.    │    │
+│  │                                      │    │
+│  │ Impact : Ton solde PostFinance ne   │    │
+│  │ se met pas à jour quand tu          │    │
+│  │ encaisses.                           │    │
+│  │                                      │    │
+│  │ Solution recommandée : Vérifier la  │    │
+│  │ fonction marquerFacturePayee()      │    │
+│  │ ligne XXX du code.                  │    │
+│  │                                      │    │
+│  │ [📋 Voir détails techniques]        │    │
+│  └─────────────────────────────────────┘    │
+│                                              │
+├─────────────────────────────────────────────┤
+│  📊 STATISTIQUES                             │
+│  Tests OK :  ████████████████████ 96%       │
+│  Erreurs  :  █                      4%       │
+│                                              │
+└─────────────────────────────────────────────┘
+```
+
+---
+
+## 🧪 LES 25 TESTS À IMPLÉMENTER
+
+### 🏗️ Catégorie 1 : Tests d'intégrité des données (5 tests)
+
+#### Test 1.1 : Cohérence solde PostFinance
+```javascript
+function test_coherence_solde() {
+  // Somme de toutes les écritures compta
+  const totalRecettes = st.ecrituresComptables
+    .filter(e => e.type === "recette")
+    .reduce((sum, e) => sum + e.montant, 0);
+    
+  const totalDepenses = st.ecrituresComptables
+    .filter(e => e.type === "depense")
+    .reduce((sum, e) => sum + Math.abs(e.montant), 0);
+    
+  const soldeCalcule = SOLDE_INITIAL + totalRecettes - totalDepenses;
+  const soldeAffiche = st.soldePostFinance;
+  
+  if (Math.abs(soldeCalcule - soldeAffiche) > 0.01) {
+    return {
+      success: false,
+      message: `Solde affiché (${soldeAffiche}) ≠ solde calculé (${soldeCalcule})`,
+      diagnostic: "Le solde PostFinance ne correspond pas au total des écritures.",
+      solution: "Vérifier les écritures comptables manquantes ou en double."
+    };
+  }
+  return { success: true };
+}
+```
+
+#### Test 1.2 : Aucun stock négatif
+```javascript
+function test_stock_negatif() {
+  const produitsNegatifs = st.produits.filter(p => p.stockPropre < 0);
+  
+  if (produitsNegatifs.length > 0) {
+    return {
+      success: false,
+      message: `${produitsNegatifs.length} produits ont un stock négatif`,
+      diagnostic: "Stock négatif impossible physiquement.",
+      details: produitsNegatifs.map(p => `${p.nom}: ${p.stockPropre}`),
+      solution: "Faire un inventaire physique et corriger manuellement."
+    };
+  }
+  return { success: true };
+}
+```
+
+#### Test 1.3 : Aucune facture orpheline
+```javascript
+function test_factures_orphelines() {
+  // Une facture orpheline = facture sans client/partenaire valide
+  const orphelines = st.factures.filter(f => {
+    if (f.clientId) {
+      return !st.clients.find(c => c.id === f.clientId);
+    }
+    if (f.partenaireId) {
+      return !st.partenaires.find(p => p.id === f.partenaireId);
+    }
+    return true; // Pas de clientId ni partenaireId
+  });
+  
+  if (orphelines.length > 0) {
+    return {
+      success: false,
+      message: `${orphelines.length} factures sans client/partenaire valide`,
+      details: orphelines.map(f => f.numero),
+      solution: "Réattribuer ces factures à un client/partenaire ou les supprimer."
+    };
+  }
+  return { success: true };
+}
+```
+
+#### Test 1.4 : Cohérence des dépôts partenaires
+```javascript
+function test_coherence_depots() {
+  const erreurs = [];
+  
+  st.partenaires.forEach(p => {
+    if (p.depots) {
+      p.depots.forEach(d => {
+        if (d.stockDepose < 0) {
+          erreurs.push(`${p.nom} : ${d.produitId} stock déposé négatif`);
+        }
+      });
+    }
+  });
+  
+  if (erreurs.length > 0) {
+    return {
+      success: false,
+      message: `${erreurs.length} erreurs dans les dépôts partenaires`,
+      details: erreurs,
+      solution: "Refaire l'inventaire chez les partenaires concernés."
+    };
+  }
+  return { success: true };
+}
+```
+
+#### Test 1.5 : Pas de doublons d'IDs
+```javascript
+function test_doublons_ids() {
+  const erreurs = [];
+  const collections = ['clients', 'partenaires', 'factures', 'produits', 'commandes'];
+  
+  collections.forEach(coll => {
+    if (!st[coll]) return;
+    const ids = st[coll].map(item => item.id);
+    const doublons = ids.filter((id, idx) => ids.indexOf(id) !== idx);
+    if (doublons.length > 0) {
+      erreurs.push(`${coll}: doublons ${doublons.join(', ')}`);
+    }
+  });
+  
+  if (erreurs.length > 0) {
+    return {
+      success: false,
+      message: `Doublons d'IDs détectés`,
+      details: erreurs,
+      solution: "Régénérer les IDs en doublon pour assurer l'unicité."
+    };
+  }
+  return { success: true };
+}
+```
+
+---
+
+### ⚙️ Catégorie 2 : Tests des automatismes (8 tests)
+
+#### Test 2.1 : Création facture → écriture compta
+```javascript
+function test_facture_creation_compta() {
+  const stTest = clonerEtat(st);
+  
+  // Créer une facture test
+  const factureTest = {
+    id: "TEST_" + Date.now(),
+    numero: "TEST-FAC-001",
+    clientId: st.clients[0]?.id,
+    totalHT: 100,
+    statut: "envoyee",
+    dateEmission: new Date().toISOString()
+  };
+  
+  // Compter les écritures avant
+  const ecrituresAvant = stTest.ecrituresComptables.length;
+  
+  // Créer la facture
+  stTest.factures.push(factureTest);
+  
+  // Marquer comme payée (doit déclencher écriture compta)
+  marquerFacturePayee(factureTest.id, stTest);
+  
+  // Vérifier
+  const ecrituresApres = stTest.ecrituresComptables.length;
+  
+  if (ecrituresApres !== ecrituresAvant + 1) {
+    return {
+      success: false,
+      message: "Le paiement d'une facture ne crée pas d'écriture comptable",
+      diagnostic: "L'automatisme facture → compta est cassé.",
+      solution: "Vérifier la fonction marquerFacturePayee() et appliquerImpacts()."
+    };
+  }
+  return { success: true };
+}
+```
+
+#### Test 2.2 : Vente → impact stock
+```javascript
+function test_vente_impact_stock() {
+  const stTest = clonerEtat(st);
+  const produit = stTest.produits[0];
+  const stockAvant = produit.stockPropre;
+  
+  // Simuler une vente directe
+  const venteTest = {
+    id: "TEST_" + Date.now(),
+    lignes: [{ produitId: produit.id, quantite: 3 }],
+    statutPaiement: "paye"
+  };
+  
+  enregistrerVenteDirecte(venteTest, stTest);
+  
+  const stockApres = stTest.produits.find(p => p.id === produit.id).stockPropre;
+  
+  if (stockApres !== stockAvant - 3) {
+    return {
+      success: false,
+      message: "La vente directe ne décrémente pas le stock",
+      diagnostic: `Stock attendu: ${stockAvant - 3}, stock obtenu: ${stockApres}`,
+      solution: "Vérifier la fonction enregistrerVenteDirecte() et decrementerStock()."
+    };
+  }
+  return { success: true };
+}
+```
+
+#### Test 2.3 : Dépôt-vente → transfert stock
+```javascript
+function test_depot_vente_transfert() {
+  // Test : livraison à un partenaire en dépôt-vente
+  // Doit décrémenter stock propre ET incrémenter stock déposé
+  const stTest = clonerEtat(st);
+  const produit = stTest.produits[0];
+  const partenaire = stTest.partenaires[0];
+  
+  const stockPropreAvant = produit.stockPropre;
+  const stockDeposeAvant = partenaire.depots?.find(d => d.produitId === produit.id)?.stockDepose || 0;
+  
+  // Simuler livraison dépôt-vente
+  livraisonDepotVente(produit.id, 5, partenaire.id, stTest);
+  
+  const stockPropreApres = stTest.produits.find(p => p.id === produit.id).stockPropre;
+  const stockDeposeApres = stTest.partenaires.find(p => p.id === partenaire.id).depots.find(d => d.produitId === produit.id).stockDepose;
+  
+  if (stockPropreApres !== stockPropreAvant - 5 || stockDeposeApres !== stockDeposeAvant + 5) {
+    return {
+      success: false,
+      message: "Le transfert dépôt-vente ne fonctionne pas correctement",
+      diagnostic: "Le stock propre devrait diminuer ET le stock déposé augmenter.",
+      solution: "Vérifier la fonction livraisonDepotVente()."
+    };
+  }
+  return { success: true };
+}
+```
+
+#### Test 2.4 : Inventaire dépôt → facture auto
+```javascript
+function test_inventaire_facture_auto() {
+  const stTest = clonerEtat(st);
+  const partenaire = stTest.partenaires[0];
+  const facturesAvant = stTest.factures.length;
+  
+  // Simuler un inventaire avec produits vendus
+  if (partenaire.depots && partenaire.depots.length > 0) {
+    const depot = partenaire.depots[0];
+    const inventaireSimule = {
+      [depot.produitId]: depot.stockDepose - 2 // 2 vendues
+    };
+    
+    effectuerInventaireDepot(partenaire.id, inventaireSimule, stTest);
+    
+    const facturesApres = stTest.factures.length;
+    
+    if (facturesApres !== facturesAvant + 1) {
+      return {
+        success: false,
+        message: "L'inventaire ne génère pas de facture automatique",
+        diagnostic: "Quand des produits sont vendus, une facture mensuelle doit être créée.",
+        solution: "Vérifier la fonction effectuerInventaireDepot()."
+      };
+    }
+  }
+  return { success: true };
+}
+```
+
+#### Test 2.5 : Annulation vente → restauration stock
+```javascript
+function test_annulation_vente() {
+  const stTest = clonerEtat(st);
+  const produit = stTest.produits[0];
+  const stockInitial = produit.stockPropre;
+  
+  // Vente puis annulation
+  const venteTest = {
+    id: "TEST_" + Date.now(),
+    lignes: [{ produitId: produit.id, quantite: 2 }]
+  };
+  
+  enregistrerVenteDirecte(venteTest, stTest);
+  annulerVente(venteTest.id, stTest);
+  
+  const stockFinal = stTest.produits.find(p => p.id === produit.id).stockPropre;
+  
+  if (stockFinal !== stockInitial) {
+    return {
+      success: false,
+      message: "L'annulation de vente ne restaure pas le stock",
+      diagnostic: `Stock initial: ${stockInitial}, après annulation: ${stockFinal}`,
+      solution: "Vérifier la fonction annulerVente()."
+    };
+  }
+  return { success: true };
+}
+```
+
+#### Test 2.6 : Dépense → écriture compta
+```javascript
+function test_depense_compta() {
+  const stTest = clonerEtat(st);
+  const soldeAvant = stTest.soldePostFinance;
+  
+  // Enregistrer une dépense test
+  enregistrerDepense({
+    montant: 50,
+    libelle: "TEST_Dépense",
+    categorie: "fournitures",
+    date: new Date().toISOString()
+  }, stTest);
+  
+  const soldeApres = stTest.soldePostFinance;
+  
+  if (soldeApres !== soldeAvant - 50) {
+    return {
+      success: false,
+      message: "La dépense ne décrémente pas le solde PostFinance",
+      diagnostic: `Solde attendu: ${soldeAvant - 50}, obtenu: ${soldeApres}`,
+      solution: "Vérifier la fonction enregistrerDepense()."
+    };
+  }
+  return { success: true };
+}
+```
+
+#### Test 2.7 : Cascade offre → bulletin commande
+```javascript
+function test_cascade_offre_bc() {
+  // Si module Offres existe, tester la cascade
+  if (!st.offres) return { success: true, skipped: true };
+  
+  const stTest = clonerEtat(st);
+  const bcAvant = stTest.bulletinsCommande?.length || 0;
+  
+  // Simuler acceptation offre
+  const offreTest = {
+    id: "TEST_OFF_" + Date.now(),
+    numero: "TEST-OFF-001",
+    statut: "envoyee",
+    lignes: [{ produitId: stTest.produits[0].id, quantite: 1, prixUnitaire: 23 }]
+  };
+  
+  stTest.offres.push(offreTest);
+  accepterOffre(offreTest.id, stTest);
+  
+  const bcApres = stTest.bulletinsCommande?.length || 0;
+  
+  if (bcApres !== bcAvant + 1) {
+    return {
+      success: false,
+      message: "L'acceptation d'une offre ne crée pas de bulletin de commande",
+      diagnostic: "La cascade offre → BC est cassée.",
+      solution: "Vérifier la fonction accepterOffre() et la cascade automatique."
+    };
+  }
+  return { success: true };
+}
+```
+
+#### Test 2.8 : Sync cloud Infomaniak
+```javascript
+async function test_sync_cloud() {
+  try {
+    // Tester la connexion API Infomaniak
+    const response = await fetch('https://hc12z9cbqiy.preview.infomaniak.website/api.php?action=ping', {
+      method: 'GET',
+      timeout: 5000
+    });
+    
+    if (!response.ok) {
+      return {
+        success: false,
+        message: "La sync Infomaniak ne répond pas",
+        diagnostic: `Status HTTP: ${response.status}`,
+        solution: "Vérifier que l'API Infomaniak est en ligne et que l'URL est correcte."
+      };
+    }
+    return { success: true };
+  } catch (e) {
+    return {
+      success: false,
+      message: "Connexion API Infomaniak impossible",
+      diagnostic: e.message,
+      solution: "Vérifier la connexion internet et l'URL de l'API."
+    };
+  }
+}
+```
+
+---
+
+### 📄 Catégorie 3 : Tests des PDFs et documents (4 tests)
+
+#### Test 3.1 : Génération PDF facture
+```javascript
+function test_generation_pdf_facture() {
+  try {
+    const factureTest = st.factures[0];
+    if (!factureTest) return { success: true, skipped: true, message: "Aucune facture à tester" };
+    
+    const pdf = genererFacturePDF(factureTest, st);
+    
+    if (!pdf || !pdf.output) {
+      return {
+        success: false,
+        message: "La génération de PDF facture échoue",
+        solution: "Vérifier la fonction genererFacturePDF() et la lib jsPDF."
+      };
+    }
+    return { success: true };
+  } catch (e) {
+    return {
+      success: false,
+      message: "Erreur lors de la génération du PDF",
+      diagnostic: e.message,
+      solution: "Vérifier les données de la facture et la fonction PDF."
+    };
+  }
+}
+```
+
+#### Test 3.2 : Annexes légales sur PDF
+```javascript
+function test_annexes_pdf() {
+  // Vérifier que les CGV sont bien annexées aux factures
+  // Test technique de présence du contenu
+  return { success: true }; // Simplifié pour l'exemple
+}
+```
+
+#### Test 3.3 : Présence logo sur PDF
+```javascript
+function test_logo_pdf() {
+  if (!LOGO_B64 || LOGO_B64.length < 100) {
+    return {
+      success: false,
+      message: "Le logo Goûtstoso est manquant ou corrompu",
+      solution: "Recharger le logo dans les paramètres."
+    };
+  }
+  return { success: true };
+}
+```
+
+#### Test 3.4 : QR-facture suisse
+```javascript
+function test_qr_facture() {
+  // Test si module QR-facture présent
+  if (typeof genererQRFacture !== 'function') {
+    return { success: true, skipped: true, message: "Module QR-facture non installé" };
+  }
+  
+  const facture = st.factures[0];
+  if (!facture) return { success: true, skipped: true };
+  
+  try {
+    const qr = genererQRFacture(facture, st);
+    if (!qr || !qr.reference) {
+      return {
+        success: false,
+        message: "La génération de QR-facture échoue",
+        solution: "Vérifier la fonction genererQRFacture()."
+      };
+    }
+    return { success: true };
+  } catch (e) {
+    return {
+      success: false,
+      message: "Erreur QR-facture",
+      diagnostic: e.message
+    };
+  }
+}
+```
+
+---
+
+### 🔐 Catégorie 4 : Tests de sécurité et sauvegarde (4 tests)
+
+#### Test 4.1 : Données critiques présentes
+```javascript
+function test_donnees_critiques() {
+  const erreurs = [];
+  
+  // Vérifier présence de Temple 5
+  if (!st.partenaires.find(p => p.nom?.includes("Temple 5"))) {
+    erreurs.push("Partenaire Temple 5 manquant");
+  }
+  
+  // Vérifier présence de Madame Nuara
+  if (!st.clients.find(c => c.nom?.includes("Nuara"))) {
+    erreurs.push("Client Madame Nuara manquant");
+  }
+  
+  // Vérifier les 10 produits
+  if (st.produits.length < 10) {
+    erreurs.push(`Seulement ${st.produits.length}/10 produits présents`);
+  }
+  
+  // Vérifier les 7 documents légaux
+  if (!st.documentsLegaux || st.documentsLegaux.length < 7) {
+    erreurs.push("Documents légaux templates manquants");
+  }
+  
+  if (erreurs.length > 0) {
+    return {
+      success: false,
+      message: "Données critiques manquantes",
+      details: erreurs,
+      solution: "Restaurer depuis la sauvegarde index_tsx_BACKUP_AVANT_REFONTE.tsx"
+    };
+  }
+  return { success: true };
+}
+```
+
+#### Test 4.2 : Constantes intouchables
+```javascript
+function test_constantes() {
+  const erreurs = [];
+  
+  if (!SOCIETE || SOCIETE.nom !== "Goûtstoso") erreurs.push("Constante SOCIETE corrompue");
+  if (!CGV || CGV.length === 0) erreurs.push("Constante CGV manquante");
+  if (!PLAN_COMPTABLE) erreurs.push("Constante PLAN_COMPTABLE manquante");
+  if (!LOGO_B64) erreurs.push("LOGO_B64 manquant");
+  
+  if (erreurs.length > 0) {
+    return {
+      success: false,
+      message: "Constantes critiques modifiées ou manquantes",
+      details: erreurs,
+      solution: "Restaurer depuis la sauvegarde."
+    };
+  }
+  return { success: true };
+}
+```
+
+#### Test 4.3 : Authentification fonctionnelle
+```javascript
+function test_authentification() {
+  // Vérifier que le système d'auth existe et fonctionne
+  if (typeof estConnecte !== 'function' && typeof seConnecter !== 'function') {
+    return {
+      success: false,
+      message: "Système d'authentification non détecté",
+      solution: "Vérifier que les fonctions d'auth existent toujours."
+    };
+  }
+  return { success: true };
+}
+```
+
+#### Test 4.4 : Sauvegarde locale fonctionnelle
+```javascript
+function test_sauvegarde_locale() {
+  try {
+    const testKey = "TEST_BACKUP_" + Date.now();
+    localStorage.setItem(testKey, "test");
+    const result = localStorage.getItem(testKey);
+    localStorage.removeItem(testKey);
+    
+    if (result !== "test") {
+      return {
+        success: false,
+        message: "Le localStorage ne fonctionne pas correctement",
+        solution: "Vérifier les permissions du navigateur."
+      };
+    }
+    return { success: true };
+  } catch (e) {
+    return {
+      success: false,
+      message: "Erreur localStorage",
+      diagnostic: e.message
+    };
+  }
+}
+```
+
+---
+
+### 🎨 Catégorie 5 : Tests de l'interface (4 tests)
+
+#### Test 5.1 : Images base64 chargées
+```javascript
+function test_images_produits() {
+  const imagesAttendues = [
+    'IMG_LIMONTA_50CL', 'IMG_CLEMENTINO_50CL', 'IMG_LIMELO_50CL',
+    'IMG_LIMONTA_25CL', 'IMG_CLEMENTINO_25CL', 'IMG_LIMELO_25CL',
+    'IMG_COFFRET'
+  ];
+  
+  const manquantes = imagesAttendues.filter(img => {
+    return typeof window[img] === 'undefined' || !window[img] || window[img].length < 100;
+  });
+  
+  if (manquantes.length > 0) {
+    return {
+      success: false,
+      message: `${manquantes.length} images produits manquantes`,
+      details: manquantes,
+      solution: "Recharger les images base64 dans le code."
+    };
+  }
+  return { success: true };
+}
+```
+
+#### Test 5.2 : Tous les modules accessibles
+```javascript
+function test_modules_accessibles() {
+  const modulesAttendus = [
+    'Dashboard', 'Produits', 'Stocks', 'Partenaires', 'Contrats',
+    'Factures', 'Comptabilite', 'Commandes', 'Clients'
+  ];
+  
+  // Test simplifié : vérifier que les fonctions existent
+  return { success: true };
+}
+```
+
+#### Test 5.3 : Responsive mobile détecté
+```javascript
+function test_responsive() {
+  const viewport = window.innerWidth;
+  return { 
+    success: true, 
+    info: `Largeur écran: ${viewport}px (${viewport < 768 ? 'mobile' : 'desktop'})`
+  };
+}
+```
+
+#### Test 5.4 : Performance acceptable
+```javascript
+function test_performance() {
+  const tempsChargement = performance.now();
+  
+  if (tempsChargement > 5000) {
+    return {
+      success: false,
+      message: `Temps de chargement lent: ${Math.round(tempsChargement)}ms`,
+      solution: "L'application met plus de 5 secondes à se charger. Optimisation nécessaire."
+    };
+  }
+  return { success: true, info: `Chargement en ${Math.round(tempsChargement)}ms` };
+}
+```
+
+---
+
+## 🔄 FONCTION PRINCIPALE D'EXÉCUTION
+
+```javascript
+async function lancerTousLesTests(st, setSt) {
+  const resultats = {
+    dateExecution: new Date().toISOString(),
+    tests: [],
+    totalTests: 0,
+    reussis: 0,
+    echecs: 0,
+    ignores: 0
+  };
+  
+  const tousLesTests = [
+    // Catégorie 1 : Intégrité données
+    { nom: "Cohérence solde PostFinance", fn: test_coherence_solde, categorie: "Données" },
+    { nom: "Aucun stock négatif", fn: test_stock_negatif, categorie: "Données" },
+    { nom: "Factures orphelines", fn: test_factures_orphelines, categorie: "Données" },
+    { nom: "Cohérence dépôts partenaires", fn: test_coherence_depots, categorie: "Données" },
+    { nom: "Doublons d'IDs", fn: test_doublons_ids, categorie: "Données" },
+    
+    // Catégorie 2 : Automatismes
+    { nom: "Facture → Compta auto", fn: test_facture_creation_compta, categorie: "Automatismes" },
+    { nom: "Vente → Impact stock", fn: test_vente_impact_stock, categorie: "Automatismes" },
+    { nom: "Dépôt-vente → Transfert", fn: test_depot_vente_transfert, categorie: "Automatismes" },
+    { nom: "Inventaire → Facture auto", fn: test_inventaire_facture_auto, categorie: "Automatismes" },
+    { nom: "Annulation → Restauration stock", fn: test_annulation_vente, categorie: "Automatismes" },
+    { nom: "Dépense → Compta auto", fn: test_depense_compta, categorie: "Automatismes" },
+    { nom: "Cascade offre → BC", fn: test_cascade_offre_bc, categorie: "Automatismes" },
+    { nom: "Sync cloud Infomaniak", fn: test_sync_cloud, categorie: "Automatismes", async: true },
+    
+    // Catégorie 3 : PDFs
+    { nom: "Génération PDF facture", fn: test_generation_pdf_facture, categorie: "PDFs" },
+    { nom: "Annexes légales PDF", fn: test_annexes_pdf, categorie: "PDFs" },
+    { nom: "Logo sur PDFs", fn: test_logo_pdf, categorie: "PDFs" },
+    { nom: "QR-facture suisse", fn: test_qr_facture, categorie: "PDFs" },
+    
+    // Catégorie 4 : Sécurité
+    { nom: "Données critiques présentes", fn: test_donnees_critiques, categorie: "Sécurité" },
+    { nom: "Constantes intouchables", fn: test_constantes, categorie: "Sécurité" },
+    { nom: "Authentification fonctionnelle", fn: test_authentification, categorie: "Sécurité" },
+    { nom: "Sauvegarde locale OK", fn: test_sauvegarde_locale, categorie: "Sécurité" },
+    
+    // Catégorie 5 : Interface
+    { nom: "Images base64 chargées", fn: test_images_produits, categorie: "Interface" },
+    { nom: "Modules accessibles", fn: test_modules_accessibles, categorie: "Interface" },
+    { nom: "Responsive mobile", fn: test_responsive, categorie: "Interface" },
+    { nom: "Performance", fn: test_performance, categorie: "Interface" }
+  ];
+  
+  for (const test of tousLesTests) {
+    try {
+      const resultat = test.async ? await test.fn() : test.fn();
+      resultats.tests.push({
+        nom: test.nom,
+        categorie: test.categorie,
+        ...resultat
+      });
+      
+      resultats.totalTests++;
+      if (resultat.skipped) {
+        resultats.ignores++;
+      } else if (resultat.success) {
+        resultats.reussis++;
+      } else {
+        resultats.echecs++;
+      }
+    } catch (e) {
+      resultats.tests.push({
+        nom: test.nom,
+        categorie: test.categorie,
+        success: false,
+        message: "Exception non gérée",
+        diagnostic: e.message,
+        solution: "Bug critique à investiguer."
+      });
+      resultats.totalTests++;
+      resultats.echecs++;
+    }
+  }
+  
+  // Sauvegarder les résultats
+  st.derniersResultatsTests = resultats;
+  setSt({ ...st });
+  
+  return resultats;
+}
+```
+
+---
+
+## 🎨 INTERFACE DÉTAILLÉE
+
+### Composant `TestsSante`
+
+```jsx
+function TestsSante({ st, setSt }) {
+  const [enCours, setEnCours] = useState(false);
+  const [resultats, setResultats] = useState(st.derniersResultatsTests || null);
+  
+  const handleLancerTests = async () => {
+    setEnCours(true);
+    const res = await lancerTousLesTests(st, setSt);
+    setResultats(res);
+    setEnCours(false);
+  };
+  
+  return (
+    <div>
+      <h1>🔧 Tests de santé</h1>
+      
+      {resultats && (
+        <div>
+          Dernière exécution : {formatDate(resultats.dateExecution)}
+        </div>
+      )}
+      
+      <button onClick={handleLancerTests} disabled={enCours}>
+        {enCours ? "⏳ Tests en cours..." : "▶️ Lancer tous les tests"}
+      </button>
+      
+      {resultats && (
+        <>
+          {/* Résumé */}
+          <div className="resume">
+            <div>✅ Réussis : {resultats.reussis}/{resultats.totalTests}</div>
+            <div>❌ Échecs : {resultats.echecs}</div>
+            <div>⏭️ Ignorés : {resultats.ignores}</div>
+          </div>
+          
+          {/* Graphique */}
+          <BarreProgression total={resultats.totalTests} ok={resultats.reussis} />
+          
+          {/* Erreurs en priorité */}
+          {resultats.echecs > 0 && (
+            <div className="erreurs">
+              <h2>❌ Erreurs détectées</h2>
+              {resultats.tests.filter(t => !t.success && !t.skipped).map(t => (
+                <CarteErreur key={t.nom} test={t} />
+              ))}
+            </div>
+          )}
+          
+          {/* Tests réussis (repliable) */}
+          <details>
+            <summary>✅ Tests réussis ({resultats.reussis})</summary>
+            {resultats.tests.filter(t => t.success).map(t => (
+              <div key={t.nom}>✅ {t.nom}</div>
+            ))}
+          </details>
+          
+          {/* Tests ignorés */}
+          {resultats.ignores > 0 && (
+            <details>
+              <summary>⏭️ Tests ignorés ({resultats.ignores})</summary>
+              {resultats.tests.filter(t => t.skipped).map(t => (
+                <div key={t.nom}>⏭️ {t.nom} : {t.message}</div>
+              ))}
+            </details>
+          )}
+          
+          {/* Export rapport */}
+          <button onClick={() => exporterRapportPDF(resultats)}>
+            📥 Télécharger le rapport PDF
+          </button>
+        </>
+      )}
+    </div>
+  );
+}
+```
+
+### Composant `CarteErreur`
+
+```jsx
+function CarteErreur({ test }) {
+  return (
+    <div className="carte-erreur">
+      <h3>❌ {test.nom}</h3>
+      <p><strong>Problème :</strong> {test.message}</p>
+      {test.diagnostic && <p><strong>Diagnostic :</strong> {test.diagnostic}</p>}
+      {test.details && (
+        <ul>
+          {test.details.map((d, i) => <li key={i}>{d}</li>)}
+        </ul>
+      )}
+      {test.solution && <p><strong>Solution :</strong> {test.solution}</p>}
+    </div>
+  );
+}
+```
+
+---
+
+## 📊 EXPORT DU RAPPORT
+
+```javascript
+function exporterRapportPDF(resultats) {
+  const pdf = new jsPDF();
+  
+  pdf.setFontSize(20);
+  pdf.text("Rapport de tests de santé Goûtstoso", 20, 20);
+  
+  pdf.setFontSize(12);
+  pdf.text(`Date : ${formatDate(resultats.dateExecution)}`, 20, 35);
+  pdf.text(`Tests réussis : ${resultats.reussis}/${resultats.totalTests}`, 20, 45);
+  pdf.text(`Erreurs : ${resultats.echecs}`, 20, 55);
+  
+  let y = 75;
+  
+  // Erreurs en premier
+  if (resultats.echecs > 0) {
+    pdf.setFontSize(14);
+    pdf.text("ERREURS DÉTECTÉES", 20, y);
+    y += 10;
+    
+    resultats.tests.filter(t => !t.success && !t.skipped).forEach(t => {
+      pdf.setFontSize(10);
+      pdf.text(`❌ ${t.nom}`, 20, y);
+      y += 7;
+      pdf.text(`Problème : ${t.message}`, 30, y);
+      y += 5;
+      if (t.solution) {
+        pdf.text(`Solution : ${t.solution}`, 30, y);
+        y += 8;
+      }
+      
+      if (y > 270) {
+        pdf.addPage();
+        y = 20;
+      }
+    });
+  }
+  
+  pdf.save(`rapport-tests-${Date.now()}.pdf`);
+}
+```
+
+---
+
+## 🔔 NOTIFICATIONS AUTOMATIQUES
+
+### Tests automatiques au démarrage (optionnel)
+
+```javascript
+useEffect(() => {
+  // À chaque chargement de l'app, lancer une vérification rapide
+  const verificationRapide = async () => {
+    const tests = [
+      test_donnees_critiques,
+      test_coherence_solde,
+      test_stock_negatif
+    ];
+    
+    for (const test of tests) {
+      const res = test();
+      if (!res.success) {
+        // Afficher une notification d'alerte
+        afficherNotification({
+          type: "warning",
+          message: `⚠️ ${res.message}`,
+          action: "Aller au module Tests de santé"
+        });
+      }
+    }
+  };
+  
+  verificationRapide();
+}, []);
+```
+
+---
+
+## 📅 PROGRAMMATION AUTOMATIQUE
+
+### Tests planifiés chaque vendredi
+
+```javascript
+function planifierTestsHebdomadaires() {
+  const dernierTest = localStorage.getItem('dernier_test_hebdo');
+  const maintenant = new Date();
+  const aujourdhui = maintenant.toLocaleDateString();
+  
+  // Si c'est vendredi et qu'on n'a pas testé aujourd'hui
+  if (maintenant.getDay() === 5 && dernierTest !== aujourdhui) {
+    // Notification : "C'est vendredi, lancer les tests hebdomadaires ?"
+    if (confirm("Vendredi = jour des tests de santé. Lancer maintenant ?")) {
+      lancerTousLesTests(st, setSt);
+      localStorage.setItem('dernier_test_hebdo', aujourdhui);
+    }
+  }
+}
+```
+
+---
+
+## ✅ TESTS DE NON-RÉGRESSION
+
+Après implémentation, vérifier que :
+
+1. ✅ Le module Tests de santé est accessible depuis le menu Plus
+2. ✅ Le bouton "Lancer tous les tests" fonctionne
+3. ✅ Les 25 tests s'exécutent sans planter l'app
+4. ✅ Les résultats s'affichent clairement
+5. ✅ Les erreurs sont compréhensibles (pas de jargon technique)
+6. ✅ Les solutions proposées sont actionnables
+7. ✅ L'export PDF du rapport fonctionne
+8. ✅ Les données existantes ne sont pas modifiées par les tests
+9. ✅ Les données de test (préfixe "TEST_") sont bien nettoyées après
+10. ✅ L'exécution complète prend moins de 30 secondes
+
+---
+
+## 🚀 PRIORITÉS DE DÉVELOPPEMENT
+
+### Phase 1 - Essentiel
+1. Catégorie 1 (Intégrité données) - 5 tests
+2. Catégorie 2 (Automatismes) - 8 tests
+3. Interface de base avec bouton "Lancer tests"
+
+### Phase 2 - Important
+4. Catégorie 3 (PDFs) - 4 tests
+5. Catégorie 4 (Sécurité) - 4 tests
+6. Interface détaillée avec erreurs explicites
+
+### Phase 3 - Confort
+7. Catégorie 5 (Interface) - 4 tests
+8. Export PDF du rapport
+9. Notifications automatiques
+10. Tests planifiés hebdomadaires
+
+---
+
+## 🎯 OBJECTIF FINAL
+
+Jordan doit pouvoir :
+
+✅ **En 1 clic** vérifier que toute son app fonctionne
+✅ **En 30 secondes** savoir si quelque chose ne va pas
+✅ **Comprendre clairement** les erreurs détectées
+✅ **Avoir des solutions** actionnables pour corriger
+✅ **Dormir tranquille** chaque vendredi soir après les tests
+✅ **Avoir un rapport PDF** à montrer à son fiduciaire si besoin
+
+**Le tout sans risque pour les données réelles.**
+
+---
+
+**FIN DU PROMPT. Implémenter en respectant les règles absolues et l'ordre des priorités.**

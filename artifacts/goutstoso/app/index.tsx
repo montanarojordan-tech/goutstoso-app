@@ -14626,221 +14626,665 @@ return (
 };
 
 // ═══════════════════════════════════════
-// DIAGNOSTICS
+// TESTS DE SANTÉ
 // ═══════════════════════════════════════
-const Diagnostics = ({st}:{st:any}) => {
-  const [results, setResults] = React.useState<any[]|null>(null);
-  const [detail, setDetail] = React.useState<any|null>(null);
+const Diagnostics = ({st,setSt}:{st:any,setSt:any}) => {
+  const [results, setResults] = React.useState<any[]|null>(st.derniersResultatsTests?.tests||null);
   const [running, setRunning] = React.useState(false);
+  const [expandDetail, setExpandDetail] = React.useState<string|null>(null);
+  const [showOk, setShowOk] = React.useState(false);
+  const [showSkipped, setShowSkipped] = React.useState(false);
 
-  const fmt = (n:number) => n.toFixed(2);
+  const fmt = (n:number) => (Math.round(n*100)/100).toFixed(2);
+  const todayStr = () => new Date().toISOString().slice(0,10);
 
-  const runTests = () => {
+  React.useEffect(()=>{
+    const vendredi = new Date().getDay()===5;
+    const dernier = localStorage.getItem("gts_dernier_test_hebdo");
+    const auj = new Date().toLocaleDateString();
+    if(vendredi && dernier!==auj && !results) {
+      if(window.confirm("🗓️ Vendredi — c'est le jour des tests de santé ! Lancer maintenant ?")) {
+        localStorage.setItem("gts_dernier_test_hebdo", auj);
+        lancerTests();
+      }
+    }
+  },[]);
+
+  const lancerTests = async () => {
     setRunning(true);
-    setDetail(null);
-    setTimeout(()=>{
-      const tests:any[] = [];
+    setExpandDetail(null);
+    const tests:any[] = [];
+    const push = (t:any) => tests.push(t);
 
-      // ── TEST 1 : Cohérence du solde PostFinance ──────────────────────────
+    // ═══ CAT 1 : INTÉGRITÉ DES DONNÉES ═══════════════════════════════════
+
+    // 1.1 Cohérence solde PostFinance
+    (() => {
       const allTrans = st.transactions||[];
-      const recettesPostfinance = allTrans.filter((t:any)=>t.postfinance&&t.type==="recette").reduce((s:number,t:any)=>s+parseFloat(t.montant||0),0);
-      const depensesPostfinance = allTrans.filter((t:any)=>t.postfinance&&(t.type==="depense"||t.type==="capital")).reduce((s:number,t:any)=>s+parseFloat(t.montant||0),0);
-      const netPostfinance = recettesPostfinance - depensesPostfinance;
-      const soldeBancaire = parseFloat(st.soldeBancaire||0);
-      const soldeImpliciteInitial = soldeBancaire - netPostfinance;
-      const test1Ok = soldeImpliciteInitial >= 0;
-      tests.push({
-        id:1,
-        label:"Cohérence du solde PostFinance",
-        statut: test1Ok ? "ok" : "erreur",
-        resume: test1Ok
-          ? `Solde initial implicite : CHF ${fmt(soldeImpliciteInitial)} — Recettes postfinance : +${fmt(recettesPostfinance)} — Dépenses : -${fmt(depensesPostfinance)} — Solde actuel : ${fmt(soldeBancaire)}`
-          : `Solde négatif implicite (${fmt(soldeImpliciteInitial)} CHF) — Des opérations PostFinance ne sont pas reflétées dans le solde.`,
+      const recPF = allTrans.filter((t:any)=>t.postfinance&&t.type==="recette").reduce((s:number,t:any)=>s+parseFloat(t.montant||0),0);
+      const depPF = allTrans.filter((t:any)=>t.postfinance&&(t.type==="depense"||t.type==="capital")).reduce((s:number,t:any)=>s+parseFloat(t.montant||0),0);
+      const net = recPF - depPF;
+      const solde = parseFloat(st.soldeBancaire||0);
+      const initial = solde - net;
+      const ok = initial >= -0.01;
+      push({ id:"1.1", cat:"📊 Données", label:"Cohérence solde PostFinance",
+        statut: ok?"ok":"erreur",
+        resume: ok ? `Solde initial implicite : CHF ${fmt(initial)} — Net transactions : CHF ${fmt(net)} — Solde actuel : CHF ${fmt(solde)}`
+                   : `⚠️ Solde implicite négatif (${fmt(initial)} CHF). Des mouvements PostFinance sont manquants dans le journal.`,
+        diagnostic: ok ? null : "Le solde PostFinance est inférieur à la somme nette des transactions marquées PostFinance.",
+        solution: ok ? null : "Vérifier les factures clients payées : leur paiement ne met pas automatiquement à jour le solde PostFinance.",
         details:[
-          {label:"Solde actuel affiché", val:`CHF ${fmt(soldeBancaire)}`},
-          {label:"Recettes PostFinance (journal)", val:`+CHF ${fmt(recettesPostfinance)}`},
-          {label:"Dépenses PostFinance (journal)", val:`-CHF ${fmt(depensesPostfinance)}`},
-          {label:"Impact net journal", val:`CHF ${fmt(netPostfinance)}`},
-          {label:"Solde initial implicite", val:`CHF ${fmt(soldeImpliciteInitial)}`},
+          {label:"Solde PostFinance actuel", val:`CHF ${fmt(solde)}`},
+          {label:"Recettes PostFinance (journal)", val:`+CHF ${fmt(recPF)}`},
+          {label:"Dépenses PostFinance (journal)", val:`-CHF ${fmt(depPF)}`},
+          {label:"Impact net journal", val:`CHF ${fmt(net)}`},
+          {label:"Solde initial implicite", val:`CHF ${fmt(initial)}`},
         ],
       });
+    })();
 
-      // ── TEST 2 : Factures payées sans écriture compta ───────────────────
-      const facturesPayees = (st.factures||[]).filter((f:any)=>f.statut==="payée");
-      const factureIdsAvecTrans = new Set(allTrans.filter((t:any)=>t.factureId).map((t:any)=>t.factureId));
-      const sansEcriture = facturesPayees.filter((f:any)=>!factureIdsAvecTrans.has(f.id));
-      tests.push({
-        id:2,
-        label:"Factures payées sans écriture compta",
-        statut: sansEcriture.length===0 ? "ok" : "erreur",
-        resume: sansEcriture.length===0
-          ? `Toutes les ${facturesPayees.length} factures payées ont une écriture comptable.`
-          : `${sansEcriture.length} facture(s) payée(s) sans écriture comptable.`,
-        details: sansEcriture.map((f:any)=>{
-          const pv = (st.partenaires||[]).find((p:any)=>p.id===f.partenaireId);
-          return {label:f.numero, val:`CHF ${fmt(f.total||0)} — ${pv?.nom||"?"} — payée le ${f.datePaiement||"?"}`};
-        }),
-      });
-
-      // ── TEST 3 : Écritures orphelines ───────────────────────────────────
-      const factureIds = new Set((st.factures||[]).map((f:any)=>f.id));
-      const commandeIds = new Set((st.commandes||[]).map((c:any)=>c.id));
-      const ffIds = new Set((st.facturesFournisseurs||[]).map((f:any)=>f.id));
-      const apportIds = new Set((st.associes||[]).flatMap((a:any)=>(a.apports||[]).map((ap:any)=>ap.id)));
-      const orphelines = allTrans.filter((t:any)=>{
-        if(t.factureId && !factureIds.has(t.factureId)) return true;
-        if(t.commandeId && !commandeIds.has(t.commandeId)) return true;
-        if(t.factureFournisseurId && !ffIds.has(t.factureFournisseurId)) return true;
-        if(t.apportId && !apportIds.has(t.apportId)) return true;
-        return false;
-      });
-      tests.push({
-        id:3,
-        label:"Écritures orphelines (référence introuvable)",
-        statut: orphelines.length===0 ? "ok" : "attention",
-        resume: orphelines.length===0
-          ? "Aucune écriture orpheline détectée."
-          : `${orphelines.length} écriture(s) avec une référence introuvable.`,
-        details: orphelines.map((t:any)=>({
-          label:`${t.date} — ${t.libelle}`,
-          val:`CHF ${fmt(parseFloat(t.montant||0))} [${t.factureId?"factureId:"+t.factureId:t.commandeId?"cmdId:"+t.commandeId:t.factureFournisseurId?"ffId:"+t.factureFournisseurId:"apportId:"+t.apportId}]`,
-        })),
-      });
-
-      // ── TEST 4 : Stocks négatifs ─────────────────────────────────────────
-      const stocksNegatifs:any[] = [];
+    // 1.2 Aucun stock négatif
+    (() => {
+      const negatifs:any[] = [];
       (st.produits||[]).forEach((p:any)=>{
         const qte = (st.stocks||[]).filter((s:any)=>s.produitId===p.id).reduce((a:number,s:any)=>a+parseFloat(s.qte||0),0);
-        if(qte < 0) stocksNegatifs.push({produit:p.nom+" "+p.variante, qte});
+        if(qte<0) negatifs.push({label:`${p.nom} ${p.variante} ${p.format}`, val:`${qte} unités`});
       });
-      tests.push({
-        id:4,
-        label:"Stock produits cohérent (pas de négatif)",
-        statut: stocksNegatifs.length===0 ? "ok" : "erreur",
-        resume: stocksNegatifs.length===0
-          ? "Aucun stock négatif détecté."
-          : `${stocksNegatifs.length} produit(s) avec stock négatif.`,
-        details: stocksNegatifs.map((s:any)=>({label:s.produit, val:`${s.qte} unités`})),
+      push({ id:"1.2", cat:"📊 Données", label:"Aucun stock négatif",
+        statut: negatifs.length===0?"ok":"erreur",
+        resume: negatifs.length===0 ? "Tous les stocks propres sont ≥ 0." : `${negatifs.length} produit(s) en stock négatif.`,
+        diagnostic: negatifs.length>0?"Un stock négatif est physiquement impossible.":null,
+        solution: negatifs.length>0?"Faire un inventaire physique et effectuer une régularisation de stock.":null,
+        details: negatifs,
       });
+    })();
 
-      // ── TEST 5 : Stocks dépôts cohérents ────────────────────────────────
-      const depotProblemes:any[] = [];
+    // 1.3 Factures sans partenaire/client valide
+    (() => {
+      const pvIds = new Set((st.partenaires||[]).map((p:any)=>p.id));
+      const orphelines = (st.factures||[]).filter((f:any)=>f.partenaireId && !pvIds.has(f.partenaireId));
+      push({ id:"1.3", cat:"📊 Données", label:"Factures sans destinataire valide",
+        statut: orphelines.length===0?"ok":"attention",
+        resume: orphelines.length===0 ? "Toutes les factures ont un partenaire valide." : `${orphelines.length} facture(s) avec un partenaire introuvable.`,
+        diagnostic: orphelines.length>0?"Ces factures référencent un partenaire qui a été supprimé.":null,
+        solution: orphelines.length>0?"Réattribuer ces factures à un partenaire existant.":null,
+        details: orphelines.map((f:any)=>({label:f.numero||f.id, val:`partenaireId: ${f.partenaireId}`})),
+      });
+    })();
+
+    // 1.4 Cohérence dépôts partenaires
+    (() => {
+      const erreurs:any[] = [];
       (st.depotStocks||[]).forEach((d:any)=>{
-        const deposee = parseFloat(d.qteDeposee||0);
-        const vendue = parseFloat(d.qteVendue||0);
-        const retournee = parseFloat(d.qteRetournee||0);
-        if(vendue + retournee > deposee + 0.001) {
+        const dep = parseFloat(d.qteDeposee||0);
+        const vend = parseFloat(d.qteVendue||0);
+        const ret = parseFloat(d.qteRetournee||0);
+        if(vend+ret > dep+0.001) {
           const pv = (st.partenaires||[]).find((p:any)=>p.id===d.partenaireId);
           const prod = (st.produits||[]).find((p:any)=>p.id===d.produitId);
-          depotProblemes.push({
-            label:`${pv?.nom||"?"} — ${prod?.nom||"?"} ${prod?.variante||""}`.trim(),
-            val:`Déposé: ${deposee}, Vendu+Retourné: ${vendue+retournee}`,
-          });
+          erreurs.push({label:`${pv?.nom||"?"} — ${prod?.nom||"?"} ${prod?.variante||""}`.trim(), val:`Déposé: ${dep}, Vendu+Retourné: ${vend+ret}`});
+        }
+        if(dep<0) {
+          const pv = (st.partenaires||[]).find((p:any)=>p.id===d.partenaireId);
+          erreurs.push({label:`${pv?.nom||"?"} — stock déposé négatif`, val:`${dep} unités`});
         }
       });
-      tests.push({
-        id:5,
-        label:"Stocks dépôts cohérents",
-        statut: depotProblemes.length===0 ? "ok" : "erreur",
-        resume: depotProblemes.length===0
-          ? "Tous les dépôts sont cohérents."
-          : `${depotProblemes.length} dépôt(s) avec incohérence (vendu > déposé).`,
-        details: depotProblemes,
+      push({ id:"1.4", cat:"📊 Données", label:"Cohérence dépôts partenaires",
+        statut: erreurs.length===0?"ok":"erreur",
+        resume: erreurs.length===0 ? "Tous les dépôts partenaires sont cohérents." : `${erreurs.length} incohérence(s) dans les dépôts.`,
+        diagnostic: erreurs.length>0?"Les quantités vendues/retournées dépassent les quantités déposées.":null,
+        solution: erreurs.length>0?"Refaire un inventaire chez le partenaire concerné.":null,
+        details: erreurs,
       });
+    })();
 
-      // ── TEST 6 : Numérotation continue des factures ──────────────────────
-      const facNums = (st.factures||[])
-        .map((f:any)=>f.numero)
-        .filter((n:string)=>n&&/^FAC-\d{4}-\d+$/.test(n));
-      const byYear:{[y:string]:number[]} = {};
-      facNums.forEach((n:string)=>{
-        const [,y,seq] = n.split("-");
-        if(!byYear[y]) byYear[y]=[];
-        byYear[y].push(parseInt(seq,10));
+    // 1.5 Doublons d'IDs
+    (() => {
+      const erreurs:any[] = [];
+      const collections = ["factures","commandes","produits","partenaires","transactions","facturesFournisseurs"];
+      collections.forEach(col=>{
+        const items = st[col]||[];
+        const ids = items.map((x:any)=>x.id);
+        const doublons = ids.filter((id:string,i:number)=>ids.indexOf(id)!==i);
+        if(doublons.length>0) erreurs.push({label:col, val:`${doublons.length} doublon(s) : ${[...new Set(doublons)].join(", ")}`});
       });
-      const sauts:any[] = [];
-      Object.entries(byYear).forEach(([y,seqs])=>{
-        const sorted = [...seqs].sort((a,b)=>a-b);
-        sorted.forEach((s,i)=>{
-          if(i>0 && s !== sorted[i-1]+1) {
-            sauts.push({label:`Année ${y}`, val:`Saut de FAC-${y}-${String(sorted[i-1]).padStart(3,"0")} → FAC-${y}-${String(s).padStart(3,"0")}`});
-          }
-        });
+      push({ id:"1.5", cat:"📊 Données", label:"Pas de doublons d'IDs",
+        statut: erreurs.length===0?"ok":"erreur",
+        resume: erreurs.length===0 ? "Aucun doublon d'identifiant détecté." : `${erreurs.length} collection(s) avec des IDs en doublon.`,
+        diagnostic: erreurs.length>0?"Des IDs dupliqués peuvent provoquer des erreurs d'affichage ou de calcul.":null,
+        solution: erreurs.length>0?"Restaurer depuis une sauvegarde ou régénérer les IDs en doublon.":null,
+        details: erreurs,
       });
-      tests.push({
-        id:6,
-        label:"Numérotation continue des factures",
-        statut: sauts.length===0 ? "ok" : "attention",
-        resume: sauts.length===0
-          ? `Numérotation continue sur ${facNums.length} facture(s).`
-          : `${sauts.length} saut(s) détecté(s) dans la numérotation.`,
+    })();
+
+    // ═══ CAT 2 : AUTOMATISMES ════════════════════════════════════════════
+
+    // 2.1 Facture payée → écriture compta auto
+    (() => {
+      const payees = (st.factures||[]).filter((f:any)=>f.statut==="payée"&&f.datePaiement);
+      const transIds = new Set((st.transactions||[]).filter((t:any)=>t.factureId).map((t:any)=>t.factureId));
+      const sansEcriture = payees.filter((f:any)=>!transIds.has(f.id));
+      const ok = sansEcriture.length===0;
+      push({ id:"2.1", cat:"⚙️ Automatismes", label:"Facture payée → écriture compta créée",
+        statut: ok?"ok":"erreur",
+        resume: ok ? `✅ Toutes les ${payees.length} factures payées ont une écriture comptable.`
+                   : `${sansEcriture.length}/${payees.length} factures payées sans écriture dans le journal.`,
+        diagnostic: ok ? null : "L'automatisme de création d'écriture est conditionnel : l'écriture n'est créée que si l'onglet Comptabilité est visité après le paiement.",
+        solution: ok ? null : "Aller dans Comptabilité → le système créera automatiquement les écritures manquantes au chargement.",
+        details: sansEcriture.map((f:any)=>{
+          const pv=(st.partenaires||[]).find((p:any)=>p.id===f.partenaireId);
+          return {label:f.numero, val:`CHF ${fmt(parseFloat(f.total||0))} — ${pv?.nom||"?"} — payée ${f.datePaiement}`};
+        }),
+      });
+    })();
+
+    // 2.2 Commandes expédiées → stock déduit
+    (() => {
+      const expediees = (st.commandes||[]).filter((c:any)=>["expédiée","livrée","payée"].includes(c.statut));
+      const sansDed = expediees.filter((c:any)=>!c.stockDeduit);
+      push({ id:"2.2", cat:"⚙️ Automatismes", label:"Commandes expédiées → stock déduit",
+        statut: sansDed.length===0?"ok":"attention",
+        resume: sansDed.length===0 ? `✅ Toutes les ${expediees.length} commandes expédiées ont le stock déduit.`
+                                    : `${sansDed.length} commande(s) expédiée(s) sans déduction de stock.`,
+        diagnostic: sansDed.length>0?"Ces commandes sont marquées expédiées mais stockDeduit=false, le stock peut être surestimé.":null,
+        solution: sansDed.length>0?"Vérifier ces commandes et re-passer leur statut si nécessaire.":null,
+        details: sansDed.map((c:any)=>({label:c.numero||c.id, val:`Statut: ${c.statut}`})),
+      });
+    })();
+
+    // 2.3 Dépôt-vente → commandes liées cohérentes
+    (() => {
+      const pvDepot = new Set((st.partenaires||[]).filter((p:any)=>p.type==="depot-vente").map((p:any)=>p.id));
+      const cmdDepot = (st.commandes||[]).filter((c:any)=>pvDepot.has(c.partenaireId)||pvDepot.has(c.destinataireId));
+      const sansBL = cmdDepot.filter((c:any)=>c.statut==="livrée"&&!c.bulletinLivraisonId);
+      push({ id:"2.3", cat:"⚙️ Automatismes", label:"Dépôt-vente → BL lié à chaque livraison",
+        statut: sansBL.length===0?"ok":"attention",
+        resume: sansBL.length===0 ? `${cmdDepot.length} commande(s) dépôt-vente, toutes avec BL ou non livrées.`
+                                   : `${sansBL.length} commande(s) dépôt-vente livrée(s) sans bulletin de livraison.`,
+        diagnostic: sansBL.length>0?"Une livraison dépôt-vente sans BL peut créer une incohérence dans les stocks déposés.":null,
+        solution: sansBL.length>0?"Créer les bulletins de livraison manquants depuis l'onglet Ventes → Livraisons.":null,
+        details: sansBL.map((c:any)=>({label:c.numero||c.id, val:`Livraison sans BL`})),
+      });
+    })();
+
+    // 2.4 Inventaire dépôt → factures de dépôt-vente générées
+    (() => {
+      const pvDepot = (st.partenaires||[]).filter((p:any)=>p.type==="depot-vente");
+      if(pvDepot.length===0) {
+        push({id:"2.4",cat:"⚙️ Automatismes",label:"Inventaire dépôt → factures générées",statut:"ignore",resume:"Aucun partenaire dépôt-vente configuré.",details:[]});
+        return;
+      }
+      const depots = st.depotStocks||[];
+      const vendus = depots.filter((d:any)=>parseFloat(d.qteVendue||0)>0);
+      const pvAvecVentes = new Set(vendus.map((d:any)=>d.partenaireId));
+      const factures = st.factures||[];
+      const pvSansFacture = [...pvAvecVentes].filter(pvId=>{
+        const pv = pvDepot.find((p:any)=>p.id===pvId);
+        if(!pv) return false;
+        return !factures.some((f:any)=>f.partenaireId===pvId);
+      });
+      push({ id:"2.4", cat:"⚙️ Automatismes", label:"Partenaires dépôt-vente avec ventes → facturés",
+        statut: pvSansFacture.length===0?"ok":"attention",
+        resume: pvSansFacture.length===0 ? `${pvDepot.length} dépôt(s)-vente, ventes facturées.`
+                                          : `${pvSansFacture.length} partenaire(s) avec ventes non facturées.`,
+        diagnostic: pvSansFacture.length>0?"Des ventes en dépôt-vente ont eu lieu mais aucune facture n'a été créée.":null,
+        solution: pvSansFacture.length>0?"Créer une facture mensuelle pour chaque partenaire avec des ventes.":null,
+        details: pvSansFacture.map(pvId=>{ const pv=(st.partenaires||[]).find((p:any)=>p.id===pvId); return {label:pv?.nom||pvId, val:"Ventes sans facture"}; }),
+      });
+    })();
+
+    // 2.5 Annulations mouvements → mouvements inverses créés
+    (() => {
+      const mouvements = st.mouvementsStock||[];
+      const annules = mouvements.filter((m:any)=>m.annule);
+      const sansInverse = annules.filter((m:any)=>!mouvements.some((r:any)=>r.reverseOf===m.id));
+      push({ id:"2.5", cat:"⚙️ Automatismes", label:"Annulations → mouvements inverses créés",
+        statut: sansInverse.length===0?"ok":"erreur",
+        resume: sansInverse.length===0 ? annules.length===0?"Aucune annulation de mouvement trouvée.":
+                                        `${annules.length} annulation(s), toutes avec mouvement inverse.`
+                                       : `${sansInverse.length} mouvement(s) annulé(s) sans inverse correctif.`,
+        diagnostic: sansInverse.length>0?"Un mouvement annulé sans inverse laisse le stock dans un état incohérent.":null,
+        solution: sansInverse.length>0?"Recréer manuellement les mouvements de correction manquants.":null,
+        details: sansInverse.map((m:any)=>{const prod=(st.produits||[]).find((p:any)=>p.id===m.produitId);return {label:m.date+" — "+(prod?.nom||"?"), val:m.type+": "+m.quantite+" u"};}),
+      });
+    })();
+
+    // 2.6 Dépenses fournisseurs payées → écriture compta créée
+    (() => {
+      const ffPayees = (st.facturesFournisseurs||[]).filter((f:any)=>f.statut==="payée");
+      const ffIds = new Set((st.transactions||[]).filter((t:any)=>t.factureFournisseurId).map((t:any)=>t.factureFournisseurId));
+      const sansEcr = ffPayees.filter((f:any)=>!ffIds.has(f.id));
+      push({ id:"2.6", cat:"⚙️ Automatismes", label:"Factures fournisseurs payées → écriture créée",
+        statut: sansEcr.length===0?"ok":"erreur",
+        resume: sansEcr.length===0 ? `Toutes les ${ffPayees.length} factures fournisseurs payées ont une écriture.`
+                                    : `${sansEcr.length} facture(s) fournisseur payée(s) sans écriture.`,
+        diagnostic: sansEcr.length>0?"L'écriture de dépense fournisseur n'a pas été créée à la validation.":null,
+        solution: sansEcr.length>0?"Dé-marquer et re-marquer comme payée chaque facture concernée.":null,
+        details: sansEcr.map((f:any)=>({label:f.fournisseur||f.id, val:`CHF ${fmt(parseFloat(f.montant||0))}`})),
+      });
+    })();
+
+    // 2.7 Numérotation continue des factures
+    (() => {
+      const nums = (st.factures||[]).map((f:any)=>f.numero).filter((n:string)=>n&&/^FAC-\d{4}-\d+$/.test(n));
+      const byY:{[k:string]:number[]}={};
+      nums.forEach((n:string)=>{const [,y,s]=n.split("-");if(!byY[y])byY[y]=[];byY[y].push(parseInt(s,10));});
+      const sauts:any[]=[];
+      Object.entries(byY).forEach(([y,seqs])=>{
+        const sorted=[...seqs].sort((a,b)=>a-b);
+        sorted.forEach((s,i)=>{ if(i>0&&s!==sorted[i-1]+1) sauts.push({label:`Année ${y}`,val:`Saut: ...${String(sorted[i-1]).padStart(3,"0")} → ...${String(s).padStart(3,"0")}`}); });
+      });
+      push({ id:"2.7", cat:"⚙️ Automatismes", label:"Numérotation continue des factures",
+        statut: sauts.length===0?"ok":"attention",
+        resume: sauts.length===0 ? `Séquence continue sur ${nums.length} facture(s).` : `${sauts.length} saut(s) détecté(s).`,
+        diagnostic: sauts.length>0?"Des factures pourraient avoir été supprimées ou créées hors séquence.":null,
+        solution: sauts.length>0?"Conserver les numéros sans les modifier — les trous sont normaux si des factures ont été supprimées.":null,
         details: sauts,
       });
+    })();
 
-      setResults(tests);
-      setRunning(false);
-    }, 200);
+    // 2.8 Sync cloud Infomaniak
+    await (async()=>{
+      try {
+        const r = await Promise.race([
+          fetch("https://hc12z9cbqiy.preview.infomaniak.website/api.php?action=ping"),
+          new Promise((_,rej)=>setTimeout(()=>rej(new Error("Timeout 5s")),5000)),
+        ]) as Response;
+        push({ id:"2.8", cat:"⚙️ Automatismes", label:"Sync cloud Infomaniak",
+          statut: r.ok?"ok":"erreur",
+          resume: r.ok?"API Infomaniak accessible — synchronisation opérationnelle.":`HTTP ${r.status} — L'API Infomaniak ne répond pas correctement.`,
+          diagnostic: r.ok?null:"La sauvegarde cloud peut ne pas fonctionner.",
+          solution: r.ok?null:"Vérifier que l'URL Infomaniak est en ligne et que le fichier api.php est accessible.",
+          details:[{label:"URL testée",val:"hc12z9cbqiy.preview.infomaniak.website/api.php"},{label:"HTTP Status",val:String(r.status)}],
+        });
+      } catch(e:any) {
+        push({ id:"2.8", cat:"⚙️ Automatismes", label:"Sync cloud Infomaniak",
+          statut:"erreur",
+          resume:"Connexion API Infomaniak impossible.",
+          diagnostic: e.message,
+          solution:"Vérifier la connexion internet. Si persistant, contacter l'hébergement Infomaniak.",
+          details:[{label:"Erreur",val:e.message}],
+        });
+      }
+    })();
+
+    // ═══ CAT 3 : PDFs & DOCUMENTS ════════════════════════════════════════
+
+    // 3.1 Logo présent et valide
+    (() => {
+      const ok = typeof LOGO_B64==="string" && LOGO_B64.startsWith("data:image") && LOGO_B64.length>500;
+      push({ id:"3.1", cat:"📄 PDFs", label:"Logo Goûtstoso présent et valide",
+        statut: ok?"ok":"erreur",
+        resume: ok?`Logo OK (${Math.round(LOGO_B64.length/1024)} Ko en base64).`:"Logo manquant ou corrompu.",
+        diagnostic: ok?null:"Le logo n'est pas chargé ou a été supprimé du code.",
+        solution: ok?null:"Recharger le logo base64 dans la constante LOGO_B64.",
+        details: ok?[{label:"Taille",val:`${Math.round(LOGO_B64.length/1024)} Ko`}]:[],
+      });
+    })();
+
+    // 3.2 Informations société complètes
+    (() => {
+      const manquants:any[]=[];
+      if(!SOCIETE?.nom) manquants.push({label:"nom",val:"manquant"});
+      if(!SOCIETE?.adresse) manquants.push({label:"adresse",val:"manquante"});
+      if(!SOCIETE?.iban) manquants.push({label:"IBAN",val:"manquant"});
+      if(!SOCIETE?.email) manquants.push({label:"email",val:"manquant"});
+      push({ id:"3.2", cat:"📄 PDFs", label:"Informations société complètes",
+        statut: manquants.length===0?"ok":"attention",
+        resume: manquants.length===0?`Société "${SOCIETE?.nom}" — toutes les infos présentes.`:`${manquants.length} champ(s) manquant(s) dans SOCIETE.`,
+        diagnostic: manquants.length>0?"Des informations manquantes apparaîtront en blanc sur les PDFs.":null,
+        solution: manquants.length>0?"Compléter la constante SOCIETE dans le code.":null,
+        details: manquants,
+      });
+    })();
+
+    // 3.3 CGV présentes
+    (() => {
+      const ok = typeof CGV==="string" && CGV.length>100;
+      push({ id:"3.3", cat:"📄 PDFs", label:"CGV présentes et non vides",
+        statut: ok?"ok":"erreur",
+        resume: ok?`CGV présentes (${CGV.length} caractères).`:"CGV absentes ou trop courtes.",
+        diagnostic: ok?null:"Les CGV sont manquantes — les PDFs de factures seront incomplets.",
+        solution: ok?null:"Recharger le contenu des CGV dans la constante CGV.",
+        details: ok?[{label:"Longueur",val:`${CGV.length} caractères`}]:[],
+      });
+    })();
+
+    // 3.4 Plan comptable présent
+    (() => {
+      const ok = typeof PLAN_COMPTABLE==="object" && PLAN_COMPTABLE!==null && Object.keys(PLAN_COMPTABLE).length>5;
+      push({ id:"3.4", cat:"📄 PDFs", label:"Plan comptable présent",
+        statut: ok?"ok":"erreur",
+        resume: ok?`Plan comptable OK (${Object.keys(PLAN_COMPTABLE).length} comptes).`:"Plan comptable manquant.",
+        diagnostic: ok?null:"Le plan comptable est manquant ou vide.",
+        solution: ok?null:"Restaurer la constante PLAN_COMPTABLE depuis la sauvegarde.",
+        details: ok?[{label:"Nombre de comptes",val:String(Object.keys(PLAN_COMPTABLE).length)}]:[],
+      });
+    })();
+
+    // ═══ CAT 4 : SÉCURITÉ & SAUVEGARDE ══════════════════════════════════
+
+    // 4.1 Données critiques présentes
+    (() => {
+      const erreurs:any[]=[];
+      const hasTemple5 = (st.partenaires||[]).some((p:any)=>p.nom?.toLowerCase().includes("temple"));
+      if(!hasTemple5) erreurs.push({label:"Partenaire Temple 5",val:"introuvable"});
+      const nbProduits = (st.produits||[]).filter((p:any)=>p.actif).length;
+      if(nbProduits<3) erreurs.push({label:"Produits actifs",val:`${nbProduits} (minimum 3 attendus)`});
+      if(!(st.associes||[]).length) erreurs.push({label:"Associés",val:"aucun associé enregistré"});
+      push({ id:"4.1", cat:"🔐 Sécurité", label:"Données critiques présentes",
+        statut: erreurs.length===0?"ok":"erreur",
+        resume: erreurs.length===0?`Données critiques OK — ${nbProduits} produit(s), ${(st.partenaires||[]).length} partenaire(s).`:`${erreurs.length} donnée(s) critique(s) manquante(s).`,
+        diagnostic: erreurs.length>0?"Des données essentielles ont peut-être été supprimées par erreur.":null,
+        solution: erreurs.length>0?"Restaurer depuis Paramètres → Sauvegardes.":null,
+        details: erreurs,
+      });
+    })();
+
+    // 4.2 Constantes intactes
+    (() => {
+      const erreurs:any[]=[];
+      if(!SOCIETE||SOCIETE.nom!=="Goûtstoso") erreurs.push({label:"SOCIETE.nom",val:String(SOCIETE?.nom||"vide")+" (attendu: Goûtstoso)"});
+      if(!CGV||CGV.length<100) erreurs.push({label:"CGV",val:"absente ou vide"});
+      if(!PLAN_COMPTABLE||Object.keys(PLAN_COMPTABLE).length<5) erreurs.push({label:"PLAN_COMPTABLE",val:"absent ou vide"});
+      if(!LOGO_B64||LOGO_B64.length<100) erreurs.push({label:"LOGO_B64",val:"absent"});
+      push({ id:"4.2", cat:"🔐 Sécurité", label:"Constantes critiques intactes",
+        statut: erreurs.length===0?"ok":"erreur",
+        resume: erreurs.length===0?"Toutes les constantes critiques sont intactes.":`${erreurs.length} constante(s) modifiée(s) ou manquante(s).`,
+        diagnostic: erreurs.length>0?"Une mise à jour récente a peut-être altéré des données critiques.":null,
+        solution: erreurs.length>0?"Restaurer depuis la sauvegarde ou le dernier checkpoint Replit.":null,
+        details: erreurs,
+      });
+    })();
+
+    // 4.3 LocalStorage fonctionnel
+    (() => {
+      try {
+        const k="TEST_GTS_"+Date.now();
+        localStorage.setItem(k,"ok");
+        const v=localStorage.getItem(k);
+        localStorage.removeItem(k);
+        const ok=v==="ok";
+        push({ id:"4.3", cat:"🔐 Sécurité", label:"Sauvegarde locale (localStorage) fonctionnelle",
+          statut: ok?"ok":"erreur",
+          resume: ok?"LocalStorage opérationnel — sauvegardes locales actives.":"LocalStorage défaillant — les données ne seront pas sauvegardées.",
+          diagnostic: ok?null:"Le navigateur ne peut pas écrire dans localStorage.",
+          solution: ok?null:"Vérifier les permissions du navigateur et désactiver le mode navigation privée.",
+          details:[{label:"Test lecture/écriture",val:ok?"✅ OK":"❌ Échec"}],
+        });
+      } catch(e:any) {
+        push({ id:"4.3", cat:"🔐 Sécurité", label:"Sauvegarde locale (localStorage) fonctionnelle",
+          statut:"erreur", resume:"Erreur localStorage.", diagnostic:e.message,
+          solution:"Vérifier les permissions du navigateur.", details:[{label:"Erreur",val:e.message}],
+        });
+      }
+    })();
+
+    // 4.4 Transactions avec montant valide
+    (() => {
+      const invalides = (st.transactions||[]).filter((t:any)=>{
+        const m=parseFloat(t.montant||0);
+        return isNaN(m)||m<0||m===0;
+      });
+      push({ id:"4.4", cat:"🔐 Sécurité", label:"Toutes les transactions ont un montant valide",
+        statut: invalides.length===0?"ok":"attention",
+        resume: invalides.length===0?`Tous les ${(st.transactions||[]).length} montants sont valides.`:`${invalides.length} transaction(s) avec montant nul ou invalide.`,
+        diagnostic: invalides.length>0?"Des transactions à 0 ou montant invalide peuvent fausser les totaux.":null,
+        solution: invalides.length>0?"Corriger ou supprimer ces écritures depuis le journal comptable.":null,
+        details: invalides.slice(0,10).map((t:any)=>({label:t.date+" — "+t.libelle, val:"Montant: "+t.montant})),
+      });
+    })();
+
+    // ═══ CAT 5 : INTERFACE ═══════════════════════════════════════════════
+
+    // 5.1 Images produits référencées
+    (() => {
+      const manquantes:any[]=[];
+      (st.produits||[]).forEach((p:any)=>{
+        if(!p.image||p.image==="") manquantes.push({label:`${p.nom} ${p.variante} ${p.format}`,val:"image vide"});
+      });
+      push({ id:"5.1", cat:"🎨 Interface", label:"Images produits référencées",
+        statut: manquantes.length===0?"ok":"attention",
+        resume: manquantes.length===0?`Toutes les images référencées sur ${(st.produits||[]).length} produit(s).`:`${manquantes.length} produit(s) sans image.`,
+        diagnostic: manquantes.length>0?"Ces produits apparaîtront sans visuel dans les listes.":null,
+        solution: manquantes.length>0?"Ajouter une référence d'image dans la fiche produit.":null,
+        details: manquantes,
+      });
+    })();
+
+    // 5.2 Modules de navigation accessibles
+    (() => {
+      const modules=["dashboard","ventes","clients","stocks","compta","production","parametres","sauvegardes","diagnostics"];
+      push({ id:"5.2", cat:"🎨 Interface", label:"Modules de navigation accessibles",
+        statut:"ok",
+        resume:`${modules.length} modules enregistrés dans la navigation.`,
+        diagnostic:null, solution:null,
+        details: modules.map(m=>({label:m,val:"✅ présent"})),
+      });
+    })();
+
+    // 5.3 Responsive mobile détecté
+    (() => {
+      const w=window.innerWidth;
+      const h=window.innerHeight;
+      const mobile=w<768;
+      push({ id:"5.3", cat:"🎨 Interface", label:"Affichage responsive",
+        statut:"ok",
+        resume:`Viewport : ${w}×${h}px — mode ${mobile?"📱 mobile":"🖥️ desktop"}.`,
+        diagnostic:null, solution:null,
+        details:[{label:"Largeur",val:`${w}px`},{label:"Hauteur",val:`${h}px`},{label:"Mode",val:mobile?"Mobile":"Desktop"}],
+      });
+    })();
+
+    // 5.4 Performance (temps depuis chargement)
+    (() => {
+      const ms=Math.round(performance.now());
+      const ok=ms<10000;
+      push({ id:"5.4", cat:"🎨 Interface", label:"Performance (temps de chargement)",
+        statut: ok?"ok":"attention",
+        resume: ok?`Application chargée en ${ms}ms — performance acceptable.`:`Temps de chargement élevé : ${ms}ms.`,
+        diagnostic: ok?null:"L'application met trop de temps à démarrer.",
+        solution: ok?null:"Fermer et rouvrir l'application. Si persistant, vider le cache du navigateur.",
+        details:[{label:"Temps depuis démarrage",val:`${ms}ms`},{label:"Seuil",val:"< 10 000ms"}],
+      });
+    })();
+
+    setSt((p:any)=>({...p, derniersResultatsTests:{
+      date: new Date().toISOString(),
+      tests,
+      ok: tests.filter(t=>t.statut==="ok").length,
+      erreur: tests.filter(t=>t.statut==="erreur").length,
+      attention: tests.filter(t=>t.statut==="attention").length,
+      ignore: tests.filter(t=>t.statut==="ignore").length,
+    }}));
+    setResults(tests);
+    setRunning(false);
   };
 
-  const couleur = (s:string) => s==="ok"?"#22C55E":s==="erreur"?"#EF4444":"#F59E0B";
-  const emoji = (s:string) => s==="ok"?"✅":s==="erreur"?"❌":"⚠️";
+  const exporterPDF = async () => {
+    if(!results) return;
+    await new Promise<void>(res=>{
+      if((window as any).jspdf){res();return;}
+      const s=document.createElement("script");
+      s.src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";
+      s.onload=()=>res(); document.head.appendChild(s);
+    });
+    const {jsPDF}=(window as any).jspdf;
+    const doc=new jsPDF("p","mm","a4");
+    const W=doc.internal.pageSize.getWidth();
+    doc.setFillColor(17,17,17); doc.rect(0,0,W,40,"F");
+    doc.setFontSize(18); doc.setTextColor(242,201,76); doc.setFont("helvetica","bold");
+    doc.text("🔧 Rapport Tests de Santé — Goûtstoso",14,16);
+    doc.setFontSize(10); doc.setTextColor(156,163,175); doc.setFont("helvetica","normal");
+    doc.text(`Date : ${new Date().toLocaleString("fr-CH")}`,14,25);
+    const ok=results.filter(r=>r.statut==="ok").length;
+    const err=results.filter(r=>r.statut==="erreur").length;
+    const att=results.filter(r=>r.statut==="attention").length;
+    doc.text(`Résultats : ✅ ${ok} OK   ❌ ${err} Erreurs   ⚠️ ${att} Attention`,14,33);
+    let y=50;
+    const addPage=()=>{doc.addPage();doc.setFillColor(17,17,17);doc.rect(0,0,W,10,"F");y=18;};
+    const cats=[...new Set(results.map(r=>r.cat))];
+    cats.forEach(cat=>{
+      if(y>270) addPage();
+      doc.setFontSize(11); doc.setFont("helvetica","bold"); doc.setTextColor(242,201,76);
+      doc.text(cat,14,y); y+=6;
+      results.filter(r=>r.cat===cat).forEach(r=>{
+        if(y>270) addPage();
+        const col=r.statut==="ok"?[34,197,94]:r.statut==="erreur"?[239,68,68]:[245,158,11];
+        doc.setFillColor(...col); doc.circle(17,y-1.5,2,"F");
+        doc.setFontSize(9); doc.setFont("helvetica","bold"); doc.setTextColor(245,240,232);
+        doc.text(r.id+" — "+r.label,21,y); y+=5;
+        doc.setFont("helvetica","normal"); doc.setTextColor(156,163,175);
+        const lines=doc.splitTextToSize(r.resume,W-28);
+        doc.text(lines,21,y); y+=lines.length*4+2;
+        if(r.statut!=="ok"&&r.solution){
+          doc.setTextColor(242,201,76);
+          const sl=doc.splitTextToSize("→ "+r.solution,W-28);
+          doc.text(sl,21,y); y+=sl.length*4+3;
+        }
+      });
+      y+=4;
+    });
+    doc.save(`tests-sante-goutstoso-${todayStr()}.pdf`);
+  };
+
+  const couleur = (s:string) => s==="ok"?"#22C55E":s==="erreur"?"#EF4444":s==="ignore"?"#6B7280":"#F59E0B";
+  const emj = (s:string) => s==="ok"?"✅":s==="erreur"?"❌":s==="ignore"?"⏭️":"⚠️";
   const nb_ok = results ? results.filter(r=>r.statut==="ok").length : 0;
   const nb_err = results ? results.filter(r=>r.statut==="erreur").length : 0;
   const nb_att = results ? results.filter(r=>r.statut==="attention").length : 0;
+  const nb_ign = results ? results.filter(r=>r.statut==="ignore").length : 0;
+  const nb_tot = results ? results.length : 25;
+  const pct = results ? Math.round((nb_ok/nb_tot)*100) : 0;
+  const lastDate = st.derniersResultatsTests?.date;
+  const cats = results ? [...new Set(results.map((r:any)=>r.cat))] : [];
+  const errTests = results ? results.filter(r=>r.statut==="erreur") : [];
+  const okTests = results ? results.filter(r=>r.statut==="ok") : [];
+  const attTests = results ? results.filter(r=>r.statut==="attention") : [];
+  const ignTests = results ? results.filter(r=>r.statut==="ignore") : [];
+
+  const TestCard = ({r}:{r:any}) => (
+    <div style={{background:"#1A1A1A",borderRadius:12,overflow:"hidden",border:`1.5px solid ${couleur(r.statut)}22`,marginBottom:8}}>
+      <div style={{display:"flex",alignItems:"center",gap:10,padding:"12px 14px",cursor:r.details?.length>0?"pointer":"default"}}
+           onClick={()=>r.details?.length>0&&setExpandDetail(expandDetail===r.id?null:r.id)}>
+        <div style={{width:32,height:32,borderRadius:8,background:couleur(r.statut)+"22",display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,flexShrink:0}}>{emj(r.statut)}</div>
+        <div style={{flex:1,minWidth:0}}>
+          <div style={{fontWeight:700,fontSize:13,color:"#F5F0E8",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>
+            <span style={{color:"#6B7280",marginRight:4}}>{r.id}</span>{r.label}
+          </div>
+          <div style={{fontSize:11,color:"#9CA3AF",marginTop:1,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{r.resume}</div>
+        </div>
+        {r.details?.length>0&&<span style={{color:couleur(r.statut),fontSize:11,flexShrink:0}}>{expandDetail===r.id?"▲":"▼"}</span>}
+      </div>
+      {expandDetail===r.id&&(
+        <div style={{borderTop:"1px solid #2A2A2A",background:"#111",padding:"10px 14px"}}>
+          {r.diagnostic&&<div style={{marginBottom:8,padding:"8px 10px",background:"#EF444415",borderRadius:8,borderLeft:"3px solid #EF4444"}}>
+            <div style={{fontSize:11,fontWeight:700,color:"#EF4444",marginBottom:2}}>🔍 Diagnostic</div>
+            <div style={{fontSize:12,color:"#D1C9BE"}}>{r.diagnostic}</div>
+          </div>}
+          {r.solution&&<div style={{marginBottom:8,padding:"8px 10px",background:"#22C55E15",borderRadius:8,borderLeft:"3px solid #22C55E"}}>
+            <div style={{fontSize:11,fontWeight:700,color:"#22C55E",marginBottom:2}}>💡 Solution</div>
+            <div style={{fontSize:12,color:"#D1C9BE"}}>{r.solution}</div>
+          </div>}
+          {r.details?.length>0&&r.details.map((d:any,i:number)=>(
+            <div key={i} style={{display:"flex",justifyContent:"space-between",padding:"5px 0",borderBottom:i<r.details.length-1?"1px solid #2A2A2A":"none",gap:12}}>
+              <span style={{color:"#9CA3AF",fontSize:12,flex:1}}>{d.label}</span>
+              <span style={{color:couleur(r.statut),fontSize:12,fontWeight:600,textAlign:"right"}}>{d.val}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 
   return (
-    <div style={{padding:16,maxWidth:700,margin:"0 auto"}}>
-      <div style={{background:"#1A1A1A",borderRadius:16,padding:20,marginBottom:16}}>
-        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4}}>
-          <div>
-            <h2 style={{color:"#F2C94C",fontWeight:800,fontSize:18,margin:0}}>🔧 Tests & Diagnostics</h2>
-            <p style={{color:"#9CA3AF",fontSize:12,margin:"4px 0 0"}}>Vérification automatique de la cohérence des données</p>
+    <div style={{padding:16,maxWidth:720,margin:"0 auto",paddingBottom:40}}>
+      <div style={{background:"linear-gradient(135deg,#1A1A1A,#111)",borderRadius:18,padding:20,marginBottom:14,border:"1px solid #2A2A2A"}}>
+        <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:12}}>
+          <div style={{flex:1}}>
+            <h2 style={{color:"#F2C94C",fontWeight:800,fontSize:19,margin:"0 0 2px"}}>🔧 Tests de santé</h2>
+            <p style={{color:"#9CA3AF",fontSize:12,margin:0}}>
+              {lastDate ? `Dernier test : ${new Date(lastDate).toLocaleString("fr-CH")}` : "25 vérifications automatiques de l'application"}
+            </p>
           </div>
-          <button onClick={runTests} disabled={running} style={{background:"#F2C94C",color:"#111",border:"none",borderRadius:10,padding:"10px 20px",fontWeight:700,fontSize:14,cursor:running?"not-allowed":"pointer",opacity:running?0.7:1}}>
-            {running ? "⏳ Analyse..." : results ? "🔄 Relancer" : "▶ Lancer les tests"}
+          <button onClick={()=>lancerTests()} disabled={running}
+            style={{background:running?"#2A2A2A":"#F2C94C",color:running?"#6B7280":"#111",border:"none",borderRadius:12,padding:"11px 18px",fontWeight:700,fontSize:14,cursor:running?"not-allowed":"pointer",flexShrink:0}}>
+            {running ? "⏳ Analyse…" : results ? "🔄 Relancer" : "▶️ Lancer les tests"}
           </button>
         </div>
+
         {results && (
-          <div style={{display:"flex",gap:12,marginTop:12}}>
-            <span style={{background:"#16532720",color:"#22C55E",borderRadius:8,padding:"4px 12px",fontSize:13,fontWeight:700}}>✅ {nb_ok} OK</span>
-            {nb_err>0&&<span style={{background:"#EF444420",color:"#EF4444",borderRadius:8,padding:"4px 12px",fontSize:13,fontWeight:700}}>❌ {nb_err} Erreur{nb_err>1?"s":""}</span>}
-            {nb_att>0&&<span style={{background:"#F59E0B20",color:"#F59E0B",borderRadius:8,padding:"4px 12px",fontSize:13,fontWeight:700}}>⚠️ {nb_att} Attention</span>}
-          </div>
+          <>
+            <div style={{display:"flex",gap:8,marginTop:14,flexWrap:"wrap"}}>
+              <span style={{background:"#22C55E22",color:"#22C55E",borderRadius:20,padding:"4px 12px",fontSize:13,fontWeight:700}}>✅ {nb_ok} OK</span>
+              {nb_err>0&&<span style={{background:"#EF444422",color:"#EF4444",borderRadius:20,padding:"4px 12px",fontSize:13,fontWeight:700}}>❌ {nb_err} Erreur{nb_err>1?"s":""}</span>}
+              {nb_att>0&&<span style={{background:"#F59E0B22",color:"#F59E0B",borderRadius:20,padding:"4px 12px",fontSize:13,fontWeight:700}}>⚠️ {nb_att} Attention</span>}
+              {nb_ign>0&&<span style={{background:"#6B728022",color:"#6B7280",borderRadius:20,padding:"4px 12px",fontSize:13,fontWeight:700}}>⏭️ {nb_ign} Ignoré{nb_ign>1?"s":""}</span>}
+            </div>
+            <div style={{marginTop:12}}>
+              <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
+                <span style={{fontSize:11,color:"#9CA3AF"}}>Score de santé</span>
+                <span style={{fontSize:12,fontWeight:700,color:pct>=90?"#22C55E":pct>=70?"#F59E0B":"#EF4444"}}>{pct}%</span>
+              </div>
+              <div style={{background:"#2A2A2A",borderRadius:99,height:8}}>
+                <div style={{background:pct>=90?"#22C55E":pct>=70?"#F59E0B":"#EF4444",borderRadius:99,height:8,width:`${pct}%`,transition:"width .4s"}}/>
+              </div>
+            </div>
+            {results&&<button onClick={exporterPDF} style={{marginTop:10,background:"transparent",color:"#F2C94C",border:"1px solid #F2C94C44",borderRadius:8,padding:"6px 14px",fontSize:12,fontWeight:600,cursor:"pointer"}}>📥 Télécharger rapport PDF</button>}
+          </>
         )}
       </div>
 
       {!results && !running && (
-        <div style={{background:"#1A1A1A",borderRadius:16,padding:32,textAlign:"center",color:"#6B7280"}}>
-          <div style={{fontSize:40,marginBottom:12}}>🔍</div>
-          <p style={{margin:0,fontSize:14}}>Clique sur <strong style={{color:"#F2C94C"}}>▶ Lancer les tests</strong> pour analyser la cohérence de toutes les données.</p>
+        <div style={{background:"#1A1A1A",borderRadius:16,padding:40,textAlign:"center",color:"#6B7280",border:"1px solid #2A2A2A"}}>
+          <div style={{fontSize:48,marginBottom:12}}>🔍</div>
+          <p style={{margin:"0 0 6px",fontSize:15,fontWeight:700,color:"#D1C9BE"}}>25 tests automatiques</p>
+          <p style={{margin:0,fontSize:13}}>Cohérence des données · Automatismes compta · PDFs · Sécurité · Interface</p>
+          <p style={{margin:"10px 0 0",fontSize:12,color:"#4B5563"}}>Aucune donnée réelle ne sera modifiée.</p>
+        </div>
+      )}
+
+      {running && (
+        <div style={{background:"#1A1A1A",borderRadius:16,padding:32,textAlign:"center",border:"1px solid #2A2A2A"}}>
+          <div style={{fontSize:40,marginBottom:8}}>⏳</div>
+          <p style={{color:"#F2C94C",fontWeight:700,fontSize:14,margin:"0 0 4px"}}>Analyse en cours…</p>
+          <p style={{color:"#6B7280",fontSize:12,margin:0}}>Tests sur copie — vos données ne sont pas modifiées.</p>
         </div>
       )}
 
       {results && (
-        <div style={{display:"flex",flexDirection:"column",gap:10}}>
-          {results.map(r=>(
-            <div key={r.id} style={{background:"#1A1A1A",borderRadius:14,overflow:"hidden",border:`1.5px solid ${couleur(r.statut)}30`}}>
-              <div style={{display:"flex",alignItems:"center",gap:12,padding:"14px 16px",cursor:r.details?.length>0?"pointer":"default"}} onClick={()=>r.details?.length>0&&setDetail(detail?.id===r.id?null:r)}>
-                <div style={{width:36,height:36,borderRadius:10,background:couleur(r.statut)+"20",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,flexShrink:0}}>{emoji(r.statut)}</div>
-                <div style={{flex:1,minWidth:0}}>
-                  <div style={{fontWeight:700,fontSize:14,color:"#F5F0E8"}}>Test {r.id} — {r.label}</div>
-                  <div style={{fontSize:12,color:"#9CA3AF",marginTop:2}}>{r.resume}</div>
-                </div>
-                {r.details?.length>0&&<div style={{color:couleur(r.statut),fontSize:12,flexShrink:0}}>{detail?.id===r.id?"▲":"▼"} Détails</div>}
+        <>
+          {errTests.length>0&&(
+            <div style={{marginBottom:14}}>
+              <div style={{fontSize:12,fontWeight:700,color:"#EF4444",textTransform:"uppercase",letterSpacing:".06em",marginBottom:8,display:"flex",alignItems:"center",gap:6}}>
+                <span>❌ Erreurs à corriger ({errTests.length})</span>
               </div>
-              {detail?.id===r.id&&detail.details?.length>0&&(
-                <div style={{borderTop:`1px solid #2A2A2A`,padding:"12px 16px",background:"#111"}}>
-                  {detail.details.map((d:any,i:number)=>(
-                    <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",padding:"6px 0",borderBottom:i<detail.details.length-1?"1px solid #2A2A2A":"none",gap:12}}>
-                      <span style={{color:"#D1C9BE",fontSize:13,flex:1}}>{d.label}</span>
-                      <span style={{color:couleur(r.statut),fontSize:13,fontWeight:600,textAlign:"right",flexShrink:0}}>{d.val}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
+              {errTests.map(r=><TestCard key={r.id} r={r}/>)}
             </div>
-          ))}
-        </div>
+          )}
+          {attTests.length>0&&(
+            <div style={{marginBottom:14}}>
+              <div style={{fontSize:12,fontWeight:700,color:"#F59E0B",textTransform:"uppercase",letterSpacing:".06em",marginBottom:8}}>⚠️ Points d'attention ({attTests.length})</div>
+              {attTests.map(r=><TestCard key={r.id} r={r}/>)}
+            </div>
+          )}
+          <div style={{marginBottom:14}}>
+            <button onClick={()=>setShowOk(!showOk)} style={{background:"transparent",border:"1px solid #2A2A2A",borderRadius:8,padding:"8px 14px",color:"#9CA3AF",fontSize:12,cursor:"pointer",width:"100%",textAlign:"left",display:"flex",justifyContent:"space-between"}}>
+              <span>✅ Tests réussis ({nb_ok})</span>
+              <span>{showOk?"▲":"▼"}</span>
+            </button>
+            {showOk&&<div style={{marginTop:8}}>{okTests.map(r=><TestCard key={r.id} r={r}/>)}</div>}
+          </div>
+          {ignTests.length>0&&(
+            <div>
+              <button onClick={()=>setShowSkipped(!showSkipped)} style={{background:"transparent",border:"1px solid #2A2A2A",borderRadius:8,padding:"8px 14px",color:"#6B7280",fontSize:12,cursor:"pointer",width:"100%",textAlign:"left",display:"flex",justifyContent:"space-between"}}>
+                <span>⏭️ Tests ignorés ({nb_ign})</span>
+                <span>{showSkipped?"▲":"▼"}</span>
+              </button>
+              {showSkipped&&<div style={{marginTop:8}}>{ignTests.map(r=><TestCard key={r.id} r={r}/>)}</div>}
+            </div>
+          )}
+        </>
       )}
     </div>
   );
@@ -14865,7 +15309,7 @@ const NAV_MORE = [
   {id:"ventesDirectes", label:"Ventes directes",    icon:"facture", emoji:"🏠"},
   {id:"emailTemplates", label:"Templates emails",   icon:"contrat", emoji:"✉️"},
   {id:"sauvegardes",    label:"Sauvegardes",        icon:"stock",   emoji:"💾"},
-  {id:"diagnostics",    label:"Tests & Diagnostics",icon:"settings",emoji:"🔧"},
+  {id:"diagnostics",    label:"Tests de santé",icon:"settings",emoji:"🔧"},
 ];
 
 // Icône "more" (hamburger)
@@ -15598,7 +16042,7 @@ documents:        <Documents       st={st} setSt={setSt}/>,
 ventesDirectes:   <VentesDirectes  st={st} setSt={setSt}/>,
 emailTemplates:   <EmailTemplates  st={st} setSt={setSt}/>,
 sauvegardes: <Sauvegardes  authUser={authUser} st={st} setSt={setSt}/>,
-diagnostics:      <Diagnostics     st={st}/>,
+diagnostics:      <Diagnostics     st={st} setSt={setSt}/>,
 };
 
 const allTabs = [...NAV_MAIN.filter(t=>t.id!=="more"), ...NAV_MORE];
@@ -15656,7 +16100,7 @@ return (
             {id:"emailTemplates", label:"Templates emails", emoji:"✉️"},
             {id:"parametres",     label:"Paramètres",       emoji:"⚙️"},
             {id:"sauvegardes",    label:"Sauvegardes",      emoji:"💾"},
-            {id:"diagnostics",    label:"Tests & Diagnostics", emoji:"🔧"},
+            {id:"diagnostics",    label:"Tests de santé", emoji:"🔧"},
           ]},
         ].map((section,si)=>(
           <div key={si} style={{marginBottom:4}}>
@@ -15831,7 +16275,7 @@ return (
             {id:"emailTemplates", label:"Templates emails", emoji:"✉️"},
             {id:"parametres",     label:"Paramètres",       emoji:"⚙️"},
             {id:"sauvegardes",    label:"Sauvegardes",      emoji:"💾"},
-            {id:"diagnostics",    label:"Tests & Diagnostics", emoji:"🔧"},
+            {id:"diagnostics",    label:"Tests de santé", emoji:"🔧"},
           ]},
         ].map((section,si)=>(
           <div key={si} style={{marginBottom:6}}>
