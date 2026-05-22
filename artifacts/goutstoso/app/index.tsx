@@ -15141,13 +15141,17 @@ const Diagnostics = ({st,setSt}:{st:any,setSt:any}) => {
       });
     })();
 
+    // Appliquer les overrides "ignoré"
+    const ignorees:string[] = st.testsIgnores||[];
+    tests.forEach((t:any) => { if(ignorees.includes(t.id)) t.statut = "ignore"; });
+
     setSt((p:any)=>({...p, derniersResultatsTests:{
       date: new Date().toISOString(),
       tests,
-      ok: tests.filter(t=>t.statut==="ok").length,
-      erreur: tests.filter(t=>t.statut==="erreur").length,
-      attention: tests.filter(t=>t.statut==="attention").length,
-      ignore: tests.filter(t=>t.statut==="ignore").length,
+      ok: tests.filter((t:any)=>t.statut==="ok").length,
+      erreur: tests.filter((t:any)=>t.statut==="erreur").length,
+      attention: tests.filter((t:any)=>t.statut==="attention").length,
+      ignore: tests.filter((t:any)=>t.statut==="ignore").length,
     }}));
     setResults(tests);
     setRunning(false);
@@ -15200,6 +15204,46 @@ const Diagnostics = ({st,setSt}:{st:any,setSt:any}) => {
     doc.save(`tests-sante-goutstoso-${todayStr()}.pdf`);
   };
 
+  const ignorer = (testId:string) => {
+    setSt((p:any)=>({...p, testsIgnores:[...new Set([...(p.testsIgnores||[]), testId])]}));
+    setResults((prev:any)=>prev ? prev.map((r:any)=>r.id===testId?{...r,statut:"ignore"}:r) : prev);
+  };
+
+  const reactiver = (testId:string) => {
+    setSt((p:any)=>({...p, testsIgnores:(p.testsIgnores||[]).filter((x:string)=>x!==testId)}));
+    setResults((prev:any)=>prev ? prev.map((r:any)=>r.id===testId?{...r,statut:"attention"}:r) : prev);
+  };
+
+  const corrigerAuto = (testId:string) => {
+    if(testId==="2.1") {
+      const payees = (st.factures||[]).filter((f:any)=>f.statut==="payée"&&f.datePaiement);
+      const transIds = new Set((st.transactions||[]).filter((t:any)=>t.factureId).map((t:any)=>t.factureId));
+      const sansEcr = payees.filter((f:any)=>!transIds.has(f.id));
+      if(sansEcr.length===0){alert("Aucune écriture manquante détectée.");return;}
+      if(!window.confirm(`Créer ${sansEcr.length} écriture(s) comptable(s) manquante(s) ?\n\nCes paiements seront enregistrés sans impact sur le solde PostFinance (à corriger dans le journal si besoin).`)) return;
+      setSt((p:any)=>{
+        const newTrans=[...(p.transactions||[])];
+        sansEcr.forEach((f:any)=>{
+          const pv=(p.partenaires||[]).find((par:any)=>par.id===f.partenaireId);
+          newTrans.push({
+            id:"reg-"+f.id+"-"+Date.now(),
+            factureId:f.id,
+            date:f.datePaiement||new Date().toISOString().slice(0,10),
+            compte:"3200",
+            libelle:"Paiement "+f.numero,
+            type:"recette",
+            categorie:"Encaissement facture",
+            montant:parseFloat(f.total||0),
+            description:"Régularisation — "+(f.numero||"")+" — "+((pv?.nom)||""),
+            postfinance:false,
+          });
+        });
+        return {...p, transactions:newTrans};
+      });
+      setTimeout(()=>lancerTests(),400);
+    }
+  };
+
   const couleur = (s:string) => s==="ok"?"#22C55E":s==="erreur"?"#EF4444":s==="ignore"?"#6B7280":"#F59E0B";
   const emj = (s:string) => s==="ok"?"✅":s==="erreur"?"❌":s==="ignore"?"⏭️":"⚠️";
   const nb_ok = results ? results.filter(r=>r.statut==="ok").length : 0;
@@ -15244,6 +15288,28 @@ const Diagnostics = ({st,setSt}:{st:any,setSt:any}) => {
               <span style={{color:couleur(r.statut),fontSize:12,fontWeight:600,textAlign:"right"}}>{d.val}</span>
             </div>
           ))}
+          {(r.statut==="erreur"||r.statut==="attention")&&(
+            <div style={{marginTop:10,display:"flex",gap:6,flexWrap:"wrap" as const}}>
+              {r.id==="2.1"&&(
+                <button onClick={(e:any)=>{e.stopPropagation();corrigerAuto(r.id);}}
+                  style={{flex:1,background:"#22C55E22",border:"1px solid #22C55E44",borderRadius:8,padding:"7px 10px",fontSize:12,fontWeight:700,color:"#22C55E",cursor:"pointer"}}>
+                  🔧 Corriger automatiquement
+                </button>
+              )}
+              <button onClick={(e:any)=>{e.stopPropagation();ignorer(r.id);}}
+                style={{background:"#6B728022",border:"1px solid #6B728044",borderRadius:8,padding:"7px 10px",fontSize:12,fontWeight:600,color:"#9CA3AF",cursor:"pointer"}}>
+                ⏭️ Ignorer
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+      {r.statut==="ignore"&&(
+        <div style={{padding:"8px 14px",borderTop:"1px solid #2A2A2A",display:"flex",justifyContent:"flex-end"}}>
+          <button onClick={(e:any)=>{e.stopPropagation();reactiver(r.id);}}
+            style={{background:"#F59E0B22",border:"1px solid #F59E0B44",borderRadius:8,padding:"6px 12px",fontSize:11,fontWeight:600,color:"#F59E0B",cursor:"pointer"}}>
+            ↩️ Réactiver ce test
+          </button>
         </div>
       )}
     </div>
