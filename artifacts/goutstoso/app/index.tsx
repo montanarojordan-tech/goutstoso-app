@@ -4013,7 +4013,8 @@ body: facture.numero+" · "+(pv?.nom||"Client")+" · CHF "+parseFloat(facture.to
 const calcTotal = (lignes, typeClient, produits) => sum(
 (lignes||[]).filter(l=>l.produitId).map(l=>{
 const p = produits.find(x=>x.id===l.produitId);
-const pu = p?(typeClient==="revendeur"?p.prixRevendeur:p.prixClient):0;
+const defaultPu = p?(typeClient==="revendeur"?p.prixRevendeur:p.prixClient):0;
+const pu = (l.prixUnitaire!=null && l.prixUnitaire!=="") ? parseFloat(l.prixUnitaire)||0 : defaultPu;
 return (l.qte||0)*pu;
 })
 );
@@ -4213,8 +4214,19 @@ const del = id => setSt(p=>({
   transactions: (p.transactions||[]).filter(t=>t.factureId!==id),
 }));
 
-const addLigne = () => setForm(p=>({...p,lignes:[...p.lignes,{produitId:"",qte:1}]}));
-const updLigne = (i,k,v) => setForm(p=>({...p,lignes:p.lignes.map((l,j)=>j===i?{...l,[k]:v}:l)}));
+const addLigne = () => setForm(p=>({...p,lignes:[...p.lignes,{produitId:"",qte:1,prixUnitaire:""}]}));
+const updLigne = (i,k,v) => setForm(p=>{
+  const lignes = p.lignes.map((l,j)=>{
+    if(j!==i) return l;
+    const updated = {...l,[k]:v};
+    if(k==="produitId") {
+      const prod = (st.produits||[]).find(x=>x.id===v);
+      updated.prixUnitaire = prod ? (p.typeClient==="revendeur"?prod.prixRevendeur:prod.prixClient) : "";
+    }
+    return updated;
+  });
+  return {...p,lignes};
+});
 const addLigneOfferte = () => setForm(p=>({...p,lignesOffertes:[...(p.lignesOffertes||[]),{produitId:"",qte:1,texte:"Offert avec votre commande"}]}));
 const updLigneOfferte = (i,k,v) => setForm(p=>({...p,lignesOffertes:(p.lignesOffertes||[]).map((l,j)=>j===i?{...l,[k]:v}:l)}));
 const delLigneOfferte = (i) => setForm(p=>({...p,lignesOffertes:(p.lignesOffertes||[]).filter((_,j)=>j!==i)}));
@@ -4384,7 +4396,8 @@ const echeance=new Date(new Date(f.date).getTime()+30*86400000).toISOString().sl
 
   f.lignes.filter(l=>l.produitId).forEach((l,i)=>{
     const p2=st.produits.find(x=>x.id===l.produitId);
-    const pu=p2?(f.typeClient==="revendeur"?p2.prixRevendeur:p2.prixClient):0;
+    const defaultPu2=p2?(f.typeClient==="revendeur"?p2.prixRevendeur:p2.prixClient):0;
+    const pu=(l.prixUnitaire!=null&&l.prixUnitaire!=="") ? parseFloat(l.prixUnitaire)||0 : defaultPu2;
     doc.setFillColor(i%2===0?250:255,i%2===0?250:255,i%2===0?248:255);
     doc.rect(mg,y,W-mg*2,11,"F");
     doc.setDrawColor(240,240,238);doc.setLineWidth(0.2);doc.rect(mg,y,W-mg*2,11,"S");
@@ -5207,23 +5220,56 @@ return {Numero:f.numero,Date:f.date,Client:pv?.nom,Total:total,Statut:f.statut};
               {(st.clients||[]).filter(c=>c.categorie!=="partenaire").length>0&&<optgroup label="👤 Clients">{(st.clients||[]).filter(c=>c.categorie!=="partenaire").map(c=><option key={c.id} value={c.id}>{c.nom}</option>)}</optgroup>}
             </select>
           </div>
-          <Sel label="Prix" value={form.typeClient} onChange={v=>setForm(p=>({...p,typeClient:v}))}
-            options={[{v:"revendeur",l:"Prix pro"},{v:"client",l:"Prix public"}]}/>
+          <Sel label="Prix" value={form.typeClient} onChange={v=>setForm(p=>({
+            ...p, typeClient:v,
+            lignes: p.lignes.map(l=>{
+              const prod=(st.produits||[]).find(x=>x.id===l.produitId);
+              return prod ? {...l, prixUnitaire: v==="revendeur"?prod.prixRevendeur:prod.prixClient} : l;
+            })
+          }))} options={[{v:"revendeur",l:"Prix pro"},{v:"client",l:"Prix public"}]}/>
         </div>
         <F label="Date" type="date" value={form.date} onChange={v=>setForm(p=>({...p,date:v}))}/>
         <div>
           <label style={{fontSize:11,fontWeight:600,color:"#9CA3AF",textTransform:"uppercase",letterSpacing:".06em",display:"block",marginBottom:8}}>Produits</label>
-          {(form.lignes||[]).map((l,i)=>(
-            <div key={i} style={{display:"grid",gridTemplateColumns:"1fr 60px auto",gap:8,marginBottom:8,alignItems:"flex-end"}}>
-              <Sel label="" value={l.produitId} onChange={v=>updLigne(i,"produitId",v)}
-                options={[{v:"",l:"- Produit -"},...st.produits.filter(p=>p.actif).map(p=>({v:p.id,l:`${p.nom} ${p.variante} ${p.format}`}))]}/>
-              <input type="number" value={l.qte} min={1} onChange={e=>updLigne(i,"qte",+e.target.value)}
-                style={{padding:"11px 8px",fontSize:16,border:"1.5px solid #E5E5E0",borderRadius:10,textAlign:"center",width:60}}/>
-              <button onClick={()=>setForm(p=>({...p,lignes:p.lignes.filter((_,j)=>j!==i)}))} style={{background:"#FEE2E2",border:"none",borderRadius:8,padding:"10px 8px",cursor:"pointer",display:"flex"}}>
-                <Ic n="trash" s={13}/>
-              </button>
+          {(form.lignes||[]).map((l,i)=>{
+            const prod = st.produits.find(p=>p.id===l.produitId);
+            const defaultPu = prod ? (form.typeClient==="revendeur"?prod.prixRevendeur:prod.prixClient) : 0;
+            const puAffiche = (l.prixUnitaire!=null&&l.prixUnitaire!=="") ? l.prixUnitaire : (prod?defaultPu:"");
+            const estModifie = prod && parseFloat(l.prixUnitaire)!==defaultPu && l.prixUnitaire!=null && l.prixUnitaire!=="";
+            return (
+            <div key={i} style={{marginBottom:8}}>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 52px auto",gap:8,marginBottom:4,alignItems:"flex-end"}}>
+                <Sel label="" value={l.produitId} onChange={v=>updLigne(i,"produitId",v)}
+                  options={[{v:"",l:"- Produit -"},...st.produits.filter(p=>p.actif).map(p=>({v:p.id,l:`${p.nom} ${p.variante} ${p.format}`}))]}/>
+                <input type="number" value={l.qte} min={1} onChange={e=>updLigne(i,"qte",+e.target.value)}
+                  style={{padding:"11px 8px",fontSize:16,border:"1.5px solid #E5E5E0",borderRadius:10,textAlign:"center"}}/>
+                <button onClick={()=>setForm(p=>({...p,lignes:p.lignes.filter((_,j)=>j!==i)}))} style={{background:"#FEE2E2",border:"none",borderRadius:8,padding:"10px 8px",cursor:"pointer",display:"flex"}}>
+                  <Ic n="trash" s={13}/>
+                </button>
+              </div>
+              {l.produitId&&(
+                <div style={{display:"flex",alignItems:"center",gap:6,paddingLeft:2}}>
+                  <span style={{fontSize:11,color:"#9CA3AF",whiteSpace:"nowrap"}}>Prix unit.</span>
+                  <div style={{display:"flex",alignItems:"center",gap:4,flex:1}}>
+                    <span style={{fontSize:12,color:"#6B7280"}}>CHF</span>
+                    <input type="number" step="0.01" min="0"
+                      value={puAffiche}
+                      onChange={e=>updLigne(i,"prixUnitaire",e.target.value===""?"":parseFloat(e.target.value)||0)}
+                      style={{width:72,padding:"6px 8px",fontSize:13,border:`1.5px solid ${estModifie?"#F2C94C":"#E5E5E0"}`,borderRadius:8,textAlign:"right",background:estModifie?"#FFFBEB":"#fff",fontWeight:estModifie?700:400}}/>
+                    {estModifie&&(
+                      <button onClick={()=>updLigne(i,"prixUnitaire",defaultPu)}
+                        title="Remettre le prix catalogue"
+                        style={{background:"none",border:"none",cursor:"pointer",fontSize:14,color:"#9CA3AF",padding:0,lineHeight:1}}>↺</button>
+                    )}
+                  </div>
+                  <span style={{fontSize:11,color:"#9CA3AF",marginLeft:"auto"}}>
+                    = CHF {((parseFloat(String(puAffiche))||0)*(l.qte||0)).toFixed(2)}
+                  </span>
+                </div>
+              )}
             </div>
-          ))}
+            );
+          })}
           <button onClick={addLigne} style={{background:"none",border:"1.5px dashed #E5E5E0",borderRadius:10,padding:"8px",width:"100%",color:"#9CA3AF",fontSize:13,cursor:"pointer",marginTop:2}}>
             + Ajouter un produit
           </button>
