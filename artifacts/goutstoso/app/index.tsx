@@ -14985,7 +14985,7 @@ const Diagnostics = ({st,setSt}:{st:any,setSt:any}) => {
     await (async()=>{
       try {
         const r = await Promise.race([
-          fetch("https://api.goutstoso.ch/api.php?action=ping"),
+          fetch("/api/goutstoso?action=ping"),
           new Promise((_,rej)=>setTimeout(()=>rej(new Error("Timeout 5s")),5000)),
         ]) as Response;
         push({ id:"2.8", cat:"⚙️ Automatismes", label:"Sync cloud Infomaniak",
@@ -14993,7 +14993,7 @@ const Diagnostics = ({st,setSt}:{st:any,setSt:any}) => {
           resume: r.ok?"API Infomaniak accessible — synchronisation opérationnelle.":`HTTP ${r.status} — L'API Infomaniak ne répond pas correctement.`,
           diagnostic: r.ok?null:"La sauvegarde cloud peut ne pas fonctionner.",
           solution: r.ok?null:"Vérifier que l'URL Infomaniak est en ligne et que le fichier api.php est accessible.",
-          details:[{label:"URL testée",val:"api.goutstoso.ch/api.php"},{label:"HTTP Status",val:String(r.status)}],
+          details:[{label:"URL testée",val:"/api/goutstoso"},{label:"HTTP Status",val:String(r.status)}],
         });
       } catch(e:any) {
         push({ id:"2.8", cat:"⚙️ Automatismes", label:"Sync cloud Infomaniak",
@@ -15483,7 +15483,7 @@ const IcMore = ({s=22}) => (
 </svg>
 );
 
-const CLOUD_URL = "https://api.goutstoso.ch/api.php";
+const CLOUD_URL = "/api/goutstoso";
 const sendEmail = async ({to, subject, body, toName=""}:{to:string,subject:string,body:string,toName?:string}) => {
   if(!to){alert("Adresse email manquante");return;}
   // Convertit le HTML basique (balises <br>) en texte brut pour l'API
