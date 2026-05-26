@@ -16166,7 +16166,7 @@ const iv = setInterval(async()=>{
 if(Date.now() - lastLocalChange.current < 15000) return;
 const remote = await cloudLoad();
 if(remote) { const next = hydrateData(remote); setSt(next); try { localStorage.setItem("goutstoso_v2", JSON.stringify(next)); } catch(e){} }
-}, 5*60*1000);
+}, 30*1000);
 return ()=>clearInterval(iv);
 },[]);
 
