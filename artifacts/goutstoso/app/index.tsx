@@ -14981,26 +14981,26 @@ const Diagnostics = ({st,setSt}:{st:any,setSt:any}) => {
       });
     })();
 
-    // 2.8 Sync cloud Infomaniak
+    // 2.8 Sync cloud Replit
     await (async()=>{
       try {
         const r = await Promise.race([
-          fetch("/api/goutstoso?action=ping"),
+          fetch("/api/goutstoso"),
           new Promise((_,rej)=>setTimeout(()=>rej(new Error("Timeout 5s")),5000)),
         ]) as Response;
-        push({ id:"2.8", cat:"⚙️ Automatismes", label:"Sync cloud Infomaniak",
+        push({ id:"2.8", cat:"⚙️ Automatismes", label:"Sync cloud Replit",
           statut: r.ok?"ok":"erreur",
-          resume: r.ok?"API Infomaniak accessible — synchronisation opérationnelle.":`HTTP ${r.status} — L'API Infomaniak ne répond pas correctement.`,
+          resume: r.ok?"API Replit accessible — synchronisation opérationnelle.":`HTTP ${r.status} — L'API Replit ne répond pas correctement.`,
           diagnostic: r.ok?null:"La sauvegarde cloud peut ne pas fonctionner.",
-          solution: r.ok?null:"Vérifier que l'URL Infomaniak est en ligne et que le fichier api.php est accessible.",
+          solution: r.ok?null:"Vérifier que l'application Replit est bien publiée et en ligne.",
           details:[{label:"URL testée",val:"/api/goutstoso"},{label:"HTTP Status",val:String(r.status)}],
         });
       } catch(e:any) {
-        push({ id:"2.8", cat:"⚙️ Automatismes", label:"Sync cloud Infomaniak",
+        push({ id:"2.8", cat:"⚙️ Automatismes", label:"Sync cloud Replit",
           statut:"erreur",
-          resume:"Connexion API Infomaniak impossible.",
+          resume:"Connexion API Replit impossible.",
           diagnostic: e.message,
-          solution:"Vérifier la connexion internet. Si persistant, contacter l'hébergement Infomaniak.",
+          solution:"Vérifier la connexion internet ou republier l'application.",
           details:[{label:"Erreur",val:e.message}],
         });
       }

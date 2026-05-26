@@ -5,6 +5,11 @@ import crypto from "crypto";
 
 const router: IRouter = Router();
 
+// GET /api/goutstoso — ping/health check
+router.get("/goutstoso", (_req, res) => {
+  res.json({ success: true, message: "Goutstoso API – OK" });
+});
+
 // ── Stockage persistant dans le workspace ────────────────────────────────────
 const DATA_DIR = path.join(process.cwd(), ".local", "goutstoso-data");
 const BACKUP_DIR = path.join(DATA_DIR, "backups");
