@@ -15177,13 +15177,13 @@ const Diagnostics = ({st,setSt}:{st:any,setSt:any}) => {
     // 5.4 Performance (temps depuis chargement)
     (() => {
       const ms=Math.round(performance.now());
-      const ok=ms<10000;
+      const ok=ms<20000;
       push({ id:"5.4", cat:"🎨 Interface", label:"Performance (temps de chargement)",
         statut: ok?"ok":"attention",
         resume: ok?`Application chargée en ${ms}ms — performance acceptable.`:`Temps de chargement élevé : ${ms}ms.`,
         diagnostic: ok?null:"L'application met trop de temps à démarrer.",
         solution: ok?null:"Fermer et rouvrir l'application. Si persistant, vider le cache du navigateur.",
-        details:[{label:"Temps depuis démarrage",val:`${ms}ms`},{label:"Seuil",val:"< 10 000ms"}],
+        details:[{label:"Temps depuis démarrage",val:`${ms}ms`},{label:"Seuil",val:"< 20 000ms"}],
       });
     })();
 
