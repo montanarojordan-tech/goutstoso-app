@@ -15261,6 +15261,22 @@ const Diagnostics = ({st,setSt}:{st:any,setSt:any}) => {
   };
 
   const corrigerAuto = (testId:string) => {
+    if(testId==="1.3") {
+      const pvIds = new Set((st.partenaires||[]).map((p:any)=>p.id));
+      const orphelines = (st.factures||[]).filter((f:any)=>f.partenaireId && !pvIds.has(f.partenaireId));
+      const missingIds = [...new Set(orphelines.map((f:any)=>f.partenaireId))];
+      if(missingIds.length===0){alert("Aucun partenaire manquant.");return;}
+      const nouveaux:any[]=[];
+      for(const mid of missingIds){
+        const nom = window.prompt(`Quel est le nom du partenaire supprimé ?\n(ID: ${mid})`, "Café l'Annexe");
+        if(!nom){alert("Correction annulée.");return;}
+        nouveaux.push({id:mid,nom:nom.trim(),type:"point_de_vente",adresse:"",npa:"",localite:"",email:"",telephone:"",notes:"",dateCreation:new Date().toISOString().slice(0,10)});
+      }
+      if(!window.confirm(`Recréer ${nouveaux.length} partenaire(s) manquant(s) ?\n${nouveaux.map(n=>n.nom).join(", ")}`)) return;
+      setSt((p:any)=>({...p, partenaires:[...(p.partenaires||[]),...nouveaux]}));
+      setTimeout(()=>lancerTests(),400);
+      return;
+    }
     if(testId==="2.1") {
       const payees = (st.factures||[]).filter((f:any)=>f.statut==="payée"&&f.datePaiement);
       const transIds = new Set((st.transactions||[]).filter((t:any)=>t.factureId).map((t:any)=>t.factureId));
@@ -15336,10 +15352,10 @@ const Diagnostics = ({st,setSt}:{st:any,setSt:any}) => {
           ))}
           {(r.statut==="erreur"||r.statut==="attention")&&(
             <div style={{marginTop:10,display:"flex",gap:6,flexWrap:"wrap" as const}}>
-              {r.id==="2.1"&&(
+              {(r.id==="1.3"||r.id==="2.1")&&(
                 <button onClick={(e:any)=>{e.stopPropagation();corrigerAuto(r.id);}}
                   style={{flex:1,background:"#22C55E22",border:"1px solid #22C55E44",borderRadius:8,padding:"7px 10px",fontSize:12,fontWeight:700,color:"#22C55E",cursor:"pointer"}}>
-                  🔧 Corriger automatiquement
+                  🔧 {r.id==="1.3"?"Recréer le partenaire manquant":"Corriger automatiquement"}
                 </button>
               )}
               <button onClick={(e:any)=>{e.stopPropagation();ignorer(r.id);}}
