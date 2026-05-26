@@ -16000,7 +16000,7 @@ const token = getToken();
 const r = await fetch(CLOUD_URL, {
 method:"POST",
 headers:{"Content-Type":"application/json","Accept":"application/json","X-Auth-Token":token},
-body: JSON.stringify({...data, _token:token})
+body: JSON.stringify({...data, _action:"save_data", _token:token})
 });
 return r.ok;
 } catch(e){}
