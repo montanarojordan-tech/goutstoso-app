@@ -16181,7 +16181,21 @@ React.useEffect(()=>{
 const iv = setInterval(async()=>{
 if(Date.now() - lastLocalChange.current < 15000) return;
 const remote = await cloudLoad();
-if(remote) { const next = hydrateData(remote); setSt(next); try { localStorage.setItem("goutstoso_v2", JSON.stringify(next)); } catch(e){} }
+if(remote) {
+  const next = hydrateData(remote);
+  // Préserver les pièces jointes PDF stockées localement (non syncées car trop lourdes)
+  setSt((cur:any) => {
+    const localPJs: Record<string,{pdfFacture:any,pdfFactureNom:any,pdfBonLivraison:any,pdfBonLivraisonNom:any}> = {};
+    (cur.facturesFournisseurs||[]).forEach((f:any)=>{
+      if(f.pdfFacture||f.pdfBonLivraison) localPJs[f.id]={pdfFacture:f.pdfFacture,pdfFactureNom:f.pdfFactureNom,pdfBonLivraison:f.pdfBonLivraison,pdfBonLivraisonNom:f.pdfBonLivraisonNom};
+    });
+    const merged = Object.keys(localPJs).length > 0
+      ? {...next, facturesFournisseurs: (next.facturesFournisseurs||[]).map((f:any)=>localPJs[f.id]?{...f,...localPJs[f.id]}:f)}
+      : next;
+    try { localStorage.setItem("goutstoso_v2", JSON.stringify(merged)); } catch(e){}
+    return merged;
+  });
+}
 }, 30*1000);
 return ()=>clearInterval(iv);
 },[]);
