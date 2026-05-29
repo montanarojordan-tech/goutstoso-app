@@ -5633,7 +5633,7 @@ transByPeriode.forEach(t=>{
 const m = t.date?.slice(0,7); if(!m) return;
 if(!parMois[m]) parMois[m] = {recettes:0,depenses:0};
 if(t.type==="recette") parMois[m].recettes += +t.montant;
-else parMois[m].depenses += +t.montant;
+else if(t.type==="depense") parMois[m].depenses += +t.montant;
 });
 const moisTries = Object.keys(parMois).sort();
 const maxValue = Math.max(...Object.values(parMois).map(m=>Math.max(m.recettes,m.depenses)), 100);
