@@ -16010,13 +16010,51 @@ const [st,setSt] = useState(INIT);
 const [loading, setLoading] = React.useState(true);
 const [syncing, setSyncing] = React.useState(false);
 
-const cloudSave = async (data) => {
+// Retire tous les champs base64 (photos, PDFs, captures) avant envoi cloud — trop lourds
+const stripBinaries = (data:any) => {
+  if(!data) return data;
+  return {
+    ...data,
+    produits: (data.produits||[]).map((p:any)=>p.photoUrl?{...p,photoUrl:null}:p),
+    partenaires: (data.partenaires||[]).map((p:any)=>p.logo?{...p,logo:null}:p),
+    associes: (data.associes||[]).map((a:any)=>({...a,apports:(a.apports||[]).map((ap:any)=>ap.captureVirement?{...ap,captureVirement:null}:ap)})),
+    documents: data.documents ? Object.fromEntries(Object.entries(data.documents).map(([k,v]:any)=>[k,v?.pieceJointe?{...v,pieceJointe:null,pieceJointeNom:null,pieceJointeDate:null}:v])) : data.documents,
+    facturesFournisseurs: (data.facturesFournisseurs||[]).map((f:any)=>({...f,pdfFacture:null,pdfFactureNom:"",pdfBonLivraison:null,pdfBonLivraisonNom:""})),
+  };
+};
+
+// Réinjecte les binaires locaux dans l'état téléchargé depuis le cloud
+const mergeBinaries = (remote:any, local:any):any => {
+  if(!remote||!local) return remote;
+  const localPhotos:Record<string,string>={};
+  (local.produits||[]).forEach((p:any)=>{if(p.photoUrl)localPhotos[p.id]=p.photoUrl;});
+  const localLogos:Record<string,string>={};
+  (local.partenaires||[]).forEach((p:any)=>{if(p.logo)localLogos[p.id]=p.logo;});
+  const localCaptures:Record<string,string>={};
+  (local.associes||[]).forEach((a:any)=>{(a.apports||[]).forEach((ap:any)=>{if(ap.captureVirement)localCaptures[ap.id]=ap.captureVirement;});});
+  const localPJs:Record<string,any>={};
+  (local.facturesFournisseurs||[]).forEach((f:any)=>{if(f.pdfFacture||f.pdfBonLivraison)localPJs[f.id]={pdfFacture:f.pdfFacture,pdfFactureNom:f.pdfFactureNom,pdfBonLivraison:f.pdfBonLivraison,pdfBonLivraisonNom:f.pdfBonLivraisonNom};});
+  const locDocs = local.documents||{};
+  const remDocs = remote.documents||{};
+  const mergedDocs:any={...remDocs};
+  Object.keys(locDocs).forEach(k=>{if(locDocs[k]?.pieceJointe)mergedDocs[k]={...(mergedDocs[k]||locDocs[k]),pieceJointe:locDocs[k].pieceJointe,pieceJointeNom:locDocs[k].pieceJointeNom,pieceJointeDate:locDocs[k].pieceJointeDate};});
+  return {
+    ...remote,
+    produits:(remote.produits||[]).map((p:any)=>localPhotos[p.id]?{...p,photoUrl:localPhotos[p.id]}:p),
+    partenaires:(remote.partenaires||[]).map((p:any)=>localLogos[p.id]?{...p,logo:localLogos[p.id]}:p),
+    associes:(remote.associes||[]).map((a:any)=>({...a,apports:(a.apports||[]).map((ap:any)=>localCaptures[ap.id]?{...ap,captureVirement:localCaptures[ap.id]}:ap)})),
+    documents:mergedDocs,
+    facturesFournisseurs:Object.keys(localPJs).length>0?(remote.facturesFournisseurs||[]).map((f:any)=>localPJs[f.id]?{...f,...localPJs[f.id]}:f):(remote.facturesFournisseurs||[]),
+  };
+};
+
+const cloudSave = async (data:any) => {
 try {
 const token = getToken();
 const r = await fetch(CLOUD_URL, {
 method:"POST",
 headers:{"Content-Type":"application/json","Accept":"application/json","X-Auth-Token":token},
-body: JSON.stringify({...data, _action:"save_data", _token:token})
+body: JSON.stringify({...stripBinaries(data), _action:"save_data", _token:token})
 });
 return r.ok;
 } catch(e){}
@@ -16183,15 +16221,9 @@ if(Date.now() - lastLocalChange.current < 15000) return;
 const remote = await cloudLoad();
 if(remote) {
   const next = hydrateData(remote);
-  // Préserver les pièces jointes PDF stockées localement (non syncées car trop lourdes)
+  // Réinjecter tous les binaires locaux (photos, PDFs, captures) non syncés car trop lourds
   setSt((cur:any) => {
-    const localPJs: Record<string,{pdfFacture:any,pdfFactureNom:any,pdfBonLivraison:any,pdfBonLivraisonNom:any}> = {};
-    (cur.facturesFournisseurs||[]).forEach((f:any)=>{
-      if(f.pdfFacture||f.pdfBonLivraison) localPJs[f.id]={pdfFacture:f.pdfFacture,pdfFactureNom:f.pdfFactureNom,pdfBonLivraison:f.pdfBonLivraison,pdfBonLivraisonNom:f.pdfBonLivraisonNom};
-    });
-    const merged = Object.keys(localPJs).length > 0
-      ? {...next, facturesFournisseurs: (next.facturesFournisseurs||[]).map((f:any)=>localPJs[f.id]?{...f,...localPJs[f.id]}:f)}
-      : next;
+    const merged = mergeBinaries(next, cur);
     try { localStorage.setItem("goutstoso_v2", JSON.stringify(merged)); } catch(e){}
     return merged;
   });
