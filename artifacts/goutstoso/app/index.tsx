@@ -5556,7 +5556,7 @@ const cleaned = {...form, montant};
 const impactOf = (t) => {
 if(!t || !t.postfinance) return 0;
 const m = parseFloat(t.montant)||0;
-return t.type==="recette" ? m : -m;
+return (t.type==="recette"||t.type==="capital") ? m : -m;
 };
 if(form.id) {
 // Modification: annuler ancien impact, ajouter nouveau
@@ -5866,12 +5866,12 @@ return (
             <p>Aucune écriture</p>
           </div>
         : transByPeriode.slice().sort((a,b)=>b.date.localeCompare(a.date)).map((t,i)=>(
-            <div key={t.id} style={{background:"#fff",border:"1px solid #EAE7E0",borderLeft:"3px solid "+(t.type==="recette"?"#22C55E":"#EF4444"),borderRadius:10,padding:"10px 12px"}}>
+            <div key={t.id} style={{background:"#fff",border:"1px solid #EAE7E0",borderLeft:"3px solid "+(t.type==="recette"?"#22C55E":t.type==="capital"?"#7C3AED":"#EF4444"),borderRadius:10,padding:"10px 12px"}}>
               {/* Ligne 1: libellé + montant */}
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8,marginBottom:4}}>
                 <p style={{fontSize:13,fontWeight:600,color:"#0A0A0A",flex:1,minWidth:0,wordBreak:"break-word"}}>{t.description||t.libelle}</p>
-                <p style={{fontSize:14,fontWeight:700,color:t.type==="recette"?"#15803D":"#B91C1C",whiteSpace:"nowrap",flexShrink:0}}>
-                  {t.type==="recette"?"+":"-"}{chf(t.montant)}
+                <p style={{fontSize:14,fontWeight:700,color:t.type==="recette"?"#15803D":t.type==="capital"?"#6D28D9":"#B91C1C",whiteSpace:"nowrap",flexShrink:0}}>
+                  {(t.type==="recette"||t.type==="capital")?"+":"-"}{chf(t.montant)}
                 </p>
               </div>
               {/* Ligne 2: date, compte, catégorie */}
@@ -7154,7 +7154,7 @@ return (
           // Calculer le solde théorique à partir des écritures + solde initial
           const impactTotal = (st.transactions||[]).filter(t=>t.postfinance).reduce((acc,t)=>{
             const m = parseFloat(t.montant)||0;
-            return acc + (t.type==="recette"?m:-m);
+            return acc + ((t.type==="recette"||t.type==="capital")?m:-m);
           },0);
           // Solde initial estimé = solde actuel - impact = solde de départ
           // Pour le recalcul, on propose: solde initial + tous les impacts postfinance
