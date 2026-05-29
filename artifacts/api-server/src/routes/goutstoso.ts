@@ -13,10 +13,11 @@ router.get("/goutstoso", (_req, res) => {
 // ── Stockage persistant dans le workspace ────────────────────────────────────
 const DATA_DIR = path.join(process.cwd(), ".local", "goutstoso-data");
 const BACKUP_DIR = path.join(DATA_DIR, "backups");
+const FILES_DIR = path.join(DATA_DIR, "files");
 const MAX_BACKUPS = 36;
 const TOKEN_TTL = 60 * 60 * 24 * 30 * 1000; // 30 jours en ms
 
-for (const d of [DATA_DIR, BACKUP_DIR]) {
+for (const d of [DATA_DIR, BACKUP_DIR, FILES_DIR]) {
   if (!fs.existsSync(d)) fs.mkdirSync(d, { recursive: true });
 }
 
@@ -186,6 +187,52 @@ function requireAdmin(req: Request, res: Response): User | null {
 function publicUser(u: User) {
   return { id: u.id, username: u.username, display_name: u.display_name, role: u.role };
 }
+
+// ── Pièces jointes (upload / download) ───────────────────────────────────────
+interface FileMeta {
+  id: string;
+  name: string;
+  mimeType: string;
+  userId: string;
+  created_at: string;
+}
+const FILES_META = path.join(FILES_DIR, "meta.json");
+function getFilesMeta(): FileMeta[] { return readJson<FileMeta[]>(FILES_META, []); }
+
+// POST /api/goutstoso/files — upload base64 → stocké en binaire, retourne { fileId }
+router.post("/goutstoso/files", async (req: Request, res: Response) => {
+  const user = requireAuth(req, res);
+  if (!user) return;
+  const { fileData, fileName, mimeType } = req.body as { fileData: string; fileName: string; mimeType: string };
+  if (!fileData || !fileData.startsWith("data:")) return fail(res, "Données invalides");
+  const comma = fileData.indexOf(",");
+  if (comma === -1) return fail(res, "Format invalide");
+  const base64Data = fileData.slice(comma + 1);
+  const fileId = crypto.randomUUID();
+  const buffer = Buffer.from(base64Data, "base64");
+  fs.writeFileSync(path.join(FILES_DIR, fileId), buffer);
+  const meta = getFilesMeta();
+  meta.push({ id: fileId, name: fileName || "fichier", mimeType: mimeType || "application/octet-stream", userId: user.id, created_at: new Date().toISOString() });
+  writeJson(FILES_META, meta);
+  return ok(res, { fileId });
+});
+
+// GET /api/goutstoso/files/:fileId — télécharger (auth par query ?token=xxx)
+router.get("/goutstoso/files/:fileId", (req: Request, res: Response) => {
+  const tok = (req.query["token"] as string) || (req.headers["x-auth-token"] as string) || "";
+  if (!tok) return res.status(401).json({ error: "Non autorisé" });
+  const t = findToken(tok);
+  if (!t) return res.status(401).json({ error: "Token invalide" });
+  const user = findUserById(t.user_id);
+  if (!user || !user.active) return res.status(401).json({ error: "Non autorisé" });
+  const fileId = req.params["fileId"]!;
+  const filePath = path.join(FILES_DIR, fileId);
+  if (!fs.existsSync(filePath)) return res.status(404).json({ error: "Fichier introuvable" });
+  const meta = getFilesMeta().find(m => m.id === fileId);
+  res.setHeader("Content-Type", meta?.mimeType || "application/octet-stream");
+  res.setHeader("Content-Disposition", `inline; filename="${meta?.name || "fichier"}"`);
+  res.send(fs.readFileSync(filePath));
+});
 
 // ── Route principale ─────────────────────────────────────────────────────────
 router.all("/goutstoso", async (req: Request, res: Response) => {

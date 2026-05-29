@@ -1269,16 +1269,20 @@ Catalogue
           <label style={{fontSize:11,fontWeight:600,color:"#9CA3AF",textTransform:"uppercase",letterSpacing:".06em",display:"block",marginBottom:8}}>Photo du produit</label>
           <div style={{display:"flex",alignItems:"center",gap:12}}>
             {form.photoUrl
-              ? <img src={form.photoUrl} style={{width:60,height:80,objectFit:"contain",borderRadius:8,border:"1px solid #E5E5E0",background:"#F5F5F0"}}/>
+              ? <img src={getFileUrl(form.photoUrl)} style={{width:60,height:80,objectFit:"contain",borderRadius:8,border:"1px solid #E5E5E0",background:"#F5F5F0"}}/>
               : <div style={{width:60,height:80,borderRadius:8,border:"2px dashed #E5E5E0",display:"flex",alignItems:"center",justifyContent:"center",background:"#F5F5F0",fontSize:24}}>📷</div>
             }
             <div style={{flex:1}}>
               <input type="file" accept="image/*" id="photo-upload" style={{display:"none"}}
-                onChange={e=>{
+                onChange={async e=>{
                   const file = e.target.files[0];
                   if(!file) return;
                   const reader = new FileReader();
-                  reader.onload = ev => setForm(p=>({...p,photoUrl:ev.target.result}));
+                  reader.onload = async ev => {
+                    const b64 = ev.target.result as string;
+                    const fileId = await uploadFile(b64, file.name, file.type||"image/jpeg");
+                    setForm((p:any)=>({...p,photoUrl:fileId||b64}));
+                  };
                   reader.readAsDataURL(file);
                 }}/>
               <label htmlFor="photo-upload" style={{display:"inline-flex",alignItems:"center",gap:6,background:"#F5F5F0",border:"none",borderRadius:10,padding:"8px 14px",fontWeight:600,fontSize:13,color:"#111",cursor:"pointer"}}>
@@ -2125,11 +2129,14 @@ doc.text(qLines,mg,y);
 y+=qLines.length*5+10;
 
 if(ap.captureVirement){
-  doc.setFontSize(9);doc.setFont("helvetica","bold");doc.setTextColor(80,80,80);
-  doc.text("PREUVE DE VERSEMENT",mg,y);y+=4;
-  doc.setDrawColor(200,200,200);doc.setLineWidth(0.3);doc.roundedRect(mg,y,W-mg*2,70,2,2,"S");
-  try{const ext=ap.captureVirement.startsWith("data:image/png")?"PNG":"JPEG";doc.addImage(ap.captureVirement,ext,mg+2,y+2,W-mg*2-4,66);}catch(e){}
-  y+=76;
+  const captureData = await fetchImageForPdf(ap.captureVirement);
+  if(captureData){
+    doc.setFontSize(9);doc.setFont("helvetica","bold");doc.setTextColor(80,80,80);
+    doc.text("PREUVE DE VERSEMENT",mg,y);y+=4;
+    doc.setDrawColor(200,200,200);doc.setLineWidth(0.3);doc.roundedRect(mg,y,W-mg*2,70,2,2,"S");
+    try{const ext=captureData.startsWith("data:image/png")?"PNG":"JPEG";doc.addImage(captureData,ext,mg+2,y+2,W-mg*2-4,66);}catch(e){}
+    y+=76;
+  }
 }
 
 if(y>230){doc.addPage();doc.setFillColor(242,201,76);doc.rect(0,0,W,3,"F");y=15;}
@@ -2750,7 +2757,7 @@ return (
 <div style={{background:"#111",borderRadius:14,padding:"16px",marginBottom:14}}>
   <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
     <div style={{flex:1,minWidth:0}}>
-      {pv.logo && <img src={pv.logo} alt="logo" style={{height:40,maxWidth:90,objectFit:"contain",borderRadius:8,border:"1px solid rgba(255,255,255,.15)",background:"#fff",padding:4,marginBottom:8,display:"block"}}/>}
+      {pv.logo && <img src={getFileUrl(pv.logo)} alt="logo" style={{height:40,maxWidth:90,objectFit:"contain",borderRadius:8,border:"1px solid rgba(255,255,255,.15)",background:"#fff",padding:4,marginBottom:8,display:"block"}}/>}
       <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:22,fontWeight:700,color:"#fff",lineHeight:1.2}}>{pv.nom}</p>
       {(pv.adresse||pv.npa||pv.ville) && (
         <p style={{fontSize:11,color:"#9CA3AF",marginTop:4}}>
@@ -3145,13 +3152,17 @@ Dépôts-vente
         <div>
           <p style={{fontSize:11,fontWeight:600,color:"#374151",marginBottom:8}}>Logo du partenaire</p>
           <div style={{display:"flex",alignItems:"center",gap:12}}>
-            {form.logo && <img src={form.logo} alt="logo" style={{height:50,maxWidth:100,objectFit:"contain",borderRadius:8,border:"1px solid #EAE7E0",background:"#fff",padding:4}}/>}
+            {form.logo && <img src={getFileUrl(form.logo)} alt="logo" style={{height:50,maxWidth:100,objectFit:"contain",borderRadius:8,border:"1px solid #EAE7E0",background:"#fff",padding:4}}/>}
             <label style={{background:"#F5F5F0",border:"1.5px dashed #D1D5DB",borderRadius:10,padding:"8px 14px",fontSize:12,fontWeight:600,cursor:"pointer",color:"#374151"}}>
               {form.logo ? "🔄 Remplacer" : "📷 Ajouter un logo"}
-              <input type="file" accept="image/*" style={{display:"none"}} onChange={e=>{
+              <input type="file" accept="image/*" style={{display:"none"}} onChange={async e=>{
                 const file=e.target.files?.[0]; if(!file) return;
-                if(file.size>500000){alert("Image trop lourde (max 500 Ko)");return;}
-                const r=new FileReader(); r.onload=ev=>setForm(p=>({...p,logo:ev.target?.result as string})); r.readAsDataURL(file);
+                if(file.size>2*1024*1024){alert("Image trop lourde (max 2 Mo)");return;}
+                const r=new FileReader(); r.onload=async ev=>{
+                  const b64=ev.target?.result as string;
+                  const fileId=await uploadFile(b64,file.name,file.type||"image/jpeg");
+                  setForm((p:any)=>({...p,logo:fileId||b64}));
+                }; r.readAsDataURL(file);
               }}/>
             </label>
             {form.logo && <button onClick={()=>setForm(p=>({...p,logo:null}))} style={{background:"#FEE2E2",border:"none",borderRadius:8,padding:"6px 10px",fontSize:11,color:"#991B1B",cursor:"pointer"}}>✕ Retirer</button>}
@@ -6942,18 +6953,22 @@ return (
                 <p style={{fontSize:11,fontWeight:600,color:"#374151",marginBottom:6}}>📷 Capture du virement (optionnel)</p>
                 {apportForm.captureVirement ? (
                   <div style={{position:"relative"}}>
-                    <img src={apportForm.captureVirement} alt="capture" style={{width:"100%",maxHeight:180,objectFit:"contain",borderRadius:8,border:"1.5px solid #E5E5E0"}}/>
+                    <img src={getFileUrl(apportForm.captureVirement)} alt="capture" style={{width:"100%",maxHeight:180,objectFit:"contain",borderRadius:8,border:"1.5px solid #E5E5E0"}}/>
                     <button onClick={()=>setApportForm((p:any)=>({...p,captureVirement:null}))} style={{position:"absolute",top:4,right:4,background:"#B91C1C",color:"#fff",border:"none",borderRadius:6,padding:"3px 7px",fontSize:10,fontWeight:700,cursor:"pointer"}}>✕ Supprimer</button>
                   </div>
                 ) : (
                   <label style={{display:"block",border:"1.5px dashed #D1D5DB",borderRadius:8,padding:"14px",textAlign:"center",cursor:"pointer",background:"#FAFAF7"}}>
                     <p style={{fontSize:11,color:"#9CA3AF"}}>📂 Clique pour choisir une photo</p>
                     <p style={{fontSize:9,color:"#D1D5DB",marginTop:3}}>JPG, PNG — screenshot virement ou paiement</p>
-                    <input type="file" accept="image/*" style={{display:"none"}} onChange={e=>{
+                    <input type="file" accept="image/*" style={{display:"none"}} onChange={async e=>{
                       const file=(e.target as HTMLInputElement).files?.[0];
                       if(!file) return;
                       const reader=new FileReader();
-                      reader.onload=ev=>setApportForm((p:any)=>({...p,captureVirement:(ev.target as FileReader).result as string}));
+                      reader.onload=async ev=>{
+                        const b64=(ev.target as FileReader).result as string;
+                        const fileId=await uploadFile(b64,file.name,file.type||"image/jpeg");
+                        setApportForm((p:any)=>({...p,captureVirement:fileId||b64}));
+                      };
                       reader.readAsDataURL(file);
                     }}/>
                   </label>
@@ -9545,13 +9560,14 @@ const handlePJUpload = (e) => {
   if(file.size > 10*1024*1024){alert("Fichier trop volumineux (max 10 Mo)");return;}
   setUploadingPJ(true);
   const reader = new FileReader();
-  reader.onload = (ev) => {
+  reader.onload = async (ev) => {
     const b64 = ev.target.result as string;
-    setSt(p=>({...p,documents:{
+    const fileId = await uploadFile(b64, file.name, file.type||"application/octet-stream");
+    setSt((p:any)=>({...p,documents:{
       ...(p.documents||DOCS_DEFAUT),
       [viewId]:{
         ...(p.documents||DOCS_DEFAUT)[viewId],
-        pieceJointe:b64,
+        pieceJointe:fileId||b64,
         pieceJointeNom:file.name,
         pieceJointeDate:today(),
       }
@@ -9566,10 +9582,7 @@ const handlePJUpload = (e) => {
 const telechargerPJ = () => {
   const d = docs[viewId];
   if(!d?.pieceJointe) return;
-  const a = document.createElement("a");
-  a.href = d.pieceJointe;
-  a.download = d.pieceJointeNom||"document.pdf";
-  a.click();
+  ouvrirFichier(d.pieceJointe, d.pieceJointeNom||"document.pdf");
 };
 
 const supprimerPJ = () => {
@@ -10023,6 +10036,12 @@ const readFileAsBase64 = (file: File): Promise<string> =>
   });
 
 const ouvrirFichier = (dataUrl: string, nom: string) => {
+  if(!dataUrl) return;
+  // fileId serveur : ouvrir directement via URL API
+  if(!dataUrl.startsWith("data:")) {
+    window.open(getFileUrl(dataUrl), '_blank');
+    return;
+  }
   try {
     const arr = dataUrl.split(',');
     const mime = arr[0].match(/:(.*?);/)?.[1] || 'application/octet-stream';
@@ -10562,9 +10581,10 @@ return (
                     onChange={async e=>{
                       const file = e.target.files?.[0];
                       if(!file) return;
-                      if(file.size > 5*1024*1024){alert("Fichier trop volumineux (max 5 Mo)");return;}
+                      if(file.size > 10*1024*1024){alert("Fichier trop volumineux (max 10 Mo)");return;}
                       const b64 = await readFileAsBase64(file);
-                      setForm(p=>({...p,pdfFacture:b64,pdfFactureNom:file.name}));
+                      const fileId = await uploadFile(b64, file.name, file.type||"application/pdf");
+                      setForm((p:any)=>({...p,pdfFacture:fileId||b64,pdfFactureNom:file.name}));
                     }}/>
                 </label>
               )}
@@ -10593,7 +10613,8 @@ return (
                       if(!file) return;
                       if(file.size > 5*1024*1024){alert("Fichier trop volumineux (max 5 Mo)");return;}
                       const b64 = await readFileAsBase64(file);
-                      setForm(p=>({...p,pdfBonLivraison:b64,pdfBonLivraisonNom:file.name}));
+                      const fileId = await uploadFile(b64, file.name, file.type||"application/pdf");
+                      setForm((p:any)=>({...p,pdfBonLivraison:fileId||b64,pdfBonLivraisonNom:file.name}));
                     }}/>
                 </label>
               )}
@@ -10678,10 +10699,13 @@ try {
 
   // Logo client (coin supérieur droit du bloc destinataire)
   if(clientLogo){
-    try {
-      const logoFmt = clientLogo.startsWith("data:image/png")?"PNG":"JPEG";
-      doc.addImage(clientLogo,logoFmt,mg+62,y-2,22,16);
-    } catch(e){ /* ignore si format non supporté */ }
+    const logoData = await fetchImageForPdf(clientLogo);
+    if(logoData){
+      try {
+        const logoFmt = logoData.startsWith("data:image/png")?"PNG":"JPEG";
+        doc.addImage(logoData,logoFmt,mg+62,y-2,22,16);
+      } catch(e){ /* ignore si format non supporté */ }
+    }
   }
 
   // Bloc infos offre (positionné par rapport à y original, hauteur fixe 26)
@@ -11269,7 +11293,7 @@ if(view) return (
       <p style={{fontSize:13,fontWeight:600,color:"#111",marginTop:2}}>{view.clientNom}</p>
     </div>
     <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:6,flexShrink:0,marginLeft:10}}>
-      {view.clientLogo && <img src={view.clientLogo} alt="logo" style={{height:36,maxWidth:80,objectFit:"contain",borderRadius:6,border:"1px solid #EAE7E0",background:"#fff",padding:3}}/>}
+      {view.clientLogo && <img src={getFileUrl(view.clientLogo)} alt="logo" style={{height:36,maxWidth:80,objectFit:"contain",borderRadius:6,border:"1px solid #EAE7E0",background:"#fff",padding:3}}/>}
       {(()=>{
         const scMap:any={"prospection":STATUTS_COULEURS.contacte,"intérêt":STATUTS_COULEURS.interesse,"brouillon":STATUTS_COULEURS.brouillon,"envoyée":STATUTS_COULEURS.envoye,"acceptée":STATUTS_COULEURS.accepte,"refusée":STATUTS_COULEURS.refuse};
         const sc=scMap[view.statut]||{bg:"#F3F4F6",text:"#374151",border:"#D1D5DB",emoji:"📝",label:view.statut};
@@ -11734,7 +11758,7 @@ return (
           const entry=pv||cl;
           return entry?(
             <div style={{background:"#fff",borderRadius:10,padding:"10px 12px",border:"1.5px solid #F2C94C",marginBottom:12,display:"flex",alignItems:"center",gap:10}}>
-              {(entry as any).logo&&<img src={(entry as any).logo} alt="" style={{height:40,maxWidth:64,objectFit:"contain",borderRadius:6,border:"1px solid #EAE7E0",background:"#fff",padding:3}}/>}
+              {(entry as any).logo&&<img src={getFileUrl((entry as any).logo)} alt="" style={{height:40,maxWidth:64,objectFit:"contain",borderRadius:6,border:"1px solid #EAE7E0",background:"#fff",padding:3}}/>}
               <div style={{flex:1,minWidth:0}}>
                 <p style={{fontSize:13,fontWeight:700,color:"#111",marginBottom:2}}>{entry.nom}</p>
                 {((entry as any).contact||(entry as any).npa||entry.ville)&&<p style={{fontSize:11,color:"#6B7280"}}>{[(entry as any).contact,[((entry as any).npa||""),(entry.ville||"")].filter(Boolean).join(" ")].filter(Boolean).join(" · ")}</p>}
@@ -11771,13 +11795,17 @@ return (
         <div style={{marginTop:4}}>
           <p style={{fontSize:11,fontWeight:600,color:"#374151",marginBottom:6}}>Logo du partenaire (optionnel)</p>
           <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
-            {form.clientLogo&&<img src={form.clientLogo} alt="logo" style={{height:44,maxWidth:90,objectFit:"contain",borderRadius:8,border:"1px solid #EAE7E0",background:"#fff",padding:4}}/>}
+            {form.clientLogo&&<img src={getFileUrl(form.clientLogo)} alt="logo" style={{height:44,maxWidth:90,objectFit:"contain",borderRadius:8,border:"1px solid #EAE7E0",background:"#fff",padding:4}}/>}
             <label style={{background:"#F5F5F0",border:"1.5px dashed #D1D5DB",borderRadius:10,padding:"7px 12px",fontSize:11,fontWeight:600,cursor:"pointer",color:"#374151"}}>
               {form.clientLogo?"🔄 Remplacer":"📷 Charger un logo"}
               <input type="file" accept="image/*" style={{display:"none"}} onChange={e=>{
                 const file=e.target.files?.[0]; if(!file) return;
                 if(file.size>500000){alert("Image trop lourde (max 500 Ko)");return;}
-                const r=new FileReader(); r.onload=ev=>setForm(p=>({...p,clientLogo:ev.target?.result as string})); r.readAsDataURL(file);
+                const r=new FileReader(); r.onload=async ev=>{
+                  const b64=ev.target?.result as string;
+                  const fileId=await uploadFile(b64,file.name,file.type||"image/jpeg");
+                  setForm((p:any)=>({...p,clientLogo:fileId||b64}));
+                }; r.readAsDataURL(file);
               }}/>
             </label>
             {form.clientLogo&&<button onClick={()=>setForm(p=>({...p,clientLogo:""}))} style={{background:"#FEE2E2",border:"none",borderRadius:8,padding:"5px 10px",fontSize:11,color:"#991B1B",cursor:"pointer"}}>✕</button>}
@@ -16010,41 +16038,77 @@ const [st,setSt] = useState(INIT);
 const [loading, setLoading] = React.useState(true);
 const [syncing, setSyncing] = React.useState(false);
 
-// Retire tous les champs base64 (photos, PDFs, captures) avant envoi cloud — trop lourds
+// Vérifie si une valeur est un fileId serveur (UUID) plutôt que base64
+const isFileId = (val:any):boolean => val && typeof val==="string" && !val.startsWith("data:") && val.length>=10 && val.length<=100;
+
+// Retourne l'URL d'accès à un fichier (base64 → as-is, fileId → URL API)
+const getFileUrl = (val:string):string => {
+  if(!val) return "";
+  if(val.startsWith("data:")) return val;
+  return `${CLOUD_URL}/files/${val}?token=${getToken()}`;
+};
+
+// Upload un fichier sur le serveur et retourne son fileId (null si erreur → fallback base64 en state)
+const uploadFile = async (base64:string, nom:string, mime:string):Promise<string|null> => {
+  try {
+    const token = getToken();
+    const r = await fetch(`${CLOUD_URL}/files`, {
+      method:"POST",
+      headers:{"Content-Type":"application/json","Accept":"application/json","X-Auth-Token":token},
+      body:JSON.stringify({fileData:base64, fileName:nom, mimeType:mime, _token:token})
+    });
+    if(!r.ok) return null;
+    const j = await r.json();
+    return (j.fileId as string)||null;
+  } catch(e){ return null; }
+};
+
+// Pour jsPDF addImage : retourne la base64 depuis un fileId ou la valeur directement si déjà base64
+const fetchImageForPdf = async (val:string|null|undefined):Promise<string|null> => {
+  if(!val) return null;
+  if(val.startsWith("data:")) return val;
+  try {
+    const blob = await fetch(getFileUrl(val)).then(r=>r.blob());
+    return await new Promise<string>((res)=>{const fr=new FileReader();fr.onload=e=>res(e.target?.result as string);fr.readAsDataURL(blob);});
+  } catch(e){ return null; }
+};
+
+// Retire uniquement les vraies base64 (trop lourdes) — les fileIds passent normalement dans le cloud
 const stripBinaries = (data:any) => {
   if(!data) return data;
+  const isB64 = (v:any) => v && typeof v==="string" && v.startsWith("data:");
   return {
     ...data,
-    produits: (data.produits||[]).map((p:any)=>p.photoUrl?{...p,photoUrl:null}:p),
-    partenaires: (data.partenaires||[]).map((p:any)=>p.logo?{...p,logo:null}:p),
-    associes: (data.associes||[]).map((a:any)=>({...a,apports:(a.apports||[]).map((ap:any)=>ap.captureVirement?{...ap,captureVirement:null}:ap)})),
-    documents: data.documents ? Object.fromEntries(Object.entries(data.documents).map(([k,v]:any)=>[k,v?.pieceJointe?{...v,pieceJointe:null,pieceJointeNom:null,pieceJointeDate:null}:v])) : data.documents,
-    facturesFournisseurs: (data.facturesFournisseurs||[]).map((f:any)=>({...f,pdfFacture:null,pdfFactureNom:"",pdfBonLivraison:null,pdfBonLivraisonNom:""})),
+    produits: (data.produits||[]).map((p:any)=>isB64(p.photoUrl)?{...p,photoUrl:null}:p),
+    partenaires: (data.partenaires||[]).map((p:any)=>isB64(p.logo)?{...p,logo:null}:p),
+    associes: (data.associes||[]).map((a:any)=>({...a,apports:(a.apports||[]).map((ap:any)=>isB64(ap.captureVirement)?{...ap,captureVirement:null}:ap)})),
+    documents: data.documents ? Object.fromEntries(Object.entries(data.documents).map(([k,v]:any)=>[k,isB64(v?.pieceJointe)?{...v,pieceJointe:null,pieceJointeNom:null,pieceJointeDate:null}:v])) : data.documents,
+    facturesFournisseurs: (data.facturesFournisseurs||[]).map((f:any)=>({...f, pdfFacture:isB64(f.pdfFacture)?null:f.pdfFacture, pdfFactureNom:isB64(f.pdfFacture)?"":f.pdfFactureNom, pdfBonLivraison:isB64(f.pdfBonLivraison)?null:f.pdfBonLivraison, pdfBonLivraisonNom:isB64(f.pdfBonLivraison)?"":f.pdfBonLivraisonNom})),
   };
 };
 
-// Réinjecte les binaires locaux dans l'état téléchargé depuis le cloud
+// Réinjecte les valeurs locales manquantes (base64 anciennes) dans l'état reçu du cloud
 const mergeBinaries = (remote:any, local:any):any => {
   if(!remote||!local) return remote;
-  const localPhotos:Record<string,string>={};
+  const localPhotos:Record<string,any>={};
   (local.produits||[]).forEach((p:any)=>{if(p.photoUrl)localPhotos[p.id]=p.photoUrl;});
-  const localLogos:Record<string,string>={};
+  const localLogos:Record<string,any>={};
   (local.partenaires||[]).forEach((p:any)=>{if(p.logo)localLogos[p.id]=p.logo;});
-  const localCaptures:Record<string,string>={};
+  const localCaptures:Record<string,any>={};
   (local.associes||[]).forEach((a:any)=>{(a.apports||[]).forEach((ap:any)=>{if(ap.captureVirement)localCaptures[ap.id]=ap.captureVirement;});});
   const localPJs:Record<string,any>={};
   (local.facturesFournisseurs||[]).forEach((f:any)=>{if(f.pdfFacture||f.pdfBonLivraison)localPJs[f.id]={pdfFacture:f.pdfFacture,pdfFactureNom:f.pdfFactureNom,pdfBonLivraison:f.pdfBonLivraison,pdfBonLivraisonNom:f.pdfBonLivraisonNom};});
   const locDocs = local.documents||{};
   const remDocs = remote.documents||{};
   const mergedDocs:any={...remDocs};
-  Object.keys(locDocs).forEach(k=>{if(locDocs[k]?.pieceJointe)mergedDocs[k]={...(mergedDocs[k]||locDocs[k]),pieceJointe:locDocs[k].pieceJointe,pieceJointeNom:locDocs[k].pieceJointeNom,pieceJointeDate:locDocs[k].pieceJointeDate};});
+  Object.keys(locDocs).forEach(k=>{if(locDocs[k]?.pieceJointe&&!mergedDocs[k]?.pieceJointe)mergedDocs[k]={...(mergedDocs[k]||locDocs[k]),pieceJointe:locDocs[k].pieceJointe,pieceJointeNom:locDocs[k].pieceJointeNom,pieceJointeDate:locDocs[k].pieceJointeDate};});
   return {
     ...remote,
-    produits:(remote.produits||[]).map((p:any)=>localPhotos[p.id]?{...p,photoUrl:localPhotos[p.id]}:p),
-    partenaires:(remote.partenaires||[]).map((p:any)=>localLogos[p.id]?{...p,logo:localLogos[p.id]}:p),
-    associes:(remote.associes||[]).map((a:any)=>({...a,apports:(a.apports||[]).map((ap:any)=>localCaptures[ap.id]?{...ap,captureVirement:localCaptures[ap.id]}:ap)})),
+    produits:(remote.produits||[]).map((p:any)=>!p.photoUrl&&localPhotos[p.id]?{...p,photoUrl:localPhotos[p.id]}:p),
+    partenaires:(remote.partenaires||[]).map((p:any)=>!p.logo&&localLogos[p.id]?{...p,logo:localLogos[p.id]}:p),
+    associes:(remote.associes||[]).map((a:any)=>({...a,apports:(a.apports||[]).map((ap:any)=>!ap.captureVirement&&localCaptures[ap.id]?{...ap,captureVirement:localCaptures[ap.id]}:ap)})),
     documents:mergedDocs,
-    facturesFournisseurs:Object.keys(localPJs).length>0?(remote.facturesFournisseurs||[]).map((f:any)=>localPJs[f.id]?{...f,...localPJs[f.id]}:f):(remote.facturesFournisseurs||[]),
+    facturesFournisseurs:Object.keys(localPJs).length>0?(remote.facturesFournisseurs||[]).map((f:any)=>!f.pdfFacture&&!f.pdfBonLivraison&&localPJs[f.id]?{...f,...localPJs[f.id]}:f):(remote.facturesFournisseurs||[]),
   };
 };
 
