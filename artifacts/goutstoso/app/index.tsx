@@ -2198,6 +2198,159 @@ doc.save("Quittance_"+assoc.nom.replace(/\s+/g,"_")+"_"+ap.date+".pdf");
 }catch(e:any){alert("Erreur PDF : "+e.message);}
 };
 
+const genererRecapApportsPDF = async (stData:any, getShareFn:(a:any)=>number) => {
+try {
+  await new Promise((res,rej)=>{
+    if((window as any).jspdf){res();return;}
+    const s=document.createElement("script");
+    s.src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";
+    s.onload=res;s.onerror=rej;document.head.appendChild(s);
+  });
+  const {jsPDF}=(window as any).jspdf;
+  const doc=new jsPDF("p","mm","a4");
+  const W=210,mg=18;
+  const assocs:any[]=(stData.associes||[]);
+  const now=new Date();
+  const dateStr=now.toLocaleDateString("fr-CH",{day:"2-digit",month:"long",year:"numeric"});
+
+  // ── HEADER ────────────────────────────────────────────────────────────
+  doc.setFillColor(242,201,76);doc.rect(0,0,W,6,"F");
+  pdfLogo(doc,mg);
+  doc.setFontSize(16);doc.setFont("helvetica","bold");doc.setTextColor(17,17,17);
+  doc.text("RÉCAPITULATIF DES APPORTS EN CAPITAL",W-mg,20,{align:"right"});
+  doc.setFontSize(9);doc.setFont("helvetica","normal");doc.setTextColor(120,120,120);
+  doc.text("GOÛTSTOSO · Société simple · Art. 530 CO suisse",W-mg,28,{align:"right"});
+  doc.text("Généré le "+dateStr,W-mg,34,{align:"right"});
+  doc.setDrawColor(230,230,228);doc.setLineWidth(0.3);doc.line(mg,38,W-mg,38);
+
+  // ── TABLEAU DE SYNTHÈSE ────────────────────────────────────────────────
+  let y=46;
+  const totalInvesti=assocs.reduce((s:number,a:any)=>s+a.apports.reduce((ss:number,ap:any)=>ss+(parseFloat(ap.montant)||0),0),0);
+
+  doc.setFillColor(17,17,17);doc.rect(mg,y,W-mg*2,8,"F");
+  doc.setFontSize(7.5);doc.setFont("helvetica","bold");doc.setTextColor(242,201,76);
+  doc.text("ASSOCIÉ",mg+3,y+5.5);
+  doc.setTextColor(180,180,180);
+  doc.text("RÔLE",mg+42,y+5.5);
+  doc.text("APPORTS",130,y+5.5,{align:"right"});
+  doc.text("TOTAL INVESTI",155,y+5.5,{align:"right"});
+  doc.text("PART",W-mg-3,y+5.5,{align:"right"});
+  y+=8;
+
+  assocs.forEach((a:any,i:number)=>{
+    const apTot=a.apports.reduce((s:number,ap:any)=>s+(parseFloat(ap.montant)||0),0);
+    const remTot=a.remboursements.reduce((s:number,r:any)=>s+(parseFloat(r.montant)||0),0);
+    const soldeDu=apTot-remTot;
+    const share=getShareFn(a);
+    const nbSigned=a.apports.filter((ap:any)=>ap.signData&&ap.signJordan).length;
+    const nbTotal=a.apports.length;
+    doc.setFillColor(i%2===0?249:255,i%2===0?249:255,i%2===0?246:255);
+    doc.rect(mg,y,W-mg*2,12,"F");
+    doc.setFontSize(9);doc.setFont("helvetica","bold");doc.setTextColor(17,17,17);
+    doc.text(a.nom,mg+3,y+5);
+    doc.setFontSize(7.5);doc.setFont("helvetica","normal");doc.setTextColor(107,114,128);
+    doc.text(a.role||"—",mg+42,y+5);
+    const sigStatus=nbTotal===0?"—":nbSigned+"/"+nbTotal+" sig.";
+    doc.setTextColor(nbSigned===nbTotal&&nbTotal>0?22:100,nbSigned===nbTotal&&nbTotal>0?101:100,nbSigned===nbTotal&&nbTotal>0?52:100);
+    doc.text(sigStatus,130,y+5,{align:"right"});
+    doc.setFont("helvetica","bold");doc.setTextColor(22,101,52);
+    doc.text("CHF "+apTot.toFixed(2),155,y+5,{align:"right"});
+    doc.setTextColor(30,58,138);
+    doc.text(share.toFixed(1)+"%",W-mg-3,y+5,{align:"right"});
+    doc.setFontSize(7);doc.setFont("helvetica","normal");doc.setTextColor(150,150,150);
+    doc.text("Solde dû : CHF "+soldeDu.toFixed(2),mg+3,y+9.5);
+    doc.text(nbTotal+" apport"+(nbTotal>1?"s":""),130,y+9.5,{align:"right"});
+    y+=12;
+  });
+
+  // Ligne totale
+  doc.setFillColor(254,249,231);doc.rect(mg,y,W-mg*2,10,"F");
+  doc.setDrawColor(242,201,76);doc.setLineWidth(0.5);doc.rect(mg,y,W-mg*2,10,"S");
+  doc.setLineWidth(0.3);
+  doc.setFontSize(10);doc.setFont("helvetica","bold");doc.setTextColor(17,17,17);
+  doc.text("TOTAL INVESTI",mg+3,y+7);
+  doc.setTextColor(22,101,52);
+  doc.text("CHF "+totalInvesti.toFixed(2),155,y+7,{align:"right"});
+  doc.setTextColor(30,58,138);
+  doc.text("100%",W-mg-3,y+7,{align:"right"});
+  y+=18;
+
+  // ── HISTORIQUE CHRONOLOGIQUE ────────────────────────────────────────────
+  // Construire liste de tous les apports
+  const allApports:any[]=[];
+  assocs.forEach((a:any)=>{
+    a.apports.forEach((ap:any)=>{
+      allApports.push({...ap,_nom:a.nom,_role:a.role||""});
+    });
+  });
+  allApports.sort((x:any,z:any)=>x.date.localeCompare(z.date));
+
+  if(y>235){doc.addPage();doc.setFillColor(242,201,76);doc.rect(0,0,W,3,"F");y=12;}
+  doc.setFontSize(10);doc.setFont("helvetica","bold");doc.setTextColor(30,58,138);
+  doc.text("Historique chronologique des apports",mg,y);y+=6;
+
+  // En-tête tableau historique
+  doc.setFillColor(30,58,138);doc.rect(mg,y,W-mg*2,8,"F");
+  doc.setFontSize(7);doc.setFont("helvetica","bold");doc.setTextColor(255,255,255);
+  doc.text("DATE",mg+2,y+5.5);
+  doc.text("ASSOCIÉ",mg+26,y+5.5);
+  doc.text("TYPE",mg+72,y+5.5);
+  doc.text("MONTANT",mg+100,y+5.5,{align:"right"});
+  doc.text("NOTE",mg+105,y+5.5);
+  doc.text("SIGNATURES",W-mg-3,y+5.5,{align:"right"});
+  y+=8;
+
+  let runningTotal=0;
+  allApports.forEach((ap:any,i:number)=>{
+    if(y>272){doc.addPage();doc.setFillColor(242,201,76);doc.rect(0,0,W,3,"F");y=12;}
+    const montant=parseFloat(ap.montant)||0;
+    runningTotal+=montant;
+    const tL=ap.type==="argent"?"Numéraire":ap.type==="materiel"?"Matériel":ap.type==="stock"?"Stock":ap.type==="travail"?"Travail":ap.type;
+    const sigJordan=!!ap.signJordan;
+    const sigAssoc=!!(ap.signData||ap.signed);
+    let sigTxt="";
+    if(sigJordan&&sigAssoc) sigTxt="✓✓ Complet";
+    else if(sigAssoc&&!sigJordan) sigTxt="⬜ Jordan req.";
+    else if(ap.signingToken&&!sigAssoc) sigTxt="… En attente";
+    else sigTxt="— Non signé";
+    const sigColor:{r:number,g:number,b:number}=sigJordan&&sigAssoc?{r:22,g:101,b:52}:sigAssoc?{r:146,g:64,b:14}:{r:150,g:150,b:150};
+    doc.setFillColor(i%2===0?249:255,i%2===0?249:255,i%2===0?246:255);
+    doc.rect(mg,y,W-mg*2,9,"F");
+    doc.setFontSize(7.5);doc.setFont("helvetica","normal");doc.setTextColor(80,80,80);
+    doc.text(new Date(ap.date).toLocaleDateString("fr-CH"),mg+2,y+6);
+    doc.setFont("helvetica","bold");doc.setTextColor(17,17,17);
+    doc.text(ap._nom,mg+26,y+6);
+    doc.setFont("helvetica","normal");doc.setTextColor(107,114,128);
+    doc.text(tL,mg+72,y+6);
+    doc.setFont("helvetica","bold");doc.setTextColor(22,101,52);
+    doc.text("CHF "+montant.toFixed(2),mg+100,y+6,{align:"right"});
+    doc.setFont("helvetica","normal");doc.setFontSize(6.5);doc.setTextColor(120,120,120);
+    if(ap.commentaire){const note=doc.splitTextToSize(ap.commentaire,42);doc.text(note[0],mg+103,y+6);}
+    doc.setFontSize(7);doc.setFont("helvetica","bold");doc.setTextColor(sigColor.r,sigColor.g,sigColor.b);
+    doc.text(sigTxt,W-mg-3,y+6,{align:"right"});
+    y+=9;
+  });
+
+  // Total courant
+  if(allApports.length>0){
+    doc.setFillColor(240,253,244);doc.rect(mg,y,W-mg*2,9,"F");
+    doc.setFontSize(9);doc.setFont("helvetica","bold");doc.setTextColor(17,17,17);
+    doc.text("TOTAL",mg+2,y+6);
+    doc.setTextColor(22,101,52);
+    doc.text("CHF "+runningTotal.toFixed(2),mg+100,y+6,{align:"right"});
+    y+=14;
+  }
+
+  // ── PIED DE PAGE ──────────────────────────────────────────────────────
+  doc.setDrawColor(230,230,228);doc.setLineWidth(0.3);doc.line(mg,277,W-mg,277);
+  doc.setFontSize(7.5);doc.setFont("helvetica","normal");doc.setTextColor(150,150,150);
+  doc.text("Goûtstoso · Récapitulatif confidentiel · "+dateStr,W/2,282,{align:"center"});
+  doc.setFillColor(242,201,76);doc.rect(0,292,W,5,"F");
+
+  doc.save("Recap_Apports_Goutstoso_"+now.toISOString().slice(0,10)+".pdf");
+} catch(e:any){alert("Erreur PDF : "+e.message);}
+};
+
 const genererAvenantPDF = async (stData:any) => {
 try {
 await new Promise((res,rej)=>{
@@ -3767,80 +3920,16 @@ Contrats
             📋 Avenant · {(st.conventionAssocies?.signataires||[]).filter((s:any)=>s.signed).length}/{(st.associes||[]).length} signé(s)
           </button>
           <button onClick={async()=>{
-            try {
-              await new Promise((res,rej)=>{if((window as any).jspdf){res();return;}const s=document.createElement("script");s.src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";s.onload=res;s.onerror=rej;document.head.appendChild(s);});
-              const {jsPDF}=(window as any).jspdf;
-              const doc=new jsPDF("p","mm","a4");
-              const W=210,mg=18;
-              const assocs=st.associes||[];
-              const totalInvesti=assocs.reduce((s:number,a:any)=>s+a.apports.reduce((ss:number,ap:any)=>ss+(parseFloat(ap.montant)||0),0),0);
-              doc.setFillColor(242,201,76);doc.rect(0,0,W,6,"F");
-              pdfLogo(doc,mg);
-              doc.setFontSize(15);doc.setFont("helvetica","bold");doc.setTextColor(17,17,17);
-              doc.text("RÉCAPITULATIF DES APPORTS",W-mg,20,{align:"right"});
-              doc.setFontSize(9);doc.setFont("helvetica","normal");doc.setTextColor(120,120,120);
-              doc.text("GOÛTSTOSO · Société simple · Art. 530 CO suisse",W-mg,28,{align:"right"});
-              doc.text("Généré le "+new Date().toLocaleDateString("fr-CH",{day:"2-digit",month:"long",year:"numeric"}),W-mg,34,{align:"right"});
-              doc.setDrawColor(230,230,228);doc.setLineWidth(0.3);doc.line(mg,38,W-mg,38);
-              let y=46;
-              // Tableau récap
-              doc.setFillColor(17,17,17);doc.rect(mg,y,W-mg*2,9,"F");
-              doc.setFontSize(8);doc.setFont("helvetica","bold");doc.setTextColor(242,201,76);
-              doc.text("ASSOCIÉ",mg+3,y+6);doc.text("RÔLE",70,y+6);
-              doc.setTextColor(180,180,180);
-              doc.text("NB APPORTS",130,y+6,{align:"right"});
-              doc.text("TOTAL CHF",160,y+6,{align:"right"});
-              doc.text("PART %",W-mg-3,y+6,{align:"right"});
-              y+=9;
-              assocs.forEach((a:any,i:number)=>{
-                const apTot=a.apports.reduce((s:number,ap:any)=>s+(parseFloat(ap.montant)||0),0);
-                const part=totalInvesti>0?(apTot/totalInvesti*100):0;
-                const signedCount=a.apports.filter((ap:any)=>ap.signed).length;
-                doc.setFillColor(i%2===0?249:255,i%2===0?249:255,i%2===0?246:255);
-                doc.rect(mg,y,W-mg*2,11,"F");
-                doc.setFontSize(9);doc.setFont("helvetica","bold");doc.setTextColor(17,17,17);
-                doc.text(a.nom,mg+3,y+7.5);
-                doc.setFont("helvetica","normal");doc.setFontSize(8);doc.setTextColor(107,114,128);
-                doc.text(a.role||"",70,y+7.5);
-                doc.setTextColor(60,60,60);
-                doc.text(a.apports.length+" ("+signedCount+" sig.)",130,y+7.5,{align:"right"});
-                doc.setFont("helvetica","bold");doc.setTextColor(22,101,52);
-                doc.text("CHF "+apTot.toFixed(2),160,y+7.5,{align:"right"});
-                doc.setTextColor(30,58,138);
-                doc.text(part.toFixed(1)+"%",W-mg-3,y+7.5,{align:"right"});
-                y+=11;
-              });
-              // Total
-              doc.setFillColor(254,249,231);doc.rect(mg,y,W-mg*2,10,"F");
-              doc.setFontSize(10);doc.setFont("helvetica","bold");doc.setTextColor(17,17,17);
-              doc.text("TOTAL",mg+3,y+7);
-              doc.text("CHF "+totalInvesti.toFixed(2),160,y+7,{align:"right"});
-              doc.text("100%",W-mg-3,y+7,{align:"right"});
-              y+=18;
-              // Détail par associé
-              doc.setFontSize(10);doc.setFont("helvetica","bold");doc.setTextColor(30,58,138);
-              doc.text("Détail des apports par associé",mg,y);y+=7;
-              for(const a of assocs){
-                if(y>255){doc.addPage();doc.setFillColor(242,201,76);doc.rect(0,0,W,3,"F");y=12;}
-                doc.setFontSize(9);doc.setFont("helvetica","bold");doc.setTextColor(17,17,17);
-                doc.text("▸ "+a.nom,mg,y);y+=5;
-                for(const ap of a.apports){
-                  const tL=ap.type==="argent"?"Numéraire":ap.type==="materiel"?"Matériel":ap.type==="stock"?"Stock":ap.type==="travail"?"Travail":ap.type;
-                  const sigBadge=ap.signed?" ✓ Signé":ap.signingToken?" (en attente)":"";
-                  const ln=new Date(ap.date).toLocaleDateString("fr-CH")+"  ·  "+tL+"  ·  CHF "+parseFloat(ap.montant).toFixed(2)+(ap.commentaire?" — "+ap.commentaire:"")+sigBadge;
-                  doc.setFontSize(8);doc.setFont("helvetica","normal");doc.setTextColor(80,80,80);
-                  const sl=doc.splitTextToSize(ln,W-mg*2-6);
-                  if(y+sl.length*4.5>255){doc.addPage();doc.setFillColor(242,201,76);doc.rect(0,0,W,3,"F");y=12;}
-                  doc.text(sl,mg+4,y);y+=sl.length*4.5;
-                }
-                y+=4;
-              }
-              doc.setDrawColor(230,230,228);doc.setLineWidth(0.3);doc.line(mg,277,W-mg,277);
-              doc.setFontSize(7.5);doc.setFont("helvetica","normal");doc.setTextColor(150,150,150);
-              doc.text("Goûtstoso — Jordan Montanaro · admin@goutstoso.ch · www.goutstoso.ch",W/2,282,{align:"center"});
-              doc.setFillColor(242,201,76);doc.rect(0,292,W,5,"F");
-              doc.save("Recap_Apports_Goutstoso_"+new Date().toISOString().slice(0,10)+".pdf");
-            }catch(e:any){alert("Erreur PDF : "+e.message);}
+            const assocsList:any[]=st.associes||[];
+            const totInv=assocsList.reduce((s:number,a:any)=>s+a.apports.reduce((ss:number,ap:any)=>ss+(parseFloat(ap.montant)||0),0),0);
+            const mode=st.modeRepartition||"apports";
+            const localGetShare=(a:any)=>{
+              if(mode==="egal") return assocsList.length?100/assocsList.length:0;
+              if(mode==="custom") return parseFloat(a.pourcentageCustom)||0;
+              const ap=a.apports.reduce((s:number,x:any)=>s+(parseFloat(x.montant)||0),0);
+              return totInv>0?(ap/totInv)*100:0;
+            };
+            await genererRecapApportsPDF(st,localGetShare);
           }} style={{flex:1,background:"#1E3A5F",color:"#BFDBFE",border:"none",borderRadius:8,padding:"8px",fontSize:10,fontWeight:600,cursor:"pointer"}}>📊 Récapitulatif</button>
         </div>
       </div>
@@ -6911,7 +7000,10 @@ return (
         {/* Liste des associés */}
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
           <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:17,fontWeight:700}}>Les 5 associés</p>
-          <Btn small icon="plus" onClick={()=>{setAssocieForm(emptyAssocieForm);setAssocieModal("form");}}>Modifier</Btn>
+          <div style={{display:"flex",gap:6,alignItems:"center"}}>
+            <button onClick={()=>genererRecapApportsPDF(st,getShareFn)} style={{background:"#1E3A5F",color:"#BFDBFE",border:"none",borderRadius:8,padding:"6px 10px",fontSize:10,fontWeight:700,cursor:"pointer"}}>📊 Récap PDF</button>
+            <Btn small icon="plus" onClick={()=>{setAssocieForm(emptyAssocieForm);setAssocieModal("form");}}>Modifier</Btn>
+          </div>
         </div>
 
         <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:14}}>
