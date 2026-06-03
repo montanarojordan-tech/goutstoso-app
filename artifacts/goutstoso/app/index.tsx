@@ -7106,7 +7106,8 @@ return (
                   <button onClick={async()=>{
                     if(!savedApForSign._assocEmail){alert("Cet associé n'a pas d'email enregistré. Modifie sa fiche d'abord.");return;}
                     try {
-                      const r2=await fetch(`${SIGN_API}/sign`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({documentType:"apport",documentTitle:`Apport — ${savedApForSign._assocNom}`,documentData:{associeNom:savedApForSign._assocNom,associeRole:savedApForSign._assocRole,date:savedApForSign.date,montant:savedApForSign.montant,typeApport:savedApForSign.type,commentaire:savedApForSign.commentaire||""},expiresInDays:30})});
+                      const _sApi=(process.env.EXPO_PUBLIC_DOMAIN?`https://${process.env.EXPO_PUBLIC_DOMAIN}`:"https://goutstoso.replit.app")+"/api";
+                      const r2=await fetch(`${_sApi}/sign`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({documentType:"apport",documentTitle:`Apport — ${savedApForSign._assocNom}`,documentData:{associeNom:savedApForSign._assocNom,associeRole:savedApForSign._assocRole,date:savedApForSign.date,montant:savedApForSign.montant,typeApport:savedApForSign.type,commentaire:savedApForSign.commentaire||""},expiresInDays:30})});
                       if(!r2.ok) throw new Error("Erreur serveur signature");
                       const {token:tok,signingUrl}=await r2.json();
                       const emailBody=`Chère/Cher ${savedApForSign._assocNom},\n\nJordan Montanaro te demande de confirmer ton apport en capital dans Goûtstoso.\n\nMontant : CHF ${parseFloat(savedApForSign.montant).toFixed(2)}\nDate : ${new Date(savedApForSign.date).toLocaleDateString("fr-CH")}\n\nClique sur ce lien pour apposer ta signature électronique :\n\n${signingUrl}\n\nCe lien est valable 30 jours.\n\nCordialement,\n\nJordan Montanaro\nGoûtstoso · admin@goutstoso.ch`;
@@ -7168,7 +7169,8 @@ return (
                   <button onClick={async()=>{
                     if(!savedApForSign._assocEmail){alert("Cet associé n'a pas d'email enregistré. Modifie sa fiche d'abord.");return;}
                     try {
-                      const r2=await fetch(`${SIGN_API}/sign`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({documentType:"apport",documentTitle:`Apport — ${savedApForSign._assocNom}`,documentData:{associeNom:savedApForSign._assocNom,associeRole:savedApForSign._assocRole,date:savedApForSign.date,montant:savedApForSign.montant,typeApport:savedApForSign.type,commentaire:savedApForSign.commentaire||""},expiresInDays:30})});
+                      const _sApi=(process.env.EXPO_PUBLIC_DOMAIN?`https://${process.env.EXPO_PUBLIC_DOMAIN}`:"https://goutstoso.replit.app")+"/api";
+                      const r2=await fetch(`${_sApi}/sign`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({documentType:"apport",documentTitle:`Apport — ${savedApForSign._assocNom}`,documentData:{associeNom:savedApForSign._assocNom,associeRole:savedApForSign._assocRole,date:savedApForSign.date,montant:savedApForSign.montant,typeApport:savedApForSign.type,commentaire:savedApForSign.commentaire||""},expiresInDays:30})});
                       if(!r2.ok) throw new Error("Erreur serveur signature");
                       const {token:tok,signingUrl}=await r2.json();
                       const emailBody=`Chère/Cher ${savedApForSign._assocNom},\n\nJordan Montanaro te demande de confirmer ton apport en capital dans Goûtstoso.\n\nMontant : CHF ${parseFloat(savedApForSign.montant).toFixed(2)}\nDate : ${new Date(savedApForSign.date).toLocaleDateString("fr-CH")}\n\nClique sur ce lien pour apposer ta signature électronique :\n\n${signingUrl}\n\nCe lien est valable 30 jours.\n\nCordialement,\n\nJordan Montanaro\nGoûtstoso · admin@goutstoso.ch`;
