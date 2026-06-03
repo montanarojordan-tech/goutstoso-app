@@ -2145,11 +2145,37 @@ doc.setFontSize(8);doc.setFont("helvetica","bold");doc.setTextColor(80,80,80);
 doc.text("SIGNATURES",mg,y);y+=4;
 const sigW=(W-mg*2-10)/2;
 doc.setDrawColor(200,200,200);doc.setLineWidth(0.3);
-doc.roundedRect(mg,y,sigW,32,2,2,"S");
+// Boîte signature Goûtstoso (gauche)
+doc.roundedRect(mg,y,sigW,38,2,2,"S");
 doc.setFontSize(7);doc.setFont("helvetica","bold");doc.setTextColor(150,150,150);
 doc.text("Goûtstoso — Jordan Montanaro",mg+3,y+5);
-doc.roundedRect(mg+sigW+10,y,sigW,32,2,2,"S");
-doc.text(assoc.nom,mg+sigW+13,y+5);
+doc.setFont("helvetica","normal");doc.setTextColor(180,180,180);
+doc.text("Signature :",mg+3,y+30);doc.line(mg+24,y+30,mg+sigW-3,y+30);
+doc.text("Date :",mg+3,y+36);doc.line(mg+16,y+36,mg+sigW-3,y+36);
+// Boîte signature associé (droite)
+const sigX=mg+sigW+10;
+if(ap.signed&&ap.signData){
+  // Case verte avec signature intégrée
+  doc.setFillColor(240,253,244);doc.roundedRect(sigX,y,sigW,38,2,2,"F");
+  doc.setDrawColor(134,239,172);doc.setLineWidth(0.5);doc.roundedRect(sigX,y,sigW,38,2,2,"S");
+  doc.setLineWidth(0.3);
+  doc.setFontSize(7);doc.setFont("helvetica","bold");doc.setTextColor(22,101,52);
+  doc.text(assoc.nom,sigX+3,y+5);
+  try{doc.addImage(ap.signData,"PNG",sigX+3,y+7,sigW-6,24);}catch(e){}
+  doc.setFontSize(6.5);doc.setFont("helvetica","normal");doc.setTextColor(22,101,52);
+  const sigDate=ap.signedAt?new Date(ap.signedAt).toLocaleDateString("fr-CH",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"}):"";
+  doc.text("✓ Signé le "+sigDate,sigX+3,y+35);
+} else {
+  // Case vide standard
+  doc.setDrawColor(200,200,200);doc.setLineWidth(0.3);
+  doc.roundedRect(sigX,y,sigW,38,2,2,"S");
+  doc.setFontSize(7);doc.setFont("helvetica","bold");doc.setTextColor(150,150,150);
+  doc.text(assoc.nom,sigX+3,y+5);
+  doc.setFont("helvetica","normal");doc.setTextColor(180,180,180);
+  doc.text("Signature :",sigX+3,y+30);doc.line(sigX+24,y+30,sigX+sigW-3,y+30);
+  doc.text("Date :",sigX+3,y+36);doc.line(sigX+16,y+36,sigX+sigW-3,y+36);
+}
+y+=38;
 
 doc.setDrawColor(230,230,228);doc.setLineWidth(0.3);doc.line(mg,277,W-mg,277);
 doc.setFontSize(7.5);doc.setFont("helvetica","normal");doc.setTextColor(150,150,150);
