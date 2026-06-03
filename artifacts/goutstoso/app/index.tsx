@@ -11312,9 +11312,11 @@ try {
   doc.setFontSize(11); doc.setTextColor(10,10,10);
   doc.text("admin@goutstoso.ch",W/2,y+14,{align:"center"});
   y+=24;
-  doc.setDrawColor(230,230,228); doc.setLineWidth(0.3); doc.line(mg,282,W-mg,282);
+  doc.setDrawColor(230,230,228); doc.setLineWidth(0.3); doc.line(mg,279,W-mg,279);
   doc.setFont("helvetica","normal"); doc.setFontSize(7); doc.setTextColor(150,150,150);
-  doc.text("Goûtstoso - Jordan Montanaro · Rue des Sources 19 · 2613 Villeret · admin@goutstoso.ch · www.goutstoso.ch",W/2,286,{align:"center"});
+  doc.text("Goûtstoso - Jordan Montanaro · Rue des Sources 19 · 2613 Villeret · admin@goutstoso.ch · www.goutstoso.ch",W/2,283,{align:"center"});
+  doc.setFont("helvetica","italic"); doc.setFontSize(6.5); doc.setTextColor(170,170,170);
+  doc.text("Prix indiqués toutes taxes comprises (TTC) · Goûtstoso n'est pas assujetti à la TVA (art. 10 al. 2 LTVA — CA annuel < CHF 100'000)",W/2,289,{align:"center"});
   doc.setFillColor(242,201,76); doc.rect(0,292,W,5,"F");
   const fname=offre.clientNom?"Prospection-"+offre.clientNom.replace(/\s+/g,"-")+".pdf":"Fiche-Prospection-Goutstoso.pdf";
   doc.save(fname);
