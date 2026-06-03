@@ -1893,37 +1893,89 @@ const ajouterDocAnnexe = (doc, docId, st) => {
 const d = (st.documents||DOCS_DEFAUT)[docId];
 if(!d || !d.contenu) return;
 const W=210, mg=18;
-doc.addPage();
-doc.setFillColor(232,182,76);doc.rect(0,0,W,6,"F");
-pdfLogo(doc,mg);
-doc.setFontSize(12);doc.setFont("helvetica","bold");doc.setTextColor(17,17,17);
-const titleLines = doc.splitTextToSize(d.titre,W-mg*2);
-doc.text(titleLines,mg,41);
-doc.setDrawColor(230,230,228);doc.setLineWidth(0.3);doc.line(mg,47,W-mg,47);
-doc.setFontSize(8);doc.setFont("helvetica","normal");doc.setTextColor(60,60,60);
-const contentLines = doc.splitTextToSize(d.contenu||"", W-mg*2);
-let y=54;
-contentLines.forEach(line=>{
-if(y>275) {
-doc.setDrawColor(230,230,228);doc.line(mg,280,W-mg,280);
-doc.setFontSize(6);doc.setTextColor(150,150,150);
-doc.text("Goûtstoso - Jordan Montanaro · admin@goutstoso.ch",W/2,285,{align:"center"});
-doc.setFillColor(232,182,76);doc.rect(0,292,W,5,"F");
-doc.addPage();
-doc.setFillColor(232,182,76);doc.rect(0,0,W,6,"F");
-doc.setFontSize(8);doc.setFont("helvetica","normal");doc.setTextColor(150,150,150);
-doc.text(d.titre+" - suite",mg,15);
-doc.setDrawColor(230,230,228);doc.line(mg,19,W-mg,19);
-doc.setFontSize(8);doc.setTextColor(60,60,60);
-y=26;
-}
-doc.text(line,mg,y);
-y+=4;
+
+const addFooter = () => {
+  doc.setDrawColor(230,230,228); doc.setLineWidth(0.3); doc.line(mg,280,W-mg,280);
+  doc.setFontSize(6); doc.setFont("helvetica","normal"); doc.setTextColor(150,150,150);
+  doc.text("Goûtstoso - Jordan Montanaro · admin@goutstoso.ch",W/2,285,{align:"center"});
+  doc.setFillColor(232,182,76); doc.rect(0,292,W,5,"F");
+};
+
+const initFirstPage = () => {
+  doc.addPage();
+  doc.setFillColor(232,182,76); doc.rect(0,0,W,6,"F");
+  pdfLogo(doc,mg);
+  doc.setFontSize(13); doc.setFont("helvetica","bold"); doc.setTextColor(17,17,17);
+  const titleLines = doc.splitTextToSize(d.titre,W-mg*2);
+  doc.text(titleLines,mg,41);
+  doc.setDrawColor(242,201,76); doc.setLineWidth(1.2); doc.line(mg,46,mg+50,46);
+  doc.setDrawColor(230,230,228); doc.setLineWidth(0.3); doc.line(mg,48,W-mg,48);
+  return 56;
+};
+
+const initContinuePage = () => {
+  doc.addPage();
+  doc.setFillColor(232,182,76); doc.rect(0,0,W,6,"F");
+  doc.setFontSize(8); doc.setFont("helvetica","normal"); doc.setTextColor(150,150,150);
+  doc.text(d.titre+" — suite",mg,15);
+  doc.setDrawColor(230,230,228); doc.setLineWidth(0.3); doc.line(mg,19,W-mg,19);
+  return 27;
+};
+
+let y = initFirstPage();
+
+const checkBreak = (needed) => {
+  if(y + needed > 275) { addFooter(); y = initContinuePage(); }
+};
+
+const rawLines = (d.contenu||"").split("\n");
+rawLines.forEach(rawLine => {
+  const trimmed = rawLine.trim();
+  if(!trimmed) { y += 2; return; }
+
+  // Article header: starts with digit + period + space + mixed text
+  const isArticle = /^\d+\.\s+\S/.test(trimmed) && trimmed.length < 90;
+  // Section title (ALL-CAPS line, no leading digit)
+  const isDocTitle = /^[A-ZÉÀÈÙÂÊÎÔÛÄËÏÖÜ\s\-\/\&\(\)\.]+$/.test(trimmed) && trimmed.length > 4 && !isArticle;
+  // Bullet point
+  const isBullet = trimmed.startsWith("- ");
+
+  if(isDocTitle) {
+    checkBreak(10);
+    doc.setFont("helvetica","bold"); doc.setFontSize(10); doc.setTextColor(17,17,17);
+    const lines = doc.splitTextToSize(trimmed,W-mg*2);
+    doc.text(lines,mg,y); y += lines.length*5.5+2;
+    return;
+  }
+
+  if(isArticle) {
+    y += 3;
+    checkBreak(14);
+    doc.setDrawColor(242,201,76); doc.setLineWidth(0.7); doc.line(mg,y,mg+28,y);
+    y += 4;
+    doc.setFont("helvetica","bold"); doc.setFontSize(8.5); doc.setTextColor(17,17,17);
+    const lines = doc.splitTextToSize(trimmed,W-mg*2);
+    doc.text(lines,mg,y); y += lines.length*5+2;
+    doc.setFont("helvetica","normal"); doc.setFontSize(7.5); doc.setTextColor(55,55,55);
+    return;
+  }
+
+  if(isBullet) {
+    const text = trimmed.slice(2);
+    const lines = doc.splitTextToSize("• "+text, W-mg*2-8);
+    checkBreak(lines.length*4.5+1);
+    doc.setFont("helvetica","normal"); doc.setFontSize(7.5); doc.setTextColor(55,55,55);
+    doc.text(lines,mg+6,y); y += lines.length*4.5+1;
+    return;
+  }
+
+  // Normal body text
+  const lines = doc.splitTextToSize(trimmed, W-mg*2);
+  checkBreak(lines.length*4.5);
+  doc.setFont("helvetica","normal"); doc.setFontSize(7.5); doc.setTextColor(55,55,55);
+  doc.text(lines,mg,y); y += lines.length*4.5;
 });
-doc.setDrawColor(230,230,228);doc.line(mg,280,W-mg,280);
-doc.setFontSize(6);doc.setTextColor(150,150,150);
-doc.text("Goûtstoso - Jordan Montanaro · admin@goutstoso.ch",W/2,285,{align:"center"});
-doc.setFillColor(232,182,76);doc.rect(0,292,W,5,"F");
+addFooter();
 };
 
 const genererContratPDF = async (c, pv, st) => {
@@ -4236,9 +4288,8 @@ return (l.qte||0)*pu;
 const calcTotalNet = (f, produits) => {
 const brut = calcTotal(f.lignes, f.typeClient, produits);
 const rabProduits = calcTotal((f.lignesOffertes||[]).filter(l=>l.produitId&&l.qte>0), f.typeClient, produits);
-// Si pas de lignesOffertes produits, utiliser le totalRabais stocké (ex: rabais flat depuis commande)
 const rab = rabProduits > 0 ? rabProduits : (parseFloat(f.totalRabais)||0);
-return brut - rab;
+return brut - rab + (parseFloat(f.fraisLivraison)||0);
 };
 
 const Factures = ({st,setSt}) => {
@@ -4250,7 +4301,7 @@ const [pjModal,setPjModal] = useState(false);
 const [recoveryTokenF, setRecoveryTokenF] = useState("");
 const [showArchived, setShowArchived] = useState(false);
 
-const emptyF = {partenaireId:st.partenaires[0]?.id||"",typeClient:"revendeur",lignes:[{produitId:"",qte:1}],lignesOffertes:[],comptOffert:"3900",notes:"",date:today(),envoyee:false};
+const emptyF = {partenaireId:st.partenaires[0]?.id||"",typeClient:"revendeur",lignes:[{produitId:"",qte:1}],lignesOffertes:[],comptOffert:"3900",notes:"",date:today(),envoyee:false,fraisLivraison:0};
 const [form,setForm] = useState(emptyF);
 const [modalRegroup,setModalRegroup] = useState(false);
 const [selectedForRegroup,setSelectedForRegroup] = useState([]);
@@ -4544,7 +4595,8 @@ const W=210,mg=18;
 const pv=st.partenaires.find(p=>p.id===f.partenaireId)||(st.clients||[]).find(c=>c.id===f.partenaireId);
 const totalBrutPDF=calcTotal(f.lignes,f.typeClient,st.produits);
 const totalRabaisPDF=calcTotal((f.lignesOffertes||[]).filter(l=>l.produitId&&l.qte>0),f.typeClient,st.produits);
-const total=totalBrutPDF-totalRabaisPDF;
+const fraisLivPDF=parseFloat(f.fraisLivraison)||0;
+const total=totalBrutPDF-totalRabaisPDF+fraisLivPDF;
 const retard=getInfosRetard(f);
 const totalFinal=total+(retard?.frais||0);
 const echeance=new Date(new Date(f.date).getTime()+30*86400000).toISOString().slice(0,10);
@@ -4662,7 +4714,8 @@ const echeance=new Date(new Date(f.date).getTime()+30*86400000).toISOString().sl
   const boxX=W/2+10,boxW=W/2-mg-10;
   const hasRabais=totalRabaisPDF>0;
   const hasRetard=retard?.frais>0;
-  const boxRows=(hasRabais?3:2)+(hasRetard?1:0);
+  const hasFraisLiv=fraisLivPDF>0;
+  const boxRows=(hasRabais?1:0)+(hasFraisLiv?1:0)+(hasRetard?1:0)+2;
   const boxH=8+boxRows*6+10;
   doc.setFillColor(254,249,231);doc.setDrawColor(242,201,76);
   doc.roundedRect(boxX,y,boxW,boxH,3,3,"FD");
@@ -4672,6 +4725,12 @@ const echeance=new Date(new Date(f.date).getTime()+30*86400000).toISOString().sl
   if(hasRabais){
     doc.setTextColor(185,28,28);
     doc.text("Rabais bouteilles offertes",boxX+4,rowY);doc.text("- CHF "+totalRabaisPDF.toFixed(2),boxX+boxW-4,rowY,{align:"right"});
+    rowY+=6;
+    doc.setTextColor(107,114,128);
+  }
+  if(hasFraisLiv){
+    doc.setTextColor(3,105,161);
+    doc.text("Frais de livraison",boxX+4,rowY);doc.text("+ CHF "+fraisLivPDF.toFixed(2),boxX+boxW-4,rowY,{align:"right"});
     rowY+=6;
     doc.setTextColor(107,114,128);
   }
@@ -4916,7 +4975,8 @@ if(view) {
 const pv = st.partenaires.find(p=>p.id===view.partenaireId) || (st.clients||[]).find(c=>c.id===view.partenaireId);
 const totalBrutView = calcTotal(view.lignes,view.typeClient,st.produits);
 const totalRabaisView = calcTotal((view.lignesOffertes||[]).filter(l=>l.produitId&&l.qte>0),view.typeClient,st.produits);
-const total = totalBrutView - totalRabaisView;
+const fraisLivView = parseFloat(view.fraisLivraison)||0;
+const total = totalBrutView - totalRabaisView + fraisLivView;
 const retard = getInfosRetard(view);
 const pr = getProchainRappel(view);
 const totalFinal = total+(retard?.frais||0);
@@ -5187,6 +5247,12 @@ return (
             <div style={{display:"flex",justifyContent:"space-between",gap:14,marginBottom:3}}>
               <span style={{fontSize:11,color:"#DC2626",fontWeight:600}}>🏷 Rabais bouteilles</span>
               <span style={{fontSize:11,color:"#DC2626",fontWeight:600}}>- CHF {totalRabaisView.toFixed(2)}</span>
+            </div>
+          )}
+          {fraisLivView>0&&(
+            <div style={{display:"flex",justifyContent:"space-between",gap:14,marginBottom:3}}>
+              <span style={{fontSize:11,color:"#0369A1"}}>🚚 Frais de livraison</span>
+              <span style={{fontSize:11,color:"#0369A1",fontWeight:600}}>+ CHF {fraisLivView.toFixed(2)}</span>
             </div>
           )}
           <div style={{display:"flex",justifyContent:"space-between",gap:14,marginBottom:retard?.frais>0?3:6}}>
@@ -5539,10 +5605,14 @@ return {Numero:f.numero,Date:f.date,Client:pv?.nom,Total:total,Statut:f.statut};
           <div style={{background:"#FEF9E7",border:"1px solid #F2C94C",borderRadius:10,padding:"10px 14px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
             <span style={{fontSize:13,fontWeight:600}}>Total facture</span>
             <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:20,fontWeight:700,color:"#D4A017"}}>
-              CHF {calcTotal(form.lignes,form.typeClient,st.produits).toFixed(2)}
+              CHF {(calcTotal(form.lignes,form.typeClient,st.produits)+(parseFloat(String(form.fraisLivraison))||0)).toFixed(2)}
             </span>
           </div>
         )}
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,alignItems:"end"}}>
+          <F label="🚚 Frais de livraison (CHF)" type="number" value={form.fraisLivraison||""} onChange={v=>setForm(p=>({...p,fraisLivraison:parseFloat(v)||0}))} placeholder="0.00"/>
+          <div style={{paddingBottom:2,fontSize:11,color:"#9CA3AF"}}>Laisser vide ou 0 si pas de frais</div>
+        </div>
         <F label="Notes" value={form.notes||""} onChange={v=>setForm(p=>({...p,notes:v}))} placeholder="Informations complémentaires..."/>
       </div>
       <div style={{display:"flex",gap:10,marginTop:20}}>
@@ -11153,12 +11223,28 @@ try {
     y+=9;
   });
 
-  // Total
+  // Total produits
+  const fraisLivOffre = parseFloat(offre.fraisLivraison)||0;
+  const totalAvecFrais = totalPrix + fraisLivOffre;
+  if(fraisLivOffre>0) {
+    doc.setFillColor(245,249,255); doc.rect(startX,y,tableW,8,"F");
+    doc.setDrawColor(191,219,254); doc.setLineWidth(0.2); doc.rect(startX,y,tableW,8,"S");
+    doc.setFont("helvetica","normal"); doc.setFontSize(8.5); doc.setTextColor(3,105,161);
+    doc.text("Sous-total produits",startX+4,y+5.5);
+    doc.text("CHF "+totalPrix.toFixed(2),startX+tableW-4,y+5.5,{align:"right"});
+    y+=8;
+    doc.setFillColor(224,242,254); doc.rect(startX,y,tableW,8,"F");
+    doc.setDrawColor(186,230,253); doc.setLineWidth(0.2); doc.rect(startX,y,tableW,8,"S");
+    doc.setFont("helvetica","normal"); doc.setFontSize(8.5); doc.setTextColor(3,105,161);
+    doc.text("🚚 Frais de livraison",startX+4,y+5.5);
+    doc.text("+ CHF "+fraisLivOffre.toFixed(2),startX+tableW-4,y+5.5,{align:"right"});
+    y+=8;
+  }
   doc.setFillColor(10,10,10);
   doc.rect(startX,y,tableW,10,"F");
   doc.setFont("helvetica","bold"); doc.setFontSize(10); doc.setTextColor(242,201,76);
   doc.text("TOTAL PARTENAIRE (hors TVA)",startX+4,y+6.5);
-  doc.text("CHF "+totalPrix.toFixed(2),startX+tableW-4,y+6.5,{align:"right"});
+  doc.text("CHF "+totalAvecFrais.toFixed(2),startX+tableW-4,y+6.5,{align:"right"});
   y+=10;
 
   // Conditions
@@ -11403,6 +11489,7 @@ const emptyForm = () => ({
   typeContrat:"",
   contratId:"",
   commandeId:"",
+  fraisLivraison:0,
 });
 
 const saveOffre = () => {
@@ -11609,10 +11696,11 @@ const creerBulletinCommandeFromOffre = (offre:any) => {
 const setStatut = (id, statut) => setSt(p=>({...p,offres:(p.offres||[]).map(o=>o.id===id?{...o,statut}:o)}));
 
 const totalOffre = (offre) => {
-  return (offre.lignes||[]).reduce((s,l)=>{
+  const base = (offre.lignes||[]).reduce((s,l)=>{
     const p=(st.produits||[]).find(x=>x.id===l.produitId);
     return s+(p?.prixRevendeur||0)*(l.qte||0);
   },0);
+  return base + (parseFloat(offre.fraisLivraison)||0);
 };
 
 const statutConfig = {
@@ -12241,6 +12329,10 @@ return (
       </div>
 
       {/* Notes */}
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,alignItems:"end"}}>
+        <F label="🚚 Frais de livraison (CHF)" type="number" value={form.fraisLivraison||""} onChange={v=>setForm(p=>({...p,fraisLivraison:parseFloat(v)||0}))} placeholder="0.00"/>
+        <div style={{paddingBottom:2,fontSize:11,color:"#9CA3AF"}}>Laisser vide ou 0 si inclus</div>
+      </div>
       <F label="Notes / remarques" value={form.notes||""} onChange={v=>setForm(p=>({...p,notes:v}))} placeholder="Conditions particulières, délai de livraison..."/>
 
       {/* Statut */}
