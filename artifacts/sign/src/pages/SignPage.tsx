@@ -58,6 +58,13 @@ function DocumentPreview({ req }: { req: SigningRequest }) {
     if (d.associeRole) rows.push(["Rôle", d.associeRole]);
     if (d.date) rows.push(["Date", formatDate(d.date)]);
     if (Array.isArray(d.associes) && d.associes.length > 0) rows.push(["Associés", d.associes.join(" · ")]);
+  } else if (type === "apport") {
+    if (d.associeNom) rows.push(["Associé", d.associeNom]);
+    if (d.associeRole) rows.push(["Rôle", d.associeRole]);
+    if (d.date) rows.push(["Date", formatDate(d.date)]);
+    if (d.typeApport) rows.push(["Type d'apport", d.typeApport === "argent" ? "Numéraire" : d.typeApport === "materiel" ? "Matériel" : d.typeApport === "stock" ? "Stock" : d.typeApport === "travail" ? "Travail" : d.typeApport]);
+    if (d.montant !== undefined) rows.push(["Montant", `CHF ${Number(d.montant).toFixed(2)}`]);
+    if (d.commentaire) rows.push(["Commentaire", d.commentaire]);
   } else {
     Object.entries(d).forEach(([k, v]) => {
       if (typeof v === "string" || typeof v === "number") {

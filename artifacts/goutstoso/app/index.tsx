@@ -3727,6 +3727,82 @@ Contrats
           <button onClick={()=>genererAvenantPDF(st)} style={{flex:1,background:"#1a1a1a",color:"#9CA3AF",border:"1px solid #333",borderRadius:8,padding:"8px",fontSize:10,fontWeight:600,cursor:"pointer"}}>
             📋 Avenant · {(st.conventionAssocies?.signataires||[]).filter((s:any)=>s.signed).length}/{(st.associes||[]).length} signé(s)
           </button>
+          <button onClick={async()=>{
+            try {
+              await new Promise((res,rej)=>{if((window as any).jspdf){res();return;}const s=document.createElement("script");s.src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";s.onload=res;s.onerror=rej;document.head.appendChild(s);});
+              const {jsPDF}=(window as any).jspdf;
+              const doc=new jsPDF("p","mm","a4");
+              const W=210,mg=18;
+              const assocs=st.associes||[];
+              const totalInvesti=assocs.reduce((s:number,a:any)=>s+a.apports.reduce((ss:number,ap:any)=>ss+(parseFloat(ap.montant)||0),0),0);
+              doc.setFillColor(242,201,76);doc.rect(0,0,W,6,"F");
+              pdfLogo(doc,mg);
+              doc.setFontSize(15);doc.setFont("helvetica","bold");doc.setTextColor(17,17,17);
+              doc.text("RÉCAPITULATIF DES APPORTS",W-mg,20,{align:"right"});
+              doc.setFontSize(9);doc.setFont("helvetica","normal");doc.setTextColor(120,120,120);
+              doc.text("GOÛTSTOSO · Société simple · Art. 530 CO suisse",W-mg,28,{align:"right"});
+              doc.text("Généré le "+new Date().toLocaleDateString("fr-CH",{day:"2-digit",month:"long",year:"numeric"}),W-mg,34,{align:"right"});
+              doc.setDrawColor(230,230,228);doc.setLineWidth(0.3);doc.line(mg,38,W-mg,38);
+              let y=46;
+              // Tableau récap
+              doc.setFillColor(17,17,17);doc.rect(mg,y,W-mg*2,9,"F");
+              doc.setFontSize(8);doc.setFont("helvetica","bold");doc.setTextColor(242,201,76);
+              doc.text("ASSOCIÉ",mg+3,y+6);doc.text("RÔLE",70,y+6);
+              doc.setTextColor(180,180,180);
+              doc.text("NB APPORTS",130,y+6,{align:"right"});
+              doc.text("TOTAL CHF",160,y+6,{align:"right"});
+              doc.text("PART %",W-mg-3,y+6,{align:"right"});
+              y+=9;
+              assocs.forEach((a:any,i:number)=>{
+                const apTot=a.apports.reduce((s:number,ap:any)=>s+(parseFloat(ap.montant)||0),0);
+                const part=totalInvesti>0?(apTot/totalInvesti*100):0;
+                const signedCount=a.apports.filter((ap:any)=>ap.signed).length;
+                doc.setFillColor(i%2===0?249:255,i%2===0?249:255,i%2===0?246:255);
+                doc.rect(mg,y,W-mg*2,11,"F");
+                doc.setFontSize(9);doc.setFont("helvetica","bold");doc.setTextColor(17,17,17);
+                doc.text(a.nom,mg+3,y+7.5);
+                doc.setFont("helvetica","normal");doc.setFontSize(8);doc.setTextColor(107,114,128);
+                doc.text(a.role||"",70,y+7.5);
+                doc.setTextColor(60,60,60);
+                doc.text(a.apports.length+" ("+signedCount+" sig.)",130,y+7.5,{align:"right"});
+                doc.setFont("helvetica","bold");doc.setTextColor(22,101,52);
+                doc.text("CHF "+apTot.toFixed(2),160,y+7.5,{align:"right"});
+                doc.setTextColor(30,58,138);
+                doc.text(part.toFixed(1)+"%",W-mg-3,y+7.5,{align:"right"});
+                y+=11;
+              });
+              // Total
+              doc.setFillColor(254,249,231);doc.rect(mg,y,W-mg*2,10,"F");
+              doc.setFontSize(10);doc.setFont("helvetica","bold");doc.setTextColor(17,17,17);
+              doc.text("TOTAL",mg+3,y+7);
+              doc.text("CHF "+totalInvesti.toFixed(2),160,y+7,{align:"right"});
+              doc.text("100%",W-mg-3,y+7,{align:"right"});
+              y+=18;
+              // Détail par associé
+              doc.setFontSize(10);doc.setFont("helvetica","bold");doc.setTextColor(30,58,138);
+              doc.text("Détail des apports par associé",mg,y);y+=7;
+              for(const a of assocs){
+                if(y>255){doc.addPage();doc.setFillColor(242,201,76);doc.rect(0,0,W,3,"F");y=12;}
+                doc.setFontSize(9);doc.setFont("helvetica","bold");doc.setTextColor(17,17,17);
+                doc.text("▸ "+a.nom,mg,y);y+=5;
+                for(const ap of a.apports){
+                  const tL=ap.type==="argent"?"Numéraire":ap.type==="materiel"?"Matériel":ap.type==="stock"?"Stock":ap.type==="travail"?"Travail":ap.type;
+                  const sigBadge=ap.signed?" ✓ Signé":ap.signingToken?" (en attente)":"";
+                  const ln=new Date(ap.date).toLocaleDateString("fr-CH")+"  ·  "+tL+"  ·  CHF "+parseFloat(ap.montant).toFixed(2)+(ap.commentaire?" — "+ap.commentaire:"")+sigBadge;
+                  doc.setFontSize(8);doc.setFont("helvetica","normal");doc.setTextColor(80,80,80);
+                  const sl=doc.splitTextToSize(ln,W-mg*2-6);
+                  if(y+sl.length*4.5>255){doc.addPage();doc.setFillColor(242,201,76);doc.rect(0,0,W,3,"F");y=12;}
+                  doc.text(sl,mg+4,y);y+=sl.length*4.5;
+                }
+                y+=4;
+              }
+              doc.setDrawColor(230,230,228);doc.setLineWidth(0.3);doc.line(mg,277,W-mg,277);
+              doc.setFontSize(7.5);doc.setFont("helvetica","normal");doc.setTextColor(150,150,150);
+              doc.text("Goûtstoso — Jordan Montanaro · admin@goutstoso.ch · www.goutstoso.ch",W/2,282,{align:"center"});
+              doc.setFillColor(242,201,76);doc.rect(0,292,W,5,"F");
+              doc.save("Recap_Apports_Goutstoso_"+new Date().toISOString().slice(0,10)+".pdf");
+            }catch(e:any){alert("Erreur PDF : "+e.message);}
+          }} style={{flex:1,background:"#1E3A5F",color:"#BFDBFE",border:"none",borderRadius:8,padding:"8px",fontSize:10,fontWeight:600,cursor:"pointer"}}>📊 Récapitulatif</button>
         </div>
       </div>
 
@@ -5502,6 +5578,10 @@ const emptyApport = {date:today(),montant:"",type:"argent",commentaire:"",captur
 const [apportForm,setApportForm] = useState<any>(emptyApport);
 const emptyRemb = {date:today(),montant:"",commentaire:""};
 const [rembForm,setRembForm] = useState<any>(emptyRemb);
+const [apportSignStep,setApportSignStep] = useState<"options"|"signing"|null>(null);
+const [savedApForSign,setSavedApForSign] = useState<any>(null);
+const sigCanvasRef = React.useRef<HTMLCanvasElement>(null);
+const sigDrawing = React.useRef(false);
 
 // Saisie automatique depuis factures payées
 React.useEffect(()=>{
@@ -6834,11 +6914,12 @@ return (
                     <p style={{fontSize:9,fontWeight:600,color:"#9CA3AF",textTransform:"uppercase",marginBottom:4}}>Apports ({a.apports.length})</p>
                     {a.apports.map(ap=>(
                       <div key={ap.id} style={{borderBottom:"1px solid #F3F3F0",padding:"4px 0"}}>
-                        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",fontSize:10,color:"#525252"}}>
-                          <span style={{flex:1}}>{fmt(ap.date)} · {ap.type}{ap.commentaire?" · "+ap.commentaire:""}{ap.captureVirement?<span style={{marginLeft:4,fontSize:9,color:"#6B7280"}}>📎</span>:null}</span>
-                          <span style={{fontWeight:600,color:"#166534",marginRight:6}}>+{chf(parseFloat(ap.montant)||0)}</span>
+                        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",fontSize:10,color:"#525252",flexWrap:"wrap",gap:2}}>
+                          <span style={{flex:1,minWidth:0}}>{fmt(ap.date)} · {ap.type}{ap.commentaire?" · "+ap.commentaire:""}{ap.captureVirement?<span style={{marginLeft:4,fontSize:9,color:"#6B7280"}}>📎</span>:null}</span>
+                          <span style={{fontWeight:600,color:"#166534",marginRight:4}}>+{chf(parseFloat(ap.montant)||0)}</span>
+                          {ap.signed?<span style={{fontSize:8,background:"#DCFCE7",color:"#166534",borderRadius:5,padding:"2px 5px",fontWeight:700,marginRight:3}}>✅ Signé</span>:ap.signingToken?<button onClick={async()=>{try{const SIGN_API2=(process.env.EXPO_PUBLIC_DOMAIN?`https://${process.env.EXPO_PUBLIC_DOMAIN}`:"https://goutstoso.replit.app")+"/api";const r=await fetch(`${SIGN_API2}/sign/${ap.signingToken}`);const d=await r.json();if(d.status!=="signed"){alert("Pas encore signé — le lien est toujours en attente.");return;}setSt((p:any)=>({...p,associes:(p.associes||[]).map((assoc:any)=>assoc.id===a.id?{...assoc,apports:assoc.apports.map((x:any)=>x.id===ap.id?{...x,signed:true,signData:d.signatureData,signerNom:d.signerName,signingToken:null,signedAt:d.signedAt||new Date().toISOString()}:x)}:assoc)}));alert("✅ "+d.signerName+" a signé !");} catch(e:any){alert("Erreur : "+e.message);}}} style={{fontSize:8,background:"#FEF9C3",color:"#92400E",border:"none",borderRadius:5,padding:"2px 5px",fontWeight:700,cursor:"pointer",marginRight:3}}>🔏 Vérifier</button>:null}
                           <button onClick={()=>genererQuittancePDF(a,ap)} style={{background:"#F2C94C",border:"none",borderRadius:6,padding:"3px 7px",fontSize:9,fontWeight:700,cursor:"pointer",color:"#111",marginRight:3}} title="Quittance PDF">📄</button>
-                          <button onClick={()=>{setSelectedAssocieId(a.id);setApportForm({...ap,montant:String(ap.montant)});setAssocieModal("apport");}}
+                          <button onClick={()=>{setSelectedAssocieId(a.id);setApportForm({...ap,montant:String(ap.montant)});setAssocieModal("apport");setApportSignStep(null);setSavedApForSign(null);}}
                             style={{background:"#F5F5F0",border:"none",borderRadius:6,padding:"3px 7px",fontSize:9,fontWeight:700,cursor:"pointer",color:"#374151",marginRight:3}}>✏️</button>
                           <button onClick={()=>{
                           if(!confirm("Supprimer cet apport de "+chf(parseFloat(ap.montant)||0)+" ?")) return;
@@ -7006,11 +7087,68 @@ return (
                     transactions:[...(p.transactions||[]),newCapTrans],
                     soldeBancaire:newAp.type==="argent"?parseFloat((parseFloat(p.soldeBancaire||0)+m).toFixed(2)):parseFloat(p.soldeBancaire||0),
                   }));
+                  setSavedApForSign({...newAp,_assocNom:assocNom,_assocRole:selectedA?.role||"",_assocEmail:selectedA?.email||""});
+                  setApportSignStep("options");
+                  return;
                 }
                 setAssocieModal(null);
               }}>Enregistrer</Btn>
-              <Btn full variant="ghost" onClick={()=>setAssocieModal(null)}>Annuler</Btn>
+              <Btn full variant="ghost" onClick={()=>{setAssocieModal(null);setApportSignStep(null);setSavedApForSign(null);}}>Annuler</Btn>
             </div>
+
+            {/* Étape signature après enregistrement */}
+            {apportSignStep==="options"&&savedApForSign&&(
+              <div style={{marginTop:16,borderTop:"1.5px solid #F2C94C",paddingTop:14}}>
+                <p style={{fontSize:11,fontWeight:700,color:"#166534",marginBottom:4}}>✅ Apport enregistré — CHF {parseFloat(savedApForSign.montant).toFixed(2)}</p>
+                <p style={{fontSize:10,color:"#6B7280",marginBottom:12}}>Souhaitez-vous formaliser cet apport avec une signature ?</p>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
+                  <button onClick={()=>setApportSignStep("signing")} style={{background:"#1a1a1a",color:"#F2C94C",border:"none",borderRadius:8,padding:"9px",fontSize:10,fontWeight:700,cursor:"pointer"}}>✍️ Signer maintenant</button>
+                  <button onClick={async()=>{
+                    if(!savedApForSign._assocEmail){alert("Cet associé n'a pas d'email enregistré. Modifie sa fiche d'abord.");return;}
+                    try {
+                      const r2=await fetch(`${SIGN_API}/sign`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({documentType:"apport",documentTitle:`Apport — ${savedApForSign._assocNom}`,documentData:{associeNom:savedApForSign._assocNom,associeRole:savedApForSign._assocRole,date:savedApForSign.date,montant:savedApForSign.montant,typeApport:savedApForSign.type,commentaire:savedApForSign.commentaire||""},expiresInDays:30})});
+                      if(!r2.ok) throw new Error("Erreur serveur signature");
+                      const {token:tok,signingUrl}=await r2.json();
+                      const emailBody=`Chère/Cher ${savedApForSign._assocNom},\n\nJordan Montanaro te demande de confirmer ton apport en capital dans Goûtstoso.\n\nMontant : CHF ${parseFloat(savedApForSign.montant).toFixed(2)}\nDate : ${new Date(savedApForSign.date).toLocaleDateString("fr-CH")}\n\nClique sur ce lien pour apposer ta signature électronique :\n\n${signingUrl}\n\nCe lien est valable 30 jours.\n\nCordialement,\n\nJordan Montanaro\nGoûtstoso · admin@goutstoso.ch`;
+                      await sendEmail({to:savedApForSign._assocEmail,toName:savedApForSign._assocNom,subject:`Signature requise — Apport Goûtstoso CHF ${parseFloat(savedApForSign.montant).toFixed(2)}`,body:emailBody});
+                      setSt((p:any)=>({...p,associes:(p.associes||[]).map((a:any)=>a.id===selectedAssocieId?{...a,apports:a.apports.map((ap:any)=>ap.id===savedApForSign.id?{...ap,signingToken:tok}:ap)}:a)}));
+                      alert("✅ Email envoyé à "+savedApForSign._assocEmail);
+                      setAssocieModal(null);setApportSignStep(null);setSavedApForSign(null);
+                    } catch(e:any){alert("Erreur : "+e.message);}
+                  }} style={{background:"#DBEAFE",color:"#1E3A5F",border:"none",borderRadius:8,padding:"9px",fontSize:10,fontWeight:700,cursor:"pointer"}}>📧 Envoyer lien email</button>
+                </div>
+                <button onClick={()=>{setAssocieModal(null);setApportSignStep(null);setSavedApForSign(null);}} style={{width:"100%",background:"#F5F5F0",color:"#6B7280",border:"none",borderRadius:8,padding:"8px",fontSize:10,fontWeight:600,cursor:"pointer"}}>Plus tard</button>
+              </div>
+            )}
+
+            {/* Canvas signature inline */}
+            {apportSignStep==="signing"&&savedApForSign&&(
+              <div style={{marginTop:16,borderTop:"1.5px solid #F2C94C",paddingTop:14}}>
+                <p style={{fontSize:11,fontWeight:700,color:"#111",marginBottom:8}}>✍️ Signez ci-dessous</p>
+                <div style={{border:"1.5px dashed #D1D5DB",borderRadius:10,background:"#FAFAF7",overflow:"hidden",touchAction:"none",marginBottom:10}}>
+                  <canvas ref={sigCanvasRef} width={600} height={160} style={{width:"100%",cursor:"crosshair",display:"block"}}
+                    onMouseDown={e=>{sigDrawing.current=true;const c=sigCanvasRef.current;if(!c)return;const r=c.getBoundingClientRect();const ctx=c.getContext("2d")!;ctx.beginPath();ctx.moveTo((e.clientX-r.left)*(c.width/r.width),(e.clientY-r.top)*(c.height/r.height));}}
+                    onMouseMove={e=>{if(!sigDrawing.current||!sigCanvasRef.current)return;const c=sigCanvasRef.current;const r=c.getBoundingClientRect();const ctx=c.getContext("2d")!;ctx.lineWidth=2.5;ctx.lineCap="round";ctx.strokeStyle="#0a0a0a";ctx.lineTo((e.clientX-r.left)*(c.width/r.width),(e.clientY-r.top)*(c.height/r.height));ctx.stroke();}}
+                    onMouseUp={()=>{sigDrawing.current=false;}}
+                    onTouchStart={e=>{e.preventDefault();sigDrawing.current=true;const c=sigCanvasRef.current;if(!c)return;const r=c.getBoundingClientRect();const t=e.touches[0];const ctx=c.getContext("2d")!;ctx.beginPath();ctx.moveTo((t.clientX-r.left)*(c.width/r.width),(t.clientY-r.top)*(c.height/r.height));}}
+                    onTouchMove={e=>{e.preventDefault();if(!sigDrawing.current||!sigCanvasRef.current)return;const c=sigCanvasRef.current;const r=c.getBoundingClientRect();const t=e.touches[0];const ctx=c.getContext("2d")!;ctx.lineWidth=2.5;ctx.lineCap="round";ctx.strokeStyle="#0a0a0a";ctx.lineTo((t.clientX-r.left)*(c.width/r.width),(t.clientY-r.top)*(c.height/r.height));ctx.stroke();}}
+                    onTouchEnd={()=>{sigDrawing.current=false;}}
+                  />
+                </div>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
+                  <button onClick={()=>{const c=sigCanvasRef.current;if(c){const ctx=c.getContext("2d")!;ctx.clearRect(0,0,c.width,c.height);}}} style={{background:"#F5F5F0",color:"#374151",border:"none",borderRadius:8,padding:"8px",fontSize:10,fontWeight:600,cursor:"pointer"}}>🗑 Effacer</button>
+                  <button onClick={()=>setApportSignStep("options")} style={{background:"#F5F5F0",color:"#374151",border:"none",borderRadius:8,padding:"8px",fontSize:10,fontWeight:600,cursor:"pointer"}}>← Retour</button>
+                  <button onClick={()=>{
+                    const c=sigCanvasRef.current;if(!c)return;
+                    const dataUrl=c.toDataURL("image/png");
+                    const now=new Date().toISOString();
+                    setSt((p:any)=>({...p,associes:(p.associes||[]).map((a:any)=>a.id===selectedAssocieId?{...a,apports:a.apports.map((ap:any)=>ap.id===savedApForSign.id?{...ap,signData:dataUrl,signed:true,signerNom:savedApForSign._assocNom,signedAt:now}:ap)}:a)}));
+                    alert("✅ Signature enregistrée !");
+                    setAssocieModal(null);setApportSignStep(null);setSavedApForSign(null);
+                  }} style={{background:"#166534",color:"#fff",border:"none",borderRadius:8,padding:"8px",fontSize:10,fontWeight:700,cursor:"pointer"}}>✅ Valider</button>
+                </div>
+              </div>
+            )}
           </Modal>
         )}
 
