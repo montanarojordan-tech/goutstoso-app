@@ -11246,7 +11246,7 @@ try {
 };
 
 // PDF fiche de prospection (catalogue sans quantités + cases à cocher intérêt)
-const genererProspectionPDF = async (offre, produits) => {
+const genererProspectionPDF = async (offre, produits, st) => {
 try {
   await new Promise((res,rej)=>{
     if((window as any).jspdf){res(null);return;}
@@ -11312,12 +11312,11 @@ try {
   doc.setFontSize(11); doc.setTextColor(10,10,10);
   doc.text("admin@goutstoso.ch",W/2,y+14,{align:"center"});
   y+=24;
-  doc.setDrawColor(230,230,228); doc.setLineWidth(0.3); doc.line(mg,279,W-mg,279);
+  doc.setDrawColor(230,230,228); doc.setLineWidth(0.3); doc.line(mg,282,W-mg,282);
   doc.setFont("helvetica","normal"); doc.setFontSize(7); doc.setTextColor(150,150,150);
-  doc.text("Goûtstoso - Jordan Montanaro · Rue des Sources 19 · 2613 Villeret · admin@goutstoso.ch · www.goutstoso.ch",W/2,283,{align:"center"});
-  doc.setFont("helvetica","italic"); doc.setFontSize(6.5); doc.setTextColor(170,170,170);
-  doc.text("Prix indiqués toutes taxes comprises (TTC) · Goûtstoso n'est pas assujetti à la TVA (art. 10 al. 2 LTVA — CA annuel < CHF 100'000)",W/2,289,{align:"center"});
+  doc.text("Goûtstoso - Jordan Montanaro · Rue des Sources 19 · 2613 Villeret · admin@goutstoso.ch · www.goutstoso.ch",W/2,286,{align:"center"});
   doc.setFillColor(242,201,76); doc.rect(0,292,W,5,"F");
+  ajouterDocAnnexe(doc, "cgv", st);
   const fname=offre.clientNom?"Prospection-"+offre.clientNom.replace(/\s+/g,"-")+".pdf":"Fiche-Prospection-Goutstoso.pdf";
   doc.save(fname);
 } catch(e){ alert("Erreur PDF : "+e.message); }
@@ -11684,7 +11683,7 @@ if(view) return (
   {(view.statut==="prospection") && (
     <Card style={{padding:"14px",marginBottom:12,background:"#EFF6FF",border:"1.5px solid #BFDBFE"}}>
       <p style={{fontSize:12,fontWeight:700,color:"#1E40AF",marginBottom:10}}>🔍 Étape 1 — Prospection</p>
-      <button onClick={()=>genererProspectionPDF(view,st.produits)} style={{width:"100%",background:"#1E40AF",color:"#fff",border:"none",borderRadius:9,padding:"10px",fontWeight:700,fontSize:12,cursor:"pointer",marginBottom:8,display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+      <button onClick={()=>genererProspectionPDF(view,st.produits,st)} style={{width:"100%",background:"#1E40AF",color:"#fff",border:"none",borderRadius:9,padding:"10px",fontWeight:700,fontSize:12,cursor:"pointer",marginBottom:8,display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
         📋 Télécharger la fiche produits (PDF)
       </button>
       {view.clientEmail&&(
@@ -12832,7 +12831,7 @@ const Prospects = ({st, setSt, setTab=(_any:any)=>{}}) => {
     <div className="fade">
       <PipelineBanner current="prospects"/>
       <SectionTitle action={<div style={{display:"flex",gap:8}}>
-        <button onClick={()=>genererProspectionPDF({clientNom:"",clientContact:""},st.produits)} style={{background:"#1E40AF",color:"#fff",border:"none",borderRadius:9,padding:"9px 12px",fontSize:12,fontWeight:600,cursor:"pointer",display:"flex",alignItems:"center",gap:5}}>📋 Fiche PDF</button>
+        <button onClick={()=>genererProspectionPDF({clientNom:"",clientContact:""},st.produits,st)} style={{background:"#1E40AF",color:"#fff",border:"none",borderRadius:9,padding:"9px 12px",fontSize:12,fontWeight:600,cursor:"pointer",display:"flex",alignItems:"center",gap:5}}>📋 Fiche PDF</button>
         <button onClick={()=>{setForm(emptyForm());setModal("form");}} style={{background:"#0A0A0A",color:"#fff",border:"none",borderRadius:9,padding:"9px 16px",fontSize:13,fontWeight:600,cursor:"pointer"}}>+ Nouveau</button>
       </div>}>
         Prospects <span style={{fontSize:14,color:"#9CA3AF",fontWeight:400}}>({prospects.length})</span>
