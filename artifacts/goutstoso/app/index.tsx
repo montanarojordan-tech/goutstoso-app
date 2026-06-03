@@ -4301,7 +4301,7 @@ const [pjModal,setPjModal] = useState(false);
 const [recoveryTokenF, setRecoveryTokenF] = useState("");
 const [showArchived, setShowArchived] = useState(false);
 
-const emptyF = {partenaireId:st.partenaires[0]?.id||"",typeClient:"revendeur",lignes:[{produitId:"",qte:1}],lignesOffertes:[],comptOffert:"3900",notes:"",date:today(),envoyee:false,fraisLivraison:0};
+const emptyF = {partenaireId:st.partenaires[0]?.id||"",typeClient:"revendeur",lignes:[{produitId:"",qte:1}],lignesOffertes:[],comptOffert:"3900",notes:"",date:today(),envoyee:false,fraisLivraison:0,livraisonGratuite:false};
 const [form,setForm] = useState(emptyF);
 const [modalRegroup,setModalRegroup] = useState(false);
 const [selectedForRegroup,setSelectedForRegroup] = useState([]);
@@ -4715,7 +4715,8 @@ const echeance=new Date(new Date(f.date).getTime()+30*86400000).toISOString().sl
   const hasRabais=totalRabaisPDF>0;
   const hasRetard=retard?.frais>0;
   const hasFraisLiv=fraisLivPDF>0;
-  const boxRows=(hasRabais?1:0)+(hasFraisLiv?1:0)+(hasRetard?1:0)+2;
+  const hasLivGratuite=!hasFraisLiv&&!!(f.livraisonGratuite);
+  const boxRows=(hasRabais?1:0)+(hasFraisLiv||hasLivGratuite?1:0)+(hasRetard?1:0)+2;
   const boxH=8+boxRows*6+10;
   doc.setFillColor(254,249,231);doc.setDrawColor(242,201,76);
   doc.roundedRect(boxX,y,boxW,boxH,3,3,"FD");
@@ -4731,6 +4732,11 @@ const echeance=new Date(new Date(f.date).getTime()+30*86400000).toISOString().sl
   if(hasFraisLiv){
     doc.setTextColor(3,105,161);
     doc.text("Frais de livraison",boxX+4,rowY);doc.text("+ CHF "+fraisLivPDF.toFixed(2),boxX+boxW-4,rowY,{align:"right"});
+    rowY+=6;
+    doc.setTextColor(107,114,128);
+  } else if(hasLivGratuite){
+    doc.setTextColor(22,101,52);
+    doc.text("Livraison",boxX+4,rowY);doc.text("Offerte ✓",boxX+boxW-4,rowY,{align:"right"});
     rowY+=6;
     doc.setTextColor(107,114,128);
   }
@@ -5255,6 +5261,12 @@ return (
               <span style={{fontSize:11,color:"#0369A1",fontWeight:600}}>+ CHF {fraisLivView.toFixed(2)}</span>
             </div>
           )}
+          {fraisLivView===0&&view.livraisonGratuite&&(
+            <div style={{display:"flex",justifyContent:"space-between",gap:14,marginBottom:3}}>
+              <span style={{fontSize:11,color:"#0369A1"}}>🚚 Livraison</span>
+              <span style={{fontSize:11,color:"#166534",fontWeight:600}}>Offerte ✓</span>
+            </div>
+          )}
           <div style={{display:"flex",justifyContent:"space-between",gap:14,marginBottom:retard?.frais>0?3:6}}>
             <span style={{fontSize:11,color:"#6B7280"}}>TVA</span><span style={{fontSize:11,color:"#9CA3AF"}}>Non assujetti</span>
           </div>
@@ -5609,9 +5621,20 @@ return {Numero:f.numero,Date:f.date,Client:pv?.nom,Total:total,Statut:f.statut};
             </span>
           </div>
         )}
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,alignItems:"end"}}>
-          <F label="🚚 Frais de livraison (CHF)" type="number" value={form.fraisLivraison||""} onChange={v=>setForm(p=>({...p,fraisLivraison:parseFloat(v)||0}))} placeholder="0.00"/>
-          <div style={{paddingBottom:2,fontSize:11,color:"#9CA3AF"}}>Laisser vide ou 0 si pas de frais</div>
+        <div style={{background:"#F0F9FF",border:"1px solid #BAE6FD",borderRadius:10,padding:"10px 12px"}}>
+          <label style={{fontSize:11,fontWeight:600,color:"#0369A1",textTransform:"uppercase",letterSpacing:".05em",display:"block",marginBottom:8}}>🚚 Livraison</label>
+          <div style={{display:"grid",gridTemplateColumns:"1fr auto",gap:10,alignItems:"center",marginBottom:8}}>
+            <F label="Frais de livraison (CHF)" type="number" value={form.fraisLivraison||""} onChange={v=>setForm(p=>({...p,fraisLivraison:parseFloat(v)||0,livraisonGratuite:parseFloat(v)>0?false:p.livraisonGratuite}))} placeholder="0.00"/>
+            <div/>
+          </div>
+          <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",userSelect:"none"}}>
+            <input type="checkbox" checked={!!form.livraisonGratuite} onChange={e=>setForm(p=>({...p,livraisonGratuite:e.target.checked,fraisLivraison:e.target.checked?0:p.fraisLivraison}))}
+              style={{width:16,height:16,accentColor:"#0369A1",cursor:"pointer"}}/>
+            <span style={{fontSize:12,color:"#0369A1",fontWeight:600}}>Afficher « Livraison offerte » sur le document</span>
+          </label>
+          {!form.livraisonGratuite && !form.fraisLivraison && (
+            <p style={{fontSize:10,color:"#9CA3AF",marginTop:6}}>Aucune ligne livraison ne sera affichée si les deux sont à zéro.</p>
+          )}
         </div>
         <F label="Notes" value={form.notes||""} onChange={v=>setForm(p=>({...p,notes:v}))} placeholder="Informations complémentaires..."/>
       </div>
@@ -11225,19 +11248,27 @@ try {
 
   // Total produits
   const fraisLivOffre = parseFloat(offre.fraisLivraison)||0;
+  const livOffreGratuite = !fraisLivOffre && !!(offre.livraisonGratuite);
   const totalAvecFrais = totalPrix + fraisLivOffre;
-  if(fraisLivOffre>0) {
+  if(fraisLivOffre>0 || livOffreGratuite) {
     doc.setFillColor(245,249,255); doc.rect(startX,y,tableW,8,"F");
     doc.setDrawColor(191,219,254); doc.setLineWidth(0.2); doc.rect(startX,y,tableW,8,"S");
     doc.setFont("helvetica","normal"); doc.setFontSize(8.5); doc.setTextColor(3,105,161);
     doc.text("Sous-total produits",startX+4,y+5.5);
     doc.text("CHF "+totalPrix.toFixed(2),startX+tableW-4,y+5.5,{align:"right"});
     y+=8;
-    doc.setFillColor(224,242,254); doc.rect(startX,y,tableW,8,"F");
-    doc.setDrawColor(186,230,253); doc.setLineWidth(0.2); doc.rect(startX,y,tableW,8,"S");
-    doc.setFont("helvetica","normal"); doc.setFontSize(8.5); doc.setTextColor(3,105,161);
-    doc.text("🚚 Frais de livraison",startX+4,y+5.5);
-    doc.text("+ CHF "+fraisLivOffre.toFixed(2),startX+tableW-4,y+5.5,{align:"right"});
+    doc.setFillColor(fraisLivOffre>0?224:220,fraisLivOffre>0?242:252,fraisLivOffre>0?254:231); doc.rect(startX,y,tableW,8,"F");
+    doc.setDrawColor(fraisLivOffre>0?186:187,fraisLivOffre>0?230:247,fraisLivOffre>0?253:208); doc.setLineWidth(0.2); doc.rect(startX,y,tableW,8,"S");
+    doc.setFont("helvetica","normal"); doc.setFontSize(8.5);
+    if(fraisLivOffre>0){
+      doc.setTextColor(3,105,161);
+      doc.text("Frais de livraison",startX+4,y+5.5);
+      doc.text("+ CHF "+fraisLivOffre.toFixed(2),startX+tableW-4,y+5.5,{align:"right"});
+    } else {
+      doc.setTextColor(22,101,52);
+      doc.text("Livraison",startX+4,y+5.5);
+      doc.text("Offerte ✓",startX+tableW-4,y+5.5,{align:"right"});
+    }
     y+=8;
   }
   doc.setFillColor(10,10,10);
@@ -11490,6 +11521,7 @@ const emptyForm = () => ({
   contratId:"",
   commandeId:"",
   fraisLivraison:0,
+  livraisonGratuite:false,
 });
 
 const saveOffre = () => {
@@ -12329,9 +12361,19 @@ return (
       </div>
 
       {/* Notes */}
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,alignItems:"end"}}>
-        <F label="🚚 Frais de livraison (CHF)" type="number" value={form.fraisLivraison||""} onChange={v=>setForm(p=>({...p,fraisLivraison:parseFloat(v)||0}))} placeholder="0.00"/>
-        <div style={{paddingBottom:2,fontSize:11,color:"#9CA3AF"}}>Laisser vide ou 0 si inclus</div>
+      <div style={{background:"#F0F9FF",border:"1px solid #BAE6FD",borderRadius:10,padding:"10px 12px"}}>
+        <label style={{fontSize:11,fontWeight:600,color:"#0369A1",textTransform:"uppercase",letterSpacing:".05em",display:"block",marginBottom:8}}>🚚 Livraison</label>
+        <div style={{marginBottom:8}}>
+          <F label="Frais de livraison (CHF)" type="number" value={form.fraisLivraison||""} onChange={v=>setForm(p=>({...p,fraisLivraison:parseFloat(v)||0,livraisonGratuite:parseFloat(v)>0?false:p.livraisonGratuite}))} placeholder="0.00"/>
+        </div>
+        <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",userSelect:"none"}}>
+          <input type="checkbox" checked={!!form.livraisonGratuite} onChange={e=>setForm(p=>({...p,livraisonGratuite:e.target.checked,fraisLivraison:e.target.checked?0:p.fraisLivraison}))}
+            style={{width:16,height:16,accentColor:"#0369A1",cursor:"pointer"}}/>
+          <span style={{fontSize:12,color:"#0369A1",fontWeight:600}}>Afficher « Livraison offerte » sur le document</span>
+        </label>
+        {!form.livraisonGratuite && !form.fraisLivraison && (
+          <p style={{fontSize:10,color:"#9CA3AF",marginTop:6}}>Aucune ligne livraison ne sera affichée si les deux sont à zéro.</p>
+        )}
       </div>
       <F label="Notes / remarques" value={form.notes||""} onChange={v=>setForm(p=>({...p,notes:v}))} placeholder="Conditions particulières, délai de livraison..."/>
 
