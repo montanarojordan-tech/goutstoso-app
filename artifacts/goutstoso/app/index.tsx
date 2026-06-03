@@ -6917,7 +6917,7 @@ return (
                         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",fontSize:10,color:"#525252",flexWrap:"wrap",gap:2}}>
                           <span style={{flex:1,minWidth:0}}>{fmt(ap.date)} · {ap.type}{ap.commentaire?" · "+ap.commentaire:""}{ap.captureVirement?<span style={{marginLeft:4,fontSize:9,color:"#6B7280"}}>📎</span>:null}</span>
                           <span style={{fontWeight:600,color:"#166534",marginRight:4}}>+{chf(parseFloat(ap.montant)||0)}</span>
-                          {ap.signed?<span style={{fontSize:8,background:"#DCFCE7",color:"#166534",borderRadius:5,padding:"2px 5px",fontWeight:700,marginRight:3}}>✅ Signé</span>:ap.signingToken?<button onClick={async()=>{try{const SIGN_API2=(process.env.EXPO_PUBLIC_DOMAIN?`https://${process.env.EXPO_PUBLIC_DOMAIN}`:"https://goutstoso.replit.app")+"/api";const r=await fetch(`${SIGN_API2}/sign/${ap.signingToken}`);const d=await r.json();if(d.status!=="signed"){alert("Pas encore signé — le lien est toujours en attente.");return;}setSt((p:any)=>({...p,associes:(p.associes||[]).map((assoc:any)=>assoc.id===a.id?{...assoc,apports:assoc.apports.map((x:any)=>x.id===ap.id?{...x,signed:true,signData:d.signatureData,signerNom:d.signerName,signingToken:null,signedAt:d.signedAt||new Date().toISOString()}:x)}:assoc)}));alert("✅ "+d.signerName+" a signé !");} catch(e:any){alert("Erreur : "+e.message);}}} style={{fontSize:8,background:"#FEF9C3",color:"#92400E",border:"none",borderRadius:5,padding:"2px 5px",fontWeight:700,cursor:"pointer",marginRight:3}}>🔏 Vérifier</button>:null}
+                          {ap.signed?<span style={{fontSize:8,background:"#DCFCE7",color:"#166534",borderRadius:5,padding:"2px 5px",fontWeight:700,marginRight:3}}>✅ Signé</span>:ap.signingToken?<button onClick={async()=>{try{const SIGN_API2=(process.env.EXPO_PUBLIC_DOMAIN?`https://${process.env.EXPO_PUBLIC_DOMAIN}`:"https://goutstoso.replit.app")+"/api";const r=await fetch(`${SIGN_API2}/sign/${ap.signingToken}`);const d=await r.json();if(d.status!=="signed"){alert("Pas encore signé — le lien est toujours en attente.");return;}setSt((p:any)=>({...p,associes:(p.associes||[]).map((assoc:any)=>assoc.id===a.id?{...assoc,apports:assoc.apports.map((x:any)=>x.id===ap.id?{...x,signed:true,signData:d.signatureData,signerNom:d.signerName,signingToken:null,signedAt:d.signedAt||new Date().toISOString()}:x)}:assoc)}));alert("✅ "+d.signerName+" a signé !");} catch(e:any){alert("Erreur : "+e.message);}}} style={{fontSize:8,background:"#FEF9C3",color:"#92400E",border:"none",borderRadius:5,padding:"2px 5px",fontWeight:700,cursor:"pointer",marginRight:3}}>🔏 Vérifier</button>:<button onClick={()=>{setSelectedAssocieId(a.id);setSavedApForSign({...ap,_assocNom:a.nom,_assocRole:a.role||"",_assocEmail:a.email||""});setApportSignStep("options");setAssocieModal("sign-apport");}} style={{fontSize:8,background:"#EFF6FF",color:"#1E3A5F",border:"none",borderRadius:5,padding:"2px 5px",fontWeight:700,cursor:"pointer",marginRight:3}}>🔏 Signer</button>}
                           <button onClick={()=>genererQuittancePDF(a,ap)} style={{background:"#F2C94C",border:"none",borderRadius:6,padding:"3px 7px",fontSize:9,fontWeight:700,cursor:"pointer",color:"#111",marginRight:3}} title="Quittance PDF">📄</button>
                           <button onClick={()=>{setSelectedAssocieId(a.id);setApportForm({...ap,montant:String(ap.montant)});setAssocieModal("apport");setApportSignStep(null);setSavedApForSign(null);}}
                             style={{background:"#F5F5F0",border:"none",borderRadius:6,padding:"3px 7px",fontSize:9,fontWeight:700,cursor:"pointer",color:"#374151",marginRight:3}}>✏️</button>
@@ -7146,6 +7146,65 @@ return (
                     alert("✅ Signature enregistrée !");
                     setAssocieModal(null);setApportSignStep(null);setSavedApForSign(null);
                   }} style={{background:"#166534",color:"#fff",border:"none",borderRadius:8,padding:"8px",fontSize:10,fontWeight:700,cursor:"pointer"}}>✅ Valider</button>
+                </div>
+              </div>
+            )}
+          </Modal>
+        )}
+
+        {/* Modal signature apport existant */}
+        {associeModal==="sign-apport"&&savedApForSign&&(
+          <Modal title={`Signature apport — ${savedApForSign._assocNom}`} onClose={()=>{setAssocieModal(null);setApportSignStep(null);setSavedApForSign(null);}}>
+            <div style={{background:"#F5F5F0",borderRadius:8,padding:"10px 12px",marginBottom:14}}>
+              <p style={{fontSize:10,color:"#737373",fontWeight:600}}>Apport à signer</p>
+              <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:20,fontWeight:700,color:"#166534",marginTop:2}}>CHF {parseFloat(savedApForSign.montant).toFixed(2)}</p>
+              <p style={{fontSize:10,color:"#6B7280",marginTop:2}}>{savedApForSign.type} · {savedApForSign.date}{savedApForSign.commentaire?" · "+savedApForSign.commentaire:""}</p>
+            </div>
+            {apportSignStep==="options"&&(
+              <div>
+                <p style={{fontSize:10,color:"#6B7280",marginBottom:12}}>Comment souhaitez-vous formaliser cet apport ?</p>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
+                  <button onClick={()=>setApportSignStep("signing")} style={{background:"#1a1a1a",color:"#F2C94C",border:"none",borderRadius:8,padding:"10px",fontSize:10,fontWeight:700,cursor:"pointer"}}>✍️ Signer maintenant</button>
+                  <button onClick={async()=>{
+                    if(!savedApForSign._assocEmail){alert("Cet associé n'a pas d'email enregistré. Modifie sa fiche d'abord.");return;}
+                    try {
+                      const r2=await fetch(`${SIGN_API}/sign`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({documentType:"apport",documentTitle:`Apport — ${savedApForSign._assocNom}`,documentData:{associeNom:savedApForSign._assocNom,associeRole:savedApForSign._assocRole,date:savedApForSign.date,montant:savedApForSign.montant,typeApport:savedApForSign.type,commentaire:savedApForSign.commentaire||""},expiresInDays:30})});
+                      if(!r2.ok) throw new Error("Erreur serveur signature");
+                      const {token:tok,signingUrl}=await r2.json();
+                      const emailBody=`Chère/Cher ${savedApForSign._assocNom},\n\nJordan Montanaro te demande de confirmer ton apport en capital dans Goûtstoso.\n\nMontant : CHF ${parseFloat(savedApForSign.montant).toFixed(2)}\nDate : ${new Date(savedApForSign.date).toLocaleDateString("fr-CH")}\n\nClique sur ce lien pour apposer ta signature électronique :\n\n${signingUrl}\n\nCe lien est valable 30 jours.\n\nCordialement,\n\nJordan Montanaro\nGoûtstoso · admin@goutstoso.ch`;
+                      await sendEmail({to:savedApForSign._assocEmail,toName:savedApForSign._assocNom,subject:`Signature requise — Apport Goûtstoso CHF ${parseFloat(savedApForSign.montant).toFixed(2)}`,body:emailBody});
+                      setSt((p:any)=>({...p,associes:(p.associes||[]).map((a:any)=>a.id===selectedAssocieId?{...a,apports:a.apports.map((ap:any)=>ap.id===savedApForSign.id?{...ap,signingToken:tok}:ap)}:a)}));
+                      alert("✅ Email envoyé à "+savedApForSign._assocEmail);
+                      setAssocieModal(null);setApportSignStep(null);setSavedApForSign(null);
+                    } catch(e:any){alert("Erreur : "+e.message);}
+                  }} style={{background:"#DBEAFE",color:"#1E3A5F",border:"none",borderRadius:8,padding:"10px",fontSize:10,fontWeight:700,cursor:"pointer"}}>📧 Envoyer lien email</button>
+                </div>
+              </div>
+            )}
+            {apportSignStep==="signing"&&(
+              <div>
+                <p style={{fontSize:11,fontWeight:700,color:"#111",marginBottom:8}}>✍️ Signez ci-dessous</p>
+                <div style={{border:"1.5px dashed #D1D5DB",borderRadius:10,background:"#FAFAF7",overflow:"hidden",touchAction:"none",marginBottom:10}}>
+                  <canvas ref={sigCanvasRef} width={600} height={160} style={{width:"100%",cursor:"crosshair",display:"block"}}
+                    onMouseDown={e=>{sigDrawing.current=true;const c=sigCanvasRef.current;if(!c)return;const r=c.getBoundingClientRect();const ctx=c.getContext("2d")!;ctx.beginPath();ctx.moveTo((e.clientX-r.left)*(c.width/r.width),(e.clientY-r.top)*(c.height/r.height));}}
+                    onMouseMove={e=>{if(!sigDrawing.current||!sigCanvasRef.current)return;const c=sigCanvasRef.current;const r=c.getBoundingClientRect();const ctx=c.getContext("2d")!;ctx.lineWidth=2.5;ctx.lineCap="round";ctx.strokeStyle="#0a0a0a";ctx.lineTo((e.clientX-r.left)*(c.width/r.width),(e.clientY-r.top)*(c.height/r.height));ctx.stroke();}}
+                    onMouseUp={()=>{sigDrawing.current=false;}}
+                    onTouchStart={e=>{e.preventDefault();sigDrawing.current=true;const c=sigCanvasRef.current;if(!c)return;const r=c.getBoundingClientRect();const t=e.touches[0];const ctx=c.getContext("2d")!;ctx.beginPath();ctx.moveTo((t.clientX-r.left)*(c.width/r.width),(t.clientY-r.top)*(c.height/r.height));}}
+                    onTouchMove={e=>{e.preventDefault();if(!sigDrawing.current||!sigCanvasRef.current)return;const c=sigCanvasRef.current;const r=c.getBoundingClientRect();const t=e.touches[0];const ctx=c.getContext("2d")!;ctx.lineWidth=2.5;ctx.lineCap="round";ctx.strokeStyle="#0a0a0a";ctx.lineTo((t.clientX-r.left)*(c.width/r.width),(t.clientY-r.top)*(c.height/r.height));ctx.stroke();}}
+                    onTouchEnd={()=>{sigDrawing.current=false;}}
+                  />
+                </div>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
+                  <button onClick={()=>{const c=sigCanvasRef.current;if(c){const ctx=c.getContext("2d")!;ctx.clearRect(0,0,c.width,c.height);}}} style={{background:"#F5F5F0",color:"#374151",border:"none",borderRadius:8,padding:"9px",fontSize:10,fontWeight:600,cursor:"pointer"}}>🗑 Effacer</button>
+                  <button onClick={()=>setApportSignStep("options")} style={{background:"#F5F5F0",color:"#374151",border:"none",borderRadius:8,padding:"9px",fontSize:10,fontWeight:600,cursor:"pointer"}}>← Retour</button>
+                  <button onClick={()=>{
+                    const c=sigCanvasRef.current;if(!c)return;
+                    const dataUrl=c.toDataURL("image/png");
+                    const now=new Date().toISOString();
+                    setSt((p:any)=>({...p,associes:(p.associes||[]).map((a:any)=>a.id===selectedAssocieId?{...a,apports:a.apports.map((ap:any)=>ap.id===savedApForSign.id?{...ap,signData:dataUrl,signed:true,signerNom:savedApForSign._assocNom,signedAt:now,signingToken:null}:ap)}:a)}));
+                    alert("✅ Signature enregistrée !");
+                    setAssocieModal(null);setApportSignStep(null);setSavedApForSign(null);
+                  }} style={{background:"#166534",color:"#fff",border:"none",borderRadius:8,padding:"9px",fontSize:10,fontWeight:700,cursor:"pointer"}}>✅ Valider</button>
                 </div>
               </div>
             )}
