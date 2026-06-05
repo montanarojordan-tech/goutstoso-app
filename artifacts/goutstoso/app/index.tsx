@@ -1123,6 +1123,21 @@ const COULEURS = {
 "3×25cl + 2 verres": {bg:"#F3E5F5",accent:"#6A1B9A",light:"#E1BEE7"},
 "3×25cl sans verres": {bg:"#F3E5F5",accent:"#6A1B9A",light:"#E1BEE7"},
 };
+const PALETTE_PRODUIT = [
+  {bg:"#FFFDE7",accent:"#F9A825",light:"#FFF9C4"},
+  {bg:"#F1F8E9",accent:"#558B2F",light:"#DCEDC8"},
+  {bg:"#FFF3E0",accent:"#E65100",light:"#FFE0B2"},
+  {bg:"#F3E5F5",accent:"#6A1B9A",light:"#E1BEE7"},
+  {bg:"#FCE4EC",accent:"#AD1457",light:"#F8BBD0"},
+  {bg:"#E3F2FD",accent:"#1565C0",light:"#BBDEFB"},
+  {bg:"#E8F5E9",accent:"#2E7D32",light:"#C8E6C9"},
+  {bg:"#FBE9E7",accent:"#BF360C",light:"#FFCCBC"},
+  {bg:"#F5F5F0",accent:"#6B7280",light:"#E5E5E0"},
+  {bg:"#F0FDF4",accent:"#15803D",light:"#DCFCE7"},
+  {bg:"#FDF4FF",accent:"#9333EA",light:"#F3E8FF"},
+  {bg:"#FFF1F2",accent:"#BE123C",light:"#FFE4E6"},
+];
+const getCouleur = (p:any) => p.couleurIdx!=null&&PALETTE_PRODUIT[p.couleurIdx] ? PALETTE_PRODUIT[p.couleurIdx] : (COULEURS[p.variante]||COULEURS["3 saveurs"]);
 
 // ── STATUTS COULEURS UNIVERSELS (V5) ──────────────────────────
 const STATUTS_COULEURS: Record<string,{bg:string,border:string,text:string,emoji:string,label:string}> = {
@@ -1149,7 +1164,7 @@ const STATUTS_COULEURS: Record<string,{bg:string,border:string,text:string,emoji
 const Produits = ({st,setSt}) => {
 const [modal,setModal] = useState(null);
 const [selected,setSelected] = useState(null);
-const empty = {nom:"",variante:"",format:"",description:"",alcool:"30% vol.",ingredients:"",prixClient:0,prixRevendeur:0,coutRevient:0,actif:true,
+const empty = {nom:"",variante:"",format:"",description:"",alcool:"30% vol.",ingredients:"",prixClient:0,prixRevendeur:0,coutRevient:0,actif:true,couleurIdx:null,
 coutDetail:{bouteille:"",bouchon:"",etiquette:"",alcool:"",fruits:"",sucre:"",emballage:"",mainOeuvre:"",autres:""}};
 const [form,setForm] = useState(empty);
 
@@ -1172,7 +1187,7 @@ const del = id => setSt(p=>({...p,produits:p.produits.filter(x=>x.id!==id)}));
 // Vue détail produit
 if(selected) {
 const p = selected;
-const c = COULEURS[p.variante]||COULEURS["3 saveurs"];
+const c = getCouleur(p);
 const img = getImg(p);
 const marge = p.prixClient - p.coutRevient;
 const margePct = p.prixClient > 0 ? ((marge/p.prixClient)*100).toFixed(0) : 0;
@@ -1234,7 +1249,7 @@ Catalogue
   {/* Grille produits */}
   <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
     {st.produits.map(p=>{
-      const c = COULEURS[p.variante]||COULEURS["3 saveurs"];
+      const c = getCouleur(p);
       const img = getImg(p);
       const qte = p.format.includes("×") ? 0 : sum((st.stocks||[]).filter(s=>s.produitId===p.id).map(s=>s.qte));
       return (
@@ -1298,6 +1313,32 @@ Catalogue
           <F label="Variante / Parfum" value={form.variante||""} onChange={v=>setForm(p=>({...p,variante:v}))}/>
           <F label="Format (25cl, 50cl...)" value={form.format||""} onChange={v=>setForm(p=>({...p,format:v}))}/>
         </div>
+
+        {/* Couleur de fond */}
+        <div>
+          <label style={{fontSize:11,fontWeight:600,color:"#9CA3AF",textTransform:"uppercase",letterSpacing:".06em",display:"block",marginBottom:8}}>Couleur de fond</label>
+          <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
+            <button onClick={()=>setForm((p:any)=>({...p,couleurIdx:null}))}
+              title="Automatique (selon variante)"
+              style={{width:34,height:34,borderRadius:"50%",border:`2.5px solid ${(form as any).couleurIdx==null?"#111":"#E5E5E0"}`,background:"linear-gradient(135deg,#FFFDE7 33%,#F3E5F5 66%,#F1F8E9 100%)",cursor:"pointer",fontSize:12,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+              {(form as any).couleurIdx==null&&<span style={{fontSize:14,lineHeight:1}}>✓</span>}
+            </button>
+            {PALETTE_PRODUIT.map((pal,i)=>(
+              <button key={i} onClick={()=>setForm((p:any)=>({...p,couleurIdx:i}))}
+                title={`Couleur ${i+1}`}
+                style={{width:34,height:34,borderRadius:"50%",border:`2.5px solid ${(form as any).couleurIdx===i?"#111":"transparent"}`,background:pal.bg,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,boxShadow:`inset 0 0 0 2px ${pal.accent}55`}}>
+                {(form as any).couleurIdx===i&&<span style={{fontSize:14,color:pal.accent,lineHeight:1,fontWeight:700}}>✓</span>}
+              </button>
+            ))}
+          </div>
+          {(form as any).couleurIdx!=null&&(
+            <div style={{marginTop:8,padding:"10px 14px",borderRadius:10,background:PALETTE_PRODUIT[(form as any).couleurIdx].bg,border:`1.5px solid ${PALETTE_PRODUIT[(form as any).couleurIdx].accent}44`}}>
+              <span style={{fontSize:13,fontWeight:700,color:PALETTE_PRODUIT[(form as any).couleurIdx].accent,fontFamily:"'Cormorant Garamond',serif"}}>{form.nom||"Aperçu du produit"}</span>
+              <span style={{fontSize:11,color:PALETTE_PRODUIT[(form as any).couleurIdx].accent,opacity:.7,marginLeft:8}}>{form.format||""}</span>
+            </div>
+          )}
+        </div>
+
         <F label="Description" value={form.description||""} onChange={v=>setForm(p=>({...p,description:v}))}/>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
           <F label="Degré alcool" value={form.alcool||"30% vol."} onChange={v=>setForm(p=>({...p,alcool:v}))}/>
@@ -1553,7 +1594,7 @@ sendEmail({to:"admin@goutstoso.ch",subject:subj2,body:bodyAlerte});
       const enDepot = sum((st.depotStocks||[]).filter(d=>d.produitId===p.id).map(d=>d.qteDeposee-d.qteVendue-d.qteRetournee));
       const propre = total - enDepot;
       const img = getImg(p);
-      const c = COULEURS[p.variante]||{bg:"#F5F5F0",accent:"#6B7280",light:"#E5E5E0"};
+      const c = getCouleur(p);
       const alerte = total > 0 && total <= 3;
       return (
         <Card key={p.id} style={{padding:"12px 14px"}}>
@@ -6623,7 +6664,7 @@ return (
             const margePPct = p.prixClient?((margeP/p.prixClient)*100).toFixed(0):0;
             const margePro = p.prixRevendeur-cout;
             const margeProPct = p.prixRevendeur?((margePro/p.prixRevendeur)*100).toFixed(0):0;
-            const c = COULEURS[p.variante]||{accent:"#737373"};
+            const c = getCouleur(p);
 
             // CA depuis les transactions (compte produit)
             const caP = isCoffret
@@ -6726,7 +6767,7 @@ return (
           else if(margePublicPct>75 && !dansFourchette && p.prixClient>fourchette.max) verdict = {color:"#9A3412",bg:"#FDF6E3",border:"#FCD34D",icon:"⚠️",msg:"Prix au-dessus du marché"};
           else if(margePublicPct<55) verdict = {color:"#9A3412",bg:"#FDF6E3",border:"#FCD34D",icon:"⚠️",msg:"Marge un peu juste"};
 
-          const c = COULEURS[p.variante]||{accent:"#737373"};
+          const c = getCouleur(p);
 
           return (
             <React.Fragment key={p.id}>
