@@ -1,0 +1,463 @@
+🎨 PROMPT REPLIT AGENT — REFONTE COMPLÈTE DES DOCUMENTS GOÛTSTOSO
+Nouvelle mise en page + Annexes légales auto + Système de réductions
+
+🛑 INSTRUCTION CRITIQUE N°0 — ANALYSE PRÉALABLE
+AVANT TOUTE MODIFICATION, tu dois :
+
+Lire l'intégralité du code actuel (composants Factures, Contrats, Offres, fonctions de génération PDF)
+Identifier toutes les fonctions qui génèrent des PDFs :
+
+genererFacturePDF()
+genererOffrePDF()
+genererContratPDF()
+genererBulletinPDF()
+Toute autre fonction PDF existante
+
+
+Lister les composants UI qui affichent ces documents
+Identifier les automatismes compta existants (à NE PAS casser)
+Faire un rapport d'inventaire à l'utilisateur
+Créer une sauvegarde : index_tsx_BACKUP_AVANT_REFONTE_DOC.tsx
+Attendre validation avant de commencer
+
+
+⛔ RÈGLES ABSOLUES
+
+NE PAS modifier le TEXTE des documents légaux existants (CGV, charte, contrats, etc.)
+NE MODIFIER QUE LA MISE EN PAGE des documents
+CONSERVER toutes les images base64 (LOGO_B64, IMG_*)
+CONSERVER toutes les constantes (SOCIETE, CGV, PLAN_COMPTABLE, etc.)
+MAINTENIR tous les automatismes compta existants
+CONSERVER les données existantes (Temple 5, Nuara, FAC-2026-001, etc.)
+NE PAS supprimer les composants existants
+NE PAS modifier la sync Infomaniak
+TESTER chaque modification avant de passer à la suivante
+
+
+🏢 NOUVELLE IDENTITÉ JURIDIQUE GOÛTSTOSO
+Modifier la constante SOCIETE pour refléter la structure SNC :
+
+nom : Goûtstoso
+formeJuridique : Société en nom collectif
+adresse : Rue des Sources 19
+npa : 2613
+ville : Villeret
+pays : Suisse
+email : admin@goutstoso.ch
+site : www.goutstoso.ch
+iban : CH23 0900 0000 1565 1485 8
+banque : PostFinance
+ide : (vide, à remplir quand inscrit au RC)
+rcNumero : (vide)
+rcCanton : Berne
+assujettiTVA : false
+mentionLegale : Société en nom collectif
+representantPrincipal : Jordan Montanaro
+representantFonction : Associé gérant
+
+
+🎨 CHARTE GRAPHIQUE UNIFIÉE
+Palette de couleurs
+
+noir : #0A0A0A (textes principaux, titres)
+jaune : #E8B64C (accents, lignes décoratives)
+creme : #FAFAF7 (fond général)
+cremeLeger : #F5F2EA (fond blocks et lignes alternées)
+jauneLeger : #FAEAB8 (fond TOTAL et points importants)
+grisDoux : #6B6B6B (textes secondaires)
+grisLeger : #E5E5E0 (lignes de séparation)
+blanc : #FFFFFF
+
+Typographie
+
+titre : Helvetica-Bold, 22pt
+section : Helvetica-Bold, 11pt
+sousSection : Helvetica-Bold, 10pt
+texte : Helvetica, 10pt
+petit : Helvetica, 9pt
+piedDePage : Helvetica, 8pt
+tableauHeader : Helvetica-Bold, 9pt
+tableauCell : Helvetica, 10pt
+total : Helvetica-Bold, 13pt
+mention : Helvetica-Oblique, 8pt
+
+Dimensions PDF (A4)
+
+largeur : 210 mm
+hauteur : 297 mm
+margeHaute : 60 mm
+margeBasse : 30 mm
+margeGauche : 20 mm
+margeDroite : 20 mm
+
+
+📐 GABARIT COMMUN À TOUS LES DOCUMENTS
+En-tête unifié (sur chaque page)
+L'en-tête de chaque page doit contenir :
+
+Logo Goûtstoso à gauche (image base64 LOGO_B64), taille 20x20mm, position (20mm, 15mm)
+Texte "GOÛTSTOSO" à droite, Helvetica-Bold 22pt, noir #0A0A0A, aligné à droite à 190mm
+Sous-texte "Société en nom collectif" en gris doux #6B6B6B, Helvetica 9pt
+Sous-texte "Villeret · Suisse" en gris doux, Helvetica 9pt
+Ligne décorative jaune #E8B64C, épaisseur 0.8pt, de 20mm à 190mm
+
+Pied de page unifié (sur chaque page)
+Le pied de page doit contenir :
+
+Ligne de séparation grise #E5E5E0, épaisseur 0.3pt à 272mm
+Texte "Goûtstoso · Société en nom collectif"
+Texte "Rue des Sources 19 · 2613 Villeret · Suisse"
+Texte "admin@goutstoso.ch · www.goutstoso.ch"
+Texte "IBAN CH23 0900 0000 1565 1485 8 · PostFinance"
+Si IDE renseigné : afficher "IDE : [numéro]"
+Numérotation page "Page X/Y" à droite
+
+Tout en Helvetica 8pt, couleur gris doux #6B6B6B
+Titre de document
+Pour chaque document, afficher :
+
+Titre du document en grand (Helvetica-Bold 22pt, noir) à gauche
+Numéro du document à droite (Helvetica 11pt, gris doux)
+Ligne décorative jaune de 40mm sous le titre (épaisseur 2pt)
+
+Bloc Émetteur / Destinataire
+Deux blocs côte à côte avec fond crème léger #F5F2EA :
+Bloc gauche - ÉMETTEUR :
+
+Titre "ÉMETTEUR" en petit gris doux gras
+Goûtstoso
+Société en nom collectif
+Rue des Sources 19
+2613 Villeret
+admin@goutstoso.ch
+
+Bloc droit - DESTINATAIRE :
+
+Titre "DESTINATAIRE" en petit gris doux gras
+Nom du client
+Nom du contact
+Adresse
+NPA Ville
+Email
+
+
+💰 SYSTÈME DE RÉDUCTIONS INTELLIGENT
+Structure des données
+Pour chaque ligne de produit dans une offre ou facture, ajouter :
+
+produitId : identifiant du produit
+designation : nom du produit
+quantite : nombre
+prixUnitaire : prix de base
+remisePourcent : pourcentage de remise sur cette ligne (0-100)
+remiseMontant : OU montant fixe de remise en CHF
+totalLigne : calculé automatiquement
+
+Pour le document global, ajouter :
+
+sousTotal : somme des totaux de ligne
+remiseGlobale : objet avec type (pourcent ou montant) et valeur
+totalHT : total final après remise globale
+
+Interface utilisateur pour les remises
+
+REMISE PAR LIGNE
+Ajouter une colonne "Remise" dans le tableau de saisie des produits.
+Permettre de saisir un pourcentage de 0 à 100 ou un montant fixe.
+Recalculer le total de la ligne automatiquement.
+REMISE GLOBALE
+Sous le tableau, ajouter une section "Remise commerciale globale" avec :
+
+
+Choix radio entre "Pourcentage", "Montant fixe", "Aucune remise"
+Champ de saisie selon le choix
+Aperçu de l'économie en temps réel
+
+
+REMISES RAPIDES
+Boutons préconfigurés cliquables :
+
+
+5% : "Petit geste"
+10% : "Standard pro"
+15% : "Volume"
+20% : "Partenaire fidèle"
+-50.- : "Geste commercial"
+-100.- : "Compensation"
+
+Calcul automatique des totaux
+La fonction calculerTotauxAvecRemises doit :
+
+Pour chaque ligne :
+
+Calculer total brut = quantité × prix unitaire
+Si remise pourcent : appliquer la réduction
+Si remise montant : soustraire le montant
+Sauvegarder totalLigne (jamais négatif)
+
+
+Calculer le sous-total comme somme de toutes les lignes
+Appliquer la remise globale :
+
+Si pourcent : sousTotal × (pourcent/100)
+Si montant : valeur directe
+Sauvegarder le montant de remise
+
+
+Calculer totalHT = sousTotal - remiseGlobale.montant
+
+Propagation offre → facture
+Quand une offre est convertie en facture, reprendre exactement :
+
+Toutes les lignes avec leurs remises
+La remise globale
+Les totaux
+
+Conserver une référence offreId et offreNumero dans la facture pour la traçabilité.
+Impact comptable des remises
+Quand une facture est payée, créer DEUX écritures comptables séparées :
+
+Écriture principale :
+
+Libellé : "Encaissement facture [numéro] - [client]"
+Montant : totalHT
+Type : "recette"
+Compte : 1020 (PostFinance)
+Contrepartie : 3200 (Ventes)
+
+
+Écriture remise (si applicable) :
+
+Libellé : "Remise commerciale facture [numéro]"
+Montant : montant de la remise globale
+Type : "remise" (nouveau type)
+Compte : 3210 (Remises et rabais accordés)
+Contrepartie : 3200 (Ventes)
+
+
+
+Ajouter au PLAN_COMPTABLE les nouveaux comptes :
+
+3210 : Remises et rabais accordés
+3220 : Escomptes accordés
+
+Affichage dans la compta
+Permettre de filtrer les écritures par type :
+
+Recettes (vert)
+Dépenses (rouge)
+Remises (jaune)
+
+Afficher un résumé mensuel avec :
+
+Total recettes
+Total remises accordées
+Total dépenses
+Solde
+
+
+📎 ANNEXES LÉGALES AUTOMATIQUES
+Mapping obligatoire par type de document
+
+offre : CGV + Charte consommation
+bulletin_commande : CGV + Charte consommation
+bulletin_livraison : Charte consommation
+facture : CGV
+note_credit : CGV
+rappel_paiement : CGV
+mise_en_demeure : CGV
+recu_vente_directe : aucune annexe
+contrat_depot_vente : CGV + Charte + Bon de retour modèle
+contrat_partenariat : CGV + Charte + NDA
+nda : aucune annexe (document autonome)
+bon_retour : CGV
+
+Fonction de génération avec annexes
+La fonction genererPDFAvecAnnexes doit :
+
+Générer les pages du document principal selon son type
+Ajouter une page séparatrice "ANNEXES"
+Pour chaque annexe nécessaire :
+
+Nouvelle page
+En-tête standard
+Titre "ANNEXE — [Nom du document]"
+Version et date d'effet
+Tous les articles du document (texte INCHANGÉ)
+Pied de page standard
+
+
+Numéroter toutes les pages de manière globale (Page X/Y total)
+Ajouter les métadonnées PDF
+
+Page séparatrice "ANNEXES"
+Page complète avec :
+
+En-tête standard
+Texte "ANNEXES" en grand au centre (Helvetica-Bold 28pt)
+Sous-texte "Documents complémentaires" en gris doux
+Ligne décorative jaune au centre
+Pied de page standard
+
+Documents légaux à organiser
+Créer une constante DOCUMENTS_LEGAUX qui regroupe :
+
+cgv : Conditions Générales de Vente (21 articles existants)
+charte_consommation : Charte de consommation responsable
+nda : Accord de confidentialité
+bon_retour_modele : Modèle de bon de retour
+
+Chaque document a :
+
+titre
+version
+dateEffet
+articles (tableau avec titre et contenu INCHANGÉ)
+
+
+📐 LISTE DES 17 DOCUMENTS À METTRE EN PAGE
+Documents commerciaux (8)
+
+Offre commerciale
+Bulletin de commande
+Bulletin de livraison
+Facture (avec QR-facture suisse)
+Note de crédit / Avoir
+Rappel de paiement
+Mise en demeure
+Reçu de vente directe
+
+Documents légaux (6) - TEXTES INCHANGÉS
+
+Conditions Générales de Vente
+Charte consommation responsable
+Contrat dépôt-vente
+Contrat de partenariat
+Accord de confidentialité (NDA)
+Bon de retour
+
+Documents internes (3)
+
+Fiche atelier production
+Liste de picking
+Rapport tests de santé
+
+
+✅ TESTS DE NON-RÉGRESSION OBLIGATOIRES
+Tests visuels
+
+Tous les PDFs ont le nouveau header (logo + GOÛTSTOSO + Société en nom collectif)
+Tous les PDFs ont le nouveau footer avec mention SNC
+Les couleurs respectent la charte
+Les tableaux sont propres et alignés
+Le TOTAL est en évidence (fond jaune)
+
+Tests fonctionnels remises
+
+Remise par ligne en % fonctionne
+Remise par ligne en montant fixe fonctionne
+Remise globale en % fonctionne
+Remise globale en montant fonctionne
+Boutons remises rapides fonctionnent
+Total recalculé en temps réel
+Remise propagée de l'offre à la facture
+Remise affichée sur le PDF correctement
+
+Tests automatismes
+
+Facture payée → écriture compta principale créée
+Facture avec remise → écriture compta remise séparée créée
+Solde PostFinance correctement mis à jour
+Compte 3210 "Remises accordées" alimenté
+Possibilité de filtrer les écritures par type
+
+Tests annexes
+
+Offre PDF → CGV + Charte annexées automatiquement
+Facture PDF → CGV annexée automatiquement
+Contrat dépôt-vente PDF → CGV + Charte + Bon retour annexés
+Page séparatrice "ANNEXES" présente
+Annexes ont leurs propres en-têtes/pieds de page
+Numérotation des pages globale
+Texte des annexes INCHANGÉ
+
+Tests préservation
+
+Toutes données existantes intactes
+Authentification fonctionne
+Sync Infomaniak OK
+SignaturePad fonctionne
+Mobile responsive
+
+
+🚀 PHASES DE DÉVELOPPEMENT
+Phase 1 - Refonte visuelle (priorité haute)
+
+Mise à jour constante SOCIETE (SNC)
+Création fonctions communes (en-tête, pied de page, titre)
+Refonte PDF Facture
+Refonte PDF Offre
+Refonte PDF Bulletin commande/livraison
+
+Phase 2 - Système de remises (priorité haute)
+
+Ajout champs remise dans state offres/factures
+UI remise par ligne
+UI remise globale
+Boutons remises rapides
+Calcul automatique total
+Propagation offre → facture
+Écritures comptables avec compte 3210
+Affichage remises dans compta
+
+Phase 3 - Annexes automatiques (priorité haute)
+
+Structure DOCUMENTS_LEGAUX organisée
+Mapping ANNEXES_AUTO_PAR_DOCUMENT
+Fonction genererPDFAvecAnnexes()
+Page séparatrice "ANNEXES"
+Ajout annexes auto sur tous types
+
+Phase 4 - Autres documents (priorité moyenne)
+
+Refonte contrats (dépôt-vente, partenariat)
+Refonte rappels et mise en demeure
+Refonte reçu vente directe
+Refonte documents internes
+
+
+🎯 OBJECTIF FINAL
+Une application où Jordan peut :
+
+Générer un PDF élégant et pro en 1 clic pour tous ses documents
+Appliquer des remises facilement (par ligne, globale, rapides)
+Propager les remises automatiquement de l'offre vers la facture
+Avoir les annexes légales auto sur chaque document
+Tracer les remises correctement en comptabilité (compte 3210)
+Présenter une identité juridique claire (SNC)
+Imprimer directement des documents prêts pour ses clients premium
+
+Le tout sans rien casser des automatismes et données existantes.
+
+⚠️ RAPPEL FINAL CRITIQUE
+AVANT DE COMMENCER :
+
+Lire intégralité du code actuel
+Faire rapport d'inventaire à Jordan
+Créer sauvegarde index_tsx_BACKUP_AVANT_REFONTE_DOC.tsx
+Attendre confirmation
+
+PENDANT LE DÉVELOPPEMENT :
+
+Tu fais des AJOUTS et MODIFICATIONS DE MISE EN PAGE uniquement
+Les TEXTES des documents légaux restent INCHANGÉS
+Les automatismes compta sont MAINTENUS
+Les codes couleurs sont COHÉRENTS partout
+
+TESTS PERMANENTS :
+
+Après chaque document refait, vérifier le rendu PDF
+Après le système de remises, tester avec différents cas
+Après les annexes auto, vérifier qu'elles s'ajoutent bien
+
+FIN DU PROMPT. Implémenter en respectant les phases et les règles.
