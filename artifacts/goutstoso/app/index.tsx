@@ -5894,6 +5894,7 @@ const PLAN_COMPTABLE = {
 "3002":"Vente Limelo",
 "3003":"Vente Clementino",
 "3004":"Vente Coffrets",
+"3005":"Vente Fragoli",
 "3400":"Ventes de prestations",
 "3600":"Frais d'expédition facturés",
 "3700":"Autres produits d'exploitation",
@@ -5930,7 +5931,7 @@ const PLAN_COMPTABLE = {
 "8900":"Impôts",
 };
 
-const CATEGORIES_RECETTE = ["Vente Limonta","Vente Limelo","Vente Clementino","Vente Coffrets","Dépôt-vente","Vente directe","Frais expédition facturés","Frais de rappel","Autres"];
+const CATEGORIES_RECETTE = ["Vente Limonta","Vente Limelo","Vente Clementino","Vente Coffrets","Vente Fragoli","Dépôt-vente","Vente directe","Frais expédition facturés","Frais de rappel","Autres"];
 const CATEGORIES_DEPENSE = ["Matières premières","Bouteilles","Étiquettes","Emballages","Dédouanement","Marketing","Frais d'expédition (envois)","Transport","Matériel","Commissions","Services","Salaires","Frais bancaires","Rabais accordés sur ventes","Autres"];
 
 const Comptabilite = ({st,setSt}) => {
@@ -5972,11 +5973,13 @@ const prod = ligne1 ? st.produits.find(x=>x.id===ligne1.produitId) : null;
 const compte = prod?.nom==="Limonta"?"3001":
 prod?.nom==="Limelo"?"3002":
 prod?.nom==="Clementino"?"3003":
-prod?.nom?.includes("Coffret")?"3004":"3001";
+prod?.nom?.includes("Coffret")?"3004":
+prod?.nom==="Fragoli"?"3005":"3001";
 const categorie = prod?.nom==="Limonta"?"Vente Limonta":
 prod?.nom==="Limelo"?"Vente Limelo":
 prod?.nom==="Clementino"?"Vente Clementino":
-prod?.nom?.includes("Coffret")?"Vente Coffrets":"Vente Limonta";
+prod?.nom?.includes("Coffret")?"Vente Coffrets":
+prod?.nom==="Fragoli"?"Vente Fragoli":"Vente Limonta";
 // Recette brute (avant rabais)
 nouvelles.push({
 id:uid(),
@@ -6600,11 +6603,12 @@ return (
         const ca3002 = sum(transByPeriode.filter(t=>t.type==="recette"&&t.compte==="3002").map(t=>+t.montant));
         const ca3003 = sum(transByPeriode.filter(t=>t.type==="recette"&&t.compte==="3003").map(t=>+t.montant));
         const ca3004 = sum(transByPeriode.filter(t=>t.type==="recette"&&t.compte==="3004").map(t=>+t.montant));
-        const caTotal = ca3001+ca3002+ca3003+ca3004;
+        const ca3005 = sum(transByPeriode.filter(t=>t.type==="recette"&&t.compte==="3005").map(t=>+t.montant));
+        const caTotal = ca3001+ca3002+ca3003+ca3004+ca3005;
         let totalUnites=0, totalMarge=0;
         // Bouteilles (compte unique par produit)
         st.produits.filter(p=>p.actif&&!p.nom.includes("Coffret")).forEach(p=>{
-          const caP = p.nom==="Limonta"?ca3001:p.nom==="Limelo"?ca3002:p.nom==="Clementino"?ca3003:0;
+          const caP = p.nom==="Limonta"?ca3001:p.nom==="Limelo"?ca3002:p.nom==="Clementino"?ca3003:p.nom==="Fragoli"?ca3005:0;
           const prix = p.prixClient||1;
           const units = Math.round(caP/prix);
           totalUnites += units;
@@ -6653,6 +6657,7 @@ return (
           const ca3002 = sum(transByPeriode.filter(t=>t.type==="recette"&&t.compte==="3002").map(t=>+t.montant));
           const ca3003 = sum(transByPeriode.filter(t=>t.type==="recette"&&t.compte==="3003").map(t=>+t.montant));
           const ca3004 = sum(transByPeriode.filter(t=>t.type==="recette"&&t.compte==="3004").map(t=>+t.montant));
+          const ca3005 = sum(transByPeriode.filter(t=>t.type==="recette"&&t.compte==="3005").map(t=>+t.montant));
           const nbCoffrets = Math.max(1, st.produits.filter(p=>p.actif&&p.nom.includes("Coffret")).length);
 
           return st.produits.filter(p=>p.actif).map((p,idx,arr)=>{
@@ -6669,7 +6674,7 @@ return (
             // CA depuis les transactions (compte produit)
             const caP = isCoffret
               ? ca3004/nbCoffrets
-              : p.nom==="Limonta"?ca3001:p.nom==="Limelo"?ca3002:p.nom==="Clementino"?ca3003:0;
+              : p.nom==="Limonta"?ca3001:p.nom==="Limelo"?ca3002:p.nom==="Clementino"?ca3003:p.nom==="Fragoli"?ca3005:0;
             const totalUnites = p.prixClient>0?Math.round(caP/p.prixClient):0;
             const margeGeneree = caP - totalUnites*cout;
 
