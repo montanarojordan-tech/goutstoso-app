@@ -1138,6 +1138,17 @@ const PALETTE_PRODUIT = [
   {bg:"#FFF1F2",accent:"#BE123C",light:"#FFE4E6"},
 ];
 const getCouleur = (p:any) => p.couleurIdx!=null&&PALETTE_PRODUIT[p.couleurIdx] ? PALETTE_PRODUIT[p.couleurIdx] : (COULEURS[p.variante]||COULEURS["3 saveurs"]);
+// Retourne le compte vente d'un produit — s'adapte automatiquement à tout nouveau produit
+const getCompteVente = (p:any):string => {
+  if(p?.compteVente) return p.compteVente;
+  if((p?.nom||"").includes("Coffret")) return "3004";
+  // Fallback pour les produits existants sans compteVente
+  const legacy:Record<string,string> = {"Limonta":"3001","Limelo":"3002","Clementino":"3003","Fragoli":"3005"};
+  return legacy[p?.nom]||"3001";
+};
+// Retourne la catégorie comptable d'un produit
+const getCategorieVente = (p:any):string =>
+  (p?.nom||"").includes("Coffret")?"Vente Coffrets":`Vente ${p?.nom||""}`.trim();
 
 // ── STATUTS COULEURS UNIVERSELS (V5) ──────────────────────────
 const STATUTS_COULEURS: Record<string,{bg:string,border:string,text:string,emoji:string,label:string}> = {
@@ -1164,7 +1175,7 @@ const STATUTS_COULEURS: Record<string,{bg:string,border:string,text:string,emoji
 const Produits = ({st,setSt}) => {
 const [modal,setModal] = useState(null);
 const [selected,setSelected] = useState(null);
-const empty = {nom:"",variante:"",format:"",description:"",alcool:"30% vol.",ingredients:"",prixClient:0,prixRevendeur:0,coutRevient:0,actif:true,couleurIdx:null,
+const empty = {nom:"",variante:"",format:"",description:"",alcool:"30% vol.",ingredients:"",prixClient:0,prixRevendeur:0,coutRevient:0,actif:true,couleurIdx:null,compteVente:"",
 coutDetail:{bouteille:"",bouchon:"",etiquette:"",alcool:"",fruits:"",sucre:"",emballage:"",mainOeuvre:"",autres:""}};
 const [form,setForm] = useState(empty);
 
@@ -1177,7 +1188,24 @@ const detail = form.coutDetail;
 const sumDetail = (parseFloat(detail.bouteille)||0)+(parseFloat(detail.bouchon)||0)+(parseFloat(detail.etiquette)||0)+(parseFloat(detail.alcool)||0)+(parseFloat(detail.fruits)||0)+(parseFloat(detail.sucre)||0)+(parseFloat(detail.emballage)||0)+(parseFloat(detail.mainOeuvre)||0)+(parseFloat(detail.autres)||0);
 if(sumDetail>0) totalCout = sumDetail;
 }
-const cleaned = {...form, coutRevient: totalCout};
+// Auto-assigner le compte vente si absent
+let compteVente = (form as any).compteVente||"";
+if(!compteVente) {
+  if((form.nom||"").includes("Coffret")) {
+    compteVente = "3004";
+  } else {
+    const sameNom = st.produits.find((x:any)=>x.nom===form.nom&&(x as any).compteVente);
+    if(sameNom) {
+      compteVente = (sameNom as any).compteVente;
+    } else {
+      const used = new Set(st.produits.map((x:any)=>(x as any).compteVente).filter(Boolean));
+      let n = 3001;
+      while(used.has(String(n))||n===3004) n++;
+      compteVente = String(n);
+    }
+  }
+}
+const cleaned = {...form, coutRevient: totalCout, compteVente};
 if(form.id) setSt(p=>({...p,produits:p.produits.map(x=>x.id===form.id?cleaned:x)}));
 else setSt(p=>({...p,produits:[...p.produits,{...cleaned,id:uid()}]}));
 setModal(null);
@@ -5935,6 +5963,11 @@ const CATEGORIES_RECETTE = ["Vente Limonta","Vente Limelo","Vente Clementino","V
 const CATEGORIES_DEPENSE = ["Matières premières","Bouteilles","Étiquettes","Emballages","Dédouanement","Marketing","Frais d'expédition (envois)","Transport","Matériel","Commissions","Services","Salaires","Frais bancaires","Rabais accordés sur ventes","Autres"];
 
 const Comptabilite = ({st,setSt}) => {
+// Plan comptable augmenté dynamiquement des comptes produit
+const planDyn: Record<string,string> = Object.assign({}, PLAN_COMPTABLE as Record<string,string>);
+(st.produits||[]).forEach((p:any)=>{const c=getCompteVente(p);if(!planDyn[c])planDyn[c]=`Vente ${p.nom}`;});
+// Catégories recettes dynamiques (s'adaptent aux nouveaux produits)
+const categoriesRecette = [...new Set((st.produits||[]).filter((p:any)=>p.actif).map((p:any)=>getCategorieVente(p))),"Dépôt-vente","Vente directe","Frais expédition facturés","Frais de rappel","Autres"];
 const [modal,setModal] = useState(null);
 const [onglet,setOnglet] = useState("dashboard");
 const [periode,setPeriode] = useState(new Date().getFullYear()+"");
@@ -5970,16 +6003,8 @@ const pv = st.partenaires.find(p=>p.id===f.partenaireId);
 // Déterminer le compte selon le produit principal
 const ligne1 = f.lignes.find(l=>l.produitId);
 const prod = ligne1 ? st.produits.find(x=>x.id===ligne1.produitId) : null;
-const compte = prod?.nom==="Limonta"?"3001":
-prod?.nom==="Limelo"?"3002":
-prod?.nom==="Clementino"?"3003":
-prod?.nom?.includes("Coffret")?"3004":
-prod?.nom==="Fragoli"?"3005":"3001";
-const categorie = prod?.nom==="Limonta"?"Vente Limonta":
-prod?.nom==="Limelo"?"Vente Limelo":
-prod?.nom==="Clementino"?"Vente Clementino":
-prod?.nom?.includes("Coffret")?"Vente Coffrets":
-prod?.nom==="Fragoli"?"Vente Fragoli":"Vente Limonta";
+const compte = prod ? getCompteVente(prod) : "3001";
+const categorie = prod ? getCategorieVente(prod) : "Vente directe";
 // Recette brute (avant rabais)
 nouvelles.push({
 id:uid(),
@@ -6598,17 +6623,15 @@ return (
     <div>
       {/* TOTAL MARGE BRUTE — basé sur les écritures comptables */}
       {(()=>{
-        // Un compte par famille de produit
-        const ca3001 = sum(transByPeriode.filter(t=>t.type==="recette"&&t.compte==="3001").map(t=>+t.montant));
-        const ca3002 = sum(transByPeriode.filter(t=>t.type==="recette"&&t.compte==="3002").map(t=>+t.montant));
-        const ca3003 = sum(transByPeriode.filter(t=>t.type==="recette"&&t.compte==="3003").map(t=>+t.montant));
-        const ca3004 = sum(transByPeriode.filter(t=>t.type==="recette"&&t.compte==="3004").map(t=>+t.montant));
-        const ca3005 = sum(transByPeriode.filter(t=>t.type==="recette"&&t.compte==="3005").map(t=>+t.montant));
-        const caTotal = ca3001+ca3002+ca3003+ca3004+ca3005;
+        // CA par compte — dynamique, tous les produits
+        const caByC1: Record<string,number> = {};
+        transByPeriode.filter(t=>t.type==="recette").forEach(t=>{caByC1[t.compte]=(caByC1[t.compte]||0)+(+t.montant);});
+        const caTotal = Object.values(caByC1).reduce((a:number,b:number)=>a+b,0);
+        const ca3004 = caByC1["3004"]||0;
         let totalUnites=0, totalMarge=0;
-        // Bouteilles (compte unique par produit)
+        // Bouteilles (compte unique par produit — dynamique)
         st.produits.filter(p=>p.actif&&!p.nom.includes("Coffret")).forEach(p=>{
-          const caP = p.nom==="Limonta"?ca3001:p.nom==="Limelo"?ca3002:p.nom==="Clementino"?ca3003:p.nom==="Fragoli"?ca3005:0;
+          const caP = caByC1[getCompteVente(p)]||0;
           const prix = p.prixClient||1;
           const units = Math.round(caP/prix);
           totalUnites += units;
@@ -6652,12 +6675,10 @@ return (
         <h3 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:16,marginBottom:4,letterSpacing:"-0.015em"}}>Marges & volumes par produit</h3>
         <p style={{fontSize:11,color:"#737373",marginBottom:14}}>CA & marge réels depuis les écritures comptables · marges théoriques par prix</p>
         {(()=>{
-          // Pré-calcul des CA par compte depuis transactions
-          const ca3001 = sum(transByPeriode.filter(t=>t.type==="recette"&&t.compte==="3001").map(t=>+t.montant));
-          const ca3002 = sum(transByPeriode.filter(t=>t.type==="recette"&&t.compte==="3002").map(t=>+t.montant));
-          const ca3003 = sum(transByPeriode.filter(t=>t.type==="recette"&&t.compte==="3003").map(t=>+t.montant));
-          const ca3004 = sum(transByPeriode.filter(t=>t.type==="recette"&&t.compte==="3004").map(t=>+t.montant));
-          const ca3005 = sum(transByPeriode.filter(t=>t.type==="recette"&&t.compte==="3005").map(t=>+t.montant));
+          // CA par compte — dynamique
+          const caByC2: Record<string,number> = {};
+          transByPeriode.filter(t=>t.type==="recette").forEach(t=>{caByC2[t.compte]=(caByC2[t.compte]||0)+(+t.montant);});
+          const ca3004b = caByC2["3004"]||0;
           const nbCoffrets = Math.max(1, st.produits.filter(p=>p.actif&&p.nom.includes("Coffret")).length);
 
           return st.produits.filter(p=>p.actif).map((p,idx,arr)=>{
@@ -6673,8 +6694,8 @@ return (
 
             // CA depuis les transactions (compte produit)
             const caP = isCoffret
-              ? ca3004/nbCoffrets
-              : p.nom==="Limonta"?ca3001:p.nom==="Limelo"?ca3002:p.nom==="Clementino"?ca3003:p.nom==="Fragoli"?ca3005:0;
+              ? ca3004b/nbCoffrets
+              : caByC2[getCompteVente(p)]||0;
             const totalUnites = p.prixClient>0?Math.round(caP/p.prixClient):0;
             const margeGeneree = caP - totalUnites*cout;
 
@@ -7147,7 +7168,7 @@ return (
       {[
         {titre:"ACTIFS",comptes:["1020","1021","1100","3200","3100"],color:"#DBEAFE",border:"#BFDBFE",txt:"#1E3A5F"},
         {titre:"CAPITAUX PROPRES",comptes:["2000","2800"],color:"#EDE9FE",border:"#C4B5FD",txt:"#4C1D95"},
-        {titre:"PRODUITS / RECETTES",comptes:["3001","3002","3003","3004","3005","3600","3750"],color:"#DCFCE7",border:"#86EFAC",txt:"#166534"},
+        {titre:"PRODUITS / RECETTES",comptes:[...[...new Set((st.produits||[]).map((p:any)=>getCompteVente(p)))].sort(),"3600","3750"],color:"#DCFCE7",border:"#86EFAC",txt:"#166534"},
         {titre:"DÉDUCTIONS DES VENTES",comptes:["3900"],color:"#FFF7ED",border:"#FED7AA",txt:"#9A3412"},
         {titre:"CHARGES — MATIÈRES PREMIÈRES",comptes:["4000","4010","4100","4200","4210","4220","4400"],color:"#FEF9E7",border:"#FCD34D",txt:"#92400E"},
         {titre:"CHARGES — EXPLOITATION",comptes:["5000","5201","6000","6200","6300","6315","6400","6510","6512","6513","6530","6600","6610","6700","6800","6900","8900"],color:"#FEF2F2",border:"#FECACA",txt:"#991B1B"},
@@ -7161,7 +7182,7 @@ return (
           if(k==="2800") return 0;
           return (st.transactions||[]).filter((t:any)=>t.compte===k).reduce((acc:number,t:any)=>acc+(parseFloat(t.montant)||0),0);
         };
-        const cpts = grp.comptes.filter(k=>PLAN_COMPTABLE[k]);
+        const cpts = grp.comptes.filter(k=>planDyn[k]);
         if(!cpts.length) return null;
         const totalGrp = sum(cpts.map(getSolde));
         return (
@@ -7176,7 +7197,7 @@ return (
               return (
                 <div key={k} style={{display:"flex",alignItems:"center",gap:10,padding:"9px 14px",borderBottom:"1px solid #F5F5F0"}}>
                   <span style={{fontSize:10,fontFamily:"monospace",fontWeight:700,color:grp.txt,background:grp.color,padding:"2px 7px",borderRadius:5,flexShrink:0}}>{k}</span>
-                  <span style={{fontSize:12,color:"#374151",flex:1}}>{PLAN_COMPTABLE[k]}</span>
+                  <span style={{fontSize:12,color:"#374151",flex:1}}>{planDyn[k]}</span>
                   {solde>0&&<span style={{fontSize:11,fontWeight:600,color:"#525252",flexShrink:0}}>{chf(solde)}{isAuto&&<span style={{fontSize:8,color:"#9CA3AF",marginLeft:4}}>auto</span>}</span>}
                 </div>
               );
@@ -7185,7 +7206,7 @@ return (
         );
       })}
       {(()=>{
-        const tousComptes = ["1020","1021","1100","3200","3100","2000","2800","3001","3002","3003","3004","3005","3600","3750","3900","4000","4010","4100","4200","4210","4220","4400","5000","5201","6000","6200","6300","6315","6400","6510","6512","6513","6530","6600","6610","6700","6800","6900","8900"];
+        const tousComptes = [...new Set([...Object.keys(planDyn),...(st.produits||[]).map((p:any)=>getCompteVente(p))])];
         const comptesInconnus = [...new Set((st.transactions||[]).map(t=>t.compte).filter(c=>c&&!tousComptes.includes(c)))].sort();
         if(!comptesInconnus.length) return null;
         const totalDiv = (st.transactions||[]).filter(t=>comptesInconnus.includes(t.compte)).reduce((acc,t)=>acc+(parseFloat(t.montant)||0),0);
@@ -7200,7 +7221,7 @@ return (
               return (
                 <div key={k} style={{display:"flex",alignItems:"center",gap:10,padding:"9px 14px",borderBottom:"1px solid #F5F5F0"}}>
                   <span style={{fontSize:10,fontFamily:"monospace",fontWeight:700,color:"#374151",background:"#F3F4F6",padding:"2px 7px",borderRadius:5,flexShrink:0}}>{k}</span>
-                  <span style={{fontSize:12,color:"#374151",flex:1}}>{PLAN_COMPTABLE[k]||"Compte non classifié"}</span>
+                  <span style={{fontSize:12,color:"#374151",flex:1}}>{planDyn[k]||"Compte non classifié"}</span>
                   {solde>0&&<span style={{fontSize:11,fontWeight:600,color:"#525252",flexShrink:0}}>{chf(solde)}</span>}
                 </div>
               );
@@ -7709,7 +7730,7 @@ return (
           {([{v:"depense",l:"− Dépense",bg:"#FEF2F2",bgA:"#B91C1C",border:"#FECACA",borderA:"#B91C1C",txt:"#B91C1C",txtA:"#fff"},
              {v:"recette",l:"+ Recette",bg:"#F0FDF4",bgA:"#166534",border:"#86EFAC",borderA:"#166534",txt:"#166534",txtA:"#fff"}] as any[]).map(t=>(
             <button key={t.v} onClick={()=>{
-              const firstCat = t.v==="recette"?CATEGORIES_RECETTE[0]:CATEGORIES_DEPENSE[0];
+              const firstCat = t.v==="recette"?categoriesRecette[0]:CATEGORIES_DEPENSE[0];
               setForm((p:any)=>({...p,type:t.v,categorie:firstCat,compte:t.v==="recette"?"3001":"4010"}));
             }} style={{background:form.type===t.v?t.bgA:t.bg,color:form.type===t.v?t.txtA:t.txt,border:"2px solid "+(form.type===t.v?t.borderA:t.border),borderRadius:10,padding:"10px 6px",fontSize:13,fontWeight:700,cursor:"pointer"}}>
               {t.l}
@@ -7720,10 +7741,10 @@ return (
         <F label="Montant (CHF)" type="number" value={form.montant||""} onChange={v=>setForm(p=>({...p,montant:v}))} required/>
         <Sel label="Catégorie" value={form.categorie} onChange={v=>{
           const compteAuto = v==="Frais de rappel"?"3750":form.compte;
-          setForm(p=>({...p,categorie:v,compte:compteAuto,libelle:v==="Frais de rappel"?"Frais de rappel":(PLAN_COMPTABLE[compteAuto]||p.libelle)}));
-        }} options={(form.type==="recette"?CATEGORIES_RECETTE:CATEGORIES_DEPENSE).map(c=>({v:c,l:c}))}/>
-        <Sel label="Compte comptable" value={form.compte} onChange={v=>setForm(p=>({...p,compte:v,libelle:PLAN_COMPTABLE[v]||""}))}
-          options={Object.entries(PLAN_COMPTABLE).filter(([k])=>{
+          setForm(p=>({...p,categorie:v,compte:compteAuto,libelle:v==="Frais de rappel"?"Frais de rappel":(planDyn[compteAuto]||p.libelle)}));
+        }} options={(form.type==="recette"?categoriesRecette:CATEGORIES_DEPENSE).map(c=>({v:c,l:c}))}/>
+        <Sel label="Compte comptable" value={form.compte} onChange={v=>setForm(p=>({...p,compte:v,libelle:planDyn[v]||""}))}
+          options={Object.entries(planDyn).filter(([k])=>{
             const recetteCptes = k.startsWith("3") && k!=="3900" && k!=="3100" && k!=="3200";
             return form.type==="recette" ? recetteCptes : !recetteCptes;
           }).map(([k,v])=>({v:k,l:k+" - "+v}))}/>
@@ -8227,8 +8248,8 @@ const dateOp = c.date || today();
   const p = st.produits.find(x=>x.id===l.produitId);
   if(!p) return;
   const montant = (c.typeClient==="revendeur"?(p.prixRevendeur||0):(p.prixClient||0))*(l.qte||0);
-  const compte = p.nom==="Limonta"?"3001":p.nom==="Limelo"?"3002":p.nom==="Clementino"?"3003":p.nom.includes("Coffret")?"3004":"3001";
-  const cat = p.nom==="Limonta"?"Vente Limonta":p.nom==="Limelo"?"Vente Limelo":p.nom==="Clementino"?"Vente Clementino":p.nom.includes("Coffret")?"Vente Coffrets":"Vente Limonta";
+  const compte = getCompteVente(p);
+  const cat = getCategorieVente(p);
   newTrans.push({
     id:uid(),
     commandeId:c.id,
