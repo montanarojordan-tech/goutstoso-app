@@ -1178,6 +1178,7 @@ const [selected,setSelected] = useState(null);
 const empty = {nom:"",variante:"",format:"",description:"",alcool:"30% vol.",ingredients:"",prixClient:0,prixRevendeur:0,coutRevient:0,actif:true,couleurIdx:null,compteVente:"",
 coutDetail:{bouteille:"",bouchon:"",etiquette:"",alcool:"",fruits:"",sucre:"",emballage:"",mainOeuvre:"",autres:""}};
 const [form,setForm] = useState(empty);
+const photoInputRef = React.useRef<HTMLInputElement>(null);
 
 const save = () => {
 if(!form.nom) return;
@@ -1316,21 +1317,24 @@ Catalogue
               : <div style={{width:60,height:80,borderRadius:8,border:"2px dashed #E5E5E0",display:"flex",alignItems:"center",justifyContent:"center",background:"#F5F5F0",fontSize:24}}>📷</div>
             }
             <div style={{flex:1}}>
-              <input type="file" accept="image/*" id="photo-upload" style={{display:"none"}}
+              <input ref={photoInputRef} type="file" accept="image/*"
+                style={{position:"absolute",opacity:0,width:1,height:1,overflow:"hidden"}}
                 onChange={async e=>{
-                  const file = e.target.files[0];
+                  const file = (e.target as HTMLInputElement).files?.[0];
                   if(!file) return;
+                  if(file.size>15*1024*1024){alert("Photo trop lourde (max 15 Mo)");(e.target as HTMLInputElement).value="";return;}
                   const reader = new FileReader();
                   reader.onload = async ev => {
-                    const b64 = ev.target.result as string;
+                    const b64 = (ev.target as FileReader).result as string;
                     const fileId = await uploadFile(b64, file.name, file.type||"image/jpeg");
                     setForm((p:any)=>({...p,photoUrl:fileId||b64}));
                   };
                   reader.readAsDataURL(file);
+                  (e.target as HTMLInputElement).value = "";
                 }}/>
-              <label htmlFor="photo-upload" style={{display:"inline-flex",alignItems:"center",gap:6,background:"#F5F5F0",border:"none",borderRadius:10,padding:"8px 14px",fontWeight:600,fontSize:13,color:"#111",cursor:"pointer"}}>
+              <button type="button" onClick={()=>photoInputRef.current?.click()} style={{display:"inline-flex",alignItems:"center",gap:6,background:"#F5F5F0",border:"none",borderRadius:10,padding:"8px 14px",fontWeight:600,fontSize:13,color:"#111",cursor:"pointer"}}>
                 📁 Choisir une photo
-              </label>
+              </button>
               {form.photoUrl && <button onClick={()=>setForm(p=>({...p,photoUrl:""}))} style={{display:"block",marginTop:6,background:"none",border:"none",color:"#9CA3AF",fontSize:11,cursor:"pointer"}}>Supprimer la photo</button>}
             </div>
           </div>
@@ -16950,8 +16954,17 @@ setLoading(true);
 const remote = await cloudLoad();
 if(remote) {
 const next = hydrateData(remote);
-setSt(next);
-try { localStorage.setItem("goutstoso_v2", JSON.stringify(next)); } catch(e){}
+// Réinjecter les binaires locaux (photos base64, PDFs) qui ont été strippés avant la sync cloud
+try {
+  const saved = localStorage.getItem("goutstoso_v2");
+  const localState = saved ? JSON.parse(saved) : null;
+  const merged = localState ? mergeBinaries(next, localState) : next;
+  setSt(merged);
+  try { localStorage.setItem("goutstoso_v2", JSON.stringify(merged)); } catch(e){}
+} catch(e) {
+  setSt(next);
+  try { localStorage.setItem("goutstoso_v2", JSON.stringify(next)); } catch(e2){}
+}
 } else {
 try {
 const saved = localStorage.getItem("goutstoso_v2");
