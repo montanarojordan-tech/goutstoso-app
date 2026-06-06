@@ -728,8 +728,8 @@ const caMois = sum(Object.values(ventesMois));
 const cmdMois = (st.commandes||[]).filter(c=>c.date?.startsWith(moisCourant));
 const nbCmdMois = cmdMois.length;
 
-// === VALEUR STOCK TOTAL ===
-const valeurStock = sum((st.produits||[]).map(p=>{
+// === VALEUR STOCK TOTAL (hors coffrets — les bouteilles qui les composent sont déjà comptées) ===
+const valeurStock = sum((st.produits||[]).filter((p:any)=>!p.nom.includes("Coffret")).map(p=>{
 const stockPropre = sum((st.stocks||[]).filter(s=>s.produitId===p.id).map(s=>s.qte));
 const stockDepot = sum((st.depotStocks||[]).filter(d=>d.produitId===p.id).map(d=>(d.qteDeposee||0)-(d.qteVendue||0)-(d.qteRetournee||0)));
 return (stockPropre+stockDepot)*(p.coutRevient||0);
@@ -6139,9 +6139,10 @@ const catDepenses = Object.values(parCategorie).filter(c=>c.type==="depense").so
 // Créances clients = factures ouvertes (non payées), calcul identique à l'onglet Factures
 const factAttente = (st.factures||[]).filter(f=>f.statut!=="payée");
 const creancesClients = sum(factAttente.map(f=>calcTotalNet(f,st.produits)));
-const valeurStock = sum(st.produits.filter(p=>!p.nom.includes("Coffret")).map(p=>{
-const qte = sum((st.stocks||[]).filter(s=>s.produitId===p.id).map(s=>s.qte));
-return qte*(p.coutRevient||0);
+const valeurStock = sum((st.produits||[]).filter((p:any)=>!p.nom.includes("Coffret")).map(p=>{
+const stockPropre = sum((st.stocks||[]).filter(s=>s.produitId===p.id).map(s=>s.qte));
+const stockDepot = sum((st.depotStocks||[]).filter(d=>d.produitId===p.id).map(d=>(d.qteDeposee||0)-(d.qteVendue||0)-(d.qteRetournee||0)));
+return (stockPropre+stockDepot)*(p.coutRevient||0);
 }));
 
 // Export CSV
