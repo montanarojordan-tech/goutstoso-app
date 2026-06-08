@@ -8957,58 +8957,98 @@ Commandes
         </Card>
       );
     })
-  ) : filtrees.length===0 ? (
-    <div style={{textAlign:"center",padding:"40px 20px",color:"#9CA3AF"}}>
-      <p style={{fontSize:40,marginBottom:12}}>🛒</p>
-      <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:20,fontWeight:600,color:"#374151"}}>Aucune commande</p>
-      <p style={{fontSize:13,marginTop:6}}>Saisis ta première commande Shopify</p>
-      <button onClick={()=>{setForm(emptyC());setModal("form");}} style={{marginTop:16,background:"#F2C94C",border:"none",borderRadius:12,padding:"12px 24px",fontWeight:700,fontSize:14,cursor:"pointer"}}>
-        + Nouvelle commande
-      </button>
-    </div>
-  ) : filtrees.map(c=>{
-    const calc = calcCommande(c);
-    return (
-      <Card key={c.id} style={{marginBottom:10,padding:"12px 14px",borderLeft:c.factureNumero?"3px solid #22C55E":"3px solid #F2C94C"}}>
-        <div onClick={()=>setViewId(c.id)} style={{cursor:"pointer"}}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:6}}>
-            <div style={{flex:1,minWidth:0}}>
-              <div style={{display:"flex",alignItems:"center",gap:6}}>
-                <p style={{fontWeight:700,fontSize:13}}>{c.numero}</p>
-                <span style={{fontSize:9,fontWeight:700,padding:"2px 6px",borderRadius:4,background:c.source==="direct"?"#EFF6FF":c.source==="shopify"?"#FFF7ED":"#F0FDF4",color:c.source==="direct"?"#1D4ED8":c.source==="shopify"?"#9A3412":"#15803D"}}>{c.source==="direct"?"DIRECT":c.source==="shopify"?"SHOPIFY":"PRO"}</span>
+  ) : (()=>{
+    const allItems = filtre==="toutes"
+      ? [...filtrees.map((c:any)=>({...c,_t:"c"})), ...shopifyOrders.map((s:any)=>({...s,_t:"s"}))]
+          .sort((a:any,b:any)=>(b.dateCommande||b.date||"").localeCompare(a.dateCommande||a.date||""))
+      : filtrees.map((c:any)=>({...c,_t:"c"}));
+    if(allItems.length===0) return (
+      <div style={{textAlign:"center",padding:"40px 20px",color:"#9CA3AF"}}>
+        <p style={{fontSize:40,marginBottom:12}}>🛒</p>
+        <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:20,fontWeight:600,color:"#374151"}}>Aucune commande</p>
+        <p style={{fontSize:13,marginTop:6}}>Saisis ta première commande</p>
+        <button onClick={()=>{setForm(emptyC());setModal("form");}} style={{marginTop:16,background:"#F2C94C",border:"none",borderRadius:12,padding:"12px 24px",fontWeight:700,fontSize:14,cursor:"pointer"}}>
+          + Nouvelle commande
+        </button>
+      </div>
+    );
+    return allItems.map((item:any)=>{
+      if(item._t==="s") {
+        const s = item;
+        const fpEnc = parseFloat(s.fraisPortEncaisse??s.fraisPort??0);
+        const total = s.totalTTC || (s.lignes||[]).reduce((acc:number,l:any)=>acc+(l.qte*(l.prixUnitaire||0)),0)+fpEnc;
+        const expedStatut:{[k:string]:{bg:string,c:string,label:string}} = {
+          "a_preparer":{bg:"#FEF9E7",c:"#92400E",label:"⏳ À préparer"},
+          "preparee":{bg:"#DBEAFE",c:"#1E3A5F",label:"📦 Préparée"},
+          "expediee":{bg:"#DCFCE7",c:"#166534",label:"🚀 Expédiée"},
+          "livree":{bg:"#DCFCE7",c:"#166534",label:"✅ Livrée"},
+        };
+        const es = expedStatut[s.statutExpedition]||{bg:"#F3F4F6",c:"#6B7280",label:s.statutExpedition||"—"};
+        return (
+          <Card key={s.id} style={{marginBottom:10,padding:"12px 14px",borderLeft:"3px solid #7C3AED"}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:6}}>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:2}}>
+                  <p style={{fontWeight:700,fontSize:13}}>#{s.orderNumberShopify}</p>
+                  <span style={{fontSize:9,fontWeight:700,padding:"2px 6px",borderRadius:4,background:"#EDE9FE",color:"#5B21B6"}}>SHOPIFY</span>
+                </div>
+                <p style={{fontSize:12,color:"#374151",fontWeight:600}}>{s.clientShopify?.nom||"—"}</p>
+                <p style={{fontSize:11,color:"#9CA3AF",marginTop:1}}>📅 {fmt(s.dateCommande)} · {(s.lignes||[]).length} article{s.lignes?.length>1?"s":""}</p>
+                {fpEnc>0 && <p style={{fontSize:11,color:"#6B7280",marginTop:1}}>🚚 Frais de port : {chf(fpEnc)}</p>}
               </div>
-              <p style={{fontSize:12,color:"#6B7280",marginTop:1}}>{c.client}</p>
-              <p style={{fontSize:11,color:"#9CA3AF",marginTop:1}}>{fmt(c.date)} · {(c.lignes||[]).length} produit{c.lignes?.length>1?"s":""}</p>
+              <div style={{textAlign:"right",flexShrink:0}}>
+                <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:18,fontWeight:700,color:"#7C3AED"}}>{chf(total)}</p>
+                <span style={{fontSize:9,fontWeight:700,padding:"2px 7px",borderRadius:5,background:es.bg,color:es.c,marginTop:4,display:"inline-block"}}>{es.label}</span>
+                {s.statutPaiement==="paye" && <p style={{fontSize:9,color:"#166534",fontWeight:700,marginTop:3}}>✅ Payé</p>}
+              </div>
             </div>
-            <div style={{textAlign:"right"}}>
-              <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:18,fontWeight:700,color:"#D4A017"}}>{chf(calc.totalClient)}</p>
-              <div style={{marginTop:4,display:"flex",flexDirection:"column",alignItems:"flex-end",gap:3}}>
-                <Badge c={badgeStatut(c.statut)}>{c.statut}</Badge>
-                {c.factureNumero && <span style={{fontSize:9,color:"#166534",background:"#DCFCE7",borderRadius:4,padding:"2px 6px",fontWeight:700}}>🧾 {c.factureNumero}</span>}
+          </Card>
+        );
+      }
+      const c = item;
+      const calc = calcCommande(c);
+      return (
+        <Card key={c.id} style={{marginBottom:10,padding:"12px 14px",borderLeft:c.factureNumero?"3px solid #22C55E":"3px solid #F2C94C"}}>
+          <div onClick={()=>setViewId(c.id)} style={{cursor:"pointer"}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:6}}>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{display:"flex",alignItems:"center",gap:6}}>
+                  <p style={{fontWeight:700,fontSize:13}}>{c.numero}</p>
+                  <span style={{fontSize:9,fontWeight:700,padding:"2px 6px",borderRadius:4,background:c.source==="direct"?"#EFF6FF":c.source==="shopify"?"#FFF7ED":"#F0FDF4",color:c.source==="direct"?"#1D4ED8":c.source==="shopify"?"#9A3412":"#15803D"}}>{c.source==="direct"?"DIRECT":c.source==="shopify"?"SHOPIFY":"PRO"}</span>
+                </div>
+                <p style={{fontSize:12,color:"#6B7280",marginTop:1}}>{c.client}</p>
+                <p style={{fontSize:11,color:"#9CA3AF",marginTop:1}}>{fmt(c.date)} · {(c.lignes||[]).length} produit{c.lignes?.length>1?"s":""}</p>
+              </div>
+              <div style={{textAlign:"right"}}>
+                <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:18,fontWeight:700,color:"#D4A017"}}>{chf(calc.totalClient)}</p>
+                <div style={{marginTop:4,display:"flex",flexDirection:"column",alignItems:"flex-end",gap:3}}>
+                  <Badge c={badgeStatut(c.statut)}>{c.statut}</Badge>
+                  {c.factureNumero && <span style={{fontSize:9,color:"#166534",background:"#DCFCE7",borderRadius:4,padding:"2px 6px",fontWeight:700}}>🧾 {c.factureNumero}</span>}
+                </div>
               </div>
             </div>
           </div>
-        </div>
-        <div style={{display:"flex",gap:6,marginTop:8,flexWrap:"wrap"}}>
-          {(()=>{
-            const cycleC=["à préparer","emballée","expédiée","livrée","payée"];
-            const idxC=cycleC.indexOf(c.statut);
-            const nextC=idxC>=0&&idxC<cycleC.length-1?cycleC[idxC+1]:null;
-            if(c.statut==="payée") return <span style={{flex:1,textAlign:"center",fontSize:11,color:"#166534",fontWeight:700,padding:"7px",background:"#DCFCE7",borderRadius:8}}>✅ Payée</span>;
-            if(!nextC) return null;
-            return <button onClick={()=>toggleStatut(c)} style={{flex:1,background:nextC==="payée"?"#22C55E":"#F2C94C",color:nextC==="payée"?"#fff":"#0A0A0A",border:"none",borderRadius:8,padding:"7px",fontSize:11,fontWeight:700,cursor:"pointer"}}>{nextC==="payée"?"💳 Marquer payée":"→ "+nextC}</button>;
-          })()}
-          {!c.factureNumero ? (
-            <button onClick={()=>genererFactureDepuisCommande(c,st,setSt)} style={{flex:1,background:"#0A0A0A",color:"#F2C94C",border:"none",borderRadius:8,padding:"7px",fontSize:11,fontWeight:700,cursor:"pointer"}}>🧾 Facture</button>
-          ) : (
-            <button onClick={()=>setTab("factures")} style={{flex:1,background:"#DCFCE7",color:"#166534",border:"none",borderRadius:8,padding:"7px",fontSize:11,fontWeight:700,cursor:"pointer"}}>🧾 {c.factureNumero}</button>
-          )}
-          <button onClick={()=>setViewId(c.id)} style={{background:"#F5F5F0",border:"none",borderRadius:8,padding:"7px 10px",fontSize:11,fontWeight:600,cursor:"pointer"}}>👁</button>
-          <button onClick={()=>supprimer(c.id)} style={{background:"#FEE2E2",border:"none",borderRadius:8,padding:"7px 10px",cursor:"pointer",display:"flex"}}><Ic n="trash" s={13}/></button>
-        </div>
-      </Card>
-    );
-  })}
+          <div style={{display:"flex",gap:6,marginTop:8,flexWrap:"wrap"}}>
+            {(()=>{
+              const cycleC=["à préparer","emballée","expédiée","livrée","payée"];
+              const idxC=cycleC.indexOf(c.statut);
+              const nextC=idxC>=0&&idxC<cycleC.length-1?cycleC[idxC+1]:null;
+              if(c.statut==="payée") return <span style={{flex:1,textAlign:"center",fontSize:11,color:"#166534",fontWeight:700,padding:"7px",background:"#DCFCE7",borderRadius:8}}>✅ Payée</span>;
+              if(!nextC) return null;
+              return <button onClick={()=>toggleStatut(c)} style={{flex:1,background:nextC==="payée"?"#22C55E":"#F2C94C",color:nextC==="payée"?"#fff":"#0A0A0A",border:"none",borderRadius:8,padding:"7px",fontSize:11,fontWeight:700,cursor:"pointer"}}>{nextC==="payée"?"💳 Marquer payée":"→ "+nextC}</button>;
+            })()}
+            {!c.factureNumero ? (
+              <button onClick={()=>genererFactureDepuisCommande(c,st,setSt)} style={{flex:1,background:"#0A0A0A",color:"#F2C94C",border:"none",borderRadius:8,padding:"7px",fontSize:11,fontWeight:700,cursor:"pointer"}}>🧾 Facture</button>
+            ) : (
+              <button onClick={()=>setTab("factures")} style={{flex:1,background:"#DCFCE7",color:"#166534",border:"none",borderRadius:8,padding:"7px",fontSize:11,fontWeight:700,cursor:"pointer"}}>🧾 {c.factureNumero}</button>
+            )}
+            <button onClick={()=>setViewId(c.id)} style={{background:"#F5F5F0",border:"none",borderRadius:8,padding:"7px 10px",fontSize:11,fontWeight:600,cursor:"pointer"}}>👁</button>
+            <button onClick={()=>supprimer(c.id)} style={{background:"#FEE2E2",border:"none",borderRadius:8,padding:"7px 10px",cursor:"pointer",display:"flex"}}><Ic n="trash" s={13}/></button>
+          </div>
+        </Card>
+      );
+    });
+  })()}
 
   {/* Modal */}
   {modal==="form" && (
@@ -15471,13 +15511,13 @@ return (
   <p style={{fontSize:11,fontWeight:700,color:"#737373",textTransform:"uppercase" as const,letterSpacing:".06em",marginBottom:6,marginTop:4}}>Frais & commissions</p>
   <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:4}}>
     <label style={{fontSize:11,color:"#737373",display:"flex",flexDirection:"column",gap:4}}>
-      Port encaissé (CHF)<span style={{fontSize:9,color:"#9CA3AF"}}>Payé par client</span><input type="number" min="0" step="0.01" value={form.fraisPortEncaisse} onChange={e=>setForm(f=>({...f,fraisPortEncaisse:parseFloat(e.target.value)||0}))} style={{padding:"8px",borderRadius:8,border:"1px solid #E5E5E0",fontSize:13}}/>
+      Port encaissé (CHF)<span style={{fontSize:9,color:"#9CA3AF"}}>Payé par client</span><input type="text" inputMode="decimal" value={form.fraisPortEncaisse||""} onChange={e=>{const v=e.target.value.replace(",",".");if(v===""||/^[\d.]*$/.test(v))setForm(f=>({...f,fraisPortEncaisse:parseFloat(v)||0}));}} style={{padding:"8px",borderRadius:8,border:"1px solid #E5E5E0",fontSize:13}}/>
     </label>
     <label style={{fontSize:11,color:"#737373",display:"flex",flexDirection:"column",gap:4}}>
-      Port payé (CHF)<span style={{fontSize:9,color:"#9CA3AF"}}>Notre coût réel</span><input type="number" min="0" step="0.01" value={form.fraisPortPaye} onChange={e=>setForm(f=>({...f,fraisPortPaye:parseFloat(e.target.value)||0}))} style={{padding:"8px",borderRadius:8,border:"1px solid #E5E5E0",fontSize:13}}/>
+      Port payé (CHF)<span style={{fontSize:9,color:"#9CA3AF"}}>Notre coût réel</span><input type="text" inputMode="decimal" value={form.fraisPortPaye||""} onChange={e=>{const v=e.target.value.replace(",",".");if(v===""||/^[\d.]*$/.test(v))setForm(f=>({...f,fraisPortPaye:parseFloat(v)||0}));}} style={{padding:"8px",borderRadius:8,border:"1px solid #E5E5E0",fontSize:13}}/>
     </label>
     <label style={{fontSize:11,color:"#737373",display:"flex",flexDirection:"column",gap:4}}>
-      Commission Shopify<span style={{fontSize:9,color:"#9CA3AF"}}>Frais plateforme</span><input type="number" min="0" step="0.01" value={form.commissionShopify} onChange={e=>setForm(f=>({...f,commissionShopify:parseFloat(e.target.value)||0}))} style={{padding:"8px",borderRadius:8,border:"1px solid #E5E5E0",fontSize:13}}/>
+      Commission Shopify<span style={{fontSize:9,color:"#9CA3AF"}}>Frais plateforme</span><input type="text" inputMode="decimal" value={form.commissionShopify||""} onChange={e=>{const v=e.target.value.replace(",",".");if(v===""||/^[\d.]*$/.test(v))setForm(f=>({...f,commissionShopify:parseFloat(v)||0}));}} style={{padding:"8px",borderRadius:8,border:"1px solid #E5E5E0",fontSize:13}}/>
     </label>
   </div>
   <label style={{fontSize:11,color:"#737373",display:"flex",flexDirection:"column",gap:4,marginBottom:8}}>
