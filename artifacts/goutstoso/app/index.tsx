@@ -15490,7 +15490,7 @@ const parseShopifyText = (text:string) => {
   return result;
 };
 
-const totalForm = form.lignes.reduce((s:number,l:any)=>s+(l.qte*(l.prixUnitaire||0)),0) + (form.fraisPortEncaisse||0);
+const totalForm = form.lignes.reduce((s:number,l:any)=>s+(l.qte*(l.prixUnitaire||0)),0) + parseFloat(String(form.fraisPortEncaisse||0));
 
 const save = (data:any = null) => {
   const d = data || form;
@@ -15624,13 +15624,13 @@ return (
   <p style={{fontSize:11,fontWeight:700,color:"#737373",textTransform:"uppercase" as const,letterSpacing:".06em",marginBottom:6,marginTop:4}}>Frais & commissions</p>
   <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:4}}>
     <label style={{fontSize:11,color:"#737373",display:"flex",flexDirection:"column",gap:4}}>
-      Port encaissé (CHF)<span style={{fontSize:9,color:"#9CA3AF"}}>Payé par client</span><input type="text" inputMode="decimal" value={form.fraisPortEncaisse||""} onChange={e=>{const v=e.target.value.replace(",",".");if(v===""||/^[\d.]*$/.test(v))setForm(f=>({...f,fraisPortEncaisse:parseFloat(v)||0}));}} style={{padding:"8px",borderRadius:8,border:"1px solid #E5E5E0",fontSize:13}}/>
+      Port encaissé (CHF)<span style={{fontSize:9,color:"#9CA3AF"}}>Payé par client</span><input type="text" inputMode="decimal" value={form.fraisPortEncaisse||""} onChange={e=>{const v=e.target.value.replace(",",".");if(v===""||/^[\d.]*$/.test(v))setForm(f=>({...f,fraisPortEncaisse:v}));}} style={{padding:"8px",borderRadius:8,border:"1px solid #E5E5E0",fontSize:13}}/>
     </label>
     <label style={{fontSize:11,color:"#737373",display:"flex",flexDirection:"column",gap:4}}>
-      Port payé (CHF)<span style={{fontSize:9,color:"#9CA3AF"}}>Notre coût réel</span><input type="text" inputMode="decimal" value={form.fraisPortPaye||""} onChange={e=>{const v=e.target.value.replace(",",".");if(v===""||/^[\d.]*$/.test(v))setForm(f=>({...f,fraisPortPaye:parseFloat(v)||0}));}} style={{padding:"8px",borderRadius:8,border:"1px solid #E5E5E0",fontSize:13}}/>
+      Port payé (CHF)<span style={{fontSize:9,color:"#9CA3AF"}}>Notre coût réel</span><input type="text" inputMode="decimal" value={form.fraisPortPaye||""} onChange={e=>{const v=e.target.value.replace(",",".");if(v===""||/^[\d.]*$/.test(v))setForm(f=>({...f,fraisPortPaye:v}));}} style={{padding:"8px",borderRadius:8,border:"1px solid #E5E5E0",fontSize:13}}/>
     </label>
     <label style={{fontSize:11,color:"#737373",display:"flex",flexDirection:"column",gap:4}}>
-      Commission Shopify<span style={{fontSize:9,color:"#9CA3AF"}}>Frais plateforme</span><input type="text" inputMode="decimal" value={form.commissionShopify||""} onChange={e=>{const v=e.target.value.replace(",",".");if(v===""||/^[\d.]*$/.test(v))setForm(f=>({...f,commissionShopify:parseFloat(v)||0}));}} style={{padding:"8px",borderRadius:8,border:"1px solid #E5E5E0",fontSize:13}}/>
+      Commission Shopify<span style={{fontSize:9,color:"#9CA3AF"}}>Frais plateforme</span><input type="text" inputMode="decimal" value={form.commissionShopify||""} onChange={e=>{const v=e.target.value.replace(",",".");if(v===""||/^[\d.]*$/.test(v))setForm(f=>({...f,commissionShopify:v}));}} style={{padding:"8px",borderRadius:8,border:"1px solid #E5E5E0",fontSize:13}}/>
     </label>
   </div>
   <label style={{fontSize:11,color:"#737373",display:"flex",flexDirection:"column",gap:4,marginBottom:8}}>
@@ -15639,11 +15639,22 @@ return (
   {(form.fraisPortPaye>0||form.commissionShopify>0) && (
     <div style={{background:"#FFF7ED",borderRadius:8,padding:"8px 12px",marginBottom:8,fontSize:11}}>
       <p style={{fontWeight:700,color:"#92400E",marginBottom:4}}>📊 Résumé compta</p>
-      {form.fraisPortEncaisse>0&&<p style={{color:"#166534"}}>+{form.fraisPortEncaisse.toFixed(2)} CHF → ct. 3600 (port encaissé)</p>}
-      {form.fraisPortPaye>0&&<p style={{color:"#B91C1C"}}>−{form.fraisPortPaye.toFixed(2)} CHF → ct. 6315 (frais envoi)</p>}
-      {form.commissionShopify>0&&<p style={{color:"#B91C1C"}}>−{form.commissionShopify.toFixed(2)} CHF → ct. 6700 (commission)</p>}
+      {parseFloat(String(form.fraisPortEncaisse||0))>0&&<p style={{color:"#166534"}}>+{parseFloat(String(form.fraisPortEncaisse||0)).toFixed(2)} CHF → ct. 3600 (port encaissé)</p>}
+      {parseFloat(String(form.fraisPortPaye||0))>0&&<p style={{color:"#B91C1C"}}>−{parseFloat(String(form.fraisPortPaye||0)).toFixed(2)} CHF → ct. 6315 (frais envoi)</p>}
+      {parseFloat(String(form.commissionShopify||0))>0&&<p style={{color:"#B91C1C"}}>−{parseFloat(String(form.commissionShopify||0)).toFixed(2)} CHF → ct. 6700 (commission)</p>}
     </div>
   )}
+  <div style={{marginBottom:10}}>
+    <p style={{fontSize:11,fontWeight:700,color:"#737373",textTransform:"uppercase" as const,letterSpacing:".06em",marginBottom:6}}>Statut paiement</p>
+    <div style={{display:"flex",gap:6}}>
+      <button onClick={()=>setForm(f=>({...f,statutPaiement:"non_paye"}))} style={{flex:1,padding:"9px",borderRadius:9,border:"2px solid "+(form.statutPaiement!=="paye"?"#F59E0B":"#E5E5E0"),background:form.statutPaiement!=="paye"?"#FEF3C7":"#F9F9F6",fontWeight:700,fontSize:12,color:form.statutPaiement!=="paye"?"#92400E":"#6B7280",cursor:"pointer"}}>
+        ⏳ Non payée<br/><span style={{fontWeight:400,fontSize:10}}>Paiement à venir</span>
+      </button>
+      <button onClick={()=>setForm(f=>({...f,statutPaiement:"paye"}))} style={{flex:1,padding:"9px",borderRadius:9,border:"2px solid "+(form.statutPaiement==="paye"?"#16A34A":"#E5E5E0"),background:form.statutPaiement==="paye"?"#DCFCE7":"#F9F9F6",fontWeight:700,fontSize:12,color:form.statutPaiement==="paye"?"#166534":"#6B7280",cursor:"pointer"}}>
+        ✅ Payée<br/><span style={{fontWeight:400,fontSize:10}}>Argent déjà reçu</span>
+      </button>
+    </div>
+  </div>
   <div style={{background:"#F9F9F6",borderRadius:10,padding:"10px 14px",marginBottom:12,display:"flex",justifyContent:"space-between"}}>
     <span style={{fontWeight:700,fontSize:13}}>Total TTC</span>
     <span style={{fontWeight:800,fontSize:15}}>CHF {totalForm.toFixed(2)}</span>
