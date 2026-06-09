@@ -8094,6 +8094,7 @@ const [sigJordanCmd,setSigJordanCmd] = useState(false);
 const [blReceptionnaire,setBlReceptionnaire] = useState("");
 const [blDateSaisie,setBlDateSaisie] = useState(today());
 const [showImportShopify,setShowImportShopify] = useState(false);
+const [editShopifyOrder,setEditShopifyOrder] = useState<any>(null);
 
 const genBLNumero = () => {
   const y = new Date().getFullYear();
@@ -8842,6 +8843,7 @@ return (
 Commandes
 </SectionTitle>
 {showImportShopify && <ImportShopifyModal st={st} setSt={setSt} onClose={()=>setShowImportShopify(false)}/>}
+{editShopifyOrder && <ImportShopifyModal st={st} setSt={setSt} onClose={()=>setEditShopifyOrder(null)} initialData={editShopifyOrder}/>}
 
   {nbSansFacture>0 && (
     <div style={{background:"#FEF9E7",border:"1px solid #F2C94C",borderRadius:12,padding:"10px 14px",marginBottom:14}}>
@@ -8936,22 +8938,39 @@ Commandes
             </div>
           )}
           {/* Actions expédition */}
-          <div style={{display:"flex",gap:6}}>
+          <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
             {s.statutExpedition==="a_preparer" && (
-              <button onClick={()=>setSt((p:any)=>({...p,ventesShopify:(p.ventesShopify||[]).map((x:any)=>x.id===s.id?{...x,statutExpedition:"preparee"}:x)}))} style={{flex:1,background:"#DBEAFE",color:"#1D4ED8",border:"none",borderRadius:8,padding:"7px",fontSize:11,fontWeight:700,cursor:"pointer"}}>📦 Marquer préparée</button>
+              <button onClick={()=>setSt((p:any)=>({...p,ventesShopify:(p.ventesShopify||[]).map((x:any)=>x.id===s.id?{...x,statutExpedition:"preparee"}:x)}))} style={{flex:1,background:"#DBEAFE",color:"#1D4ED8",border:"none",borderRadius:8,padding:"7px",fontSize:11,fontWeight:700,cursor:"pointer"}}>📦 Préparée</button>
             )}
             {s.statutExpedition==="preparee" && (
-              <button onClick={()=>{const suivi=window.prompt("Numéro de suivi (optionnel) :","");setSt((p:any)=>({...p,ventesShopify:(p.ventesShopify||[]).map((x:any)=>x.id===s.id?{...x,statutExpedition:"expediee",numeroSuivi:suivi||x.numeroSuivi,dateExpedition:today()}:x)}));}} style={{flex:1,background:"#0A0A0A",color:"#F2C94C",border:"none",borderRadius:8,padding:"7px",fontSize:11,fontWeight:700,cursor:"pointer"}}>🚀 Marquer expédiée</button>
+              <button onClick={()=>{const suivi=window.prompt("Numéro de suivi (optionnel) :","");setSt((p:any)=>({...p,ventesShopify:(p.ventesShopify||[]).map((x:any)=>x.id===s.id?{...x,statutExpedition:"expediee",numeroSuivi:suivi||x.numeroSuivi,dateExpedition:today()}:x)}));}} style={{flex:1,background:"#0A0A0A",color:"#F2C94C",border:"none",borderRadius:8,padding:"7px",fontSize:11,fontWeight:700,cursor:"pointer"}}>🚀 Expédiée</button>
             )}
             {s.statutExpedition==="expediee" && (
-              <button onClick={()=>setSt((p:any)=>({...p,ventesShopify:(p.ventesShopify||[]).map((x:any)=>x.id===s.id?{...x,statutExpedition:"livree"}:x)}))} style={{flex:1,background:"#DCFCE7",color:"#166534",border:"none",borderRadius:8,padding:"7px",fontSize:11,fontWeight:700,cursor:"pointer"}}>✅ Marquer livrée</button>
+              <button onClick={()=>setSt((p:any)=>({...p,ventesShopify:(p.ventesShopify||[]).map((x:any)=>x.id===s.id?{...x,statutExpedition:"livree"}:x)}))} style={{flex:1,background:"#DCFCE7",color:"#166534",border:"none",borderRadius:8,padding:"7px",fontSize:11,fontWeight:700,cursor:"pointer"}}>✅ Livrée</button>
             )}
-            {s.statutExpedition==="livree" && s.statutPaiement!=="paye" && (
-              <button onClick={()=>setSt((p:any)=>({...p,ventesShopify:(p.ventesShopify||[]).map((x:any)=>x.id===s.id?{...x,statutPaiement:"paye",datePaiement:today()}:x)}))} style={{flex:1,background:"#22C55E",color:"#fff",border:"none",borderRadius:8,padding:"7px",fontSize:11,fontWeight:700,cursor:"pointer"}}>💳 Marquer payée</button>
+            {s.statutPaiement!=="paye" ? (
+              <button onClick={()=>setSt((p:any)=>{
+                const fpEnc=parseFloat(s.fraisPortEncaisse??s.fraisPort??0);
+                const fpPaye=parseFloat(s.fraisPortPaye||0);
+                const commission=parseFloat(s.commissionShopify||0);
+                const produitsTotal=(s.lignes||[]).reduce((acc:number,l:any)=>acc+(l.qte*(l.prixUnitaire||0)),0);
+                const date=s.dateCommande||today();
+                const newTrans:any[]=[...((p.transactions||[]).filter((t:any)=>t.ventesShopifyId!==s.id))];
+                if(produitsTotal>0) newTrans.push({id:uid(),ventesShopifyId:s.id,date,compte:"3001",libelle:"Vente Shopify #"+s.orderNumberShopify,type:"recette",categorie:"Vente Shopify",montant:produitsTotal,description:s.clientShopify?.nom||"",postfinance:true});
+                if(fpEnc>0) newTrans.push({id:uid(),ventesShopifyId:s.id,date,compte:"3600",libelle:"Port encaissé Shopify #"+s.orderNumberShopify,type:"recette",categorie:"Frais expédition facturés",montant:fpEnc,description:s.clientShopify?.nom||"",postfinance:true});
+                if(fpPaye>0) newTrans.push({id:uid(),ventesShopifyId:s.id,date,compte:"6315",libelle:"Frais envoi Shopify #"+s.orderNumberShopify,type:"depense",categorie:"Frais d'expédition (envois)",montant:fpPaye,description:"Transporteur: "+(s.transporteur||"—"),postfinance:false});
+                if(commission>0) newTrans.push({id:uid(),ventesShopifyId:s.id,date,compte:"6700",libelle:"Commission Shopify #"+s.orderNumberShopify,type:"depense",categorie:"Commissions",montant:commission,description:"Commission Shopify",postfinance:false});
+                return {
+                  ...p,
+                  ventesShopify:(p.ventesShopify||[]).map((x:any)=>x.id===s.id?{...x,statutPaiement:"paye",datePaiement:today()}:x),
+                  transactions:newTrans,
+                  soldeBancaire:parseFloat((parseFloat(p.soldeBancaire||0)+fpEnc+produitsTotal).toFixed(2)),
+                };
+              })} style={{flex:1,background:"#22C55E",color:"#fff",border:"none",borderRadius:8,padding:"7px",fontSize:11,fontWeight:700,cursor:"pointer"}}>💳 Marquer payée</button>
+            ) : (
+              <span style={{flex:1,textAlign:"center",fontSize:11,color:"#166534",fontWeight:700,padding:"7px",background:"#DCFCE7",borderRadius:8}}>✅ Payée</span>
             )}
-            {s.statutExpedition==="livree" && s.statutPaiement==="paye" && (
-              <span style={{flex:1,textAlign:"center",fontSize:11,color:"#166534",fontWeight:700,padding:"7px"}}>✅ Livrée & payée</span>
-            )}
+            <button onClick={()=>setEditShopifyOrder(s)} style={{background:"#EDE9FE",border:"none",borderRadius:8,padding:"7px 10px",cursor:"pointer",fontSize:11,color:"#5B21B6",fontWeight:700}}>✏️</button>
             <button onClick={()=>{if(window.confirm("Supprimer cette commande Shopify ?")) setSt((p:any)=>({...p,ventesShopify:(p.ventesShopify||[]).filter((x:any)=>x.id!==s.id)}));}} style={{background:"#FEE2E2",border:"none",borderRadius:8,padding:"7px 10px",cursor:"pointer",display:"flex"}}><Ic n="trash" s={13}/></button>
           </div>
         </Card>
@@ -9001,6 +9020,31 @@ Commandes
                 <span style={{fontSize:9,fontWeight:700,padding:"2px 7px",borderRadius:5,background:es.bg,color:es.c,marginTop:4,display:"inline-block"}}>{es.label}</span>
                 {s.statutPaiement==="paye" && <p style={{fontSize:9,color:"#166534",fontWeight:700,marginTop:3}}>✅ Payé</p>}
               </div>
+            </div>
+            <div style={{display:"flex",gap:6,marginTop:8}}>
+              {s.statutPaiement!=="paye" ? (
+                <button onClick={()=>setSt((p:any)=>{
+                  const fpE=parseFloat(s.fraisPortEncaisse??s.fraisPort??0);
+                  const fpP=parseFloat(s.fraisPortPaye||0);
+                  const comm=parseFloat(s.commissionShopify||0);
+                  const pTotal=(s.lignes||[]).reduce((acc:number,l:any)=>acc+(l.qte*(l.prixUnitaire||0)),0);
+                  const dt=s.dateCommande||today();
+                  const nt:any[]=[...((p.transactions||[]).filter((t:any)=>t.ventesShopifyId!==s.id))];
+                  if(pTotal>0) nt.push({id:uid(),ventesShopifyId:s.id,date:dt,compte:"3001",libelle:"Vente Shopify #"+s.orderNumberShopify,type:"recette",categorie:"Vente Shopify",montant:pTotal,description:s.clientShopify?.nom||"",postfinance:true});
+                  if(fpE>0) nt.push({id:uid(),ventesShopifyId:s.id,date:dt,compte:"3600",libelle:"Port encaissé Shopify #"+s.orderNumberShopify,type:"recette",categorie:"Frais expédition facturés",montant:fpE,description:s.clientShopify?.nom||"",postfinance:true});
+                  if(fpP>0) nt.push({id:uid(),ventesShopifyId:s.id,date:dt,compte:"6315",libelle:"Frais envoi Shopify #"+s.orderNumberShopify,type:"depense",categorie:"Frais d'expédition (envois)",montant:fpP,description:"Transporteur: "+(s.transporteur||"—"),postfinance:false});
+                  if(comm>0) nt.push({id:uid(),ventesShopifyId:s.id,date:dt,compte:"6700",libelle:"Commission Shopify #"+s.orderNumberShopify,type:"depense",categorie:"Commissions",montant:comm,description:"Commission Shopify",postfinance:false});
+                  return {
+                    ...p,
+                    ventesShopify:(p.ventesShopify||[]).map((x:any)=>x.id===s.id?{...x,statutPaiement:"paye",datePaiement:today()}:x),
+                    transactions:nt,
+                    soldeBancaire:parseFloat((parseFloat(p.soldeBancaire||0)+fpE+pTotal).toFixed(2)),
+                  };
+                })} style={{flex:1,background:"#22C55E",color:"#fff",border:"none",borderRadius:8,padding:"7px",fontSize:11,fontWeight:700,cursor:"pointer"}}>💳 Marquer payée</button>
+              ) : (
+                <span style={{flex:1,textAlign:"center",fontSize:11,color:"#166534",fontWeight:700,padding:"7px",background:"#DCFCE7",borderRadius:8}}>✅ Payée</span>
+              )}
+              <button onClick={()=>setEditShopifyOrder(s)} style={{background:"#EDE9FE",border:"none",borderRadius:8,padding:"7px 10px",cursor:"pointer",fontSize:11,color:"#5B21B6",fontWeight:700}}>✏️</button>
             </div>
           </Card>
         );
@@ -15386,10 +15430,29 @@ return (
 // ══════════════════════════════════════════════════════════════
 // IMPORT SHOPIFY MODAL (dans Commandes)
 // ══════════════════════════════════════════════════════════════
-const ImportShopifyModal = ({st, setSt, onClose}) => {
-const [step, setStep] = useState<"choose"|"form"|"paste">("choose");
+const ImportShopifyModal = ({st, setSt, onClose, initialData=null as any}) => {
+const isEdit = !!initialData;
+const [step, setStep] = useState<"choose"|"form"|"paste">(isEdit?"form":"choose");
 const [rawText, setRawText] = useState("");
-const [form, setForm] = useState({
+const [form, setForm] = useState(isEdit ? {
+  orderNumber: initialData.orderNumberShopify||"",
+  dateCommande: initialData.dateCommande||today(),
+  clientNom: initialData.clientShopify?.nom||"",
+  clientEmail: initialData.clientShopify?.email||"",
+  clientTelephone: initialData.clientShopify?.telephone||"",
+  clientAdresse: initialData.clientShopify?.adresse||"",
+  clientNpa: initialData.clientShopify?.npa||"",
+  clientVille: initialData.clientShopify?.ville||"",
+  clientPays: initialData.clientShopify?.pays||"CH",
+  lignes: initialData.lignes||[] as any[],
+  fraisPortEncaisse: initialData.fraisPortEncaisse||0,
+  fraisPortPaye: initialData.fraisPortPaye||0,
+  commissionShopify: initialData.commissionShopify||0,
+  statutPaiement: initialData.statutPaiement||"paye",
+  statutExpedition: initialData.statutExpedition||"a_preparer",
+  numeroSuivi: initialData.numeroSuivi||"",
+  transporteur: initialData.transporteur||"",
+} : {
   orderNumber:"", dateCommande:today(),
   clientNom:"", clientEmail:"", clientTelephone:"",
   clientAdresse:"", clientNpa:"", clientVille:"", clientPays:"CH",
@@ -15445,15 +15508,40 @@ const save = (data:any = null) => {
     numeroSuivi:d.numeroSuivi||"", transporteur:d.transporteur||"",
     bulletinLivraisonId:null, importeMethode:"manuel_formulaire", dateImport:today()
   };
-  const newTrans = [...(st.transactions||[])];
-  if(vd.statutPaiement==="paye") {
-    const tid = "sh_"+vd.id;
-    if(produitsTotal>0) newTrans.push({id:tid+"_v",date:vd.dateCommande,compte:"3001",libelle:"Vente Shopify #"+vd.orderNumberShopify,type:"recette",categorie:"Vente Shopify",montant:produitsTotal,description:vd.clientShopify?.nom||""});
-    if(fpEnc>0) newTrans.push({id:tid+"_pe",date:vd.dateCommande,compte:"3600",libelle:"Port encaissé Shopify #"+vd.orderNumberShopify,type:"recette",categorie:"Frais expédition facturés",montant:fpEnc,description:vd.clientShopify?.nom||""});
-    if(fpPaye>0) newTrans.push({id:tid+"_pp",date:vd.dateCommande,compte:"6315",libelle:"Frais envoi Shopify #"+vd.orderNumberShopify,type:"depense",categorie:"Frais d'expédition (envois)",montant:fpPaye,description:"Transporteur: "+(vd.transporteur||"—")});
-    if(commission>0) newTrans.push({id:tid+"_c",date:vd.dateCommande,compte:"6700",libelle:"Commission Shopify #"+vd.orderNumberShopify,type:"depense",categorie:"Commissions",montant:commission,description:"Commission Shopify"});
+  const buildTrans = (ordreId:string, orderNum:string, clientNom:string, date:string) => {
+    const trans:any[] = [];
+    if(produitsTotal>0) trans.push({id:uid(),ventesShopifyId:ordreId,date,compte:"3001",libelle:"Vente Shopify #"+orderNum,type:"recette",categorie:"Vente Shopify",montant:produitsTotal,description:clientNom,postfinance:true});
+    if(fpEnc>0) trans.push({id:uid(),ventesShopifyId:ordreId,date,compte:"3600",libelle:"Port encaissé Shopify #"+orderNum,type:"recette",categorie:"Frais expédition facturés",montant:fpEnc,description:clientNom,postfinance:true});
+    if(fpPaye>0) trans.push({id:uid(),ventesShopifyId:ordreId,date,compte:"6315",libelle:"Frais envoi Shopify #"+orderNum,type:"depense",categorie:"Frais d'expédition (envois)",montant:fpPaye,description:"Transporteur: "+(vd.transporteur||"—"),postfinance:false});
+    if(commission>0) trans.push({id:uid(),ventesShopifyId:ordreId,date,compte:"6700",libelle:"Commission Shopify #"+orderNum,type:"depense",categorie:"Commissions",montant:commission,description:"Commission Shopify",postfinance:false});
+    return trans;
+  };
+  const soldeImpact = (fpEnc + produitsTotal);
+  if(isEdit) {
+    const wasAlreadyPaid = initialData.statutPaiement==="paye";
+    setSt((p:any)=>{
+      const existingTrans = (p.transactions||[]).filter((t:any)=>t.ventesShopifyId!==initialData.id);
+      const newShopifyTrans = vd.statutPaiement==="paye" ? buildTrans(initialData.id, vd.orderNumberShopify, vd.clientShopify?.nom||"", vd.dateCommande) : [];
+      const soldeDiff = vd.statutPaiement==="paye" && !wasAlreadyPaid ? soldeImpact : wasAlreadyPaid && vd.statutPaiement!=="paye" ? -soldeImpact : 0;
+      return {
+        ...p,
+        ventesShopify:(p.ventesShopify||[]).map((x:any)=>x.id===initialData.id?{...vd,id:initialData.id}:x),
+        transactions:[...existingTrans,...newShopifyTrans],
+        soldeBancaire:parseFloat((parseFloat(p.soldeBancaire||0)+soldeDiff).toFixed(2)),
+      };
+    });
+  } else {
+    const newTrans = [...(st.transactions||[])];
+    if(vd.statutPaiement==="paye") {
+      newTrans.push(...buildTrans(vd.id, vd.orderNumberShopify, vd.clientShopify?.nom||"", vd.dateCommande));
+    }
+    setSt((p:any)=>({
+      ...p,
+      ventesShopify:[...(p.ventesShopify||[]),vd],
+      transactions:newTrans,
+      soldeBancaire: vd.statutPaiement==="paye" ? parseFloat((parseFloat(p.soldeBancaire||0)+soldeImpact).toFixed(2)) : (p.soldeBancaire||0),
+    }));
   }
-  setSt((p:any)=>({...p,ventesShopify:[...(p.ventesShopify||[]),vd],transactions:newTrans}));
   onClose();
 };
 
