@@ -15435,6 +15435,7 @@ const isEdit = !!initialData;
 const [step, setStep] = useState<"choose"|"form"|"paste">(isEdit?"form":"choose");
 const [rawText, setRawText] = useState("");
 const [form, setForm] = useState(isEdit ? {
+  clientId: initialData.clientShopify?.clientId||"",
   orderNumber: initialData.orderNumberShopify||"",
   dateCommande: initialData.dateCommande||today(),
   clientNom: initialData.clientShopify?.nom||"",
@@ -15448,15 +15449,15 @@ const [form, setForm] = useState(isEdit ? {
   fraisPortEncaisse: initialData.fraisPortEncaisse||0,
   fraisPortPaye: initialData.fraisPortPaye||0,
   commissionShopify: initialData.commissionShopify||0,
-  statutPaiement: initialData.statutPaiement||"paye",
+  statutPaiement: initialData.statutPaiement||"non_paye",
   statutExpedition: initialData.statutExpedition||"a_preparer",
   numeroSuivi: initialData.numeroSuivi||"",
   transporteur: initialData.transporteur||"",
 } : {
-  orderNumber:"", dateCommande:today(),
+  clientId:"", orderNumber:"", dateCommande:today(),
   clientNom:"", clientEmail:"", clientTelephone:"",
   clientAdresse:"", clientNpa:"", clientVille:"", clientPays:"CH",
-  lignes:[] as any[], fraisPortEncaisse:0, fraisPortPaye:0, commissionShopify:0, statutPaiement:"paye",
+  lignes:[] as any[], fraisPortEncaisse:0, fraisPortPaye:0, commissionShopify:0, statutPaiement:"non_paye",
   statutExpedition:"a_preparer", numeroSuivi:"", transporteur:"",
 });
 const [parsed, setParsed] = useState(null as any);
@@ -15500,7 +15501,7 @@ const save = (data:any = null) => {
   const vd:any = {
     id:uid(), orderNumberShopify:d.orderNumber||genNumero(),
     dateCommande:d.dateCommande||today(),
-    clientShopify:{nom:d.clientNom,email:d.clientEmail,telephone:d.clientTelephone,adresse:d.clientAdresse,npa:d.clientNpa,ville:d.clientVille,pays:d.clientPays||"CH"},
+    clientShopify:{clientId:d.clientId||"",nom:d.clientNom,email:d.clientEmail,telephone:d.clientTelephone,adresse:d.clientAdresse,npa:d.clientNpa,ville:d.clientVille,pays:d.clientPays||"CH"},
     lignes:d.lignes, totalTTC:d.totalTTC||(produitsTotal+fpEnc),
     fraisPortEncaisse:fpEnc, fraisPortPaye:fpPaye, commissionShopify:commission,
     statutPaiement:d.statutPaiement||"paye",
@@ -15581,13 +15582,37 @@ return (
     ))}
   </div>
   <p style={{fontSize:11,fontWeight:700,color:"#737373",textTransform:"uppercase",letterSpacing:".06em",marginBottom:6}}>Client</p>
-  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
-    {[["clientNom","Nom","1/3"],["clientEmail","Email","1/3"],["clientTelephone","Téléphone","auto"],["clientVille","Ville","auto"]].map(([k,l,gc])=>(
-      <label key={k} style={{fontSize:11,color:"#737373",display:"flex",flexDirection:"column",gap:4,gridColumn:gc}}>
-        {l}<input value={(form as any)[k]} onChange={e=>setForm(f=>({...f,[k]:e.target.value}))} style={{padding:"8px",borderRadius:8,border:"1px solid #E5E5E0",fontSize:13}}/>
+  <select value={form.clientId||""} onChange={e=>{
+    const v=e.target.value;
+    if(!v){setForm(f=>({...f,clientId:"",clientNom:"",clientEmail:"",clientTelephone:"",clientAdresse:"",clientNpa:"",clientVille:""}));return;}
+    const pv=(st.partenaires||[]).find((x:any)=>x.id===v);
+    if(pv){setForm(f=>({...f,clientId:v,clientNom:pv.nom,clientEmail:pv.email||"",clientTelephone:pv.tel||"",clientAdresse:pv.adresse||"",clientNpa:pv.npa||"",clientVille:pv.ville||""}));return;}
+    const cl=(st.clients||[]).find((x:any)=>x.id===v);
+    if(cl) setForm(f=>({...f,clientId:v,clientNom:cl.nom,clientEmail:cl.email||"",clientTelephone:cl.telephone||"",clientAdresse:cl.adresse||"",clientNpa:cl.npa||"",clientVille:cl.ville||""}));
+  }} style={{width:"100%",padding:"9px 10px",fontSize:13,border:"1.5px solid #E5E5E0",borderRadius:10,background:"#fff",color:"#111",outline:"none",marginBottom:8}}>
+    <option value="">— Saisir manuellement —</option>
+    {(st.partenaires||[]).length>0 && <optgroup label="🏪 Dépôts-vente">{(st.partenaires||[]).map((p:any)=><option key={p.id} value={p.id}>{p.nom}</option>)}</optgroup>}
+    {(st.clients||[]).filter((c:any)=>c.categorie==="partenaire").length>0 && <optgroup label="🤝 Partenaires">{(st.clients||[]).filter((c:any)=>c.categorie==="partenaire").map((c:any)=><option key={c.id} value={c.id}>{c.nom}</option>)}</optgroup>}
+    {(st.clients||[]).filter((c:any)=>c.categorie!=="partenaire").length>0 && <optgroup label="👤 Clients">{(st.clients||[]).filter((c:any)=>c.categorie!=="partenaire").map((c:any)=><option key={c.id} value={c.id}>{c.nom}</option>)}</optgroup>}
+  </select>
+  {form.clientId && <div style={{background:"#DBEAFE",color:"#1E3A5F",borderRadius:8,padding:"6px 10px",fontSize:11,marginBottom:8,textAlign:"center"}}>✓ Contact sélectionné — champs pré-remplis</div>}
+  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:4}}>
+    {([["clientNom","Nom"],["clientEmail","Email"],["clientTelephone","Téléphone"],["clientAdresse","Adresse"],["clientNpa","NPA"],["clientVille","Ville"]] as [string,string][]).map(([k,l])=>(
+      <label key={k} style={{fontSize:11,color:"#737373",display:"flex",flexDirection:"column",gap:4,gridColumn:k==="clientNom"||k==="clientEmail"||k==="clientAdresse"?"1 / span 2":"auto"}}>
+        {l}<input value={(form as any)[k]} onChange={e=>setForm(f=>({...f,[k]:e.target.value,clientId:""}))} style={{padding:"8px",borderRadius:8,border:"1px solid #E5E5E0",fontSize:13}}/>
       </label>
     ))}
   </div>
+  {!form.clientId && form.clientNom && (
+    <button onClick={()=>{
+      const newCl={id:uid(),nom:form.clientNom,email:form.clientEmail||"",telephone:form.clientTelephone||"",adresse:form.clientAdresse||"",npa:form.clientNpa||"",ville:form.clientVille||"",categorie:"client"};
+      setSt((p:any)=>({...p,clients:[...(p.clients||[]),newCl]}));
+      setForm(f=>({...f,clientId:newCl.id}));
+      alert("Contact \""+form.clientNom+"\" enregistré dans le carnet d'adresses !");
+    }} style={{width:"100%",background:"#DCFCE7",color:"#166534",border:"1.5px solid #86EFAC",borderRadius:8,padding:"8px",fontWeight:600,fontSize:11,cursor:"pointer",marginBottom:8}}>
+      💾 Enregistrer dans le carnet d'adresses
+    </button>
+  )}
   <p style={{fontSize:11,fontWeight:700,color:"#737373",textTransform:"uppercase",letterSpacing:".06em",marginBottom:6}}>Produits</p>
   {(st.produits||[]).filter((p:any)=>p.actif).map((p:any)=>{
     const l = form.lignes.find((x:any)=>x.produitId===p.id);
