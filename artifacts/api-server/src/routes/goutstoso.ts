@@ -1,51 +1,26 @@
 import { Router, type IRouter, type Request, type Response } from "express";
-import fs from "fs";
-import path from "path";
 import crypto from "crypto";
+import { pool } from "@workspace/db";
 
 const router: IRouter = Router();
 
-// GET /api/goutstoso — ping/health check
-router.get("/goutstoso", (_req, res) => {
-  res.json({ success: true, message: "Goutstoso API – OK" });
-});
-
-// ── Stockage persistant dans le workspace ────────────────────────────────────
-const DATA_DIR = path.join(process.cwd(), ".local", "goutstoso-data");
-const BACKUP_DIR = path.join(DATA_DIR, "backups");
-const FILES_DIR = path.join(DATA_DIR, "files");
 const MAX_BACKUPS = 36;
-const TOKEN_TTL = 60 * 60 * 24 * 30 * 1000; // 30 jours en ms
+const TOKEN_TTL_MS = 60 * 60 * 24 * 30 * 1000; // 30 jours
 
-for (const d of [DATA_DIR, BACKUP_DIR, FILES_DIR]) {
-  if (!fs.existsSync(d)) fs.mkdirSync(d, { recursive: true });
-}
-
-// ── Helpers fichiers ─────────────────────────────────────────────────────────
-function readJson<T>(file: string, def: T): T {
-  try {
-    if (!fs.existsSync(file)) return def;
-    return JSON.parse(fs.readFileSync(file, "utf8")) as T;
-  } catch {
-    return def;
-  }
-}
-
-function writeJson(file: string, data: unknown): void {
-  const tmp = file + ".tmp." + process.pid;
-  fs.writeFileSync(tmp, JSON.stringify(data, null, 2), "utf8");
-  fs.renameSync(tmp, file);
-}
-
+// ── Helpers ───────────────────────────────────────────────────────────────────
 function ok(res: Response, data: Record<string, unknown> = {}): void {
   res.json({ success: true, ...data });
 }
-
 function fail(res: Response, error: string, code = 200): void {
   res.status(code).json({ success: false, error });
 }
 
-// ── Passwords (scrypt) ───────────────────────────────────────────────────────
+async function q<T = unknown>(sql: string, params: unknown[] = []): Promise<T[]> {
+  const result = await pool.query(sql, params);
+  return result.rows as T[];
+}
+
+// ── Passwords ─────────────────────────────────────────────────────────────────
 async function hashPassword(password: string): Promise<string> {
   const salt = crypto.randomBytes(16).toString("hex");
   return new Promise((resolve, reject) => {
@@ -67,118 +42,98 @@ async function verifyPassword(password: string, hash: string): Promise<boolean> 
   });
 }
 
-// ── Types ────────────────────────────────────────────────────────────────────
+// ── Types ─────────────────────────────────────────────────────────────────────
 interface User {
-  id: string;
-  username: string;
-  password: string;
-  display_name: string;
-  role: "admin" | "user";
-  active: number;
-  created_at: string;
+  id: string; username: string; password: string;
+  display_name: string; role: "admin" | "user"; active: number; created_at: string;
 }
 
-interface Token {
-  token: string;
-  user_id: string;
-  created_at: string;
-  expires_at: number;
+// ── Utilisateurs ──────────────────────────────────────────────────────────────
+async function getUsers(): Promise<User[]> {
+  return q<User>("SELECT * FROM gs_users ORDER BY created_at");
 }
-
-interface BackupMeta {
-  id: string;
-  label: string;
-  type: string;
-  file: string;
-  created_at: string;
-  created_by: string;
+async function findUser(username: string): Promise<User | undefined> {
+  const rows = await q<User>("SELECT * FROM gs_users WHERE lower(username)=lower($1) LIMIT 1", [username]);
+  return rows[0];
 }
-
-interface ActivityEntry {
-  user_id: string;
-  action: string;
-  created_at: string;
-  ip: string;
+async function findUserById(id: string): Promise<User | undefined> {
+  const rows = await q<User>("SELECT * FROM gs_users WHERE id=$1 LIMIT 1", [id]);
+  return rows[0];
 }
-
-// ── Fichiers de données ──────────────────────────────────────────────────────
-const F = {
-  users:    path.join(DATA_DIR, "users.json"),
-  tokens:   path.join(DATA_DIR, "tokens.json"),
-  data:     path.join(DATA_DIR, "main_data.json"),
-  backups:  path.join(DATA_DIR, "backups_meta.json"),
-  activity: path.join(DATA_DIR, "activity.json"),
-};
-
-// ── Utilisateurs ─────────────────────────────────────────────────────────────
-function getUsers(): User[] { return readJson<User[]>(F.users, []); }
-function saveUsers(u: User[]): void { writeJson(F.users, u); }
-function findUser(username: string): User | undefined {
-  return getUsers().find(u => u.username.toLowerCase() === username.toLowerCase());
-}
-function findUserById(id: string): User | undefined {
-  return getUsers().find(u => u.id === id);
+async function saveUser(u: User): Promise<void> {
+  await pool.query(
+    `INSERT INTO gs_users(id,username,password,display_name,role,active,created_at)
+     VALUES($1,$2,$3,$4,$5,$6,$7)
+     ON CONFLICT(id) DO UPDATE SET username=EXCLUDED.username,password=EXCLUDED.password,
+       display_name=EXCLUDED.display_name,role=EXCLUDED.role,active=EXCLUDED.active`,
+    [u.id, u.username, u.password, u.display_name, u.role, u.active, u.created_at]
+  );
 }
 
 async function ensureDefaultAdmin(): Promise<void> {
-  if (getUsers().length === 0) {
+  const rows = await q<{ count: string }>("SELECT COUNT(*)::text AS count FROM gs_users");
+  if (parseInt(rows[0]?.count ?? "0") === 0) {
     const password = await hashPassword("Goutstoso2026!");
-    saveUsers([{
-      id: "u1",
-      username: "jordan",
-      password,
-      display_name: "Jordan Montanaro",
-      role: "admin",
-      active: 1,
-      created_at: new Date().toISOString(),
-    }]);
+    await saveUser({
+      id: "u1", username: "jordan", password,
+      display_name: "Jordan Montanaro", role: "admin",
+      active: 1, created_at: new Date().toISOString(),
+    });
   }
 }
-ensureDefaultAdmin().catch(() => {});
+ensureDefaultAdmin().catch(console.error);
 
-// ── Tokens ───────────────────────────────────────────────────────────────────
-function getTokens(): Token[] {
-  const now = Date.now();
-  return readJson<Token[]>(F.tokens, []).filter(t => t.expires_at > now);
+// ── Tokens ────────────────────────────────────────────────────────────────────
+async function findToken(token: string): Promise<{ token: string; user_id: string } | undefined> {
+  const rows = await q<{ token: string; user_id: string }>(
+    "SELECT token,user_id FROM gs_tokens WHERE token=$1 AND expires_at>$2 LIMIT 1",
+    [token, Date.now()]
+  );
+  return rows[0];
 }
-function findToken(token: string): Token | undefined {
-  return getTokens().find(t => t.token === token);
-}
-function createToken(userId: string): string {
+async function createToken(userId: string): Promise<string> {
   const token = crypto.randomBytes(32).toString("hex");
-  const tokens = getTokens();
-  tokens.push({ token, user_id: userId, created_at: new Date().toISOString(), expires_at: Date.now() + TOKEN_TTL });
-  writeJson(F.tokens, tokens);
+  await pool.query(
+    "INSERT INTO gs_tokens(token,user_id,created_at,expires_at) VALUES($1,$2,NOW(),$3)",
+    [token, userId, Date.now() + TOKEN_TTL_MS]
+  );
+  // Purge expired tokens periodically
+  pool.query("DELETE FROM gs_tokens WHERE expires_at<$1", [Date.now()]).catch(() => {});
   return token;
 }
-function revokeToken(token: string): void {
-  writeJson(F.tokens, getTokens().filter(t => t.token !== token));
+async function revokeToken(token: string): Promise<void> {
+  await pool.query("DELETE FROM gs_tokens WHERE token=$1", [token]);
 }
 
-// ── Activité ─────────────────────────────────────────────────────────────────
-function logActivity(userId: string, action: string, ip: string): void {
-  const entries = readJson<ActivityEntry[]>(F.activity, []);
-  entries.unshift({ user_id: userId, action, created_at: new Date().toISOString(), ip });
-  writeJson(F.activity, entries.slice(0, 500));
+// ── Activité ──────────────────────────────────────────────────────────────────
+async function logActivity(userId: string, action: string, ip: string): Promise<void> {
+  await pool.query(
+    "INSERT INTO gs_activity(user_id,action,ip,created_at) VALUES($1,$2,$3,NOW())",
+    [userId, action, ip]
+  );
+  // Keep only last 500
+  pool.query(
+    "DELETE FROM gs_activity WHERE id NOT IN (SELECT id FROM gs_activity ORDER BY created_at DESC LIMIT 500)"
+  ).catch(() => {});
 }
 
-// ── Auth helpers ─────────────────────────────────────────────────────────────
-function getToken(req: Request): string {
+// ── Auth helpers ──────────────────────────────────────────────────────────────
+function getTokenFromReq(req: Request): string {
   return (req.body?._token as string) || (req.headers["x-auth-token"] as string) || "";
 }
 
-function requireAuth(req: Request, res: Response): User | null {
-  const tok = getToken(req);
+async function requireAuth(req: Request, res: Response): Promise<User | null> {
+  const tok = getTokenFromReq(req);
   if (!tok) { res.json({ _auth_required: true }); return null; }
-  const t = findToken(tok);
+  const t = await findToken(tok);
   if (!t) { res.json({ _auth_required: true }); return null; }
-  const user = findUserById(t.user_id);
+  const user = await findUserById(t.user_id);
   if (!user || !user.active) { res.json({ _auth_required: true }); return null; }
   return user;
 }
 
-function requireAdmin(req: Request, res: Response): User | null {
-  const user = requireAuth(req, res);
+async function requireAdmin(req: Request, res: Response): Promise<User | null> {
+  const user = await requireAuth(req, res);
   if (!user) return null;
   if (user.role !== "admin") { fail(res, "Accès refusé", 403); return null; }
   return user;
@@ -188,59 +143,52 @@ function publicUser(u: User) {
   return { id: u.id, username: u.username, display_name: u.display_name, role: u.role };
 }
 
-// ── Pièces jointes (upload / download) ───────────────────────────────────────
-interface FileMeta {
-  id: string;
-  name: string;
-  mimeType: string;
-  userId: string;
-  created_at: string;
-}
-const FILES_META = path.join(FILES_DIR, "meta.json");
-function getFilesMeta(): FileMeta[] { return readJson<FileMeta[]>(FILES_META, []); }
+// ── Ping ──────────────────────────────────────────────────────────────────────
+router.get("/goutstoso", (_req, res) => {
+  res.json({ success: true, message: "Goutstoso API – OK" });
+});
 
-// POST /api/goutstoso/files — upload base64 → stocké en binaire, retourne { fileId }
+// ── Pièces jointes ────────────────────────────────────────────────────────────
 router.post("/goutstoso/files", async (req: Request, res: Response) => {
-  const user = requireAuth(req, res);
+  const user = await requireAuth(req, res);
   if (!user) return;
   const { fileData, fileName, mimeType } = req.body as { fileData: string; fileName: string; mimeType: string };
   if (!fileData || !fileData.startsWith("data:")) return fail(res, "Données invalides");
   const comma = fileData.indexOf(",");
   if (comma === -1) return fail(res, "Format invalide");
-  const base64Data = fileData.slice(comma + 1);
+  const buffer = Buffer.from(fileData.slice(comma + 1), "base64");
   const fileId = crypto.randomUUID();
-  const buffer = Buffer.from(base64Data, "base64");
-  fs.writeFileSync(path.join(FILES_DIR, fileId), buffer);
-  const meta = getFilesMeta();
-  meta.push({ id: fileId, name: fileName || "fichier", mimeType: mimeType || "application/octet-stream", userId: user.id, created_at: new Date().toISOString() });
-  writeJson(FILES_META, meta);
+  await pool.query(
+    "INSERT INTO gs_files(id,name,mime_type,user_id,data,created_at) VALUES($1,$2,$3,$4,$5,NOW())",
+    [fileId, fileName || "fichier", mimeType || "application/octet-stream", user.id, buffer]
+  );
   return ok(res, { fileId });
 });
 
-// GET /api/goutstoso/files/:fileId — télécharger (auth par query ?token=xxx)
-router.get("/goutstoso/files/:fileId", (req: Request, res: Response) => {
+router.get("/goutstoso/files/:fileId", async (req: Request, res: Response) => {
   const tok = (req.query["token"] as string) || (req.headers["x-auth-token"] as string) || "";
   if (!tok) return res.status(401).json({ error: "Non autorisé" });
-  const t = findToken(tok);
+  const t = await findToken(tok);
   if (!t) return res.status(401).json({ error: "Token invalide" });
-  const user = findUserById(t.user_id);
+  const user = await findUserById(t.user_id);
   if (!user || !user.active) return res.status(401).json({ error: "Non autorisé" });
   const fileId = req.params["fileId"]!;
-  const filePath = path.join(FILES_DIR, fileId);
-  if (!fs.existsSync(filePath)) return res.status(404).json({ error: "Fichier introuvable" });
-  const meta = getFilesMeta().find(m => m.id === fileId);
-  res.setHeader("Content-Type", meta?.mimeType || "application/octet-stream");
-  res.setHeader("Content-Disposition", `inline; filename="${meta?.name || "fichier"}"`);
-  res.send(fs.readFileSync(filePath));
+  const rows = await q<{ name: string; mime_type: string; data: Buffer }>(
+    "SELECT name,mime_type,data FROM gs_files WHERE id=$1 LIMIT 1", [fileId]
+  );
+  if (!rows[0]) return res.status(404).json({ error: "Fichier introuvable" });
+  const file = rows[0];
+  res.setHeader("Content-Type", file.mime_type);
+  res.setHeader("Content-Disposition", `inline; filename="${file.name}"`);
+  res.send(file.data);
 });
 
-// ── Route principale ─────────────────────────────────────────────────────────
+// ── Route principale ──────────────────────────────────────────────────────────
 router.all("/goutstoso", async (req: Request, res: Response) => {
   const body = req.body as Record<string, unknown>;
   const action = (body._action as string) || "";
   const ip = req.ip || "";
 
-  // PING
   if (action === "ping" || (req.method === "GET" && !action)) {
     return ok(res, { message: "Goutstoso API – OK" });
   }
@@ -250,176 +198,191 @@ router.all("/goutstoso", async (req: Request, res: Response) => {
     const username = String(body.username || "").trim();
     const password = String(body.password || "");
     if (!username || !password) return fail(res, "Identifiants manquants.");
-    const user = findUser(username);
+    const user = await findUser(username);
     if (!user) return fail(res, "Identifiants invalides.");
     const valid = await verifyPassword(password, user.password);
     if (!valid) return fail(res, "Identifiants invalides.");
     if (!user.active) return fail(res, "Compte désactivé.");
-    const token = createToken(user.id);
-    logActivity(user.id, "login", ip);
+    const token = await createToken(user.id);
+    await logActivity(user.id, "login", ip);
     return ok(res, { token, user: publicUser(user) });
   }
 
   // CHECK TOKEN
   if (action === "check_token") {
-    const tok = getToken(req);
-    const t = tok ? findToken(tok) : null;
+    const tok = getTokenFromReq(req);
+    const t = tok ? await findToken(tok) : null;
     if (!t) return res.json({ _auth_required: true });
-    const user = findUserById(t.user_id);
+    const user = await findUserById(t.user_id);
     if (!user || !user.active) return res.json({ _auth_required: true });
     return ok(res, { user: publicUser(user) });
   }
 
   // LOGOUT
   if (action === "logout") {
-    const tok = getToken(req);
+    const tok = getTokenFromReq(req);
     if (tok) {
-      const t = findToken(tok);
-      if (t) logActivity(t.user_id, "logout", ip);
-      revokeToken(tok);
+      const t = await findToken(tok);
+      if (t) await logActivity(t.user_id, "logout", ip);
+      await revokeToken(tok);
     }
     return ok(res);
   }
 
   // LOAD DATA
   if (action === "load_data") {
-    if (!requireAuth(req, res)) return;
-    const data = readJson<Record<string, unknown> | null>(F.data, null);
-    if (!data) return ok(res, {});
-    return res.json({ success: true, ...data });
+    if (!await requireAuth(req, res)) return;
+    const rows = await q<{ data: Record<string, unknown> }>("SELECT data FROM gs_data WHERE id=1 LIMIT 1");
+    if (!rows[0]) return ok(res, {});
+    return res.json({ success: true, ...rows[0].data });
   }
 
-  // SAVE DATA (avec _action explicite ou données brutes avec produits)
+  // SAVE DATA
   if (action === "save_data" || (!action && body.produits !== undefined)) {
-    if (!requireAuth(req, res)) return;
-    const toSave = { ...body };
-    delete toSave._token;
-    delete toSave._action;
-    if (Object.keys(toSave).length > 0) writeJson(F.data, toSave);
+    if (!await requireAuth(req, res)) return;
+    const toSave: Record<string, unknown> = { ...body };
+    delete toSave["_token"];
+    delete toSave["_action"];
+    if (Object.keys(toSave).length > 0) {
+      await pool.query(
+        `INSERT INTO gs_data(id,data,updated_at) VALUES(1,$1::jsonb,NOW())
+         ON CONFLICT(id) DO UPDATE SET data=EXCLUDED.data, updated_at=NOW()`,
+        [JSON.stringify(toSave)]
+      );
+    }
     return ok(res);
   }
 
   // SAVE BACKUP
   if (action === "save_backup") {
-    const user = requireAuth(req, res);
+    const user = await requireAuth(req, res);
     if (!user) return;
     const label = String(body.label || new Date().toLocaleDateString("fr-CH"));
     const type = String(body.type || "manual");
-    const data = readJson<unknown>(F.data, null);
-    if (!data) return fail(res, "Aucune donnée à sauvegarder.");
-    const metas = readJson<BackupMeta[]>(F.backups, []);
+    const rows = await q<{ data: Record<string, unknown> }>("SELECT data FROM gs_data WHERE id=1 LIMIT 1");
+    if (!rows[0]) return fail(res, "Aucune donnée à sauvegarder.");
     const id = "b" + Date.now();
-    const filename = `backup_${id}.json`;
-    writeJson(path.join(BACKUP_DIR, filename), data);
-    metas.unshift({ id, label, type, file: filename, created_at: new Date().toISOString(), created_by: user.display_name });
-    if (metas.length > MAX_BACKUPS) {
-      const old = metas.splice(MAX_BACKUPS);
-      for (const o of old) {
-        const f = path.join(BACKUP_DIR, o.file);
-        if (fs.existsSync(f)) fs.unlinkSync(f);
-      }
-    }
-    writeJson(F.backups, metas);
-    logActivity(user.id, "save_backup", ip);
+    await pool.query(
+      "INSERT INTO gs_backups(id,label,type,data,created_at,created_by) VALUES($1,$2,$3,$4::jsonb,NOW(),$5)",
+      [id, label, type, JSON.stringify(rows[0].data), user.display_name]
+    );
+    // Keep only last MAX_BACKUPS
+    await pool.query(
+      `DELETE FROM gs_backups WHERE id NOT IN (
+        SELECT id FROM gs_backups ORDER BY created_at DESC LIMIT $1
+      )`,
+      [MAX_BACKUPS]
+    );
+    await logActivity(user.id, "save_backup", ip);
     return ok(res, { id });
   }
 
   // LIST BACKUPS
   if (action === "list_backups") {
-    if (!requireAuth(req, res)) return;
-    const metas = readJson<BackupMeta[]>(F.backups, []);
-    return ok(res, { backups: metas.map(m => ({ id: m.id, label: m.label, type: m.type, created_at: m.created_at, created_by: m.created_by })) });
+    if (!await requireAuth(req, res)) return;
+    const backups = await q<{ id: string; label: string; type: string; created_at: string; created_by: string }>(
+      "SELECT id,label,type,created_at,created_by FROM gs_backups ORDER BY created_at DESC"
+    );
+    return ok(res, { backups });
   }
 
   // GET BACKUP
   if (action === "get_backup") {
-    if (!requireAuth(req, res)) return;
+    if (!await requireAuth(req, res)) return;
     const bid = String(body.backup_id || "");
-    const metas = readJson<BackupMeta[]>(F.backups, []);
-    const meta = metas.find(m => m.id === bid);
-    if (!meta) return fail(res, "Sauvegarde introuvable.");
-    const data = readJson<unknown>(path.join(BACKUP_DIR, meta.file), null);
-    if (!data) return fail(res, "Fichier manquant.");
-    return ok(res, { data });
+    const rows = await q<{ data: Record<string, unknown> }>(
+      "SELECT data FROM gs_backups WHERE id=$1 LIMIT 1", [bid]
+    );
+    if (!rows[0]) return fail(res, "Sauvegarde introuvable.");
+    return ok(res, { data: rows[0].data });
   }
 
   // RESTORE BACKUP
   if (action === "restore_backup") {
-    const user = requireAuth(req, res);
+    const user = await requireAuth(req, res);
     if (!user) return;
     const bid = String(body.backup_id || "");
-    const metas = readJson<BackupMeta[]>(F.backups, []);
-    const meta = metas.find(m => m.id === bid);
-    if (!meta) return fail(res, "Sauvegarde introuvable.");
-    const data = readJson<unknown>(path.join(BACKUP_DIR, meta.file), null);
-    if (!data) return fail(res, "Fichier manquant.");
-    writeJson(F.data, data);
-    logActivity(user.id, "restore_backup", ip);
+    const rows = await q<{ data: Record<string, unknown> }>(
+      "SELECT data FROM gs_backups WHERE id=$1 LIMIT 1", [bid]
+    );
+    if (!rows[0]) return fail(res, "Sauvegarde introuvable.");
+    await pool.query(
+      `INSERT INTO gs_data(id,data,updated_at) VALUES(1,$1::jsonb,NOW())
+       ON CONFLICT(id) DO UPDATE SET data=EXCLUDED.data, updated_at=NOW()`,
+      [JSON.stringify(rows[0].data)]
+    );
+    await logActivity(user.id, "restore_backup", ip);
     return ok(res);
   }
 
   // LIST USERS (admin)
   if (action === "list_users") {
-    if (!requireAdmin(req, res)) return;
-    const users = getUsers().map(u => ({ id: u.id, username: u.username, display_name: u.display_name, role: u.role, active: u.active, created_at: u.created_at }));
-    return ok(res, { users });
+    if (!await requireAdmin(req, res)) return;
+    const users = await getUsers();
+    return ok(res, { users: users.map(u => ({ id: u.id, username: u.username, display_name: u.display_name, role: u.role, active: u.active, created_at: u.created_at })) });
   }
 
   // CREATE USER (admin)
   if (action === "create_user") {
-    const admin = requireAdmin(req, res);
+    const admin = await requireAdmin(req, res);
     if (!admin) return;
     const username = String(body.username || "").trim();
     const password = String(body.password || "");
     const display_name = String(body.display_name || username).trim();
     const role = body.role === "admin" ? "admin" : "user";
     if (!username || !password) return fail(res, "Identifiant et mot de passe requis.");
-    if (findUser(username)) return fail(res, "Cet identifiant existe déjà.");
+    if (await findUser(username)) return fail(res, "Cet identifiant existe déjà.");
     const hashed = await hashPassword(password);
-    const users = getUsers();
-    const newUser: User = { id: "u" + Date.now(), username, password: hashed, display_name, role, active: 1, created_at: new Date().toISOString() };
-    users.push(newUser);
-    saveUsers(users);
-    logActivity(admin.id, "create_user", ip);
-    return ok(res, { id: newUser.id });
+    const newId = "u" + Date.now();
+    await pool.query(
+      "INSERT INTO gs_users(id,username,password,display_name,role,active,created_at) VALUES($1,$2,$3,$4,$5,1,NOW())",
+      [newId, username, hashed, display_name, role]
+    );
+    await logActivity(admin.id, "create_user", ip);
+    return ok(res, { id: newId });
   }
 
   // UPDATE USER (admin)
   if (action === "update_user") {
-    const admin = requireAdmin(req, res);
+    const admin = await requireAdmin(req, res);
     if (!admin) return;
     const id = String(body.id || "");
-    const users = getUsers();
-    const idx = users.findIndex(u => u.id === id);
-    if (idx === -1) return fail(res, "Utilisateur introuvable.");
-    if (body.display_name !== undefined) users[idx]!.display_name = String(body.display_name).trim();
-    if (body.role === "admin" || body.role === "user") users[idx]!.role = body.role;
-    if (body.active !== undefined) users[idx]!.active = Number(body.active);
-    if (body.password) users[idx]!.password = await hashPassword(String(body.password));
-    saveUsers(users);
-    logActivity(admin.id, "update_user", ip);
+    const user = await findUserById(id);
+    if (!user) return fail(res, "Utilisateur introuvable.");
+    const display_name = body.display_name !== undefined ? String(body.display_name).trim() : user.display_name;
+    const role = (body.role === "admin" || body.role === "user") ? body.role : user.role;
+    const active = body.active !== undefined ? Number(body.active) : user.active;
+    const password = body.password ? await hashPassword(String(body.password)) : user.password;
+    await pool.query(
+      "UPDATE gs_users SET display_name=$1,role=$2,active=$3,password=$4 WHERE id=$5",
+      [display_name, role, active, password, id]
+    );
+    await logActivity(admin.id, "update_user", ip);
     return ok(res);
   }
 
   // DELETE USER (admin)
   if (action === "delete_user") {
-    const admin = requireAdmin(req, res);
+    const admin = await requireAdmin(req, res);
     if (!admin) return;
     const id = String(body.id || "");
     if (id === admin.id) return fail(res, "Impossible de supprimer votre propre compte.");
-    saveUsers(getUsers().filter(u => u.id !== id));
-    logActivity(admin.id, "delete_user", ip);
+    await pool.query("DELETE FROM gs_users WHERE id=$1", [id]);
+    await logActivity(admin.id, "delete_user", ip);
     return ok(res);
   }
 
   // GET ACTIVITY (admin)
   if (action === "get_activity") {
-    if (!requireAdmin(req, res)) return;
+    if (!await requireAdmin(req, res)) return;
     const limit = Math.min(Number(body.limit || 100), 500);
+    const users = await getUsers();
     const userMap: Record<string, string> = {};
-    for (const u of getUsers()) userMap[u.id] = u.display_name;
-    const entries = readJson<ActivityEntry[]>(F.activity, []).slice(0, limit).map(e => ({ ...e, display_name: userMap[e.user_id] || e.user_id }));
-    return ok(res, { activity: entries });
+    for (const u of users) userMap[u.id] = u.display_name;
+    const entries = await q<{ user_id: string; action: string; ip: string; created_at: string }>(
+      "SELECT user_id,action,ip,created_at FROM gs_activity ORDER BY created_at DESC LIMIT $1", [limit]
+    );
+    return ok(res, { activity: entries.map(e => ({ ...e, display_name: userMap[e.user_id] || e.user_id })) });
   }
 
   return fail(res, `Action inconnue : '${action}'`);
