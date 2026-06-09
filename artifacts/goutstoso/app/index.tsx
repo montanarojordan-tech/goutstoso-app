@@ -9293,6 +9293,24 @@ const [clientViewTab,setClientViewTab] = useState<"infos"|"offres"|"factures"|"a
 
 const view = viewId ? (st.clients||[]).find(c=>c.id===viewId) : null;
 
+// Rétroactivement lier les commandes sans clientId mais avec le bon nom
+React.useEffect(()=>{
+  if(!view) return;
+  const nomNorm = view.nom.toLowerCase().trim();
+  const orphelines = (st.commandes||[]).filter(c=>
+    !c.clientId && nomNorm && c.client?.toLowerCase().trim()===nomNorm
+  );
+  if(orphelines.length===0) return;
+  setSt((p:any)=>({
+    ...p,
+    commandes:(p.commandes||[]).map((c:any)=>
+      !c.clientId && nomNorm && c.client?.toLowerCase().trim()===nomNorm
+        ? {...c, clientId:view.id}
+        : c
+    ),
+  }));
+},[viewId]);
+
 const emptyC = () => ({id:null,nom:"",contact:"",email:"",telephone:"",site:"",adresse:"",npa:"",ville:"",notes:"",categorie:"client",statut:"actif",prixDefaut:"client",delaiPaiement:30,conditions:""});
 const [form,setForm] = useState(emptyC());
 
@@ -9367,11 +9385,16 @@ const getStats = (clientId) => {
 const clientObj=(st.clients||[]).find((c:any)=>c.id===clientId);
 const clientNom=clientObj?.nom||"";
 const linkedPv = (st.partenaires||[]).find(pv=>pv.clientId===clientId);
+const nomNorm = clientNom.toLowerCase().trim();
 const commandes = (st.commandes||[]).filter(c=>
-  c.clientId===clientId || (linkedPv && c.partenaireId===linkedPv.id)
+  c.clientId===clientId ||
+  (linkedPv && c.partenaireId===linkedPv.id) ||
+  (!c.clientId && nomNorm && c.client?.toLowerCase().trim()===nomNorm)
 );
 const factures = (st.factures||[]).filter(f=>
-  f.partenaireId===clientId || (linkedPv && f.partenaireId===linkedPv.id)
+  f.partenaireId===clientId ||
+  (linkedPv && f.partenaireId===linkedPv.id) ||
+  (nomNorm && f.clientNom?.toLowerCase().trim()===nomNorm)
 );
 const offres = (st.contrats||[]).filter(c=>
   c.type==="offre" && linkedPv && c.partenaireId===linkedPv.id
