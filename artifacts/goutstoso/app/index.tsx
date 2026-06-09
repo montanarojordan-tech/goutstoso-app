@@ -15449,6 +15449,7 @@ const [form, setForm] = useState(isEdit ? {
   fraisPortEncaisse: initialData.fraisPortEncaisse||0,
   fraisPortPaye: initialData.fraisPortPaye||0,
   commissionShopify: initialData.commissionShopify||0,
+  rabaisPercent: initialData.rabaisPercent||"",
   statutPaiement: initialData.statutPaiement||"non_paye",
   statutExpedition: initialData.statutExpedition||"a_preparer",
   numeroSuivi: initialData.numeroSuivi||"",
@@ -15457,7 +15458,7 @@ const [form, setForm] = useState(isEdit ? {
   clientId:"", orderNumber:"", dateCommande:today(),
   clientNom:"", clientEmail:"", clientTelephone:"",
   clientAdresse:"", clientNpa:"", clientVille:"", clientPays:"CH",
-  lignes:[] as any[], fraisPortEncaisse:0, fraisPortPaye:0, commissionShopify:0, statutPaiement:"non_paye",
+  lignes:[] as any[], fraisPortEncaisse:0, fraisPortPaye:0, commissionShopify:0, rabaisPercent:"", statutPaiement:"non_paye",
   statutExpedition:"a_preparer", numeroSuivi:"", transporteur:"",
 });
 const [parsed, setParsed] = useState(null as any);
@@ -15490,7 +15491,10 @@ const parseShopifyText = (text:string) => {
   return result;
 };
 
-const totalForm = form.lignes.reduce((s:number,l:any)=>s+(l.qte*(l.prixUnitaire||0)),0) + parseFloat(String(form.fraisPortEncaisse||0));
+const sousTotal = form.lignes.reduce((s:number,l:any)=>s+(l.qte*(l.prixUnitaire||0)),0);
+const rabaisFormP = parseFloat(String(form.rabaisPercent||0));
+const rabaisFormMontant = rabaisFormP>0 ? Math.round(sousTotal*rabaisFormP/100*100)/100 : 0;
+const totalForm = sousTotal - rabaisFormMontant + parseFloat(String(form.fraisPortEncaisse||0));
 
 const save = (data:any = null) => {
   const d = data || form;
@@ -15498,12 +15502,15 @@ const save = (data:any = null) => {
   const fpPaye = parseFloat(String(d.fraisPortPaye||"0"));
   const commission = parseFloat(String(d.commissionShopify||"0"));
   const produitsTotal = (d.lignes||[]).reduce((s:number,l:any)=>s+(l.qte*(l.prixUnitaire||0)),0);
+  const rabaisP = parseFloat(String(d.rabaisPercent||0));
+  const rabaisMontant = rabaisP>0 ? Math.round(produitsTotal*rabaisP/100*100)/100 : 0;
   const vd:any = {
     id:uid(), orderNumberShopify:d.orderNumber||genNumero(),
     dateCommande:d.dateCommande||today(),
     clientShopify:{clientId:d.clientId||"",nom:d.clientNom,email:d.clientEmail,telephone:d.clientTelephone,adresse:d.clientAdresse,npa:d.clientNpa,ville:d.clientVille,pays:d.clientPays||"CH"},
-    lignes:d.lignes, totalTTC:d.totalTTC||(produitsTotal+fpEnc),
+    lignes:d.lignes, totalTTC:d.totalTTC||(produitsTotal-rabaisMontant+fpEnc),
     fraisPortEncaisse:fpEnc, fraisPortPaye:fpPaye, commissionShopify:commission,
+    rabaisPercent:rabaisP, rabaisMontant,
     statutPaiement:d.statutPaiement||"paye",
     statutExpedition:d.statutExpedition||"a_preparer",
     numeroSuivi:d.numeroSuivi||"", transporteur:d.transporteur||"",
@@ -15512,12 +15519,13 @@ const save = (data:any = null) => {
   const buildTrans = (ordreId:string, orderNum:string, clientNom:string, date:string) => {
     const trans:any[] = [];
     if(produitsTotal>0) trans.push({id:uid(),ventesShopifyId:ordreId,date,compte:"3001",libelle:"Vente Shopify #"+orderNum,type:"recette",categorie:"Vente Shopify",montant:produitsTotal,description:clientNom,postfinance:true});
+    if(rabaisMontant>0) trans.push({id:uid(),ventesShopifyId:ordreId,date,compte:"3900",libelle:"Rabais "+rabaisP+"% Shopify #"+orderNum,type:"depense",categorie:"Rabais accordés",montant:rabaisMontant,description:"Rabais "+rabaisP+"% sur "+clientNom,postfinance:true});
     if(fpEnc>0) trans.push({id:uid(),ventesShopifyId:ordreId,date,compte:"3600",libelle:"Port encaissé Shopify #"+orderNum,type:"recette",categorie:"Frais expédition facturés",montant:fpEnc,description:clientNom,postfinance:true});
     if(fpPaye>0) trans.push({id:uid(),ventesShopifyId:ordreId,date,compte:"6315",libelle:"Frais envoi Shopify #"+orderNum,type:"depense",categorie:"Frais d'expédition (envois)",montant:fpPaye,description:"Transporteur: "+(vd.transporteur||"—"),postfinance:false});
     if(commission>0) trans.push({id:uid(),ventesShopifyId:ordreId,date,compte:"6700",libelle:"Commission Shopify #"+orderNum,type:"depense",categorie:"Commissions",montant:commission,description:"Commission Shopify",postfinance:false});
     return trans;
   };
-  const soldeImpact = (fpEnc + produitsTotal);
+  const soldeImpact = (fpEnc + produitsTotal - rabaisMontant);
   if(isEdit) {
     const wasAlreadyPaid = initialData.statutPaiement==="paye";
     setSt((p:any)=>{
@@ -15621,6 +15629,22 @@ return (
       <input type="number" min="0" value={l?.qte||0} onChange={e=>{const q=parseInt(e.target.value)||0;const nl=form.lignes.filter((x:any)=>x.produitId!==p.id);if(q>0)nl.push({produitId:p.id,designation:p.nom+" "+p.format,qte:q,prixUnitaire:p.prixClient});setForm(f=>({...f,lignes:nl}));}} style={{width:52,padding:"5px",borderRadius:6,border:"1px solid #E5E5E0",fontSize:13,textAlign:"center"}}/>
     </div>;
   })}
+  {sousTotal>0 && (
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 0",borderTop:"1px solid #E5E5E0",marginBottom:4}}>
+      <span style={{fontSize:12,color:"#737373"}}>Sous-total produits</span>
+      <span style={{fontSize:13,fontWeight:700,color:"#111"}}>CHF {sousTotal.toFixed(2)}</span>
+    </div>
+  )}
+  <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8,marginTop:2}}>
+    <label style={{fontSize:11,color:"#737373",display:"flex",flexDirection:"column",gap:4,flex:1}}>
+      <span>Rabais <span style={{fontWeight:400,color:"#9CA3AF"}}>(%, optionnel)</span></span>
+      <div style={{display:"flex",alignItems:"center",gap:6}}>
+        <input type="text" inputMode="decimal" value={form.rabaisPercent||""} onChange={e=>{const v=e.target.value.replace(",",".");if(v===""||/^[\d.]*$/.test(v))setForm(f=>({...f,rabaisPercent:v}));}} placeholder="0" style={{padding:"8px",borderRadius:8,border:"1.5px solid "+(rabaisFormP>0?"#F59E0B":"#E5E5E0"),fontSize:13,width:70}}/>
+        <span style={{fontSize:12,color:"#737373"}}>%</span>
+        {rabaisFormMontant>0 && <span style={{fontSize:12,color:"#B91C1C",fontWeight:600}}>−CHF {rabaisFormMontant.toFixed(2)} → ct. 3900</span>}
+      </div>
+    </label>
+  </div>
   <p style={{fontSize:11,fontWeight:700,color:"#737373",textTransform:"uppercase" as const,letterSpacing:".06em",marginBottom:6,marginTop:4}}>Frais & commissions</p>
   <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:4}}>
     <label style={{fontSize:11,color:"#737373",display:"flex",flexDirection:"column",gap:4}}>
@@ -15636,10 +15660,11 @@ return (
   <label style={{fontSize:11,color:"#737373",display:"flex",flexDirection:"column",gap:4,marginBottom:8}}>
     Transporteur<input value={form.transporteur} onChange={e=>setForm(f=>({...f,transporteur:e.target.value}))} placeholder="La Poste, DPD..." style={{padding:"8px",borderRadius:8,border:"1px solid #E5E5E0",fontSize:13}}/>
   </label>
-  {(form.fraisPortPaye>0||form.commissionShopify>0) && (
+  {(rabaisFormMontant>0||parseFloat(String(form.fraisPortPaye||0))>0||parseFloat(String(form.commissionShopify||0))>0) && (
     <div style={{background:"#FFF7ED",borderRadius:8,padding:"8px 12px",marginBottom:8,fontSize:11}}>
       <p style={{fontWeight:700,color:"#92400E",marginBottom:4}}>📊 Résumé compta</p>
       {parseFloat(String(form.fraisPortEncaisse||0))>0&&<p style={{color:"#166534"}}>+{parseFloat(String(form.fraisPortEncaisse||0)).toFixed(2)} CHF → ct. 3600 (port encaissé)</p>}
+      {rabaisFormMontant>0&&<p style={{color:"#B91C1C"}}>−{rabaisFormMontant.toFixed(2)} CHF ({rabaisFormP}%) → ct. 3900 (rabais accordés)</p>}
       {parseFloat(String(form.fraisPortPaye||0))>0&&<p style={{color:"#B91C1C"}}>−{parseFloat(String(form.fraisPortPaye||0)).toFixed(2)} CHF → ct. 6315 (frais envoi)</p>}
       {parseFloat(String(form.commissionShopify||0))>0&&<p style={{color:"#B91C1C"}}>−{parseFloat(String(form.commissionShopify||0)).toFixed(2)} CHF → ct. 6700 (commission)</p>}
     </div>
