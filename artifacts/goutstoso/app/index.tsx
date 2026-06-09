@@ -8081,6 +8081,23 @@ const genererFactureDepuisCommande = (cmd, st, setSt) => {
   alert("✅ Facture "+numero+" créée ! Retrouve-la dans Comptabilité → Factures.\n\nUne fois marquée payée, les écritures comptables seront générées automatiquement.");
 };
 
+const annulerFactureDepuisCommande = (cmd:any, st:any, setSt:any) => {
+  const facture = (st.factures||[]).find((f:any)=>f.numero===cmd.factureNumero && f.commandeId===cmd.id);
+  if(facture?.statut==="payée") {
+    alert("⚠️ Impossible — la facture "+cmd.factureNumero+" est déjà marquée payée. Modifie-la directement dans Ventes → Factures.");
+    return;
+  }
+  const msg = facture
+    ? "Annuler et supprimer la facture "+cmd.factureNumero+" liée à cette commande ?\n\nLa commande repassera en statut non facturé."
+    : "Délier la facture "+cmd.factureNumero+" de cette commande ?";
+  if(!window.confirm(msg)) return;
+  setSt((p:any)=>({
+    ...p,
+    factures: facture ? (p.factures||[]).filter((f:any)=>f.id!==facture.id) : (p.factures||[]),
+    commandes: (p.commandes||[]).map((c:any)=>c.id===cmd.id ? {...c,factureNumero:undefined} : c),
+  }));
+};
+
 // ══════════════════════════════════════════════════════════════
 // PAGE: COMMANDES (ventes en ligne Shopify)
 // ══════════════════════════════════════════════════════════════
@@ -8450,10 +8467,12 @@ const delLigne = (i) => setForm(p=>({...p,lignes:p.lignes.filter((_,j)=>j!==i)})
 const commandes = (st.commandes||[]).slice().reverse();
 const filtrees = commandes.filter(c=>{
 if(filtre==="toutes") return true;
+if(filtre==="ouvertes") return c.statut !== "payée";
 if(filtre==="sans-facture") return !c.factureNumero;
 if(filtre==="avec-facture") return !!c.factureNumero;
 return true;
 });
+const nbOuvertes = commandes.filter(c=>c.statut !== "payée").length;
 const nbSansFacture = commandes.filter(c=>!c.factureNumero && (c.statut==="livrée"||c.statut==="expédiée")).length;
 const shopifyOrders = (st.ventesShopify||[]).slice().reverse();
 const nbShopify = shopifyOrders.length;
@@ -8679,12 +8698,22 @@ return (
       <button onClick={()=>{setForm({...view,typeClient:view.typeClient||"revendeur"});setModal("form");setViewId(null);}} style={{background:"#F5F5F0",border:"none",borderRadius:10,padding:"10px",fontWeight:600,fontSize:12,cursor:"pointer"}}>✏️ Modifier</button>
       <button onClick={()=>supprimer(view.id)} style={{background:"#FEE2E2",color:"#991B1B",border:"none",borderRadius:10,padding:"10px",fontWeight:600,fontSize:12,cursor:"pointer"}}>🗑 Supprimer</button>
     </div>
-    {/* Créer la facture (pour commandes sans offreId) */}
+    {/* Créer / Annuler la facture (pour commandes sans offreId) */}
     {!view.offreId && (
-      <button onClick={()=>!view.factureNumero?genererFactureDepuisCommande(view,st,setSt):alert("Facture "+view.factureNumero+" déjà créée dans Comptabilité → Factures")}
-        style={{width:"100%",background:view.factureNumero?"#166534":"#0A0A0A",color:view.factureNumero?"#fff":"#F2C94C",border:"none",borderRadius:10,padding:"11px",fontWeight:700,fontSize:12,cursor:"pointer",marginBottom:8,display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
-        🧾 {view.factureNumero?"Facture "+view.factureNumero+" créée ✓":"Créer la facture"}
-      </button>
+      view.factureNumero ? (
+        <div style={{display:"grid",gridTemplateColumns:"1fr auto",gap:6,marginBottom:8}}>
+          <button onClick={()=>setTab("factures")} style={{background:"#166534",color:"#fff",border:"none",borderRadius:10,padding:"11px",fontWeight:700,fontSize:12,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+            🧾 Facture {view.factureNumero} ✓
+          </button>
+          <button onClick={()=>annulerFactureDepuisCommande(view,st,setSt)} style={{background:"#FEE2E2",color:"#991B1B",border:"none",borderRadius:10,padding:"11px 14px",fontWeight:700,fontSize:12,cursor:"pointer"}}>
+            ✕ Annuler
+          </button>
+        </div>
+      ) : (
+        <button onClick={()=>genererFactureDepuisCommande(view,st,setSt)} style={{width:"100%",background:"#0A0A0A",color:"#F2C94C",border:"none",borderRadius:10,padding:"11px",fontWeight:700,fontSize:12,cursor:"pointer",marginBottom:8,display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+          🧾 Créer la facture
+        </button>
+      )
     )}
     {/* Indicateur stock déduit */}
     {view.stockDeduit
@@ -8726,10 +8755,20 @@ return (
           }} style={{background:"#1E40AF",color:"#fff",border:"none",borderRadius:8,padding:"9px",fontWeight:700,fontSize:11,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
             ✅ {view.confirmationNumero?"Retélécharger la confirmation":"Générer confirmation de commande"}
           </button>
-          <button onClick={()=>!view.factureNumero?genererFactureDepuisCommande(view,st,setSt):alert("Facture "+view.factureNumero+" déjà créée dans Comptabilité → Factures")}
-            style={{background:view.factureNumero?"#166534":"#0A0A0A",color:view.factureNumero?"#fff":"#F2C94C",border:"none",borderRadius:8,padding:"9px",fontWeight:700,fontSize:11,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
-            🧾 {view.factureNumero?"Facture "+view.factureNumero+" créée":"Créer la facture"}
-          </button>
+          {view.factureNumero ? (
+            <div style={{display:"grid",gridTemplateColumns:"1fr auto",gap:6}}>
+              <button onClick={()=>setTab("factures")} style={{background:"#166534",color:"#fff",border:"none",borderRadius:8,padding:"9px",fontWeight:700,fontSize:11,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+                🧾 Facture {view.factureNumero} ✓
+              </button>
+              <button onClick={()=>annulerFactureDepuisCommande(view,st,setSt)} style={{background:"#4C1D1D",color:"#FCA5A5",border:"none",borderRadius:8,padding:"9px 12px",fontWeight:700,fontSize:11,cursor:"pointer"}}>
+                ✕ Annuler
+              </button>
+            </div>
+          ) : (
+            <button onClick={()=>genererFactureDepuisCommande(view,st,setSt)} style={{background:"#0A0A0A",color:"#F2C94C",border:"none",borderRadius:8,padding:"9px",fontWeight:700,fontSize:11,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+              🧾 Créer la facture
+            </button>
+          )}
         </div>
       </Card>
     )}
@@ -8854,6 +8893,7 @@ Commandes
   <div style={{display:"flex",gap:6,marginBottom:14,overflowX:"auto"}}>
     {[
       {id:"toutes",l:"Toutes"},
+      {id:"ouvertes",l:`📋 Ouvertes${nbOuvertes>0?" ("+nbOuvertes+")":""}`},
       {id:"sans-facture",l:`Sans facture${nbSansFacture>0?" ("+nbSansFacture+")":""}`},
       {id:"avec-facture",l:"Facturées"},
       {id:"shopify",l:`🛒 Shopify${nbShopify>0?" ("+nbShopify+")":""}`,},
