@@ -1,14 +1,3 @@
-/**
- * Standalone production server for Expo static builds.
- *
- * Serves the output of build.js (static-build/) with two special routes:
- * - GET / or /manifest with expo-platform header → platform manifest JSON
- * - GET / without expo-platform → landing page HTML
- * Everything else falls through to static file serving from ./static-build/.
- *
- * Zero external dependencies — uses only Node.js built-ins (http, fs, path).
- */
-
 const http = require("http");
 const fs = require("fs");
 const path = require("path");
@@ -38,6 +27,13 @@ const server = http.createServer((req, res) => {
   const url = new URL(req.url || "/", `http://${req.headers.host}`);
   let pathname = url.pathname;
 
+  if (basePath && !pathname.startsWith(basePath)) {
+    const redirectTo = basePath + (pathname === "/" ? "/" : pathname);
+    res.writeHead(301, { Location: redirectTo });
+    res.end();
+    return;
+  }
+
   if (basePath && pathname.startsWith(basePath)) {
     pathname = pathname.slice(basePath.length) || "/";
   }
@@ -63,7 +59,7 @@ const server = http.createServer((req, res) => {
 
   const ext = path.extname(filePath).toLowerCase();
   const contentType = MIME_TYPES[ext] || "application/octet-stream";
-  let content = fs.readFileSync(filePath);
+  const content = fs.readFileSync(filePath);
 
   const headers = { "content-type": contentType };
   if (ext === ".html") {
@@ -78,5 +74,5 @@ const server = http.createServer((req, res) => {
 
 const port = parseInt(process.env.PORT || "3000", 10);
 server.listen(port, "0.0.0.0", () => {
-  console.log(`Serving static Expo build on port ${port}`);
+  console.log(`Serving static Expo build on port ${port} (basePath: ${basePath || "/"})`);
 });
