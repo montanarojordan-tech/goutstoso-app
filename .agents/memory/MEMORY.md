@@ -1,0 +1,1 @@
+- [Goutstoso line-range removal pitfall](goutstoso-line-removal.md) — Python bulk line removal must re-grep line numbers AFTER each edit batch, not use pre-edit numbers.

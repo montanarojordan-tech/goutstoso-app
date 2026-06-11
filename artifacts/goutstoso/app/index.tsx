@@ -901,21 +901,17 @@ Bonjour {authUser.display_name||authUser.username}
   {(()=>{
     const nProspects=(st.prospects||[]).filter((p:any)=>!["converti","perdu"].includes(p.statut)).length;
     const nOffres=(st.offres||[]).filter((o:any)=>["envoyée","intérêt","brouillon"].includes(o.statut)).length;
-    const nBC=(st.bulletinsCommande||[]).filter((b:any)=>b.statut==="signe"&&!b.bulletinLivraisonId).length;
-    const nBL=(st.bulletinsLivraison||[]).filter((b:any)=>b.statut==="a_livrer").length;
-    const total=nProspects+nOffres+nBC+nBL;
+    const total=nProspects+nOffres;
     if(total===0) return null;
     return (
       <div style={{marginBottom:18}}>
         <p style={{fontSize:10,fontWeight:600,color:"#737373",textTransform:"uppercase",letterSpacing:"0.04em",marginBottom:10}}>
           🏹 Pipeline commercial
         </p>
-        <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:6}}>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:6}}>
           {[
             {label:"Prospects",n:nProspects,emoji:"🎯",tab:"prospects",color:"#1E40AF",bg:"#DBEAFE",border:"#93C5FD"},
             {label:"Offres actives",n:nOffres,emoji:"📄",tab:"offres",color:"#6D28D9",bg:"#EDE9FE",border:"#C4B5FD"},
-            {label:"BC signés",n:nBC,emoji:"📋",tab:"bulletinsCommande",color:"#92400E",bg:"#FEF3C7",border:"#FCD34D"},
-            {label:"BL à livrer",n:nBL,emoji:"🚚",tab:"bulletinsLivraison",color:"#065F46",bg:"#DCFCE7",border:"#86EFAC"},
           ].map((s:any,i:number)=>(
             <div key={i} onClick={()=>goPage(s.tab)} style={{background:s.bg,borderRadius:10,padding:"10px 6px",textAlign:"center",cursor:"pointer",border:`1px solid ${s.border}`,opacity:s.n===0?.4:1}}>
               <p style={{fontSize:18,marginBottom:2}}>{s.emoji}</p>
@@ -1079,12 +1075,6 @@ Bonjour {authUser.display_name||authUser.username}
       </button>
     </div>
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
-      <button onClick={()=>goPage("bulletinsCommande")} style={{background:"#FEF3C7",border:"1px solid #FCD34D",borderRadius:10,padding:"10px 8px",fontSize:11,fontWeight:700,cursor:"pointer",textAlign:"center",color:"#92400E"}}>
-        📋 BC
-      </button>
-      <button onClick={()=>goPage("bulletinsLivraison")} style={{background:"#DCFCE7",border:"1px solid #86EFAC",borderRadius:10,padding:"10px 8px",fontSize:11,fontWeight:700,cursor:"pointer",textAlign:"center",color:"#065F46"}}>
-        🚚 BL
-      </button>
       <button onClick={()=>goPage("commandes")} style={{background:"#F4F4F2",border:"1px solid #E5E7EB",borderRadius:10,padding:"10px 8px",fontSize:11,fontWeight:500,cursor:"pointer",textAlign:"center",color:"#374151"}}>
         🛒 Commande
       </button>
@@ -4723,14 +4713,9 @@ const echeance=new Date(new Date(f.date).getTime()+30*86400000).toISOString().sl
 
   // Références liées
   const cmdRef = f.commandeId ? (st.commandes||[]).find((c:any)=>c.id===f.commandeId) : null;
-  const blRef = f.bulletinLivraisonId ? (st.bulletinsLivraison||[]).find((b:any)=>b.id===f.bulletinLivraisonId) : null;
   let refY = 38;
   doc.setFontSize(8);doc.setTextColor(120,120,120);doc.setFont("helvetica","normal");
   if(cmdRef){refY+=4.5;doc.text("Réf. commande : "+cmdRef.numero,W-mg,refY,{align:"right"});}
-  if(blRef){
-    refY+=4.5;doc.text("Réf. BL : "+blRef.numero,W-mg,refY,{align:"right"});
-    if(blRef.bcNumero){refY+=4.5;doc.text("Réf. BC : "+blRef.bcNumero,W-mg,refY,{align:"right"});}
-  }
 
   // Alerte retard
   if(retard) {
@@ -7964,90 +7949,6 @@ try {
 } catch(e){ alert("Erreur PDF : "+(e as any).message); }
 };
 
-const genererBulletinLivraisonCommandePDF = async (cmd, st) => {
-try {
-  await new Promise((res,rej)=>{
-    if((window as any).jspdf){res(null);return;}
-    const s=document.createElement("script");
-    s.src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";
-    s.onload=res;s.onerror=rej;document.head.appendChild(s);
-  });
-  const {jsPDF}=(window as any).jspdf;
-  const doc=new jsPDF({unit:"mm",format:"a4"});
-  const W=210; const mg=16;
-  // En-tête
-  doc.setFillColor(242,201,76); doc.rect(0,0,W,6,"F");
-  pdfLogo(doc,mg);
-  // Titre
-  doc.setFillColor(10,10,10); doc.roundedRect(W-86,12,72,24,3,3,"F");
-  doc.setFont("helvetica","bold"); doc.setFontSize(10); doc.setTextColor(242,201,76);
-  doc.text("BON DE LIVRAISON",W-50,21,{align:"center"});
-  doc.setFontSize(8); doc.setTextColor(255,255,255);
-  doc.text(cmd.blNumero||cmd.numero,W-50,27,{align:"center"});
-  doc.text("Du "+fmt(cmd.date),W-50,32,{align:"center"});
-  doc.setDrawColor(220,220,215); doc.setLineWidth(0.3); doc.line(mg,42,W-mg,42);
-  let y=52;
-  // Parties
-  doc.setFont("helvetica","bold"); doc.setFontSize(7.5); doc.setTextColor(150,150,150);
-  doc.text("EXPÉDITEUR",mg,y); doc.text("DESTINATAIRE",W/2+2,y);
-  doc.setDrawColor(242,201,76); doc.setLineWidth(0.4);
-  doc.line(mg,y+1,mg+18,y+1); doc.line(W/2+2,y+1,W/2+22,y+1);
-  y+=6;
-  doc.setFont("helvetica","bold"); doc.setFontSize(10); doc.setTextColor(17,17,17);
-  doc.text("Goûtstoso",mg,y); doc.text(cmd.client||"",W/2+2,y);
-  doc.setFont("helvetica","normal"); doc.setFontSize(8); doc.setTextColor(107,114,128);
-  ["Jordan Montanaro","Rue des Sources 19","2613 Villeret","admin@goutstoso.ch"].forEach((l,i)=>doc.text(l,mg,y+5+i*4.5));
-  if(cmd.adresse) doc.text(cmd.adresse,W/2+2,y+5);
-  if(cmd.npa||cmd.ville) doc.text([cmd.npa,cmd.ville].filter(Boolean).join(" "),W/2+2,y+9.5);
-  if(cmd.telephone) doc.text("Tél : "+cmd.telephone,W/2+2,y+14);
-  if(cmd.email) doc.text(cmd.email,W/2+2,y+18.5);
-  y+=32;
-  // Tableau produits (sans prix — bon de livraison)
-  const cols=[{l:"Désignation",w:100},{l:"Format",w:26},{l:"Quantité",w:26},{l:"Réceptionné",w:26}];
-  const tW=cols.reduce((s,c)=>s+c.w,0); const sx=(W-tW)/2;
-  doc.setFillColor(10,10,10); doc.rect(sx,y,tW,8,"F");
-  let cx=sx;
-  cols.forEach(c=>{doc.setFont("helvetica","bold");doc.setFontSize(7);doc.setTextColor(242,201,76);doc.text(c.l,cx+c.w/2,y+5.5,{align:"center"});cx+=c.w;});
-  y+=8;
-  (cmd.lignes||[]).filter(l=>l.produitId&&l.qte>0).forEach((l,i)=>{
-    const prod=(st.produits||[]).find(p=>p.id===l.produitId);
-    const bg=i%2===0?[255,255,255]:[248,248,245];
-    doc.setFillColor(bg[0],bg[1],bg[2]); doc.rect(sx,y,tW,10,"F");
-    doc.setDrawColor(235,235,232); doc.setLineWidth(0.15); doc.rect(sx,y,tW,10,"S");
-    const vals=[(prod?.nom||"")+" "+(prod?.variante||""),prod?.format||"",String(l.qte),""];
-    cx=sx;
-    vals.forEach((v,vi)=>{
-      doc.setFont("helvetica",vi===0?"bold":"normal"); doc.setFontSize(8); doc.setTextColor(vi===0?10:80,vi===0?10:80,vi===0?10:80);
-      doc.text(v,cx+cols[vi].w/2,y+6.5,{align:"center"}); cx+=cols[vi].w;
-    });
-    y+=10;
-  });
-  y+=8;
-  // Zone signature
-  doc.setFillColor(250,250,248); doc.roundedRect(mg,y,W-mg*2,50,3,3,"F");
-  doc.setDrawColor(220,220,215); doc.setLineWidth(0.3); doc.roundedRect(mg,y,W-mg*2,50,3,3,"S");
-  doc.setFont("helvetica","bold"); doc.setFontSize(8); doc.setTextColor(100,100,100);
-  doc.text("RÉCEPTION — SIGNATURE DU DESTINATAIRE",mg+4,y+7);
-  doc.setFont("helvetica","normal"); doc.setFontSize(7); doc.setTextColor(150,150,150);
-  doc.text("Je soussigné(e) reconnais avoir bien reçu les marchandises listées ci-dessus, en bon état.",mg+4,y+13);
-  const nomReception = cmd.blReceptionnaire ? "Nom : "+cmd.blReceptionnaire : "Nom : ___________________________";
-  const dateReception = cmd.blDate ? "   Date : "+fmt(cmd.blDate) : "   Date : _______________";
-  doc.text(nomReception+dateReception,mg+4,y+24);
-  doc.text("Signature :",mg+4,y+32);
-  if(cmd.blSignature) {
-    try { doc.addImage(cmd.blSignature,"PNG",mg+30,y+22,60,24); } catch(_){}
-  } else {
-    doc.setDrawColor(200,200,200); doc.setLineWidth(0.2); doc.rect(mg+30,y+22,70,24,"S");
-  }
-  y+=58;
-  // Pied
-  doc.setDrawColor(220,220,215); doc.setLineWidth(0.3); doc.line(mg,280,W-mg,280);
-  doc.setFont("helvetica","normal"); doc.setFontSize(7); doc.setTextColor(150,150,150);
-  doc.text("Goûtstoso · Jordan Montanaro · Rue des Sources 19 · 2613 Villeret · admin@goutstoso.ch",W/2,284,{align:"center"});
-  doc.setFillColor(242,201,76); doc.rect(0,291,W,5,"F");
-  doc.save("BL-"+cmd.numero+".pdf");
-} catch(e){ alert("Erreur PDF : "+(e as any).message); }
-};
 
 const genererFactureDepuisCommande = (cmd, st, setSt) => {
   const y = new Date().getFullYear();
@@ -8105,20 +8006,9 @@ const Commandes = ({st,setSt,setTab=(_:any)=>{}}) => {
 const [modal,setModal] = useState(null);
 const [viewId,setViewId] = useState(null);
 const [filtre,setFiltre] = useState("toutes");
-const [signingBL,setSigningBL] = useState(false);
-const [editingBLInfo,setEditingBLInfo] = useState(false);
 const [sigJordanCmd,setSigJordanCmd] = useState(false);
-const [blReceptionnaire,setBlReceptionnaire] = useState("");
-const [blDateSaisie,setBlDateSaisie] = useState(today());
 const [showImportShopify,setShowImportShopify] = useState(false);
 const [editShopifyOrder,setEditShopifyOrder] = useState<any>(null);
-
-const genBLNumero = () => {
-  const y = new Date().getFullYear();
-  const existing = (st.commandes||[]).filter(c=>c.blNumero).map(c=>c.blNumero);
-  let n=1; while(existing.includes("BL-"+y+"-"+String(n).padStart(3,"0"))) n++;
-  return "BL-"+y+"-"+String(n).padStart(3,"0");
-};
 
 const view = viewId ? (st.commandes||[]).find(c=>c.id===viewId) : null;
 
@@ -8579,98 +8469,6 @@ if(sigJordanCmd) {
   );
 }
 
-// Modifier infos BL (sans re-signer)
-if(editingBLInfo) {
-  return (
-    <div className="fade">
-      <button onClick={()=>setEditingBLInfo(false)} style={{display:"flex",alignItems:"center",gap:6,background:"none",border:"none",color:"#9CA3AF",fontSize:13,marginBottom:16,padding:0,cursor:"pointer"}}>← Retour</button>
-      <div style={{background:"#FEF9E7",borderRadius:12,padding:"12px 14px",marginBottom:20,border:"1.5px solid #F2C94C"}}>
-        <p style={{fontWeight:700,fontSize:13}}>✏️ Modifier le bulletin de livraison</p>
-        <p style={{fontSize:11,color:"#92400E",marginTop:4}}>{view.blNumero||"—"} — {view.client}</p>
-        <p style={{fontSize:10,color:"#6B7280",marginTop:2}}>La signature existante est conservée</p>
-      </div>
-      <div style={{display:"grid",gap:14}}>
-        <div>
-          <label style={{fontSize:11,color:"#6B7280",fontWeight:600,display:"block",marginBottom:6}}>Nom et prénom du réceptionnaire</label>
-          <input value={blReceptionnaire} onChange={(e:any)=>setBlReceptionnaire(e.target.value)}
-            placeholder="Ex : Marie Dupont"
-            style={{width:"100%",padding:"11px 13px",borderRadius:10,border:"1.5px solid #E5E7EB",fontSize:14,outline:"none",boxSizing:"border-box"}}/>
-        </div>
-        <div>
-          <label style={{fontSize:11,color:"#6B7280",fontWeight:600,display:"block",marginBottom:6}}>Date de réception</label>
-          <input type="date" value={blDateSaisie} onChange={(e:any)=>setBlDateSaisie(e.target.value)}
-            style={{width:"100%",padding:"11px 13px",borderRadius:10,border:"1.5px solid #E5E7EB",fontSize:14,outline:"none",boxSizing:"border-box"}}/>
-        </div>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginTop:4}}>
-          <button onClick={()=>setEditingBLInfo(false)}
-            style={{padding:"13px",background:"#F5F5F0",border:"none",borderRadius:12,fontWeight:600,fontSize:13,cursor:"pointer"}}>
-            Annuler
-          </button>
-          <button onClick={()=>{
-            setSt((p:any)=>({...p,commandes:p.commandes.map((c:any)=>c.id===view.id?{...c,blReceptionnaire:blReceptionnaire.trim()||c.blReceptionnaire,blDate:blDateSaisie||c.blDate}:c)}));
-            setEditingBLInfo(false);
-          }} style={{padding:"13px",background:"#F2C94C",border:"none",borderRadius:12,fontWeight:700,fontSize:13,cursor:"pointer"}}>
-            ✓ Enregistrer
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// Signature BL en plein écran
-if(signingBL) {
-  const blNum = view.blNumero || genBLNumero();
-  return (
-    <div className="fade">
-      <button onClick={()=>setSigningBL(false)} style={{display:"flex",alignItems:"center",gap:6,background:"none",border:"none",color:"#9CA3AF",fontSize:13,marginBottom:16,padding:0,cursor:"pointer"}}>← Retour</button>
-      <div style={{background:"#FEF9E7",borderRadius:12,padding:"12px 14px",marginBottom:16,border:"1.5px solid #F2C94C"}}>
-        <p style={{fontWeight:700,fontSize:13}}>📦 Signature bon de livraison</p>
-        <p style={{fontSize:11,color:"#92400E",marginTop:4}}>{blNum} — {view.client}</p>
-        <p style={{fontSize:10,color:"#6B7280",marginTop:2}}>{view.numero} · {(view.lignes||[]).filter(l=>l.produitId).length} produit(s)</p>
-      </div>
-      <div style={{background:"#fff",borderRadius:12,padding:"14px",marginBottom:12,border:"1px solid #E5E7EB"}}>
-        <p style={{fontSize:11,fontWeight:700,color:"#374151",marginBottom:10}}>Informations du réceptionnaire</p>
-        <div style={{marginBottom:10}}>
-          <label style={{fontSize:11,color:"#6B7280",display:"block",marginBottom:4}}>Nom et prénom *</label>
-          <input
-            value={blReceptionnaire}
-            onChange={(e:any)=>setBlReceptionnaire(e.target.value)}
-            placeholder="Ex : Marie Dupont"
-            style={{width:"100%",padding:"9px 12px",borderRadius:8,border:"1.5px solid #E5E7EB",fontSize:13,outline:"none",boxSizing:"border-box"}}
-          />
-        </div>
-        <div>
-          <label style={{fontSize:11,color:"#6B7280",display:"block",marginBottom:4}}>Date de réception</label>
-          <input
-            type="date"
-            value={blDateSaisie}
-            onChange={(e:any)=>setBlDateSaisie(e.target.value)}
-            style={{width:"100%",padding:"9px 12px",borderRadius:8,border:"1.5px solid #E5E7EB",fontSize:13,outline:"none",boxSizing:"border-box"}}
-          />
-        </div>
-      </div>
-      <SignaturePad
-        onSave={(sig)=>{
-          const num = view.blNumero || genBLNumero();
-          const dateRetention = blDateSaisie || today();
-          const receptionnaire = blReceptionnaire.trim();
-          setSt((p:any)=>({...p,commandes:p.commandes.map((c:any)=>c.id===view.id?{...c,blSignature:sig,blNumero:num,blDate:dateRetention,blReceptionnaire:receptionnaire,blSigne:true}:c)}));
-          setSigningBL(false);
-        }}
-        onCancel={()=>setSigningBL(false)}
-      />
-      {view.blSignature && (
-        <div style={{marginTop:12,padding:"10px 12px",background:"#F0FDF4",borderRadius:10,border:"1px solid #BBF7D0"}}>
-          <p style={{fontSize:11,color:"#166534",fontWeight:600,marginBottom:6}}>✓ Signature actuelle :</p>
-          {view.blReceptionnaire&&<p style={{fontSize:11,color:"#166534",marginBottom:4}}>{view.blReceptionnaire} · {fmt(view.blDate)}</p>}
-          <img src={view.blSignature} alt="signature" style={{height:40,maxWidth:180,objectFit:"contain",display:"block"}}/>
-        </div>
-      )}
-    </div>
-  );
-}
-
 return (
 <div className="fade">
 <Breadcrumb crumbs={[{label:"Commandes",onClick:()=>setViewId(null)},{label:view.numero}]}/>
@@ -8752,37 +8550,6 @@ return (
         {view.signJordan?"✅ Ma signature enregistrée (modifier)":"✍️ Signer en tant que Goûtstoso"}
       </button>
       {view.confirmationNumero && <p style={{fontSize:10,color:"#3B82F6",marginTop:6,textAlign:"center"}}>{view.confirmationNumero}</p>}
-    </div>
-
-    {/* Bulletin de livraison */}
-    <div style={{background:view.blSigne?"#F0FDF4":"#FFFBEB",border:"1.5px solid "+(view.blSigne?"#86EFAC":"#F2C94C"),borderRadius:12,padding:"12px 14px",marginBottom:12}}>
-      <p style={{fontSize:11,fontWeight:700,color:view.blSigne?"#166534":"#92400E",textTransform:"uppercase",letterSpacing:".05em",marginBottom:8}}>
-        {view.blSigne?"✅":"📦"} Bulletin de livraison
-      </p>
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6}}>
-        <button onClick={async()=>{
-          const num = view.blNumero || genBLNumero();
-          if(!view.blNumero) setSt((p:any)=>({...p,commandes:p.commandes.map((c:any)=>c.id===view.id?{...c,blNumero:num}:c)}));
-          await genererBulletinLivraisonCommandePDF({...view,blNumero:num},st);
-        }} style={{background:"#92400E",color:"#fff",border:"none",borderRadius:8,padding:"9px 4px",fontWeight:700,fontSize:11,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:4}}>
-          📄 {view.blNumero?"PDF":"Générer"}
-        </button>
-        <button onClick={()=>{setBlReceptionnaire(view.blReceptionnaire||"");setBlDateSaisie(view.blDate||today());setEditingBLInfo(true);}}
-          style={{background:"#F5F5F0",color:"#374151",border:"1.5px solid #E5E5E0",borderRadius:8,padding:"9px 4px",fontWeight:700,fontSize:11,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:4}}>
-          ✏️ Modifier
-        </button>
-        <button onClick={()=>{setBlReceptionnaire(view.blReceptionnaire||"");setBlDateSaisie(view.blDate||today());setSigningBL(true);}} style={{background:view.blSigne?"#166534":"#fff",color:view.blSigne?"#fff":"#92400E",border:"1.5px solid "+(view.blSigne?"#166534":"#F2C94C"),borderRadius:8,padding:"9px 4px",fontWeight:700,fontSize:11,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:4}}>
-          {view.blSigne?"✍️ Re-signer":"✍️ Signer"}
-        </button>
-      </div>
-      {view.blNumero && <p style={{fontSize:10,color:"#D97706",marginTop:6,textAlign:"center"}}>{view.blNumero}{view.blDate?" · "+fmt(view.blDate):""}</p>}
-      {view.blSignature && (
-        <div style={{marginTop:8,padding:"6px 8px",background:"#fff",borderRadius:8,border:"1px solid #D1FAE5",display:"flex",alignItems:"center",gap:8}}>
-          <span style={{fontSize:10,color:"#166534",fontWeight:600}}>✓ Signé :</span>
-          <img src={view.blSignature} alt="signature" style={{height:28,maxWidth:120,objectFit:"contain",flex:1}}/>
-          <button onClick={()=>{if(!window.confirm("Supprimer la signature du BL ?"))return;setSt((p:any)=>({...p,commandes:p.commandes.map((c:any)=>c.id===view.id?{...c,blSignature:null,blSigne:false,blReceptionnaire:"",blDate:""}:c)}));}} style={{background:"#FEE2E2",border:"none",borderRadius:6,padding:"4px 7px",cursor:"pointer",fontSize:11,color:"#991B1B",fontWeight:700,flexShrink:0}}>🗑</button>
-        </div>
-      )}
     </div>
 
     {/* Actions */}
@@ -9526,8 +9293,6 @@ const contrats = (st.contrats||[]).filter(c=>
 const offresV5=(st.offres||[]).filter((o:any)=>
   (clientNom&&o.clientNom===clientNom)||(linkedPv&&o.partenaireId===linkedPv.id)
 );
-const bcsClient=(st.bulletinsCommande||[]).filter((b:any)=>clientNom&&b.clientNom===clientNom);
-const blsClient=(st.bulletinsLivraison||[]).filter((b:any)=>clientNom&&b.clientNom===clientNom);
 const ca = sum(commandes.map(c=>{
 const t = sum((c.lignes||[]).filter(l=>l.produitId).map(l=>{
 const p = st.produits.find(x=>x.id===l.produitId);
@@ -9537,7 +9302,7 @@ return t - (parseFloat(c.rabais)||0) + (parseFloat(c.fraisPort)||0);
 }));
 const facturesNonPayees = factures.filter(f=>f.statut!=="payée");
 const aEncaisser = sum(facturesNonPayees.map(f=>calcTotalNet(f,st.produits)));
-return {nbCommandes:commandes.length,ca,commandes,nbNonPayees:facturesNonPayees.length,aEncaisser,factures,offres,contrats,facturesNonPayees,offresV5,bcsClient,blsClient};
+return {nbCommandes:commandes.length,ca,commandes,nbNonPayees:facturesNonPayees.length,aEncaisser,factures,offres,contrats,facturesNonPayees,offresV5};
 };
 
 // Vue détail client — 360°
@@ -9545,7 +9310,7 @@ if(view) {
 const stats = getStats(view.id);
 const TABS360 = [
   {id:"infos",    label:"Infos",     emoji:"ℹ️",  count:0},
-  {id:"offres",   label:"Offres",    emoji:"📄",  count:stats.offresV5.length+stats.bcsClient.length+stats.blsClient.length+stats.offres.length+stats.contrats.length},
+  {id:"offres",   label:"Offres",    emoji:"📄",  count:stats.offresV5.length+stats.offres.length+stats.contrats.length},
   {id:"factures", label:"Factures",  emoji:"🧾",  count:stats.factures.length+stats.commandes.length},
   {id:"archives", label:"Archives",  emoji:"📦",  count:0},
 ] as const;
@@ -9676,13 +9441,12 @@ return (
   {/* ── ONGLET OFFRES ── */}
   {clientViewTab==="offres" && (
     <>
-      {stats.offresV5.length===0&&stats.bcsClient.length===0&&stats.blsClient.length===0&&stats.offres.length===0&&stats.contrats.length===0 ? (
+      {stats.offresV5.length===0&&stats.offres.length===0&&stats.contrats.length===0 ? (
         <Card style={{padding:"24px",textAlign:"center"as const}}><p style={{fontSize:12,color:"#9CA3AF"}}>Aucun document commercial</p></Card>
       ) : (
         <>
           {stats.offresV5.length>0 && <Card style={{padding:"12px 14px",marginBottom:10}}><p style={{fontSize:10,fontWeight:700,color:"#9CA3AF",textTransform:"uppercase"as const,marginBottom:6}}>📄 Offres ({stats.offresV5.length})</p>{renderDocList(stats.offresV5,"offre")}</Card>}
-          {stats.bcsClient.length>0 && <Card style={{padding:"12px 14px",marginBottom:10}}><p style={{fontSize:10,fontWeight:700,color:"#9CA3AF",textTransform:"uppercase"as const,marginBottom:6}}>📋 Bulletins de commande ({stats.bcsClient.length})</p>{renderDocList(stats.bcsClient,"bc")}</Card>}
-          {stats.blsClient.length>0 && <Card style={{padding:"12px 14px",marginBottom:10}}><p style={{fontSize:10,fontWeight:700,color:"#9CA3AF",textTransform:"uppercase"as const,marginBottom:6}}>🚚 Bulletins de livraison ({stats.blsClient.length})</p>{renderDocList(stats.blsClient,"bl")}</Card>}
+
           {stats.offres.length>0 && <Card style={{padding:"12px 14px",marginBottom:10}}><p style={{fontSize:10,fontWeight:700,color:"#9CA3AF",textTransform:"uppercase"as const,marginBottom:6}}>📋 Offres (ancien format) ({stats.offres.length})</p>{renderDocList(stats.offres,"offre")}</Card>}
           {stats.contrats.length>0 && <Card style={{padding:"12px 14px",marginBottom:10}}><p style={{fontSize:10,fontWeight:700,color:"#9CA3AF",textTransform:"uppercase"as const,marginBottom:6}}>📑 Contrats dépôt-vente ({stats.contrats.length})</p>{renderDocList(stats.contrats,"contrat")}</Card>}
         </>
@@ -9729,8 +9493,7 @@ return (
           ["CA total encaissé",chf(stats.ca)],
           ["À encaisser",chf(stats.aEncaisser)],
           ["Offres",String(stats.offresV5.length+stats.offres.length)],
-          ["Bulletins commande",String(stats.bcsClient.length)],
-          ["Bulletins livraison",String(stats.blsClient.length)],
+
           ["Factures",String(stats.factures.length)+" ("+stats.nbNonPayees+" impayée"+(stats.nbNonPayees>1?"s":"")+")"],
           ["Commandes web",String(stats.commandes.length)],
           ["Contrats / dépôts",String(stats.contrats.length)],
@@ -9751,14 +9514,13 @@ return (
           if(s.factures.length) zip.file("factures.json",JSON.stringify(s.factures,null,2));
           if(s.commandes.length) zip.file("commandes.json",JSON.stringify(s.commandes,null,2));
           if(s.offresV5.length) zip.file("offres.json",JSON.stringify(s.offresV5,null,2));
-          if(s.bcsClient.length) zip.file("bulletins_commande.json",JSON.stringify(s.bcsClient,null,2));
-          if(s.blsClient.length) zip.file("bulletins_livraison.json",JSON.stringify(s.blsClient,null,2));
+
           if(s.contrats.length) zip.file("contrats.json",JSON.stringify(s.contrats,null,2));
           const resume=[
             `Dossier client : ${view.nom}`,`Exporté le : ${new Date().toLocaleDateString("fr-CH")}`,``,
             `CA total : CHF ${s.ca.toFixed(2)}`,`À encaisser : CHF ${s.aEncaisser.toFixed(2)}`,
             `Commandes : ${s.nbCommandes}`,`Factures : ${s.factures.length} (${s.nbNonPayees} impayée(s))`,
-            `Offres V5 : ${s.offresV5.length}`,`BC : ${s.bcsClient.length}`,`BL : ${s.blsClient.length}`,`Contrats : ${s.contrats.length}`,
+            `Offres V5 : ${s.offresV5.length}`,`Contrats : ${s.contrats.length}`,
           ].join("\n");
           zip.file("resume.txt",resume);
           const blob=await zip.generateAsync({type:"blob"});
@@ -11884,8 +11646,6 @@ const PipelineBanner = ({current}:{current:string}) => {
   const steps = [
     {id:"prospects",label:"Prospect",emoji:"🎯"},
     {id:"offres",label:"Offre",emoji:"📋"},
-    {id:"bc",label:"BC",emoji:"📑"},
-    {id:"bl",label:"BL",emoji:"🚚"},
     {id:"factures",label:"Facture",emoji:"🧾"},
     {id:"rappels",label:"Rappel",emoji:"📬"},
   ];
@@ -12141,32 +11901,6 @@ const convertirEnCommande = (offre) => {
   creerCommandeAchat(offre);
 };
 
-const creerBulletinCommandeFromOffre = (offre:any) => {
-  if(!window.confirm("Créer un Bulletin de Commande depuis cette offre ?")) return;
-  const y2=new Date().getFullYear();
-  const ex=(st.bulletinsCommande||[]).map((b:any)=>b.numero||"");
-  let n=1; while(ex.includes("BC-"+y2+"-"+String(n).padStart(3,"0")))n++;
-  const numero="BC-"+y2+"-"+String(n).padStart(3,"0");
-  const id=uid();
-  const lignesOk=(offre.lignes||[]).filter((l:any)=>l.qte>0).map((l:any)=>({
-    produitId:l.produitId, qte:l.qte,
-    prixUnitaire:(st.produits||[]).find((p:any)=>p.id===l.produitId)?.prixRevendeur||0,
-  }));
-  const newBC:any={id,numero,date:today(),
-    clientNom:offre.clientNom,clientEmail:offre.clientEmail||"",
-    clientAdresse:offre.clientAdresse||"",clientNpa:offre.clientNpa||"",
-    clientVille:offre.clientVille||"",clientTel:offre.clientTel||"",
-    lignes:lignesOk,modeReglement:"virement",dateLivraisonPrevue:"",
-    notes:"Issu de l'offre "+offre.numero,statut:"brouillon",
-    offreId:offre.id,bulletinLivraisonId:null,factureId:null,
-  };
-  setSt((p:any)=>({...p,
-    bulletinsCommande:[...(p.bulletinsCommande||[]),newBC],
-    offres:(p.offres||[]).map((o:any)=>o.id===offre.id?{...o,typeContrat:"bc",bulletinCommandeId:id}:o),
-  }));
-  alert(`✅ BC ${numero} créé !\nRetrouve-le dans Bulletins de Commande.`);
-};
-
 const setStatut = (id, statut) => setSt(p=>({...p,offres:(p.offres||[]).map(o=>o.id===id?{...o,statut}:o)}));
 
 const totalOffre = (offre) => {
@@ -12346,26 +12080,6 @@ if(view) return (
           <span style={{fontSize:10,fontWeight:400,color:"#93C5FD"}}>Commande CMD-…<br/>+ confirmation + facture</span>
         </button>
       </div>
-      <button onClick={()=>creerBulletinCommandeFromOffre(view)}
-        style={{width:"100%",background:"#F4F4F2",border:"1.5px solid #D1D5DB",borderRadius:10,padding:"11px 8px",fontWeight:700,fontSize:12,cursor:"pointer",textAlign:"center",color:"#374151"}}>
-        📋 Bulletin de Commande (BC)<br/>
-        <span style={{fontSize:10,fontWeight:400,color:"#6B7280"}}>BC-{new Date().getFullYear()}-… · livraison + signature</span>
-      </button>
-    </Card>
-  )}
-  {view.statut==="acceptée" && view.typeContrat==="bc" && (
-    <Card style={{padding:"12px 14px",marginBottom:12,background:"#F9FAFB",border:"1.5px solid #D1D5DB"}}>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
-        <p style={{fontSize:12,fontWeight:700,color:"#374151"}}>📋 Flux Bulletin de Commande</p>
-        <button onClick={()=>setSt((p:any)=>({...p,offres:(p.offres||[]).map((o:any)=>o.id===view.id?{...o,typeContrat:"",bulletinCommandeId:""}:o)}))} style={{background:"none",border:"none",fontSize:10,color:"#6B7280",cursor:"pointer"}}>changer</button>
-      </div>
-      {view.bulletinCommandeId ? (
-        <p style={{fontSize:11,color:"#374151"}}>BC créé — retrouve-le dans <strong>Bulletins de Commande</strong>.</p>
-      ) : (
-        <button onClick={()=>creerBulletinCommandeFromOffre(view)} style={{width:"100%",background:"#374151",color:"#fff",border:"none",borderRadius:8,padding:"10px",fontWeight:700,fontSize:12,cursor:"pointer"}}>
-          📋 Créer le Bulletin de Commande
-        </button>
-      )}
     </Card>
   )}
 
@@ -13132,749 +12846,8 @@ const RECETTES_DEFAULT = [
 ];
 
 // ══════════════════════════════════════════════════════════════
-// PDF : BULLETIN DE COMMANDE (BC)
+// MODULE : PRODUCTION
 // ══════════════════════════════════════════════════════════════
-const genererBCPDF = async (bc:any, st:any) => {
-try {
-  await new Promise<void>((res,rej)=>{ if((window as any).jspdf){res();return;} const s=document.createElement("script"); s.src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"; s.onload=()=>res(); s.onerror=rej; document.head.appendChild(s); });
-  const {jsPDF}=(window as any).jspdf;
-  const doc=new jsPDF({unit:"mm",format:"a4"});
-  const mg=15;
-  doc.setFillColor(10,10,10); doc.rect(0,0,210,38,"F");
-  pdfLogo(doc,mg);
-  doc.setTextColor(242,201,76); doc.setFontSize(9); doc.setFont("helvetica","bold");
-  doc.text("BULLETIN DE COMMANDE",mg+36,16);
-  doc.setTextColor(255,255,255); doc.setFontSize(7); doc.setFont("helvetica","normal");
-  doc.text(`${bc.numero} · ${fmt(bc.date)}`,mg+36,22);
-  doc.text("Goûtstoso · Rue des Sources 19 · 2613 Villeret · admin@goutstoso.ch",mg+36,28);
-  let y=48;
-  doc.setTextColor(0,0,0); doc.setFontSize(8); doc.setFont("helvetica","bold");
-  doc.text("DESTINATAIRE",mg,y); y+=5;
-  doc.setFont("helvetica","normal"); doc.setFontSize(8);
-  if(bc.clientNom){doc.text(bc.clientNom,mg,y);y+=4.5;}
-  if(bc.clientAdresse){doc.text(bc.clientAdresse,mg,y);y+=4.5;}
-  if(bc.clientNpa||bc.clientVille){doc.text([bc.clientNpa,bc.clientVille].filter(Boolean).join(" "),mg,y);y+=4.5;}
-  if(bc.clientEmail){doc.text(bc.clientEmail,mg,y);y+=4.5;}
-  const rx=120; let ry=48;
-  doc.setFont("helvetica","bold"); doc.text("DÉTAILS",rx,ry); ry+=5;
-  doc.setFont("helvetica","normal");
-  doc.text(`Numéro : ${bc.numero}`,rx,ry);ry+=4.5;
-  doc.text(`Date : ${fmt(bc.date)}`,rx,ry);ry+=4.5;
-  if(bc.dateLivraisonPrevue){doc.text(`Livraison : ${fmt(bc.dateLivraisonPrevue)}`,rx,ry);ry+=4.5;}
-  if(bc.modeReglement){doc.text(`Règlement : ${bc.modeReglement}`,rx,ry);ry+=4.5;}
-  y=Math.max(y,ry,85);
-  doc.setFillColor(10,10,10);doc.rect(mg,y,180,7,"F");
-  doc.setTextColor(255,255,255);doc.setFontSize(8);doc.setFont("helvetica","bold");
-  doc.text("Produit",mg+2,y+5); doc.text("Qté",132,y+5); doc.text("P.U.",152,y+5); doc.text("Total CHF",170,y+5);
-  y+=7; let total=0;
-  (bc.lignes||[]).forEach((l:any,i:number)=>{
-    const prod=(st.produits||[]).find((p:any)=>p.id===l.produitId); if(!prod)return;
-    const nm=[prod.nom,prod.variante,prod.format].filter(Boolean).join(" ");
-    const pu=l.prixUnitaire||prod.prixRevendeur||0; const tt=pu*(l.qte||0); total+=tt;
-    doc.setFillColor(i%2===0?249:255,i%2===0?249:255,i%2===0?246:255); doc.rect(mg,y,180,6,"F");
-    doc.setTextColor(0,0,0);doc.setFont("helvetica","normal");doc.setFontSize(8);
-    doc.text(nm.substring(0,44),mg+2,y+4.5); doc.text(String(l.qte||0),133,y+4.5); doc.text(pu.toFixed(2),151,y+4.5); doc.text(tt.toFixed(2),172,y+4.5);
-    y+=6;
-  });
-  y+=2; doc.setDrawColor(10,10,10);doc.setLineWidth(0.3);doc.line(mg,y,mg+180,y);y+=5;
-  doc.setFont("helvetica","bold");doc.setFontSize(9); doc.setTextColor(0,0,0);
-  const totTxt=`TOTAL : CHF ${total.toFixed(2)}`;
-  doc.text(totTxt,mg+180-doc.getTextWidth(totTxt),y); y+=10;
-  if(bc.notes){doc.setFont("helvetica","normal");doc.setFontSize(7);doc.setTextColor(80,80,80);doc.text("Notes : "+bc.notes,mg,y,{maxWidth:180});y+=10;}
-  doc.setFontSize(6);doc.setTextColor(100,100,100);
-  doc.text("Goûtstoso · Rue des Sources 19 · 2613 Villeret · admin@goutstoso.ch · Conformément à nos CGV",mg,285);
-  ajouterDocAnnexe(doc, "cgv", st);
-  ajouterDocAnnexe(doc, "charte_alcool", st);
-  doc.save(`BC_${bc.numero}.pdf`);
-} catch(e){alert("Erreur PDF BC : "+(e as any).message);}
-};
-
-// ══════════════════════════════════════════════════════════════
-// PDF : BULLETIN DE LIVRAISON (BL)
-// ══════════════════════════════════════════════════════════════
-const genererBLPDF = async (bl:any, st:any) => {
-try {
-  await new Promise<void>((res,rej)=>{ if((window as any).jspdf){res();return;} const s=document.createElement("script"); s.src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"; s.onload=()=>res(); s.onerror=rej; document.head.appendChild(s); });
-  const {jsPDF}=(window as any).jspdf;
-  const doc=new jsPDF({unit:"mm",format:"a4"});
-  const mg=15;
-  doc.setFillColor(10,10,10); doc.rect(0,0,210,38,"F");
-  pdfLogo(doc,mg);
-  doc.setTextColor(242,201,76); doc.setFontSize(9); doc.setFont("helvetica","bold");
-  doc.text("BULLETIN DE LIVRAISON",mg+36,16);
-  doc.setTextColor(255,255,255); doc.setFontSize(7); doc.setFont("helvetica","normal");
-  doc.text(`${bl.numero} · ${fmt(bl.dateLivraison||bl.dateCreation)}`,mg+36,22);
-  doc.text("Goûtstoso · Rue des Sources 19 · 2613 Villeret · admin@goutstoso.ch",mg+36,28);
-  let y=48;
-  doc.setTextColor(0,0,0); doc.setFontSize(8); doc.setFont("helvetica","bold");
-  doc.text("DESTINATAIRE",mg,y); y+=5;
-  doc.setFont("helvetica","normal"); doc.setFontSize(8);
-  if(bl.clientNom){doc.text(bl.clientNom,mg,y);y+=4.5;}
-  if(bl.clientAdresse){doc.text(bl.clientAdresse,mg,y);y+=4.5;}
-  if(bl.clientNpa||bl.clientVille){doc.text([bl.clientNpa,bl.clientVille].filter(Boolean).join(" "),mg,y);y+=4.5;}
-  const rx=120; let ry=48;
-  doc.setFont("helvetica","bold"); doc.text("DÉTAILS",rx,ry); ry+=5;
-  doc.setFont("helvetica","normal");
-  doc.text(`Numéro : ${bl.numero}`,rx,ry);ry+=4.5;
-  doc.text(`Date livraison : ${fmt(bl.dateLivraison||bl.dateCreation)}`,rx,ry);ry+=4.5;
-  if(bl.bcNumero){doc.text(`BC réf. : ${bl.bcNumero}`,rx,ry);ry+=4.5;}
-  y=Math.max(y,ry,85);
-  doc.setFillColor(10,10,10);doc.rect(mg,y,180,7,"F");
-  doc.setTextColor(255,255,255);doc.setFontSize(8);doc.setFont("helvetica","bold");
-  doc.text("Produit",mg+2,y+5); doc.text("Qté",142,y+5); doc.text("Lot",162,y+5);
-  y+=7;
-  (bl.lignes||[]).forEach((l:any,i:number)=>{
-    const prod=(st.produits||[]).find((p:any)=>p.id===l.produitId); if(!prod)return;
-    const nm=[prod.nom,prod.variante,prod.format].filter(Boolean).join(" ");
-    doc.setFillColor(i%2===0?249:255,i%2===0?249:255,i%2===0?246:255); doc.rect(mg,y,180,6,"F");
-    doc.setTextColor(0,0,0);doc.setFont("helvetica","normal");doc.setFontSize(8);
-    doc.text(nm.substring(0,50),mg+2,y+4.5); doc.text(String(l.qte||0),143,y+4.5);
-    if(l.lot){doc.text(l.lot,162,y+4.5);}
-    y+=6;
-  });
-  y+=10;
-  doc.setFont("helvetica","bold");doc.setFontSize(8);doc.setTextColor(0,0,0);
-  doc.text("Signature du client (bon pour réception) :",mg,y); y+=8;
-  if(bl.signatureClient){
-    try{doc.addImage(bl.signatureClient,"PNG",mg,y,60,25);}catch(e){}
-    if(bl.signatureNom){doc.setFont("helvetica","normal");doc.setFontSize(8);doc.text(bl.signatureNom,mg,y+28);}
-    y+=32;
-  } else {
-    doc.setDrawColor(150,150,150);doc.setLineWidth(0.3);doc.rect(mg,y,60,20);y+=25;
-  }
-  doc.setFontSize(6);doc.setTextColor(100,100,100);
-  doc.text("Goûtstoso · Rue des Sources 19 · 2613 Villeret · admin@goutstoso.ch · www.goutstoso.ch",mg,285);
-  ajouterDocAnnexe(doc, "charte_alcool", st);
-  doc.save(`BL_${bl.numero}.pdf`);
-} catch(e){alert("Erreur PDF BL : "+(e as any).message);}
-};
-
-// ══════════════════════════════════════════════════════════════
-// MODULE : PROSPECTS (V5)
-// ══════════════════════════════════════════════════════════════
-const Prospects = ({st, setSt, setTab=(_any:any)=>{}}) => {
-  const [modal, setModal] = useState<string|null>(null);
-  const [viewId, setViewId] = useState<string|null>(null);
-  const [form, setForm] = useState<any>({});
-  const [filtreStatut, setFiltreStatut] = useState("tous");
-  const [search, setSearch] = useState("");
-  const [newInterType, setNewInterType] = useState("email");
-  const [newInterNote, setNewInterNote] = useState("");
-
-  const prospects:any[] = st.prospects || [];
-  const view = viewId ? prospects.find((p:any)=>p.id===viewId) : null;
-
-  const TYPES = ["cave","épicerie fine","restaurant","bar","hôtel","autre"];
-  const SOURCES = ["instagram","facebook","bouche à oreille","salon","site web","email","autre"];
-  const STATUTS_P = [
-    {id:"a_contacter",label:"À contacter"},{id:"contacte",label:"Contacté"},
-    {id:"interesse",label:"Intéressé"},{id:"en_discussion",label:"En discussion"},
-    {id:"offre_en_cours",label:"Offre en cours"},{id:"converti",label:"Converti"},{id:"perdu",label:"Perdu"},
-  ];
-  const SC = (s:string) => STATUTS_COULEURS[s]||{bg:"#F3F4F6",border:"#D1D5DB",text:"#374151",emoji:"⚪",label:s};
-
-  const emptyForm = () => ({
-    id:null,dateCreation:today(),nomEtablissement:"",typeEtab:"cave",
-    contactNom:"",contactFonction:"",email:"",telephone:"",
-    adresse:"",npa:"",ville:"",site:"",source:"instagram",
-    statut:"a_contacter",score:3,notes:"",interactions:[],
-    prochaineActionDate:"",prochaineActionType:"",offreId:null,
-  });
-
-  const save = () => {
-    if(!form.nomEtablissement?.trim()){alert("Nom de l'établissement requis");return;}
-    const saved={...form,id:form.id||uid(),modifieLe:today()};
-    if(form.id) setSt((p:any)=>({...p,prospects:(p.prospects||[]).map((x:any)=>x.id===form.id?saved:x)}));
-    else setSt((p:any)=>({...p,prospects:[...(p.prospects||[]),saved]}));
-    setModal(null); setViewId(saved.id);
-  };
-
-  const addInteraction = (pid:string, type:string, notes:string) => {
-    if(!notes.trim())return;
-    setSt((p:any)=>({...p,prospects:(p.prospects||[]).map((x:any)=>x.id===pid?{...x,interactions:[...(x.interactions||[]),{id:uid(),date:today(),type,notes}]}:x)}));
-    setNewInterNote("");
-  };
-
-  const convertirClient = (prospect:any) => {
-    if(!window.confirm(`Convertir "${prospect.nomEtablissement}" en client ?`))return;
-    const deja=(st.clients||[]).find((c:any)=>c.nom?.toLowerCase()===prospect.nomEtablissement.toLowerCase());
-    if(deja){alert("Un client avec ce nom existe déjà.");return;}
-    const nc={id:uid(),nom:prospect.nomEtablissement,email:prospect.email||"",telephone:prospect.telephone||"",adresse:prospect.adresse||"",npa:prospect.npa||"",ville:prospect.ville||"",categorie:"Client",notes:prospect.notes||""};
-    setSt((p:any)=>({...p,clients:[...(p.clients||[]),nc],prospects:(p.prospects||[]).map((x:any)=>x.id===prospect.id?{...x,statut:"converti",convertiEnClientId:nc.id}:x)}));
-    alert(`✅ "${prospect.nomEtablissement}" converti en client !`);
-  };
-
-  const creerOffre = (prospect:any) => {
-    const y2=new Date().getFullYear();
-    const ex=(st.offres||[]).map((o:any)=>o.numero||"");
-    let n=1; while(ex.includes("OFF-"+y2+"-"+String(n).padStart(3,"0")))n++;
-    const numero="OFF-"+y2+"-"+String(n).padStart(3,"0");
-    const id=uid();
-    const dv=new Date(); dv.setDate(dv.getDate()+30);
-    const newOffre:any={id,numero,date:today(),dateValidite:dv.toISOString().slice(0,10),prospectId:prospect.id,
-      clientNom:prospect.nomEtablissement,clientContact:prospect.contactNom||"",
-      clientAdresse:prospect.adresse||"",clientNpa:prospect.npa||"",clientVille:prospect.ville||"",
-      clientEmail:prospect.email||"",clientTel:prospect.telephone||"",clientSite:prospect.site||"",clientLogo:"",
-      lignes:[],notes:"",statut:"brouillon",
-      introText:"Nous avons le plaisir de vous soumettre notre offre commerciale pour nos liqueurs artisanales Goûtstoso.",
-      createdAt:today()};
-    setSt((p:any)=>({...p,offres:[...(p.offres||[]),newOffre],
-      prospects:(p.prospects||[]).map((x:any)=>x.id===prospect.id?{...x,statut:"offre_en_cours",offreId:id}:x)}));
-    setTab("offres");
-    alert(`✅ Offre ${numero} créée ! Redirection vers Offres.`);
-  };
-
-  const actionSuggeree = (p:any) => {
-    if(p.statut==="a_contacter") return {label:"📧 Envoyer email de présentation",direct:true};
-    if(p.statut==="contacte")    return {label:"📞 Relancer (J+7)",direct:false};
-    if(p.statut==="interesse"||p.statut==="en_discussion") return {label:"💼 Créer une offre",isOffre:true};
-    if(p.statut==="offre_en_cours") return {label:"🔄 Relancer (sans réponse)",direct:false};
-    return null;
-  };
-
-  // ── VUE DÉTAIL ──
-  if(view) {
-    const sc=SC(view.statut);
-    const act=actionSuggeree(view);
-    return (
-      <div className="fade">
-        <Breadcrumb crumbs={[{label:"Prospects",onClick:()=>setViewId(null)},{label:view.nom}]}/>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:10}}>
-          <div style={{flex:1}}>
-            <h2 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:22,fontWeight:700}}>{view.nomEtablissement}</h2>
-            <p style={{fontSize:12,color:"#737373"}}>{view.typeEtab}{view.ville?" · "+view.ville:""}</p>
-            <div style={{display:"flex",gap:2,marginTop:4}}>{[1,2,3,4,5].map((i:number)=><span key={i} style={{fontSize:13,opacity:i<=(view.score||0)?1:.2}}>⭐</span>)}</div>
-          </div>
-          <span style={{background:sc.bg,color:sc.text,border:`1px solid ${sc.border}`,borderRadius:20,padding:"4px 12px",fontSize:11,fontWeight:700,flexShrink:0,marginLeft:8}}>{sc.emoji} {sc.label}</span>
-        </div>
-        {act && view.statut!=="converti" && view.statut!=="perdu" && (
-          <div style={{background:"#0A0A0A",borderRadius:12,padding:"14px",marginBottom:14}}>
-            <p style={{fontSize:10,color:"#E8B64C",fontWeight:600,textTransform:"uppercase",letterSpacing:"0.04em",marginBottom:8}}>⚡ Action suggérée</p>
-            {(act as any).isOffre ? (
-              <button onClick={()=>creerOffre(view)} style={{width:"100%",background:"#E8B64C",color:"#0A0A0A",border:"none",borderRadius:9,padding:"12px",fontWeight:700,fontSize:13,cursor:"pointer"}}>{act.label}</button>
-            ) : (act as any).direct ? (
-              <button onClick={()=>{
-                window.open(`mailto:${view.email||""}?subject=${encodeURIComponent("Goûtstoso · Présentation de nos liqueurs artisanales")}&body=${encodeURIComponent("Bonjour "+(view.contactNom||"")+",\n\nJe vous contacte depuis Villeret, en Suisse, où je fabrique des liqueurs artisanales Goûtstoso.\n\nJe souhaiterais vous présenter notre gamme et nos tarifs partenaires.\n\nCordialement,\nJordan Montanaro\nGoûtstoso · admin@goutstoso.ch")}`,"_blank");
-                setSt((p:any)=>({...p,prospects:(p.prospects||[]).map((x:any)=>x.id===view.id?{...x,statut:"contacte",interactions:[...(x.interactions||[]),{id:uid(),date:today(),type:"email",notes:"Email de présentation envoyé"}]}:x)}));
-              }} style={{width:"100%",background:"#E8B64C",color:"#0A0A0A",border:"none",borderRadius:9,padding:"12px",fontWeight:700,fontSize:13,cursor:"pointer"}}>{act.label}</button>
-            ) : (
-              <button onClick={()=>setViewId(view.id)} style={{width:"100%",background:"#E8B64C",color:"#0A0A0A",border:"none",borderRadius:9,padding:"12px",fontWeight:700,fontSize:13,cursor:"pointer"}}>{act.label} →</button>
-            )}
-          </div>
-        )}
-        {view.statut==="converti" && (
-          <div style={{background:"#DCFCE7",border:"1px solid #86EFAC",borderRadius:12,padding:"12px 14px",marginBottom:14}}>
-            <p style={{fontSize:13,fontWeight:700,color:"#15803D"}}>🟢 Converti en client</p>
-          </div>
-        )}
-        <Card style={{marginBottom:12}}>
-          <p style={{fontSize:10,fontWeight:700,color:"#737373",textTransform:"uppercase",letterSpacing:"0.04em",marginBottom:8}}>Coordonnées</p>
-          <div style={{display:"grid",gap:5,fontSize:12}}>
-            {view.contactNom&&<div style={{display:"flex",gap:8}}><span style={{color:"#9CA3AF",minWidth:70,flexShrink:0}}>Contact</span><span style={{fontWeight:600}}>{view.contactNom}{view.contactFonction?" · "+view.contactFonction:""}</span></div>}
-            {view.email&&<div style={{display:"flex",gap:8}}><span style={{color:"#9CA3AF",minWidth:70,flexShrink:0}}>Email</span><a href={`mailto:${view.email}`} style={{color:"#1E40AF"}}>{view.email}</a></div>}
-            {view.telephone&&<div style={{display:"flex",gap:8}}><span style={{color:"#9CA3AF",minWidth:70,flexShrink:0}}>Tél.</span><a href={`tel:${view.telephone}`} style={{color:"#1E40AF"}}>{view.telephone}</a></div>}
-            {(view.adresse||view.ville)&&<div style={{display:"flex",gap:8}}><span style={{color:"#9CA3AF",minWidth:70,flexShrink:0}}>Adresse</span><span>{[view.adresse,[view.npa,view.ville].filter(Boolean).join(" ")].filter(Boolean).join(", ")}</span></div>}
-            {view.site&&<div style={{display:"flex",gap:8}}><span style={{color:"#9CA3AF",minWidth:70,flexShrink:0}}>Site</span><a href={view.site} target="_blank" style={{color:"#1E40AF",overflow:"hidden",textOverflow:"ellipsis"}}>{view.site}</a></div>}
-            <div style={{display:"flex",gap:8}}><span style={{color:"#9CA3AF",minWidth:70,flexShrink:0}}>Source</span><span>{view.source}</span></div>
-          </div>
-        </Card>
-        <Card style={{marginBottom:12}}>
-          <p style={{fontSize:10,fontWeight:700,color:"#737373",textTransform:"uppercase",letterSpacing:"0.04em",marginBottom:8}}>Statut</p>
-          <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
-            {STATUTS_P.map((s:any)=>{const sc2=SC(s.id);const active=view.statut===s.id;return(<button key={s.id} onClick={()=>setSt((p:any)=>({...p,prospects:(p.prospects||[]).map((x:any)=>x.id===view.id?{...x,statut:s.id}:x)}))} style={{padding:"5px 11px",borderRadius:20,border:`1px solid ${active?sc2.border:"#EAE7E0"}`,background:active?sc2.bg:"transparent",color:active?sc2.text:"#737373",fontSize:10,fontWeight:active?700:400,cursor:"pointer"}}>{sc2.emoji} {s.label}</button>);})}
-          </div>
-        </Card>
-        <Card style={{marginBottom:12}}>
-          <p style={{fontSize:10,fontWeight:700,color:"#737373",textTransform:"uppercase",letterSpacing:"0.04em",marginBottom:8}}>Interactions ({(view.interactions||[]).length})</p>
-          <div style={{display:"flex",gap:6,marginBottom:8}}>
-            <select value={newInterType} onChange={e=>setNewInterType(e.target.value)} style={{width:100,fontSize:11,padding:"6px 8px"}}>
-              {["email","appel","visite","réunion","autre"].map((t:string)=><option key={t} value={t}>{t}</option>)}
-            </select>
-            <input value={newInterNote} onChange={e=>setNewInterNote(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")addInteraction(view.id,newInterType,newInterNote);}} placeholder="Note…" style={{flex:1,fontSize:12,padding:"6px 10px"}}/>
-            <button onClick={()=>addInteraction(view.id,newInterType,newInterNote)} style={{background:"#0A0A0A",color:"#fff",border:"none",borderRadius:8,padding:"6px 12px",fontSize:11,fontWeight:600,cursor:"pointer",flexShrink:0}}>+</button>
-          </div>
-          {[...(view.interactions||[])].reverse().slice(0,6).map((inter:any,i:number)=>(
-            <div key={i} style={{display:"flex",gap:8,padding:"6px 0",borderTop:"1px solid #F4F4F2"}}>
-              <span style={{fontSize:14,flexShrink:0}}>{inter.type==="email"?"📧":inter.type==="appel"?"📞":inter.type==="visite"?"🚗":"🤝"}</span>
-              <div style={{flex:1,minWidth:0}}>
-                <div style={{display:"flex",justifyContent:"space-between"}}><p style={{fontSize:11,fontWeight:600}}>{inter.type}</p><p style={{fontSize:10,color:"#9CA3AF"}}>{fmt(inter.date)}</p></div>
-                <p style={{fontSize:11,color:"#525252"}}>{inter.notes}</p>
-              </div>
-            </div>
-          ))}
-        </Card>
-        {view.notes&&(<Card style={{marginBottom:12}}><p style={{fontSize:10,fontWeight:700,color:"#737373",textTransform:"uppercase",letterSpacing:"0.04em",marginBottom:6}}>Notes</p><p style={{fontSize:12,color:"#525252"}}>{view.notes}</p></Card>)}
-        <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:24}}>
-          {view.statut!=="converti"&&view.statut!=="perdu"&&(<button onClick={()=>convertirClient(view)} style={{width:"100%",background:"#DCFCE7",border:"1.5px solid #86EFAC",borderRadius:10,padding:"11px",fontWeight:700,fontSize:12,color:"#15803D",cursor:"pointer"}}>✅ Convertir en client</button>)}
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
-            <button onClick={()=>{setForm({...view});setModal("form");setViewId(null);}} style={{background:"#F4F4F2",border:"none",borderRadius:10,padding:"10px",fontWeight:600,fontSize:12,cursor:"pointer"}}>✏️ Modifier</button>
-            <button onClick={()=>{if(!window.confirm("Supprimer ce prospect ?"))return;setSt((p:any)=>({...p,prospects:(p.prospects||[]).filter((x:any)=>x.id!==view.id)}));setViewId(null);}} style={{background:"#FEF2F2",border:"1px solid #FECACA",borderRadius:10,padding:"10px",fontWeight:600,fontSize:12,color:"#B91C1C",cursor:"pointer"}}>🗑 Supprimer</button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // ── FORMULAIRE ──
-  if(modal==="form") return (
-    <div className="fade">
-      <button onClick={()=>{setModal(null);if(form.id)setViewId(form.id);}} style={{display:"flex",alignItems:"center",gap:6,background:"none",border:"none",color:"#9CA3AF",fontSize:13,marginBottom:12,padding:0,cursor:"pointer"}}>← Annuler</button>
-      <h2 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:24,fontWeight:700,marginBottom:16}}>{form.id?"Modifier le prospect":"Nouveau prospect"}</h2>
-      {!form.id && (st.clients||[]).length > 0 && (
-        <Card style={{marginBottom:12,background:"#F0F9FF",border:"1.5px solid #BAE6FD"}}>
-          <p style={{fontSize:10,fontWeight:700,color:"#0369A1",textTransform:"uppercase",letterSpacing:"0.04em",marginBottom:8}}>📇 Partir d'un contact existant (optionnel)</p>
-          <select onChange={e=>{
-            const c=(st.clients||[]).find((x:any)=>x.id===e.target.value);
-            if(c) setForm((f:any)=>({...f,nomEtablissement:c.nom||f.nomEtablissement,email:c.email||f.email,telephone:c.telephone||f.telephone,adresse:c.adresse||f.adresse,npa:c.npa||f.npa,ville:c.ville||f.ville,contactNom:c.contact||f.contactNom}));
-            e.target.value="";
-          }} defaultValue="" style={{width:"100%",padding:"9px 12px",borderRadius:8,border:"1px solid #BAE6FD",fontSize:13,background:"#fff",color:"#0369A1",fontWeight:600}}>
-            <option value="">— Choisir un client existant —</option>
-            {(st.clients||[]).map((c:any)=><option key={c.id} value={c.id}>{c.nom}{c.ville?" ("+c.ville+")":""}</option>)}
-          </select>
-        </Card>
-      )}
-      <Card style={{marginBottom:12}}>
-        <p style={{fontSize:10,fontWeight:700,color:"#737373",textTransform:"uppercase",letterSpacing:"0.04em",marginBottom:10}}>Établissement</p>
-        <F label="Nom *" value={form.nomEtablissement||""} onChange={(v:string)=>setForm((f:any)=>({...f,nomEtablissement:v}))} required/>
-        <Sel label="Type" value={form.typeEtab||"cave"} onChange={(v:string)=>setForm((f:any)=>({...f,typeEtab:v}))} options={TYPES.map(t=>({value:t,label:t}))}/>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
-          <F label="NPA" value={form.npa||""} onChange={(v:string)=>setForm((f:any)=>({...f,npa:v}))}/>
-          <F label="Ville" value={form.ville||""} onChange={(v:string)=>setForm((f:any)=>({...f,ville:v}))}/>
-        </div>
-        <F label="Adresse" value={form.adresse||""} onChange={(v:string)=>setForm((f:any)=>({...f,adresse:v}))}/>
-        <F label="Site web" value={form.site||""} onChange={(v:string)=>setForm((f:any)=>({...f,site:v}))}/>
-      </Card>
-      <Card style={{marginBottom:12}}>
-        <p style={{fontSize:10,fontWeight:700,color:"#737373",textTransform:"uppercase",letterSpacing:"0.04em",marginBottom:10}}>Contact</p>
-        <F label="Nom du contact" value={form.contactNom||""} onChange={(v:string)=>setForm((f:any)=>({...f,contactNom:v}))}/>
-        <F label="Fonction" value={form.contactFonction||""} onChange={(v:string)=>setForm((f:any)=>({...f,contactFonction:v}))}/>
-        <F label="Email" type="email" value={form.email||""} onChange={(v:string)=>setForm((f:any)=>({...f,email:v}))}/>
-        <F label="Téléphone" value={form.telephone||""} onChange={(v:string)=>setForm((f:any)=>({...f,telephone:v}))}/>
-      </Card>
-      <Card style={{marginBottom:16}}>
-        <p style={{fontSize:10,fontWeight:700,color:"#737373",textTransform:"uppercase",letterSpacing:"0.04em",marginBottom:10}}>Qualification</p>
-        <Sel label="Source" value={form.source||"instagram"} onChange={(v:string)=>setForm((f:any)=>({...f,source:v}))} options={SOURCES.map(s=>({value:s,label:s}))}/>
-        <Sel label="Statut" value={form.statut||"a_contacter"} onChange={(v:string)=>setForm((f:any)=>({...f,statut:v}))} options={STATUTS_P.map(s=>({value:s.id,label:SC(s.id).emoji+" "+s.label}))}/>
-        <div><label style={{fontSize:12,fontWeight:600,color:"#525252",display:"block",marginBottom:6}}>Score</label><div style={{display:"flex",gap:6}}>{[1,2,3,4,5].map(n=><button key={n} onClick={()=>setForm((f:any)=>({...f,score:n}))} style={{flex:1,padding:"8px",borderRadius:8,border:`1.5px solid ${(form.score||0)>=n?"#E8B64C":"#EAE7E0"}`,background:(form.score||0)>=n?"#FDF6E3":"transparent",fontSize:15,cursor:"pointer"}}>⭐</button>)}</div></div>
-        <div style={{marginTop:10}}><label style={{fontSize:12,fontWeight:600,color:"#525252",display:"block",marginBottom:4}}>Notes</label><textarea value={form.notes||""} onChange={e=>setForm((f:any)=>({...f,notes:e.target.value}))} rows={3} style={{width:"100%",fontSize:12,border:"1px solid #EAE7E0",borderRadius:10,padding:"10px 12px",fontFamily:"Inter,sans-serif",resize:"vertical"}}/></div>
-      </Card>
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:24}}>
-        <button onClick={()=>{setModal(null);if(form.id)setViewId(form.id);}} style={{background:"#F4F4F2",border:"none",borderRadius:10,padding:"12px",fontWeight:600,fontSize:13,cursor:"pointer"}}>Annuler</button>
-        <button onClick={save} style={{background:"#0A0A0A",color:"#fff",border:"none",borderRadius:10,padding:"12px",fontWeight:700,fontSize:13,cursor:"pointer"}}>{form.id?"Enregistrer":"Créer le prospect"}</button>
-      </div>
-    </div>
-  );
-
-  // ── LISTE ──
-  const FILTRES=[{id:"tous",label:"Tous"},...STATUTS_P.map(s=>({id:s.id,label:SC(s.id).emoji+" "+s.label}))];
-  const liste=prospects.filter((p:any)=>(filtreStatut==="tous"||p.statut===filtreStatut)&&(!search||p.nomEtablissement?.toLowerCase().includes(search.toLowerCase())||p.ville?.toLowerCase().includes(search.toLowerCase()))).sort((a:any,b:any)=>(b.dateCreation||"")>(a.dateCreation||"")?1:-1);
-  return (
-    <div className="fade">
-      <PipelineBanner current="prospects"/>
-      <SectionTitle action={<div style={{display:"flex",gap:8}}>
-        <button onClick={()=>genererProspectionPDF({clientNom:"",clientContact:""},st.produits,st)} style={{background:"#1E40AF",color:"#fff",border:"none",borderRadius:9,padding:"9px 12px",fontSize:12,fontWeight:600,cursor:"pointer",display:"flex",alignItems:"center",gap:5}}>📋 Fiche PDF</button>
-        <button onClick={()=>{setForm(emptyForm());setModal("form");}} style={{background:"#0A0A0A",color:"#fff",border:"none",borderRadius:9,padding:"9px 16px",fontSize:13,fontWeight:600,cursor:"pointer"}}>+ Nouveau</button>
-      </div>}>
-        Prospects <span style={{fontSize:14,color:"#9CA3AF",fontWeight:400}}>({prospects.length})</span>
-      </SectionTitle>
-      {prospects.length>0&&(
-        <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8,marginBottom:12}}>
-          {[
-            {l:"À contacter",n:prospects.filter((p:any)=>p.statut==="a_contacter").length,e:"⚪"},
-            {l:"En cours",n:prospects.filter((p:any)=>["contacte","interesse","en_discussion","offre_en_cours"].includes(p.statut)).length,e:"🟡"},
-            {l:"Convertis",n:prospects.filter((p:any)=>p.statut==="converti").length,e:"🟢"},
-          ].map((s:any,i:number)=>(
-            <div key={i} style={{background:"#fff",borderRadius:10,padding:"10px",textAlign:"center",border:"1px solid #EAE7E0"}}>
-              <p style={{fontSize:16}}>{s.e}</p>
-              <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:18,fontWeight:700}}>{s.n}</p>
-              <p style={{fontSize:9,color:"#737373"}}>{s.l}</p>
-            </div>
-          ))}
-        </div>
-      )}
-      <div style={{display:"flex",gap:5,overflowX:"auto",marginBottom:10,paddingBottom:4}}>
-        {FILTRES.slice(0,6).map((f:any)=><button key={f.id} onClick={()=>setFiltreStatut(f.id)} style={{background:filtreStatut===f.id?"#0A0A0A":"#F4F4F2",color:filtreStatut===f.id?"#fff":"#525252",border:"none",borderRadius:20,padding:"6px 12px",fontSize:10,fontWeight:filtreStatut===f.id?700:400,cursor:"pointer",whiteSpace:"nowrap",flexShrink:0}}>{f.label}</button>)}
-      </div>
-      <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="🔍 Rechercher…" style={{marginBottom:12,fontSize:13}}/>
-      {liste.length===0?(
-        <div style={{textAlign:"center",padding:"40px 0",color:"#9CA3AF"}}>
-          <p style={{fontSize:32,marginBottom:8}}>🎯</p>
-          <p style={{fontSize:14,fontWeight:600}}>{prospects.length===0?"Aucun prospect":"Aucun résultat"}</p>
-          {prospects.length===0&&<button onClick={()=>{setForm(emptyForm());setModal("form");}} style={{marginTop:16,background:"#0A0A0A",color:"#fff",border:"none",borderRadius:10,padding:"11px 24px",fontSize:13,fontWeight:600,cursor:"pointer"}}>+ Premier prospect</button>}
-        </div>
-      ):(
-        <div style={{display:"flex",flexDirection:"column",gap:8}}>
-          {liste.map((p:any)=>{
-            const sc=SC(p.statut); const act=actionSuggeree(p);
-            return(
-              <div key={p.id} onClick={()=>setViewId(p.id)} style={{background:"#fff",borderRadius:12,padding:"12px 14px",border:"1px solid #EAE7E0",cursor:"pointer"}}>
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:3}}>
-                  <div style={{flex:1,minWidth:0}}><p style={{fontSize:13,fontWeight:700}}>{p.nomEtablissement}</p><p style={{fontSize:11,color:"#737373"}}>{p.typeEtab}{p.ville?" · "+p.ville:""}</p></div>
-                  <span style={{background:sc.bg,color:sc.text,border:`1px solid ${sc.border}`,borderRadius:20,padding:"3px 9px",fontSize:10,fontWeight:700,flexShrink:0,marginLeft:8}}>{sc.emoji} {sc.label}</span>
-                </div>
-                {act&&p.statut!=="converti"&&p.statut!=="perdu"&&<p style={{fontSize:10,color:"#9CA3AF",marginTop:3}}>→ {act.label}</p>}
-                {p.prochaineActionDate&&<p style={{fontSize:10,color:"#E8B64C",marginTop:2}}>📅 {p.prochaineActionType||"Action"} le {fmt(p.prochaineActionDate)}</p>}
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-};
-
-// ══════════════════════════════════════════════════════════════
-// MODULE : BULLETINS DE COMMANDE (BC) (V5)
-// ══════════════════════════════════════════════════════════════
-const BulletinsCommande = ({st, setSt, setTab=(_any:any)=>{}}) => {
-  const [modal, setModal] = useState<string|null>(null);
-  const [viewId, setViewId] = useState<string|null>(null);
-  const [form, setForm] = useState<any>({});
-  const [showArchived, setShowArchived] = useState(false);
-
-  const bcs:any[] = st.bulletinsCommande || [];
-  const view = viewId ? bcs.find((b:any)=>b.id===viewId) : null;
-  const SC = (s:string) => STATUTS_COULEURS[s]||{bg:"#F3F4F6",border:"#D1D5DB",text:"#374151",emoji:"📝",label:s};
-
-  const nextNumero = () => {
-    const y2=new Date().getFullYear(); const ex=bcs.map((b:any)=>b.numero||"");
-    let n=1; while(ex.includes("BC-"+y2+"-"+String(n).padStart(3,"0")))n++;
-    return "BC-"+y2+"-"+String(n).padStart(3,"0");
-  };
-
-  const emptyForm = () => ({
-    id:null,numero:nextNumero(),date:today(),
-    clientNom:"",clientEmail:"",clientAdresse:"",clientNpa:"",clientVille:"",clientTel:"",
-    lignes:(st.produits||[]).filter((p:any)=>p.actif!==false).map((p:any)=>({produitId:p.id,qte:0,prixUnitaire:p.prixRevendeur||0})),
-    modeReglement:"virement",dateLivraisonPrevue:"",notes:"",statut:"brouillon",
-    offreId:null,bulletinLivraisonId:null,factureId:null,
-  });
-
-  const totalBC = (bc:any) => (bc.lignes||[]).reduce((s:number,l:any)=>s+(l.prixUnitaire||0)*(l.qte||0),0);
-
-  const save = () => {
-    if(!form.clientNom?.trim()){alert("Nom client requis");return;}
-    const lignesOk=(form.lignes||[]).filter((l:any)=>l.qte>0);
-    if(!lignesOk.length){alert("Ajoute au moins un produit");return;}
-    const saved={...form,id:form.id||uid(),lignes:lignesOk,modifieLe:today()};
-    if(form.id) setSt((p:any)=>({...p,bulletinsCommande:(p.bulletinsCommande||[]).map((b:any)=>b.id===form.id?saved:b)}));
-    else setSt((p:any)=>({...p,bulletinsCommande:[...(p.bulletinsCommande||[]),saved]}));
-    setModal(null); setViewId(saved.id);
-  };
-
-  const creerBL = (bc:any) => {
-    if(!window.confirm("Créer un Bulletin de Livraison depuis ce BC ?"))return;
-    const y2=new Date().getFullYear(); const ex=(st.bulletinsLivraison||[]).map((b:any)=>b.numero||"");
-    let n=1; while(ex.includes("BL-"+y2+"-"+String(n).padStart(3,"0")))n++;
-    const numero="BL-"+y2+"-"+String(n).padStart(3,"0"); const blId=uid();
-    const newBL:any={id:blId,numero,dateCreation:today(),dateLivraison:today(),bulletinCommandeId:bc.id,bcNumero:bc.numero,
-      clientNom:bc.clientNom,clientEmail:bc.clientEmail,clientAdresse:bc.clientAdresse,clientNpa:bc.clientNpa,clientVille:bc.clientVille,
-      lignes:bc.lignes.map((l:any)=>({...l})),statut:"a_livrer",signatureClient:null,signatureNom:"",notes:""};
-    setSt((p:any)=>({...p,bulletinsLivraison:[...(p.bulletinsLivraison||[]),newBL],
-      bulletinsCommande:(p.bulletinsCommande||[]).map((b:any)=>b.id===bc.id?{...b,bulletinLivraisonId:blId,statut:"signe"}:b)}));
-    setViewId(null); setTab("bulletinsLivraison");
-    alert(`✅ BL ${numero} créé !`);
-  };
-
-  // ── VUE DÉTAIL ──
-  if(view) {
-    const sc=SC(view.statut); const tot=totalBC(view);
-    return (
-      <div className="fade">
-        <Breadcrumb crumbs={[{label:"Bulletins de commande",onClick:()=>setViewId(null)},{label:view.numero}]}/>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:10}}>
-          <div><h2 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:22,fontWeight:700}}>{view.numero}</h2><p style={{fontSize:12,color:"#737373"}}>{view.clientNom} · {fmt(view.date)}</p></div>
-          <span style={{background:sc.bg,color:sc.text,border:`1px solid ${sc.border}`,borderRadius:20,padding:"4px 12px",fontSize:11,fontWeight:700,flexShrink:0}}>{sc.emoji} {sc.label}</span>
-        </div>
-        {view.statut==="brouillon"&&(<div style={{background:"#0A0A0A",borderRadius:12,padding:"14px",marginBottom:14}}>
-          <p style={{fontSize:10,color:"#E8B64C",fontWeight:600,textTransform:"uppercase",letterSpacing:"0.04em",marginBottom:8}}>⚡ Action suivante</p>
-          <button onClick={()=>{genererBCPDF(view,st);setSt((p:any)=>({...p,bulletinsCommande:(p.bulletinsCommande||[]).map((b:any)=>b.id===view.id?{...b,statut:"envoye"}:b)}));}} style={{width:"100%",background:"#E8B64C",color:"#0A0A0A",border:"none",borderRadius:9,padding:"12px",fontWeight:700,fontSize:13,cursor:"pointer"}}>📤 Envoyer (PDF + statut → Envoyé)</button>
-        </div>)}
-        {view.statut==="envoye"&&(<div style={{background:"#0A0A0A",borderRadius:12,padding:"14px",marginBottom:14}}>
-          <p style={{fontSize:10,color:"#E8B64C",fontWeight:600,textTransform:"uppercase",letterSpacing:"0.04em",marginBottom:8}}>⚡ Action suivante</p>
-          <button onClick={()=>setSt((p:any)=>({...p,bulletinsCommande:(p.bulletinsCommande||[]).map((b:any)=>b.id===view.id?{...b,statut:"signe"}:b)}))} style={{width:"100%",background:"#E8B64C",color:"#0A0A0A",border:"none",borderRadius:9,padding:"12px",fontWeight:700,fontSize:13,cursor:"pointer",marginBottom:8}}>✅ Marquer comme signé</button>
-          <button onClick={()=>genererBCPDF(view,st)} style={{width:"100%",background:"#fff",border:"1.5px solid #E8B64C",borderRadius:9,padding:"10px",fontWeight:600,fontSize:12,cursor:"pointer"}}>📋 Re-télécharger le PDF</button>
-        </div>)}
-        {view.statut==="signe"&&!view.bulletinLivraisonId&&(<div style={{background:"#0A0A0A",borderRadius:12,padding:"14px",marginBottom:14}}>
-          <p style={{fontSize:10,color:"#E8B64C",fontWeight:600,textTransform:"uppercase",letterSpacing:"0.04em",marginBottom:8}}>⚡ Action suivante</p>
-          <button onClick={()=>creerBL(view)} style={{width:"100%",background:"#E8B64C",color:"#0A0A0A",border:"none",borderRadius:9,padding:"12px",fontWeight:700,fontSize:13,cursor:"pointer"}}>🚚 Créer le Bulletin de Livraison</button>
-        </div>)}
-        {view.bulletinLivraisonId&&(<div style={{background:"#DCFCE7",border:"1px solid #86EFAC",borderRadius:12,padding:"12px 14px",marginBottom:14}}>
-          <p style={{fontSize:12,fontWeight:700,color:"#15803D",marginBottom:4}}>🟢 Bulletin de livraison créé</p>
-          <button onClick={()=>setTab("bulletinsLivraison")} style={{background:"none",border:"none",color:"#15803D",fontSize:11,cursor:"pointer",padding:0,textDecoration:"underline"}}>→ Voir les bulletins de livraison</button>
-        </div>)}
-        <Card style={{marginBottom:12}}>
-          <p style={{fontSize:10,fontWeight:700,color:"#737373",textTransform:"uppercase",letterSpacing:"0.04em",marginBottom:8}}>Client</p>
-          <div style={{fontSize:12,display:"grid",gap:4}}>
-            {view.clientNom&&<p><span style={{color:"#9CA3AF"}}>Nom : </span>{view.clientNom}</p>}
-            {view.clientEmail&&<p><span style={{color:"#9CA3AF"}}>Email : </span>{view.clientEmail}</p>}
-            {view.clientTel&&<p><span style={{color:"#9CA3AF"}}>Tél. : </span>{view.clientTel}</p>}
-            {(view.clientAdresse||view.clientVille)&&<p><span style={{color:"#9CA3AF"}}>Adresse : </span>{[view.clientAdresse,[view.clientNpa,view.clientVille].filter(Boolean).join(" ")].filter(Boolean).join(", ")}</p>}
-            {view.modeReglement&&<p><span style={{color:"#9CA3AF"}}>Règlement : </span>{view.modeReglement}</p>}
-            {view.dateLivraisonPrevue&&<p><span style={{color:"#9CA3AF"}}>Livraison prévue : </span>{fmt(view.dateLivraisonPrevue)}</p>}
-          </div>
-        </Card>
-        <Card style={{marginBottom:12}}>
-          <p style={{fontSize:10,fontWeight:700,color:"#737373",textTransform:"uppercase",letterSpacing:"0.04em",marginBottom:8}}>Produits</p>
-          {(view.lignes||[]).map((l:any,i:number)=>{const prod=(st.produits||[]).find((p:any)=>p.id===l.produitId);if(!prod)return null;const tt=(l.prixUnitaire||0)*(l.qte||0);return(<div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 0",borderTop:i>0?"1px solid #F4F4F2":"none"}}><div><p style={{fontSize:12,fontWeight:600}}>{[prod.nom,prod.variante,prod.format].filter(Boolean).join(" ")}</p><p style={{fontSize:11,color:"#9CA3AF"}}>{l.qte} × CHF {(l.prixUnitaire||0).toFixed(2)}</p></div><p style={{fontSize:12,fontWeight:700}}>CHF {tt.toFixed(2)}</p></div>);})}
-          <div style={{borderTop:"2px solid #0A0A0A",paddingTop:8,marginTop:4,display:"flex",justifyContent:"space-between"}}><p style={{fontSize:13,fontWeight:700}}>Total</p><p style={{fontSize:13,fontWeight:700}}>CHF {tot.toFixed(2)}</p></div>
-        </Card>
-        <div style={{display:"flex",gap:8,marginBottom:12}}>
-          <button onClick={()=>genererBCPDF(view,st)} style={{flex:1,background:"#F4F4F2",border:"none",borderRadius:10,padding:"10px",fontWeight:600,fontSize:12,cursor:"pointer"}}>📋 PDF</button>
-          <button onClick={()=>{const lignesAll=(st.produits||[]).filter((p:any)=>p.actif!==false).map((p:any)=>{const ex=(view.lignes||[]).find((l:any)=>l.produitId===p.id);return{produitId:p.id,qte:ex?.qte||0,prixUnitaire:ex?.prixUnitaire||p.prixRevendeur||0};});setForm({...view,lignes:lignesAll});setModal("form");setViewId(null);}} style={{flex:1,background:"#F4F4F2",border:"none",borderRadius:10,padding:"10px",fontWeight:600,fontSize:12,cursor:"pointer"}}>✏️ Modifier</button>
-          <button onClick={()=>{if(!window.confirm("Supprimer ce BC ?"))return;setSt((p:any)=>({...p,bulletinsCommande:(p.bulletinsCommande||[]).filter((b:any)=>b.id!==view.id)}));setViewId(null);}} style={{flex:1,background:"#FEF2F2",border:"1px solid #FECACA",borderRadius:10,padding:"10px",fontWeight:600,fontSize:12,color:"#B91C1C",cursor:"pointer"}}>🗑 Suppr.</button>
-        </div>
-        {view.statut==="signe"&&(
-          <button onClick={()=>{setSt((p:any)=>({...p,bulletinsCommande:(p.bulletinsCommande||[]).map((b:any)=>b.id===view.id?{...b,archived:!b.archived}:b)}));setViewId(null);}} style={{display:"block",width:"100%",marginBottom:24,background:"#F5F5F0",border:"1px solid #E5E5E0",borderRadius:10,padding:"11px",fontWeight:600,fontSize:12,cursor:"pointer",color:"#6B7280",textAlign:"center"}}>
-            {view.archived?"♻️ Désarchiver":"🗄 Archiver ce BC"}
-          </button>
-        )}
-      </div>
-    );
-  }
-
-  // ── FORMULAIRE ──
-  if(modal==="form") return (
-    <div className="fade">
-      <button onClick={()=>{setModal(null);if(form.id)setViewId(form.id);}} style={{display:"flex",alignItems:"center",gap:6,background:"none",border:"none",color:"#9CA3AF",fontSize:13,marginBottom:12,padding:0,cursor:"pointer"}}>← Annuler</button>
-      <h2 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:24,fontWeight:700,marginBottom:16}}>{form.id?"Modifier le BC":"Nouveau Bulletin de Commande"}</h2>
-      <Card style={{marginBottom:12}}>
-        <p style={{fontSize:10,fontWeight:700,color:"#737373",textTransform:"uppercase",letterSpacing:"0.04em",marginBottom:10}}>Informations</p>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
-          <F label="Numéro" value={form.numero||""} onChange={(v:string)=>setForm((f:any)=>({...f,numero:v}))}/>
-          <F label="Date" type="date" value={form.date||""} onChange={(v:string)=>setForm((f:any)=>({...f,date:v}))}/>
-        </div>
-        <F label="Livraison prévue" type="date" value={form.dateLivraisonPrevue||""} onChange={(v:string)=>setForm((f:any)=>({...f,dateLivraisonPrevue:v}))}/>
-        <Sel label="Mode de règlement" value={form.modeReglement||"virement"} onChange={(v:string)=>setForm((f:any)=>({...f,modeReglement:v}))} options={[{value:"virement",label:"Virement bancaire"},{value:"twint",label:"TWINT"},{value:"espèces",label:"Espèces"},{value:"facture",label:"Facture 30j"}]}/>
-      </Card>
-      <Card style={{marginBottom:12}}>
-        <p style={{fontSize:10,fontWeight:700,color:"#737373",textTransform:"uppercase",letterSpacing:"0.04em",marginBottom:10}}>Client</p>
-        <F label="Nom *" value={form.clientNom||""} onChange={(v:string)=>setForm((f:any)=>({...f,clientNom:v}))} required/>
-        <F label="Email" value={form.clientEmail||""} onChange={(v:string)=>setForm((f:any)=>({...f,clientEmail:v}))}/>
-        <F label="Téléphone" value={form.clientTel||""} onChange={(v:string)=>setForm((f:any)=>({...f,clientTel:v}))}/>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 2fr",gap:8}}>
-          <F label="NPA" value={form.clientNpa||""} onChange={(v:string)=>setForm((f:any)=>({...f,clientNpa:v}))}/>
-          <F label="Ville" value={form.clientVille||""} onChange={(v:string)=>setForm((f:any)=>({...f,clientVille:v}))}/>
-        </div>
-        <F label="Adresse" value={form.clientAdresse||""} onChange={(v:string)=>setForm((f:any)=>({...f,clientAdresse:v}))}/>
-      </Card>
-      <Card style={{marginBottom:16}}>
-        <p style={{fontSize:10,fontWeight:700,color:"#737373",textTransform:"uppercase",letterSpacing:"0.04em",marginBottom:10}}>Produits</p>
-        {(form.lignes||[]).map((l:any,i:number)=>{
-          const prod=(st.produits||[]).find((p:any)=>p.id===l.produitId); if(!prod)return null;
-          return(
-            <div key={i} style={{display:"flex",alignItems:"center",gap:8,marginBottom:8,padding:"8px",background:"#FAFAF7",borderRadius:8}}>
-              <div style={{flex:1}}><p style={{fontSize:12,fontWeight:600}}>{[prod.nom,prod.variante,prod.format].filter(Boolean).join(" ")}</p><p style={{fontSize:10,color:"#9CA3AF"}}>CHF {(l.prixUnitaire||0).toFixed(2)} / u</p></div>
-              <div style={{display:"flex",alignItems:"center",gap:6,flexShrink:0}}>
-                <button onClick={()=>setForm((f:any)=>({...f,lignes:f.lignes.map((x:any,j:number)=>j===i?{...x,qte:Math.max(0,(x.qte||0)-1)}:x)}))} style={{width:28,height:28,borderRadius:"50%",border:"1.5px solid #EAE7E0",background:"#fff",fontSize:14,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>−</button>
-                <span style={{minWidth:24,textAlign:"center",fontSize:13,fontWeight:700}}>{l.qte||0}</span>
-                <button onClick={()=>setForm((f:any)=>({...f,lignes:f.lignes.map((x:any,j:number)=>j===i?{...x,qte:(x.qte||0)+1}:x)}))} style={{width:28,height:28,borderRadius:"50%",border:"1.5px solid #EAE7E0",background:"#fff",fontSize:14,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>+</button>
-              </div>
-            </div>
-          );
-        })}
-        {(form.lignes||[]).filter((l:any)=>l.qte>0).length>0&&(<div style={{borderTop:"1px solid #EAE7E0",paddingTop:8,marginTop:4,display:"flex",justifyContent:"space-between"}}><p style={{fontSize:12,fontWeight:700}}>Total estimé</p><p style={{fontSize:12,fontWeight:700}}>CHF {(form.lignes||[]).reduce((s:number,l:any)=>s+(l.prixUnitaire||0)*(l.qte||0),0).toFixed(2)}</p></div>)}
-      </Card>
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:24}}>
-        <button onClick={()=>{setModal(null);if(form.id)setViewId(form.id);}} style={{background:"#F4F4F2",border:"none",borderRadius:10,padding:"12px",fontWeight:600,fontSize:13,cursor:"pointer"}}>Annuler</button>
-        <button onClick={save} style={{background:"#0A0A0A",color:"#fff",border:"none",borderRadius:10,padding:"12px",fontWeight:700,fontSize:13,cursor:"pointer"}}>{form.id?"Enregistrer":"Créer le BC"}</button>
-      </div>
-    </div>
-  );
-
-  // ── LISTE ──
-  return (
-    <div className="fade">
-      <PipelineBanner current="bc"/>
-      <SectionTitle action={<div style={{display:"flex",gap:8}}><button onClick={()=>setShowArchived(x=>!x)} style={{background:showArchived?"#0A0A0A":"#F4F4F2",color:showArchived?"#fff":"#6B7280",border:"none",borderRadius:8,padding:"7px 10px",fontSize:11,fontWeight:600,cursor:"pointer"}}>📦</button><button onClick={()=>{setForm(emptyForm());setModal("form");}} style={{background:"#0A0A0A",color:"#fff",border:"none",borderRadius:9,padding:"9px 16px",fontSize:13,fontWeight:600,cursor:"pointer"}}>+ Nouveau</button></div>}>
-        Bulletins de commande <span style={{fontSize:14,color:"#9CA3AF",fontWeight:400}}>({bcs.length})</span>
-      </SectionTitle>
-      {bcs.length===0?(
-        <div style={{textAlign:"center",padding:"40px 0",color:"#9CA3AF"}}>
-          <p style={{fontSize:32,marginBottom:8}}>📋</p><p style={{fontSize:14,fontWeight:600}}>Aucun bulletin de commande</p>
-          <button onClick={()=>{setForm(emptyForm());setModal("form");}} style={{marginTop:16,background:"#0A0A0A",color:"#fff",border:"none",borderRadius:10,padding:"11px 24px",fontSize:13,fontWeight:600,cursor:"pointer"}}>+ Premier BC</button>
-        </div>
-      ):(
-        <div style={{display:"flex",flexDirection:"column",gap:8}}>
-          {[...bcs].filter((bc:any)=>showArchived?!!bc.archived:!bc.archived).sort((a:any,b:any)=>(b.date||"")>(a.date||"")?1:-1).map((bc:any)=>{
-            const sc=SC(bc.statut); const tot=totalBC(bc);
-            return(
-              <div key={bc.id} onClick={()=>setViewId(bc.id)} style={{background:"#fff",borderRadius:12,padding:"12px 14px",border:"1px solid #EAE7E0",cursor:"pointer"}}>
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
-                  <div><p style={{fontSize:13,fontWeight:700}}>{bc.numero}</p><p style={{fontSize:11,color:"#737373"}}>{bc.clientNom} · {fmt(bc.date)}</p></div>
-                  <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:4}}>
-                    <span style={{background:sc.bg,color:sc.text,border:`1px solid ${sc.border}`,borderRadius:20,padding:"3px 9px",fontSize:10,fontWeight:700}}>{sc.emoji} {sc.label}</span>
-                    <p style={{fontSize:12,fontWeight:700}}>CHF {tot.toFixed(2)}</p>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-};
-
-// ══════════════════════════════════════════════════════════════
-// MODULE : BULLETINS DE LIVRAISON (BL) (V5)
-// ══════════════════════════════════════════════════════════════
-const BulletinsLivraison = ({st, setSt, setTab=(_any:any)=>{}}) => {
-  const [viewId, setViewId] = useState<string|null>(null);
-  const [showSig, setShowSig] = useState(false);
-  const [showArchived, setShowArchived] = useState(false);
-
-  const bls:any[] = st.bulletinsLivraison || [];
-  const view = viewId ? bls.find((b:any)=>b.id===viewId) : null;
-  const SC = (s:string) => STATUTS_COULEURS[s]||{bg:"#F3F4F6",border:"#D1D5DB",text:"#374151",emoji:"📝",label:s};
-
-  const marquerLivre = (blId:string, sig?:string, nom?:string) => {
-    setSt((p:any)=>({...p,bulletinsLivraison:(p.bulletinsLivraison||[]).map((b:any)=>b.id===blId?{...b,statut:"livre",signatureClient:sig||b.signatureClient||null,signatureNom:nom||b.signatureNom||"",dateLivraison:today()}:b)}));
-    setShowSig(false);
-    alert("✅ Livraison enregistrée !");
-  };
-
-  const creerFactureFromBL = (bl:any) => {
-    if(!window.confirm("Créer une facture depuis ce bulletin de livraison ?")) return;
-    const y=new Date().getFullYear();
-    const existing=(st.factures||[]).map((f:any)=>f.numero);
-    let n=1; while(existing.includes("FAC-"+y+"-"+String(n).padStart(3,"0")))n++;
-    const numero="FAC-"+y+"-"+String(n).padStart(3,"0");
-    const fId=uid();
-    const lignesOk=(bl.lignes||[]).filter((l:any)=>l.qte>0).map((l:any)=>{
-      const prod=(st.produits||[]).find((p:any)=>p.id===l.produitId);
-      return {produitId:l.produitId,designation:prod?[prod.nom,prod.variante,prod.format].filter(Boolean).join(" "):l.produitId,qte:l.qte,prix:l.prixUnitaire||(prod?.prixRevendeur||0)};
-    });
-    const total=lignesOk.reduce((s:number,l:any)=>s+l.qte*l.prix,0);
-    const newFac:any={
-      id:fId,numero,date:today(),dateEcheance:"",statut:"en attente",envoyee:false,
-      typeClient:"revendeur",
-      clientNom:bl.clientNom,clientEmail:bl.clientEmail||"",
-      clientAdresse:bl.clientAdresse||"",clientNpa:bl.clientNpa||"",clientVille:bl.clientVille||"",
-      partenaireId:"",
-      lignes:lignesOk,lignesOffertes:[],total,
-      totalRabais:0,comptOffert:"3800",
-      notes:"Issue du bulletin de livraison "+bl.numero,
-      bulletinLivraisonId:bl.id,
-    };
-    setSt((p:any)=>({
-      ...p,
-      factures:[...(p.factures||[]),newFac],
-      bulletinsLivraison:(p.bulletinsLivraison||[]).map((b:any)=>b.id===bl.id?{...b,factureId:fId,factureNumero:numero}:b),
-    }));
-    alert(`✅ Facture ${numero} créée !\nRetrouve-la dans Comptabilité → Factures.\n\nUne fois marquée payée, les écritures comptables seront générées automatiquement.`);
-  };
-
-  // ── VUE DÉTAIL ──
-  if(view) {
-    const sc=SC(view.statut);
-    return (
-      <div className="fade">
-        <Breadcrumb crumbs={[{label:"Bulletins de livraison",onClick:()=>{setViewId(null);setShowSig(false);}},{label:view.numero}]}/>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:10}}>
-          <div>
-            <h2 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:22,fontWeight:700}}>{view.numero}</h2>
-            <p style={{fontSize:12,color:"#737373"}}>{view.clientNom} · {fmt(view.dateLivraison||view.dateCreation)}</p>
-            {view.bcNumero&&<p style={{fontSize:11,color:"#9CA3AF"}}>BC réf. : {view.bcNumero}</p>}
-          </div>
-          <span style={{background:sc.bg,color:sc.text,border:`1px solid ${sc.border}`,borderRadius:20,padding:"4px 12px",fontSize:11,fontWeight:700,flexShrink:0}}>{sc.emoji} {sc.label}</span>
-        </div>
-        {view.statut==="a_livrer"&&!showSig&&(
-          <div style={{background:"#0A0A0A",borderRadius:12,padding:"14px",marginBottom:14}}>
-            <p style={{fontSize:10,color:"#E8B64C",fontWeight:600,textTransform:"uppercase",letterSpacing:"0.04em",marginBottom:8}}>⚡ Action suivante</p>
-            <button onClick={()=>setShowSig(true)} style={{width:"100%",background:"#E8B64C",color:"#0A0A0A",border:"none",borderRadius:9,padding:"12px",fontWeight:700,fontSize:13,cursor:"pointer",marginBottom:8}}>✍️ Faire signer la livraison</button>
-            <button onClick={()=>marquerLivre(view.id)} style={{width:"100%",background:"#fff",border:"1.5px solid #E8B64C",borderRadius:9,padding:"10px",fontWeight:600,fontSize:12,cursor:"pointer"}}>📦 Marquer livré (sans signature)</button>
-          </div>
-        )}
-        {view.statut==="a_livrer"&&showSig&&(
-          <Card style={{marginBottom:14}}>
-            <p style={{fontSize:12,fontWeight:700,marginBottom:8}}>✍️ Signature du client</p>
-            <SignaturePad onSave={(sig:string)=>{const nom=prompt("Nom du signataire","")||""; marquerLivre(view.id,sig,nom);}} onCancel={()=>setShowSig(false)}/>
-          </Card>
-        )}
-        {view.statut==="livre"&&(
-          <div style={{marginBottom:14}}>
-            <div style={{background:"#DCFCE7",border:"1px solid #86EFAC",borderRadius:12,padding:"12px 14px",marginBottom:8}}>
-              <p style={{fontSize:12,fontWeight:700,color:"#15803D"}}>📦 Livré le {fmt(view.dateLivraison)}</p>
-              {view.signatureNom&&<p style={{fontSize:11,color:"#166534",marginTop:2}}>Signé par : {view.signatureNom}</p>}
-            </div>
-            {!view.factureId&&(
-              <div style={{background:"#0A0A0A",borderRadius:12,padding:"14px"}}>
-                <p style={{fontSize:10,color:"#E8B64C",fontWeight:600,textTransform:"uppercase",letterSpacing:"0.04em",marginBottom:8}}>⚡ Action suivante</p>
-                <button onClick={()=>creerFactureFromBL(view)} style={{width:"100%",background:"#E8B64C",color:"#0A0A0A",border:"none",borderRadius:9,padding:"12px",fontWeight:700,fontSize:13,cursor:"pointer"}}>
-                  🧾 Créer la facture
-                </button>
-              </div>
-            )}
-            {view.factureId&&(
-              <div style={{background:"#F0FDF4",border:"1px solid #86EFAC",borderRadius:12,padding:"10px 14px"}}>
-                <p style={{fontSize:12,fontWeight:700,color:"#15803D"}}>🧾 Facture créée : {view.factureNumero||"—"}</p>
-                <button onClick={()=>setTab("factures")} style={{background:"none",border:"none",color:"#15803D",fontSize:11,cursor:"pointer",padding:0,textDecoration:"underline",marginTop:2}}>→ Voir les factures</button>
-              </div>
-            )}
-          </div>
-        )}
-        <Card style={{marginBottom:12}}>
-          <p style={{fontSize:10,fontWeight:700,color:"#737373",textTransform:"uppercase",letterSpacing:"0.04em",marginBottom:8}}>Destinataire</p>
-          <div style={{fontSize:12,display:"grid",gap:4}}>
-            {view.clientNom&&<p>{view.clientNom}</p>}
-            {view.clientEmail&&<p style={{color:"#1E40AF"}}>{view.clientEmail}</p>}
-            {(view.clientAdresse||view.clientVille)&&<p>{[view.clientAdresse,[view.clientNpa,view.clientVille].filter(Boolean).join(" ")].filter(Boolean).join(", ")}</p>}
-          </div>
-        </Card>
-        <Card style={{marginBottom:12}}>
-          <p style={{fontSize:10,fontWeight:700,color:"#737373",textTransform:"uppercase",letterSpacing:"0.04em",marginBottom:8}}>Produits livrés</p>
-          {(view.lignes||[]).map((l:any,i:number)=>{const prod=(st.produits||[]).find((p:any)=>p.id===l.produitId);if(!prod)return null;return(<div key={i} style={{display:"flex",justifyContent:"space-between",padding:"5px 0",borderTop:i>0?"1px solid #F4F4F2":"none"}}><p style={{fontSize:12}}>{[prod.nom,prod.variante,prod.format].filter(Boolean).join(" ")}</p><p style={{fontSize:12,fontWeight:700}}>{l.qte} unités</p></div>);})}
-        </Card>
-        <div style={{display:"flex",gap:8,marginBottom:12}}>
-          <button onClick={()=>genererBLPDF(view,st)} style={{flex:1,background:"#F4F4F2",border:"none",borderRadius:10,padding:"10px",fontWeight:600,fontSize:12,cursor:"pointer"}}>📋 PDF BL</button>
-          {view.statut!=="livre"&&(<button onClick={()=>{if(!window.confirm("Supprimer ce BL ?"))return;setSt((p:any)=>({...p,bulletinsLivraison:(p.bulletinsLivraison||[]).filter((b:any)=>b.id!==view.id)}));setViewId(null);}} style={{flex:1,background:"#FEF2F2",border:"1px solid #FECACA",borderRadius:10,padding:"10px",fontWeight:600,fontSize:12,color:"#B91C1C",cursor:"pointer"}}>🗑 Supprimer</button>)}
-        </div>
-        {view.statut==="livre"&&(
-          <button onClick={()=>{setSt((p:any)=>({...p,bulletinsLivraison:(p.bulletinsLivraison||[]).map((b:any)=>b.id===view.id?{...b,archived:!b.archived}:b)}));setViewId(null);}} style={{display:"block",width:"100%",marginBottom:24,background:"#F5F5F0",border:"1px solid #E5E5E0",borderRadius:10,padding:"11px",fontWeight:600,fontSize:12,cursor:"pointer",color:"#6B7280",textAlign:"center"}}>
-            {view.archived?"♻️ Désarchiver":"🗄 Archiver ce BL"}
-          </button>
-        )}
-      </div>
-    );
-  }
-
-  // ── LISTE ──
-  return (
-    <div className="fade">
-      <SectionTitle action={<button onClick={()=>setShowArchived(x=>!x)} style={{background:showArchived?"#0A0A0A":"#F4F4F2",color:showArchived?"#fff":"#6B7280",border:"none",borderRadius:8,padding:"7px 10px",fontSize:11,fontWeight:600,cursor:"pointer"}}>📦</button>}>
-        Bulletins de livraison <span style={{fontSize:14,color:"#9CA3AF",fontWeight:400}}>({bls.length})</span>
-      </SectionTitle>
-      {bls.length===0?(
-        <div style={{textAlign:"center",padding:"40px 0",color:"#9CA3AF"}}>
-          <p style={{fontSize:32,marginBottom:8}}>🚚</p>
-          <p style={{fontSize:14,fontWeight:600}}>Aucun bulletin de livraison</p>
-          <p style={{fontSize:12,marginTop:4}}>Les BL sont créés depuis un Bulletin de Commande signé</p>
-          <button onClick={()=>setTab("bulletinsCommande")} style={{marginTop:16,background:"#0A0A0A",color:"#fff",border:"none",borderRadius:10,padding:"11px 24px",fontSize:13,fontWeight:600,cursor:"pointer"}}>→ Voir les BC</button>
-        </div>
-      ):(
-        <div style={{display:"flex",flexDirection:"column",gap:8}}>
-          {[...bls].filter((bl:any)=>showArchived?!!bl.archived:!bl.archived).sort((a:any,b:any)=>(b.dateCreation||"")>(a.dateCreation||"")?1:-1).map((bl:any)=>{
-            const sc=SC(bl.statut);
-            return(
-              <div key={bl.id} onClick={()=>setViewId(bl.id)} style={{background:"#fff",borderRadius:12,padding:"12px 14px",border:"1px solid #EAE7E0",cursor:"pointer"}}>
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
-                  <div>
-                    <p style={{fontSize:13,fontWeight:700}}>{bl.numero}</p>
-                    <p style={{fontSize:11,color:"#737373"}}>{bl.clientNom} · {fmt(bl.dateLivraison||bl.dateCreation)}</p>
-                    {bl.bcNumero&&<p style={{fontSize:10,color:"#9CA3AF"}}>BC : {bl.bcNumero}</p>}
-                  </div>
-                  <span style={{background:sc.bg,color:sc.text,border:`1px solid ${sc.border}`,borderRadius:20,padding:"3px 9px",fontSize:10,fontWeight:700,flexShrink:0}}>{sc.emoji} {sc.label}</span>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-};
-
 const Production = ({st, setSt}) => {
   const prod = st.production || {recettes: RECETTES_DEFAULT, macerations:[], historique:[]};
   const setProd = (fn) => setSt(p=>{
@@ -13889,12 +12862,10 @@ const Production = ({st, setSt}) => {
   const [batchModal, setBatchModal] = useState<null|any>(null);
   const [calcRecetteId, setCalcRecetteId] = useState(prod.recettes?.[0]?.id || "limonta");
   const [calcLitres, setCalcLitres] = useState("10");
-  const [calcBtl25, setCalcBtl25] = useState(""); // vide = auto depuis litres
-  const [calcBtl50, setCalcBtl50] = useState(""); // vide = auto depuis litres
+  const [calcBtl25, setCalcBtl25] = useState("");
+  const [calcBtl50, setCalcBtl50] = useState("");
   const [calcNumLot, setCalcNumLot] = useState("");
 
-  // Merge: garder les recettes sauvegardées + ajouter les recettes par défaut manquantes
-  // Si une recette sauvegardée manque de marcheASuivre, on la récupère depuis le défaut
   const savedRecettes = prod.recettes && prod.recettes.length > 0 ? prod.recettes : [];
   const savedIds = new Set(savedRecettes.map((r:any)=>r.id));
   const missingDefaults = RECETTES_DEFAULT.filter(r=>!savedIds.has(r.id));
@@ -17457,8 +16428,6 @@ commandes:   <Commandes    st={st} setSt={setSt} setTab={setTab}/>,
 fournisseurs:<Fournisseurs st={st} setSt={setSt}/>,
 offres:      <Offres       st={st} setSt={setSt}/>,
 prospects:         <Prospects         st={st} setSt={setSt} setTab={setTab}/>,
-bulletinsCommande: <BulletinsCommande st={st} setSt={setSt} setTab={setTab}/>,
-bulletinsLivraison:<BulletinsLivraison st={st} setSt={setSt} setTab={setTab}/>,
 documents:        <Documents       st={st} setSt={setSt}/>,
 ventesDirectes:   <VentesDirectes  st={st} setSt={setSt}/>,
 emailTemplates:   <EmailTemplates  st={st} setSt={setSt}/>,
@@ -17505,8 +16474,7 @@ return (
           ]},
           {groupe:"Modules détaillés", items:[
             {id:"prospects",        label:"Prospects",      emoji:"🎯"},
-            {id:"bulletinsCommande",label:"Bulletins CMD",  emoji:"📋"},
-            {id:"bulletinsLivraison",label:"Bulletins BL",  emoji:"🚚"},
+
             {id:"partenaires", label:"Dépôts-vente",emoji:"🤝"},
             {id:"offres",      label:"Offres",      emoji:"📄"},
             {id:"factures",    label:"Factures",    emoji:"🧾"},
@@ -17680,8 +16648,6 @@ return (
           ]},
           {groupe:"Modules détaillés", items:[
             {id:"prospects",        label:"Prospects",     emoji:"🎯"},
-            {id:"bulletinsCommande",label:"BC",            emoji:"📋"},
-            {id:"bulletinsLivraison",label:"BL",           emoji:"🚚"},
             {id:"partenaires", label:"Dépôts-vente",emoji:"🤝"},
             {id:"offres",      label:"Offres",      emoji:"📄"},
             {id:"factures",    label:"Factures",    emoji:"🧾"},
@@ -17750,7 +16716,6 @@ return (
           {[
             {emoji:"🎯",label:"Nouveau prospect",tab:"prospects"},
             {emoji:"📄",label:"Nouvelle offre",tab:"offres"},
-            {emoji:"📋",label:"Nouveau BC",tab:"bulletinsCommande"},
             {emoji:"🧾",label:"Nouvelle facture",tab:"factures"},
             {emoji:"🏠",label:"Vente directe",tab:"ventesDirectes"},
             {emoji:"🛒",label:"Import Shopify",tab:"commandes"},
