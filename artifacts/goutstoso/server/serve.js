@@ -23,6 +23,30 @@ const MIME_TYPES = {
   ".map": "application/json",
 };
 
+const ERROR_CATCHER = `<script>
+(function(){
+  function show(msg){
+    if(document.getElementById('__err_overlay'))return;
+    var d=document.createElement('div');
+    d.id='__err_overlay';
+    d.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;background:#fff;display:flex;align-items:flex-start;justify-content:center;padding:20px;z-index:99999;overflow:auto;font-family:monospace;font-size:13px;';
+    d.innerHTML='<pre style="color:#b91c1c;white-space:pre-wrap;word-break:break-word;max-width:100%">'+msg+'</pre>';
+    document.body.appendChild(d);
+  }
+  window.addEventListener('error',function(e){
+    show('JS ERROR:\n'+(e.error&&e.error.stack||e.message||'unknown')+'\n\n'+e.filename+':'+e.lineno);
+  });
+  window.addEventListener('unhandledrejection',function(e){
+    show('PROMISE ERROR:\n'+(e.reason&&(e.reason.stack||String(e.reason))||'unknown'));
+  });
+  setTimeout(function(){
+    if(document.getElementById('root')&&!document.getElementById('root').firstChild){
+      show('ROOT EMPTY after 5s — React did not mount. Check above for errors.');
+    }
+  },5000);
+})();
+</script>`;
+
 const server = http.createServer((req, res) => {
   const url = new URL(req.url || "/", `http://${req.headers.host}`);
   let pathname = url.pathname;
@@ -59,7 +83,11 @@ const server = http.createServer((req, res) => {
 
   const ext = path.extname(filePath).toLowerCase();
   const contentType = MIME_TYPES[ext] || "application/octet-stream";
-  const content = fs.readFileSync(filePath);
+  let content = fs.readFileSync(filePath);
+
+  if (ext === ".html") {
+    content = Buffer.from(content.toString().replace("</head>", ERROR_CATCHER + "</head>"));
+  }
 
   const headers = { "content-type": contentType };
   if (ext === ".html") {
