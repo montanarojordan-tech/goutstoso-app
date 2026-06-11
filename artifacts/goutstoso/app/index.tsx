@@ -8137,14 +8137,27 @@ lignes:[{produitId:"",qte:1}],
 rabais:0,
 justifRabais:"",
 fraisPort:0,
+fraisPortCoute:0,
 commissionShopify:0,
-source:"direct",
-typeClient:"revendeur",
-statut:"à préparer",
+source:"personne",
+typeClient:"client",
+statut:"commandé",
+paiement:"en attente",
 envoyeeCompta:false,
 notes:"",
 historique:[],
 });
+
+const CYCLE_STATUT = ["commandé","préparé","expédié","livré"];
+const normalizeStatut = (s:string) => {
+  const m:any={"à préparer":"commandé","emballée":"préparé","expédiée":"expédié","livrée":"livré"};
+  return m[s]||s;
+};
+const getSourceLabel = (source:string) => {
+  if(source==="partenaire"||source==="prestataire") return {label:"PARTENAIRE",bg:"#F0FDF4",c:"#15803D"};
+  if(source==="shopify") return {label:"SHOPIFY",bg:"#FFF7ED",c:"#9A3412"};
+  return {label:"PERSONNE",bg:"#EFF6FF",c:"#1D4ED8"};
+};
 const [form,setForm] = useState(emptyC());
 
 const genNumero = () => {
@@ -8215,8 +8228,9 @@ return pu*(l.qte||0);
 const sousTotal = produitsTotal - (parseFloat(c.rabais)||0);
 const totalClient = sousTotal + (parseFloat(c.fraisPort)||0);
 const commission = parseFloat(c.commissionShopify)||0;
-const netRecu = totalClient - commission;
-return {produitsTotal,sousTotal,totalClient,commission,netRecu};
+const fraisPortCoute = parseFloat(c.fraisPortCoute)||0;
+const netRecu = totalClient - commission - fraisPortCoute;
+return {produitsTotal,sousTotal,totalClient,commission,fraisPortCoute,netRecu};
 };
 
 const save = () => {
@@ -8286,7 +8300,7 @@ const dateOp = c.date || today();
     type:"recette",
     categorie:cat,
     montant,
-    description:(c.source==="shopify"?"Shopify":c.source==="prestataire"?"Pro":"Direct")+" "+c.numero+" - "+p.nom+" "+p.variante+" x"+l.qte,
+    description:(c.source==="shopify"?"Shopify":c.source==="partenaire"||c.source==="prestataire"?"Partenaire":"Direct")+" "+c.numero+" - "+p.nom+" "+p.variante+" x"+l.qte,
     postfinance:true,
   });
 });
@@ -8302,8 +8316,24 @@ if(parseFloat(c.fraisPort)>0) {
     type:"recette",
     categorie:"Frais expédition facturés",
     montant:parseFloat(c.fraisPort),
-    description:(c.source==="shopify"?"Shopify":c.source==="prestataire"?"Pro":"Direct")+" "+c.numero+" - Port facturé",
+    description:(c.source==="shopify"?"Shopify":c.source==="partenaire"||c.source==="prestataire"?"Partenaire":"Direct")+" "+c.numero+" - Port encaissé",
     postfinance:true,
+  });
+}
+
+// Dépense : frais de port payés (6315)
+if(parseFloat(c.fraisPortCoute)>0) {
+  newTrans.push({
+    id:uid(),
+    commandeId:c.id,
+    date:dateOp,
+    compte:"6315",
+    libelle:"Frais d'envoi",
+    type:"depense",
+    categorie:"Frais d'expédition (envois)",
+    montant:parseFloat(c.fraisPortCoute),
+    description:(c.source==="shopify"?"Shopify":c.source==="partenaire"||c.source==="prestataire"?"Partenaire":"Direct")+" "+c.numero+" - Port coûté",
+    postfinance:false,
   });
 }
 
@@ -8318,12 +8348,12 @@ if(parseFloat(c.commissionShopify)>0) {
     type:"depense",
     categorie:"Commissions",
     montant:parseFloat(c.commissionShopify),
-    description:(c.source==="shopify"?"Shopify":c.source==="prestataire"?"Pro":"Direct")+" "+c.numero+" - Commission",
-    postfinance:true,
+    description:(c.source==="shopify"?"Shopify":c.source==="partenaire"||c.source==="prestataire"?"Partenaire":"Direct")+" "+c.numero+" - Commission",
+    postfinance:false,
   });
 }
 
-// Dépense : rabais accordé (optionnel, compte 3900 ou noter)
+// Dépense : rabais accordé (3800)
 if(parseFloat(c.rabais)>0) {
   newTrans.push({
     id:uid(),
@@ -8332,9 +8362,9 @@ if(parseFloat(c.rabais)>0) {
     compte:"3800",
     libelle:"Rabais accordé",
     type:"depense",
-    categorie:"Autres",
+    categorie:"Rabais",
     montant:parseFloat(c.rabais),
-    description:(c.source==="shopify"?"Shopify":c.source==="prestataire"?"Pro":"Direct")+" "+c.numero+" - Rabais",
+    description:(c.source==="shopify"?"Shopify":c.source==="partenaire"||c.source==="prestataire"?"Partenaire":"Direct")+" "+c.numero+" - Rabais",
     postfinance:false,
   });
 }
@@ -8388,13 +8418,13 @@ setViewId(null);
 };
 
 const toggleStatut = (c) => {
-const cycle = ["à préparer","emballée","expédiée","livrée","payée"];
-const idx = cycle.indexOf(c.statut);
-const newStatut = cycle[(idx+1)%cycle.length] || "à préparer";
+const normS = normalizeStatut(c.statut||"commandé");
+const idx = CYCLE_STATUT.indexOf(normS);
+const newStatut = CYCLE_STATUT[Math.min(idx+1,CYCLE_STATUT.length-1)] || "commandé";
 
 const hEntry = {ancien:c.statut||"—",nouveau:newStatut,date:today(),heure:new Date().toLocaleTimeString("fr-CH",{hour:"2-digit",minute:"2-digit"})};
 
-const STATUTS_SORTIS = ["expédiée","livrée","payée"];
+const STATUTS_SORTIS = ["expédié","livré","expédiée","livrée","payée"];
 const vaEtreEnvoye = STATUTS_SORTIS.includes(newStatut);
 const etaitEnvoye = c.stockDeduit === true;
 
@@ -8460,6 +8490,39 @@ if(!etaitEnvoye && vaEtreEnvoye) {
 }
 };
 
+const togglePaiement = (c) => {
+const newPaiement = (c.paiement==="payé"||c.statut==="payée") ? "en attente" : "payé";
+const hEntry = {ancien:c.paiement||"en attente",nouveau:newPaiement,date:today(),heure:new Date().toLocaleTimeString("fr-CH",{hour:"2-digit",minute:"2-digit"})};
+setSt(p=>({...p,
+  commandes:p.commandes.map(x=>x.id===c.id?{...x,paiement:newPaiement,historique:[...(x.historique||[]),hEntry]}:x),
+}));
+if(newPaiement==="payé") {
+  const cmd = {...c,paiement:"payé"};
+  const calc = calcCommande(cmd);
+  const newTrans:any[] = [];
+  const dateOp = cmd.date||today();
+  const srcLbl = cmd.source==="shopify"?"Shopify":cmd.source==="partenaire"||cmd.source==="prestataire"?"Partenaire":"Direct";
+  (cmd.lignes||[]).forEach((l:any)=>{
+    const p = st.produits.find((x:any)=>x.id===l.produitId); if(!p) return;
+    const montant=(cmd.typeClient==="revendeur"?(p.prixRevendeur||0):(p.prixClient||0))*(l.qte||0);
+    newTrans.push({id:uid(),commandeId:cmd.id,date:dateOp,compte:getCompteVente(p),libelle:"Vente "+p.nom+" "+p.variante,type:"recette",categorie:getCategorieVente(p),montant,description:srcLbl+" "+cmd.numero+" - "+p.nom+" x"+l.qte,postfinance:true});
+  });
+  if(parseFloat(cmd.fraisPort)>0) newTrans.push({id:uid(),commandeId:cmd.id,date:dateOp,compte:"3600",libelle:"Frais expédition clients",type:"recette",categorie:"Frais expédition facturés",montant:parseFloat(cmd.fraisPort),description:srcLbl+" "+cmd.numero+" - Port encaissé",postfinance:true});
+  if(parseFloat(cmd.fraisPortCoute)>0) newTrans.push({id:uid(),commandeId:cmd.id,date:dateOp,compte:"6315",libelle:"Frais d'envoi",type:"depense",categorie:"Frais d'expédition (envois)",montant:parseFloat(cmd.fraisPortCoute),description:srcLbl+" "+cmd.numero+" - Port coûté",postfinance:false});
+  if(parseFloat(cmd.commissionShopify)>0) newTrans.push({id:uid(),commandeId:cmd.id,date:dateOp,compte:"6700",libelle:"Commission Shopify",type:"depense",categorie:"Commissions",montant:parseFloat(cmd.commissionShopify),description:srcLbl+" "+cmd.numero+" - Commission",postfinance:false});
+  if(parseFloat(cmd.rabais)>0) newTrans.push({id:uid(),commandeId:cmd.id,date:dateOp,compte:"3800",libelle:"Rabais accordé",type:"depense",categorie:"Rabais",montant:parseFloat(cmd.rabais),description:srcLbl+" "+cmd.numero+" - Rabais",postfinance:false});
+  const oldTrans = (st.transactions||[]).filter((t:any)=>t.commandeId!==cmd.id);
+  const oldPFImpact = c.envoyeeCompta ? (st.transactions||[]).filter((t:any)=>t.commandeId===cmd.id&&t.postfinance).reduce((s:number,t:any)=>t.type==="recette"?s+parseFloat(t.montant||0):s-parseFloat(t.montant||0),0) : 0;
+  const newPFImpact = newTrans.filter(t=>t.postfinance).reduce((s,t)=>t.type==="recette"?s+parseFloat(t.montant||0):s-parseFloat(t.montant||0),0);
+  setSt((p:any)=>({...p,
+    transactions:[...oldTrans,...newTrans],
+    commandes:p.commandes.map((x:any)=>x.id===cmd.id?{...x,paiement:"payé",envoyeeCompta:true,historique:[...(x.historique||[]),hEntry]}:x),
+    soldeBancaire:parseFloat((parseFloat(p.soldeBancaire||0)+(newPFImpact-oldPFImpact)).toFixed(2)),
+  }));
+  alert(`✅ ${cmd.numero} marquée payée\n💼 ${newTrans.length} écriture(s) enregistrée(s) en comptabilité`);
+}
+};
+
 const addLigne = () => setForm(p=>({...p,lignes:[...p.lignes,{produitId:"",qte:1}]}));
 const updLigne = (i,k,v) => setForm(p=>({...p,lignes:p.lignes.map((l,j)=>j===i?{...l,[k]:v}:l)}));
 const delLigne = (i) => setForm(p=>({...p,lignes:p.lignes.filter((_,j)=>j!==i)}));
@@ -8467,17 +8530,23 @@ const delLigne = (i) => setForm(p=>({...p,lignes:p.lignes.filter((_,j)=>j!==i)})
 const commandes = (st.commandes||[]).slice().reverse();
 const filtrees = commandes.filter(c=>{
 if(filtre==="toutes") return true;
-if(filtre==="ouvertes") return c.statut !== "payée";
+if(filtre==="ouvertes") return c.paiement!=="payé"&&c.statut!=="payée";
 if(filtre==="sans-facture") return !c.factureNumero;
 if(filtre==="avec-facture") return !!c.factureNumero;
 return true;
 });
-const nbOuvertes = commandes.filter(c=>c.statut !== "payée").length;
+const nbOuvertes = commandes.filter(c=>c.paiement!=="payé"&&c.statut!=="payée").length;
 const nbSansFacture = commandes.filter(c=>!c.factureNumero && (c.statut==="livrée"||c.statut==="expédiée")).length;
 const shopifyOrders = (st.ventesShopify||[]).slice().reverse();
 const nbShopify = shopifyOrders.length;
 
-const badgeStatut = (s) => s==="à préparer"?"yellow":s==="emballée"?"blue":s==="expédiée"?"blue":s==="livrée"?"green":s==="payée"?"green":"gray";
+const badgeStatut = (s) => {
+  if(s==="commandé"||s==="à préparer") return "yellow";
+  if(s==="préparé"||s==="emballée") return "blue";
+  if(s==="expédié"||s==="expédiée") return "blue";
+  if(s==="livré"||s==="livrée"||s==="payée") return "green";
+  return "gray";
+};
 
 // Vue détail
 if(view) {
@@ -8609,32 +8678,55 @@ return (
     <div style={{background:"#111",borderRadius:14,padding:"14px 16px",marginBottom:12}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
         <div>
-          <p style={{fontSize:10,color:"#F2C94C",fontWeight:700,textTransform:"uppercase",letterSpacing:".08em"}}>{view.source==="direct"?"🤝 Commande directe":view.source==="shopify"?"🛒 Shopify":"🏢 Pro / Prestataire"}</p>
+          <p style={{fontSize:10,color:"#F2C94C",fontWeight:700,textTransform:"uppercase",letterSpacing:".08em"}}>{view.source==="shopify"?"🛒 Shopify":view.source==="partenaire"||view.source==="prestataire"?"🤝 Partenaire":"👤 Personne"}</p>
           <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:22,fontWeight:700,color:"#fff",marginTop:2}}>{view.numero}</p>
           <p style={{fontSize:11,color:"#aaa",marginTop:4}}>{fmt(view.date)}</p>
         </div>
         <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:6}}>
-          <Badge c={badgeStatut(view.statut)}>{view.statut}</Badge>
+          <Badge c={badgeStatut(normalizeStatut(view.statut))}>{normalizeStatut(view.statut)}</Badge>
+          {(view.paiement==="payé"||view.statut==="payée") && <span style={{fontSize:9,fontWeight:700,padding:"2px 7px",borderRadius:5,background:"#DCFCE7",color:"#166534"}}>💳 Payé</span>}
           {view.factureNumero && <span style={{fontSize:9,color:"#F2C94C",background:"#ffffff15",borderRadius:6,padding:"3px 7px",fontWeight:700}}>🧾 {view.factureNumero}</span>}
         </div>
       </div>
+      {/* Progression statut : 4 étapes */}
       {(()=>{
-        const cycleStatuts=["à préparer","emballée","expédiée","livrée","payée"];
-        const idx=cycleStatuts.indexOf(view.statut);
-        const nextS=idx>=0&&idx<cycleStatuts.length-1?cycleStatuts[idx+1]:null;
-        if(view.statut==="payée") return (
-          <div style={{borderTop:"1px solid #333",marginTop:10,paddingTop:10,textAlign:"center"}}>
-            <span style={{color:"#4ADE80",fontSize:12,fontWeight:700}}>✅ Commande payée</span>
-            <button onClick={()=>toggleStatut(view)} style={{display:"block",marginTop:6,width:"100%",background:"#333",color:"#9CA3AF",border:"none",borderRadius:8,padding:"6px",fontSize:11,cursor:"pointer"}}>↩ Repasser à : à préparer</button>
+        const normS = normalizeStatut(view.statut||"commandé");
+        const idxS = CYCLE_STATUT.indexOf(normS);
+        const labels:any = {commandé:"📋 Commandé",préparé:"📦 Préparé",expédié:"🚚 Expédié",livré:"✅ Livré"};
+        return (
+          <div style={{borderTop:"1px solid #333",marginTop:10,paddingTop:10}}>
+            {/* Progress bar */}
+            <div style={{display:"flex",gap:3,marginBottom:10}}>
+              {CYCLE_STATUT.map((s,i)=>(
+                <div key={s} style={{flex:1,textAlign:"center"}}>
+                  <div style={{height:4,borderRadius:2,background:i<=idxS?"#F2C94C":"#333",marginBottom:4,transition:"background .2s"}}/>
+                  <p style={{fontSize:8,color:i<=idxS?"#F2C94C":"#555",fontWeight:i===idxS?700:400}}>{s.charAt(0).toUpperCase()+s.slice(1)}</p>
+                </div>
+              ))}
+            </div>
+            {/* Bouton étape suivante */}
+            {idxS < CYCLE_STATUT.length-1 ? (
+              <button onClick={()=>toggleStatut(view)} style={{width:"100%",background:"#F2C94C",color:"#0A0A0A",border:"none",borderRadius:8,padding:"9px",fontWeight:700,fontSize:12,cursor:"pointer",marginBottom:8}}>
+                → Passer à : {CYCLE_STATUT[idxS+1]}
+              </button>
+            ) : (
+              <div style={{textAlign:"center",marginBottom:8}}>
+                <span style={{color:"#4ADE80",fontSize:12,fontWeight:700}}>✅ Étape finale atteinte</span>
+                <button onClick={()=>setSt(p=>({...p,commandes:(p.commandes||[]).map((x:any)=>x.id===view.id?{...x,statut:"commandé",historique:[...(x.historique||[]),{ancien:view.statut,nouveau:"commandé",date:today(),heure:new Date().toLocaleTimeString("fr-CH",{hour:"2-digit",minute:"2-digit"})}]}:x)}))} style={{display:"block",marginTop:4,width:"100%",background:"#333",color:"#9CA3AF",border:"none",borderRadius:8,padding:"6px",fontSize:11,cursor:"pointer"}}>↩ Remettre en Commandé</button>
+              </div>
+            )}
+            {/* Toggle paiement */}
+            {(view.paiement==="payé"||view.statut==="payée") ? (
+              <button onClick={()=>togglePaiement(view)} style={{width:"100%",background:"#14532D",color:"#4ADE80",border:"1.5px solid #166534",borderRadius:8,padding:"9px",fontWeight:700,fontSize:12,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+                ✅ Payé — appuyer pour annuler
+              </button>
+            ) : (
+              <button onClick={()=>togglePaiement(view)} style={{width:"100%",background:"#22C55E",color:"#fff",border:"none",borderRadius:8,padding:"9px",fontWeight:700,fontSize:12,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+                💳 Marquer comme payée → compta auto
+              </button>
+            )}
           </div>
         );
-        return nextS ? (
-          <div style={{borderTop:"1px solid #333",marginTop:10,paddingTop:10}}>
-            <button onClick={()=>toggleStatut(view)} style={{width:"100%",background:nextS==="payée"?"#22C55E":"#F2C94C",color:nextS==="payée"?"#fff":"#0A0A0A",border:"none",borderRadius:8,padding:"9px",fontWeight:700,fontSize:12,cursor:"pointer"}}>
-              {nextS==="payée"?"💳 Marquer payée":"→ Passer à : "+nextS}
-            </button>
-          </div>
-        ) : null;
       })()}
     </div>
 
@@ -8718,13 +8810,11 @@ return (
     {/* Indicateur stock déduit */}
     {view.stockDeduit
       ? <div style={{background:"#F0FDF4",border:"1px solid #BBF7D0",borderRadius:8,padding:"7px 12px",marginBottom:8,display:"flex",alignItems:"center",gap:6,fontSize:11,color:"#15803D",fontWeight:600}}>
-          📦 Stock déduit automatiquement à l'expédition
+          📦 Stock déduit à la création de la commande
         </div>
-      : (view.statut==="à préparer"||view.statut==="emballée") && (
-          <div style={{background:"#F8F8F6",border:"1px solid #E5E5E0",borderRadius:8,padding:"7px 12px",marginBottom:8,display:"flex",alignItems:"center",gap:6,fontSize:11,color:"#737373"}}>
-            📦 Le stock sera déduit automatiquement au passage en "expédiée"
-          </div>
-        )
+      : <div style={{background:"#FEF9E7",border:"1px solid #F2C94C",borderRadius:8,padding:"7px 12px",marginBottom:8,display:"flex",alignItems:"center",gap:6,fontSize:11,color:"#92400E"}}>
+          ⚠️ Stock non encore déduit
+        </div>
     }
 
     {/* ── Flux achat ferme (si issue d'une offre) ── */}
@@ -8825,18 +8915,24 @@ return (
       )}
       {parseFloat(view.fraisPort)>0 && (
         <div style={{display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:4}}>
-          <span>Frais de port</span><span style={{fontWeight:600}}>+{chf(view.fraisPort)}</span>
+          <span>Port encaissé</span><span style={{fontWeight:600}}>+{chf(view.fraisPort)}</span>
         </div>
       )}
       <div style={{display:"flex",justifyContent:"space-between",borderTop:"1px solid #F2C94C",paddingTop:6,marginTop:6}}>
         <span style={{fontWeight:700}}>Total client</span>
         <span style={{fontWeight:700,fontFamily:"'Cormorant Garamond',serif",fontSize:18,color:"#D4A017"}}>{chf(calc.totalClient)}</span>
       </div>
-      {parseFloat(view.commissionShopify)>0 && (
+      {parseFloat(view.fraisPortCoute)>0 && (
         <div style={{display:"flex",justifyContent:"space-between",fontSize:11,marginTop:6,color:"#991B1B"}}>
-          <span>Commission Shopify</span><span>-{chf(view.commissionShopify)}</span>
+          <span>Port coûté (6315)</span><span>-{chf(view.fraisPortCoute)}</span>
         </div>
       )}
+      {parseFloat(view.commissionShopify)>0 && (
+        <div style={{display:"flex",justifyContent:"space-between",fontSize:11,marginTop:6,color:"#991B1B"}}>
+          <span>Commission Shopify (6700)</span><span>-{chf(view.commissionShopify)}</span>
+        </div>
+      )}
+      {parseFloat(view.rabais)>0 && parseFloat(view.fraisPort)===0 && parseFloat(view.commissionShopify)===0 ? null : null}
       <div style={{display:"flex",justifyContent:"space-between",borderTop:"2px solid #F2C94C",paddingTop:6,marginTop:6}}>
         <span style={{fontWeight:700,color:"#166534"}}>Net reçu</span>
         <span style={{fontWeight:700,fontFamily:"'Cormorant Garamond',serif",fontSize:18,color:"#166534"}}>{chf(calc.netRecu)}</span>
@@ -9098,7 +9194,7 @@ Commandes
               <div style={{flex:1,minWidth:0}}>
                 <div style={{display:"flex",alignItems:"center",gap:6}}>
                   <p style={{fontWeight:700,fontSize:13}}>{c.numero}</p>
-                  <span style={{fontSize:9,fontWeight:700,padding:"2px 6px",borderRadius:4,background:c.source==="direct"?"#EFF6FF":c.source==="shopify"?"#FFF7ED":"#F0FDF4",color:c.source==="direct"?"#1D4ED8":c.source==="shopify"?"#9A3412":"#15803D"}}>{c.source==="direct"?"DIRECT":c.source==="shopify"?"SHOPIFY":"PRO"}</span>
+                  {(()=>{const sl=getSourceLabel(c.source||"personne");return <span style={{fontSize:9,fontWeight:700,padding:"2px 6px",borderRadius:4,background:sl.bg,color:sl.c}}>{sl.label}</span>;})()}
                 </div>
                 <p style={{fontSize:12,color:"#6B7280",marginTop:1}}>{c.client}</p>
                 <p style={{fontSize:11,color:"#9CA3AF",marginTop:1}}>{fmt(c.date)} · {(c.lignes||[]).length} produit{c.lignes?.length>1?"s":""}</p>
@@ -9106,7 +9202,8 @@ Commandes
               <div style={{textAlign:"right"}}>
                 <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:18,fontWeight:700,color:"#D4A017"}}>{chf(calc.totalClient)}</p>
                 <div style={{marginTop:4,display:"flex",flexDirection:"column",alignItems:"flex-end",gap:3}}>
-                  <Badge c={badgeStatut(c.statut)}>{c.statut}</Badge>
+                  <Badge c={badgeStatut(normalizeStatut(c.statut))}>{normalizeStatut(c.statut)}</Badge>
+                  {(c.paiement==="payé"||c.statut==="payée") && <span style={{fontSize:9,fontWeight:700,padding:"2px 6px",borderRadius:4,background:"#DCFCE7",color:"#166534"}}>💳 Payé</span>}
                   {c.factureNumero && <span style={{fontSize:9,color:"#166534",background:"#DCFCE7",borderRadius:4,padding:"2px 6px",fontWeight:700}}>🧾 {c.factureNumero}</span>}
                 </div>
               </div>
@@ -9114,12 +9211,13 @@ Commandes
           </div>
           <div style={{display:"flex",gap:6,marginTop:8,flexWrap:"wrap"}}>
             {(()=>{
-              const cycleC=["à préparer","emballée","expédiée","livrée","payée"];
-              const idxC=cycleC.indexOf(c.statut);
-              const nextC=idxC>=0&&idxC<cycleC.length-1?cycleC[idxC+1]:null;
-              if(c.statut==="payée") return <span style={{flex:1,textAlign:"center",fontSize:11,color:"#166534",fontWeight:700,padding:"7px",background:"#DCFCE7",borderRadius:8}}>✅ Payée</span>;
-              if(!nextC) return null;
-              return <button onClick={()=>toggleStatut(c)} style={{flex:1,background:nextC==="payée"?"#22C55E":"#F2C94C",color:nextC==="payée"?"#fff":"#0A0A0A",border:"none",borderRadius:8,padding:"7px",fontSize:11,fontWeight:700,cursor:"pointer"}}>{nextC==="payée"?"💳 Marquer payée":"→ "+nextC}</button>;
+              const normC=normalizeStatut(c.statut||"commandé");
+              const idxC=CYCLE_STATUT.indexOf(normC);
+              const nextC=idxC>=0&&idxC<CYCLE_STATUT.length-1?CYCLE_STATUT[idxC+1]:null;
+              const estPaye=c.paiement==="payé"||c.statut==="payée";
+              if(estPaye) return <span style={{flex:1,textAlign:"center",fontSize:11,color:"#166534",fontWeight:700,padding:"7px",background:"#DCFCE7",borderRadius:8}}>✅ Payée</span>;
+              if(nextC) return <button onClick={()=>toggleStatut(c)} style={{flex:1,background:"#F2C94C",color:"#0A0A0A",border:"none",borderRadius:8,padding:"7px",fontSize:11,fontWeight:700,cursor:"pointer"}}>→ {nextC}</button>;
+              return <button onClick={()=>togglePaiement(c)} style={{flex:1,background:"#22C55E",color:"#fff",border:"none",borderRadius:8,padding:"7px",fontSize:11,fontWeight:700,cursor:"pointer"}}>💳 Marquer payée</button>;
             })()}
             {!c.factureNumero ? (
               <button onClick={()=>genererFactureDepuisCommande(c,st,setSt)} style={{flex:1,background:"#0A0A0A",color:"#F2C94C",border:"none",borderRadius:8,padding:"7px",fontSize:11,fontWeight:700,cursor:"pointer"}}>🧾 Facture</button>
@@ -9138,11 +9236,23 @@ Commandes
   {modal==="form" && (
     <Modal title={form.id?"Modifier commande":"Nouvelle commande"} onClose={()=>setModal(null)}>
       <div style={{display:"grid",gap:14}}>
+        {/* Sélecteur type */}
+        <div>
+          <label style={{fontSize:11,fontWeight:600,color:"#9CA3AF",textTransform:"uppercase",display:"block",marginBottom:8}}>Type de commande</label>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
+            {([["personne","👤","Personne"],["partenaire","🤝","Partenaire"],["shopify","🛒","Shopify"]] as [string,string,string][]).map(([v,ic,l])=>(
+              <button key={v} onClick={()=>setForm(p=>({...p,source:v,typeClient:v==="partenaire"?"revendeur":"client"}))}
+                style={{padding:"10px 6px",borderRadius:10,background:(form.source===v||(!["personne","partenaire","shopify"].includes(form.source||""))&&v==="personne")?"#111":"#F5F5F0",color:(form.source===v||(!["personne","partenaire","shopify"].includes(form.source||""))&&v==="personne")?"#F2C94C":"#374151",border:"none",fontWeight:700,fontSize:12,cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:3}}>
+                <span style={{fontSize:18}}>{ic}</span>
+                <span>{l}</span>
+              </button>
+            ))}
+          </div>
+          <p style={{fontSize:10,color:"#9CA3AF",marginTop:5,textAlign:"center"}}>
+            {(form.source==="partenaire"||form.source==="prestataire")?"💼 Prix pro appliqué":"🏷 Prix public appliqué"}
+          </p>
+        </div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-          <Sel label="Source" value={form.source||"direct"} onChange={v=>setForm(p=>({...p,source:v}))}
-            options={[{v:"direct",l:"🤝 Commande directe"},{v:"prestataire",l:"🏢 Prestataire/Pro"},{v:"shopify",l:"🛒 Shopify"}]}/>
-          <Sel label="Prix" value={form.typeClient||"revendeur"} onChange={v=>setForm(p=>({...p,typeClient:v}))}
-            options={[{v:"revendeur",l:"💼 Prix pro"},{v:"client",l:"🏷 Prix public"}]}/>
           <F label="N° commande" value={form.numero||""} onChange={v=>setForm(p=>({...p,numero:v}))} placeholder="Auto"/>
           <F label="Date" type="date" value={form.date} onChange={v=>setForm(p=>({...p,date:v}))}/>
         </div>
@@ -9220,12 +9330,11 @@ Commandes
           </button>
         </div>
 
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10}}>
-          <F label="Rabais (CHF)" type="number" value={form.rabais||""} onChange={v=>setForm(p=>({...p,rabais:v}))}/>
-          <F label="Frais port (CHF)" type="number" value={form.fraisPort||""} onChange={v=>setForm(p=>({...p,fraisPort:v}))}/>
-          {(form.source||"shopify")==="shopify" && (
-            <F label="Commission Shopify" type="number" value={form.commissionShopify||""} onChange={v=>setForm(p=>({...p,commissionShopify:v}))}/>
-          )}
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+          <F label="Port encaissé (CHF)" type="number" value={form.fraisPort||""} onChange={v=>setForm(p=>({...p,fraisPort:v}))} placeholder="0"/>
+          <F label="Port coûté (CHF)" type="number" value={form.fraisPortCoute||""} onChange={v=>setForm(p=>({...p,fraisPortCoute:v}))} placeholder="0"/>
+          <F label="Rabais (CHF)" type="number" value={form.rabais||""} onChange={v=>setForm(p=>({...p,rabais:v}))} placeholder="0"/>
+          <F label="Commission Shopify (CHF)" type="number" value={form.commissionShopify||""} onChange={v=>setForm(p=>({...p,commissionShopify:v}))} placeholder="0"/>
         </div>
         {parseFloat(form.rabais)>0 && (
           <div style={{background:"#FEF9E7",border:"1.5px solid #F2C94C",borderRadius:10,padding:"10px 12px"}}>
@@ -9236,13 +9345,26 @@ Commandes
           </div>
         )}
 
-        <Sel label="Statut" value={form.statut} onChange={v=>setForm(p=>({...p,statut:v}))}
-          options={[
-            {v:"à préparer",l:"📋 À préparer"},
-            {v:"emballée",l:"📦 Emballée"},
-            {v:"expédiée",l:"🚚 Expédiée"},
-            {v:"livrée",l:"✅ Livrée"},
-          ]}/>
+        {/* Statut + paiement */}
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+          <div>
+            <label style={{fontSize:11,fontWeight:600,color:"#9CA3AF",textTransform:"uppercase",display:"block",marginBottom:8}}>Statut livraison</label>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
+              {CYCLE_STATUT.map(s=>(
+                <button key={s} onClick={()=>setForm(p=>({...p,statut:s}))} style={{padding:"8px 4px",borderRadius:8,background:normalizeStatut(form.statut)===s?"#111":"#F5F5F0",color:normalizeStatut(form.statut)===s?"#F2C94C":"#374151",border:"none",fontWeight:normalizeStatut(form.statut)===s?700:400,fontSize:11,cursor:"pointer"}}>
+                  {s==="commandé"?"📋":s==="préparé"?"📦":s==="expédié"?"🚚":"✅"} {s.charAt(0).toUpperCase()+s.slice(1)}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div>
+            <label style={{fontSize:11,fontWeight:600,color:"#9CA3AF",textTransform:"uppercase",display:"block",marginBottom:8}}>Paiement</label>
+            <div style={{display:"grid",gap:6}}>
+              <button onClick={()=>setForm(p=>({...p,paiement:"en attente"}))} style={{padding:"8px",borderRadius:8,background:(form.paiement||"en attente")==="en attente"?"#111":"#F5F5F0",color:(form.paiement||"en attente")==="en attente"?"#F2C94C":"#374151",border:"none",fontWeight:(form.paiement||"en attente")==="en attente"?700:400,fontSize:11,cursor:"pointer"}}>⏳ En attente</button>
+              <button onClick={()=>setForm(p=>({...p,paiement:"payé"}))} style={{padding:"8px",borderRadius:8,background:form.paiement==="payé"?"#14532D":"#F5F5F0",color:form.paiement==="payé"?"#4ADE80":"#374151",border:"none",fontWeight:form.paiement==="payé"?700:400,fontSize:11,cursor:"pointer"}}>💳 Payé</button>
+            </div>
+          </div>
+        </div>
 
         <F label="Notes" value={form.notes||""} onChange={v=>setForm(p=>({...p,notes:v}))}/>
 
@@ -9252,19 +9374,18 @@ Commandes
           return (
             <div style={{background:"#FEF9E7",border:"1px solid #F2C94C",borderRadius:10,padding:"10px 14px",fontSize:12}}>
               <div style={{display:"flex",justifyContent:"space-between",marginBottom:3}}>
-                <span>Sous-total</span><span>{chf(c.produitsTotal)}</span>
+                <span>Sous-total produits</span><span>{chf(c.produitsTotal)}</span>
               </div>
-              {parseFloat(form.rabais)>0 && <div style={{display:"flex",justifyContent:"space-between",color:"#991B1B",marginBottom:3}}><span>Rabais</span><span>-{chf(form.rabais)}</span></div>}
-              {parseFloat(form.fraisPort)>0 && <div style={{display:"flex",justifyContent:"space-between",marginBottom:3}}><span>Frais port</span><span>+{chf(form.fraisPort)}</span></div>}
+              {parseFloat(String(form.rabais))>0 && <div style={{display:"flex",justifyContent:"space-between",color:"#991B1B",marginBottom:3}}><span>Rabais</span><span>-{chf(form.rabais)}</span></div>}
+              {parseFloat(String(form.fraisPort))>0 && <div style={{display:"flex",justifyContent:"space-between",marginBottom:3}}><span>Port encaissé</span><span>+{chf(form.fraisPort)}</span></div>}
               <div style={{display:"flex",justifyContent:"space-between",borderTop:"1px solid #F2C94C",paddingTop:5,marginTop:5,fontWeight:700}}>
                 <span>Total client</span>
                 <span style={{color:"#D4A017",fontFamily:"'Cormorant Garamond',serif",fontSize:16}}>{chf(c.totalClient)}</span>
               </div>
-              {parseFloat(form.commissionShopify)>0 && (
-                <div style={{display:"flex",justifyContent:"space-between",color:"#991B1B",marginTop:3}}><span>-Commission</span><span>-{chf(form.commissionShopify)}</span></div>
-              )}
-              <div style={{display:"flex",justifyContent:"space-between",marginTop:4,fontWeight:700,color:"#166534"}}>
-                <span>Net reçu</span><span>{chf(c.netRecu)}</span>
+              {parseFloat(String(form.fraisPortCoute))>0 && <div style={{display:"flex",justifyContent:"space-between",color:"#991B1B",marginTop:3}}><span>Port coûté (6315)</span><span>-{chf(form.fraisPortCoute)}</span></div>}
+              {parseFloat(String(form.commissionShopify))>0 && <div style={{display:"flex",justifyContent:"space-between",color:"#991B1B",marginTop:3}}><span>Commission (6700)</span><span>-{chf(form.commissionShopify)}</span></div>}
+              <div style={{display:"flex",justifyContent:"space-between",borderTop:"1px solid #E5E7EB",paddingTop:5,marginTop:5,fontWeight:700,color:"#166534"}}>
+                <span>Net reçu</span><span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:16}}>{chf(c.netRecu)}</span>
               </div>
             </div>
           );
