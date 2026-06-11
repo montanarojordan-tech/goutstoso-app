@@ -1524,7 +1524,7 @@ setSt(p=>{
         newMouvements.push({
           id:uid(),date:c.date||today(),type:"sortie",
           produitId:l.produitId,qte:-(parseInt(l.qte)||0),
-          source:`Commande ${c.numero}`,commandeId:c.id,
+          source:`Commande ${c.numero}${c.reference?` · ${c.reference}`:""}`,commandeId:c.id,
         });
         added++;
       });
@@ -8015,6 +8015,7 @@ const view = viewId ? (st.commandes||[]).find(c=>c.id===viewId) : null;
 const emptyC = () => ({
 id:null,
 numero:"",
+reference:"",
 date:today(),
 clientId:"",
 client:"",
@@ -8153,7 +8154,7 @@ if(form.id) {
         restant -= dedd;
         return {...s, qte:(s.qte||0)-dedd};
       });
-      newMouvements.push({id:uid(),date:cleaned.date||today(),type:"sortie",produitId:l.produitId,qte:-(parseInt(l.qte)||0),source:`Commande ${cleaned.numero}`,commandeId:cleaned.id});
+      newMouvements.push({id:uid(),date:cleaned.date||today(),type:"sortie",produitId:l.produitId,qte:-(parseInt(l.qte)||0),source:`Commande ${cleaned.numero}${cleaned.reference?` · ${cleaned.reference}`:""}`,commandeId:cleaned.id});
     });
     return {...p, stocks:newStocks, mouvementsStock:newMouvements, commandes:[...(p.commandes||[]),cleaned]};
   });
@@ -8293,7 +8294,7 @@ setSt(p=>{
         done = true;
         return {...s, qte:(s.qte||0)+aRestorer};
       });
-      newMouvements.push({id:uid(),date:today(),type:"restauration",produitId:l.produitId,qte:+(parseInt(l.qte)||0),source:`Suppression commande ${cmd.numero}`,commandeId:id});
+      newMouvements.push({id:uid(),date:today(),type:"restauration",produitId:l.produitId,qte:+(parseInt(l.qte)||0),source:`Suppression commande ${cmd.numero}${cmd.reference?` · ${cmd.reference}`:""}`,commandeId:id});
     });
   }
   return {
@@ -8337,7 +8338,7 @@ setSt(p=>{
       newMouvements.push({
         id:uid(), date:today(), type:"sortie",
         produitId:l.produitId, qte:-(parseInt(l.qte)||0),
-        source:`Commande ${c.numero}`, commandeId:c.id,
+        source:`Commande ${c.numero}${c.reference?` · ${c.reference}`:""}`, commandeId:c.id,
       });
     });
     stockDeduit = true;
@@ -8355,7 +8356,7 @@ setSt(p=>{
       newMouvements.push({
         id:uid(), date:today(), type:"restauration",
         produitId:l.produitId, qte:+(parseInt(l.qte)||0),
-        source:`Annulation sortie — Commande ${c.numero}`, commandeId:c.id,
+        source:`Annulation sortie — Commande ${c.numero}${c.reference?` · ${c.reference}`:""}`, commandeId:c.id,
       });
     });
     stockDeduit = false;
@@ -8478,6 +8479,7 @@ return (
         <div>
           <p style={{fontSize:10,color:"#F2C94C",fontWeight:700,textTransform:"uppercase",letterSpacing:".08em"}}>{view.source==="shopify"?"🛒 Shopify":view.source==="partenaire"||view.source==="prestataire"?"🤝 Partenaire":"👤 Personne"}</p>
           <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:22,fontWeight:700,color:"#fff",marginTop:2}}>{view.numero}</p>
+          {view.reference && <p style={{fontSize:11,color:"#F2C94C",marginTop:2,fontWeight:600}}>🏷 {view.reference}</p>}
           <p style={{fontSize:11,color:"#aaa",marginTop:4}}>{fmt(view.date)}</p>
         </div>
         <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:6}}>
@@ -8964,6 +8966,7 @@ Commandes
                   {(()=>{const sl=getSourceLabel(c.source||"personne");return <span style={{fontSize:9,fontWeight:700,padding:"2px 6px",borderRadius:4,background:sl.bg,color:sl.c}}>{sl.label}</span>;})()}
                 </div>
                 <p style={{fontSize:12,color:"#6B7280",marginTop:1}}>{c.client}</p>
+                {c.reference && <p style={{fontSize:11,color:"#D4A017",marginTop:1,fontWeight:600}}>🏷 {c.reference}</p>}
                 <p style={{fontSize:11,color:"#9CA3AF",marginTop:1}}>{fmt(c.date)} · {(c.lignes||[]).length} produit{c.lignes?.length>1?"s":""}</p>
               </div>
               <div style={{textAlign:"right"}}>
@@ -9023,6 +9026,7 @@ Commandes
           <F label="N° commande" value={form.numero||""} onChange={v=>setForm(p=>({...p,numero:v}))} placeholder="Auto"/>
           <F label="Date" type="date" value={form.date} onChange={v=>setForm(p=>({...p,date:v}))}/>
         </div>
+        <F label="Référence (ex : Marché Noël, Ref client…)" value={form.reference||""} onChange={v=>setForm(p=>({...p,reference:v}))} placeholder="Optionnel — apparaît dans les mouvements de stock"/>
         <div>
           <label style={{fontSize:11,fontWeight:600,color:"#9CA3AF",textTransform:"uppercase",display:"block",marginBottom:6}}>Client / Prestataire</label>
           <select value={form.clientId||""} onChange={e=>{
