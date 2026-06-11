@@ -1435,11 +1435,14 @@ Catalogue
 const envoyerAlerteStock = (st) => {
 const bas = st.produits.filter(p=>p.actif&&!p.nom.includes("Coffret")).filter(p=>{
 const t=sum((st.stocks||[]).filter(s=>s.produitId===p.id).map(s=>s.qte));
-return t<=3&&t>0;
+const dep=sum((st.depotStocks||[]).filter(d=>d.produitId===p.id).map(d=>d.qteDeposee-d.qteVendue-d.qteRetournee));
+const propre=t-dep;
+return propre<=3&&propre>0;
 });
 const lignes = bas.map(p=>{
 const t=sum((st.stocks||[]).filter(s=>s.produitId===p.id).map(s=>s.qte));
-return "• "+p.nom+" "+p.variante+" "+p.format+" : "+t+" unités";
+const dep=sum((st.depotStocks||[]).filter(d=>d.produitId===p.id).map(d=>d.qteDeposee-d.qteVendue-d.qteRetournee));
+return "• "+p.nom+" "+p.variante+" "+p.format+" : "+(t-dep)+" unités";
 }).join("\n");
 const subj = encodeURIComponent("⚠️ Alerte stock bas - GoûtStoso");
 const body = encodeURIComponent(
@@ -1524,7 +1527,7 @@ setSt(p=>{
         newMouvements.push({
           id:uid(),date:c.date||today(),type:"sortie",
           produitId:l.produitId,qte:-(parseInt(l.qte)||0),
-          source:`Commande ${c.numero}${c.reference?` · ${c.reference}`:""}`,commandeId:c.id,
+          source:`${c.numInterne?`#${c.numInterne} · `:""}Commande ${c.numero}${c.reference?` · ${c.reference}`:""}`,commandeId:c.id,
         });
         added++;
       });
@@ -1570,26 +1573,31 @@ return (
 {/* Alerte email stock bas */}
 {st.produits.filter(p=>p.actif&&!p.nom.includes("Coffret")).some(p=>{
 const total = sum((st.stocks||[]).filter(s=>s.produitId===p.id).map(s=>s.qte));
-return total <= 3 && total > 0;
+const dep=sum((st.depotStocks||[]).filter(d=>d.produitId===p.id).map(d=>d.qteDeposee-d.qteVendue-d.qteRetournee));
+const propre=total-dep;
+return propre <= 3 && propre > 0;
 }) && (
 <div style={{background:"#FEE2E2",border:"1px solid #FCA5A5",borderRadius:12,padding:"10px 14px",marginBottom:12,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
 <div>
-<p style={{fontWeight:700,color:"#991B1B",fontSize:13}}>⚠️ Stock bas détecté</p>
+<p style={{fontWeight:700,color:"#991B1B",fontSize:13}}>⚠️ Stock bas détecté (chez moi)</p>
 <p style={{fontSize:11,color:"#B91C1C",marginTop:1}}>
 {st.produits.filter(p=>p.actif&&!p.nom.includes("Coffret")).filter(p=>{
 const t=sum((st.stocks||[]).filter(s=>s.produitId===p.id).map(s=>s.qte));
-return t<=3&&t>0;
+const dep=sum((st.depotStocks||[]).filter(d=>d.produitId===p.id).map(d=>d.qteDeposee-d.qteVendue-d.qteRetournee));
+return (t-dep)<=3&&(t-dep)>0;
 }).map(p=>`${p.nom} ${p.variante} ${p.format}`).join(", ")}
 </p>
 </div>
 <button onClick={()=>{
 const prodsBas = st.produits.filter(p=>p.actif&&!p.nom.includes("Coffret")).filter(p=>{
 const t=sum((st.stocks||[]).filter(s=>s.produitId===p.id).map(s=>s.qte));
-return t<=3&&t>0;
+const dep=sum((st.depotStocks||[]).filter(d=>d.produitId===p.id).map(d=>d.qteDeposee-d.qteVendue-d.qteRetournee));
+return (t-dep)<=3&&(t-dep)>0;
 });
 const lignesBas = prodsBas.map(p=>{
 const t=sum((st.stocks||[]).filter(s=>s.produitId===p.id).map(s=>s.qte));
-return `• ${p.nom} ${p.variante} ${p.format} : ${t} unités restantes`;
+const dep=sum((st.depotStocks||[]).filter(d=>d.produitId===p.id).map(d=>d.qteDeposee-d.qteVendue-d.qteRetournee));
+return `• ${p.nom} ${p.variante} ${p.format} : ${t-dep} unités restantes`;
 }).join("\n");
 const bodyAlerte =
 "Bonjour Jordan,\n\n"+
@@ -1621,7 +1629,7 @@ sendEmail({to:"admin@goutstoso.ch",subject:subj2,body:bodyAlerte});
       const propre = total - enDepot;
       const img = getImg(p);
       const c = getCouleur(p);
-      const alerte = total > 0 && total <= 3;
+      const alerte = propre > 0 && propre <= 3;
       return (
         <Card key={p.id} style={{padding:"12px 14px"}}>
           <div style={{display:"flex",alignItems:"center",gap:12}}>
@@ -1635,18 +1643,19 @@ sendEmail({to:"admin@goutstoso.ch",subject:subj2,body:bodyAlerte});
             </div>
             {alerte && <span style={{background:"#FEE2E2",color:"#991B1B",borderRadius:6,padding:"2px 8px",fontSize:10,fontWeight:700}}>⚠ Bas</span>}
           </div>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginTop:10}}>
-            {[
-              {l:"Total",v:total,c:"#111",bg:"#F5F5F0"},
-              {l:"En dépôt",v:enDepot,c:"#1E3A5F",bg:"#DBEAFE"},
-              {l:"Propre",v:propre,c:propre<5?"#991B1B":"#166534",bg:propre<5?"#FEE2E2":"#DCFCE7"},
-            ].map((k,i)=>(
-              <div key={i} style={{background:k.bg,borderRadius:8,padding:"8px",textAlign:"center"}}>
-                <p style={{fontSize:9,color:"#9CA3AF",fontWeight:600,textTransform:"uppercase"}}>{k.l}</p>
-                <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:22,fontWeight:700,color:k.c,lineHeight:1.2}}>{k.v}</p>
-                <p style={{fontSize:9,color:"#9CA3AF"}}>unités</p>
+          <div style={{display:"flex",alignItems:"center",gap:10,marginTop:10}}>
+            <div style={{flex:1,background:propre<5?"#FEE2E2":"#DCFCE7",borderRadius:10,padding:"10px 12px",textAlign:"center"}}>
+              <p style={{fontSize:9,color:"#9CA3AF",fontWeight:700,textTransform:"uppercase",letterSpacing:".06em"}}>Chez moi</p>
+              <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:30,fontWeight:700,color:propre<5?"#991B1B":"#166534",lineHeight:1.1}}>{propre}</p>
+              <p style={{fontSize:9,color:"#9CA3AF"}}>unités</p>
+            </div>
+            {enDepot>0 && (
+              <div style={{background:"#DBEAFE",borderRadius:10,padding:"10px 12px",textAlign:"center",minWidth:72}}>
+                <p style={{fontSize:9,color:"#9CA3AF",fontWeight:700,textTransform:"uppercase",letterSpacing:".06em"}}>En dépôt</p>
+                <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:22,fontWeight:700,color:"#1E3A5F",lineHeight:1.1}}>{enDepot}</p>
+                <p style={{fontSize:9,color:"#9CA3AF"}}>chez partenaires</p>
               </div>
-            ))}
+            )}
           </div>
         </Card>
       );
@@ -8015,6 +8024,7 @@ const view = viewId ? (st.commandes||[]).find(c=>c.id===viewId) : null;
 const emptyC = () => ({
 id:null,
 numero:"",
+numInterne:0,
 reference:"",
 date:today(),
 clientId:"",
@@ -8144,6 +8154,9 @@ if(form.id) {
   cleaned.id = uid();
   cleaned.stockDeduit = true;
   setSt(p=>{
+    const nextNum = Math.max(0, ...(p.commandes||[]).map((c:any)=>c.numInterne||0)) + 1;
+    cleaned.numInterne = nextNum;
+    const srcLabel = `#${nextNum} · Commande ${cleaned.numero}${cleaned.reference?` · ${cleaned.reference}`:""}`;
     let newStocks = [...(p.stocks||[])];
     const newMouvements = [...(p.mouvementsStock||[])];
     lignesOk.forEach(l=>{
@@ -8154,7 +8167,7 @@ if(form.id) {
         restant -= dedd;
         return {...s, qte:(s.qte||0)-dedd};
       });
-      newMouvements.push({id:uid(),date:cleaned.date||today(),type:"sortie",produitId:l.produitId,qte:-(parseInt(l.qte)||0),source:`Commande ${cleaned.numero}${cleaned.reference?` · ${cleaned.reference}`:""}`,commandeId:cleaned.id});
+      newMouvements.push({id:uid(),date:cleaned.date||today(),type:"sortie",produitId:l.produitId,qte:-(parseInt(l.qte)||0),source:srcLabel,commandeId:cleaned.id});
     });
     return {...p, stocks:newStocks, mouvementsStock:newMouvements, commandes:[...(p.commandes||[]),cleaned]};
   });
@@ -8294,7 +8307,7 @@ setSt(p=>{
         done = true;
         return {...s, qte:(s.qte||0)+aRestorer};
       });
-      newMouvements.push({id:uid(),date:today(),type:"restauration",produitId:l.produitId,qte:+(parseInt(l.qte)||0),source:`Suppression commande ${cmd.numero}${cmd.reference?` · ${cmd.reference}`:""}`,commandeId:id});
+      newMouvements.push({id:uid(),date:today(),type:"restauration",produitId:l.produitId,qte:+(parseInt(l.qte)||0),source:`Suppression ${cmd.numInterne?`#${cmd.numInterne} · `:""}Commande ${cmd.numero}${cmd.reference?` · ${cmd.reference}`:""}`,commandeId:id});
     });
   }
   return {
@@ -8338,7 +8351,7 @@ setSt(p=>{
       newMouvements.push({
         id:uid(), date:today(), type:"sortie",
         produitId:l.produitId, qte:-(parseInt(l.qte)||0),
-        source:`Commande ${c.numero}${c.reference?` · ${c.reference}`:""}`, commandeId:c.id,
+        source:`${c.numInterne?`#${c.numInterne} · `:""}Commande ${c.numero}${c.reference?` · ${c.reference}`:""}`, commandeId:c.id,
       });
     });
     stockDeduit = true;
@@ -8356,7 +8369,7 @@ setSt(p=>{
       newMouvements.push({
         id:uid(), date:today(), type:"restauration",
         produitId:l.produitId, qte:+(parseInt(l.qte)||0),
-        source:`Annulation sortie — Commande ${c.numero}${c.reference?` · ${c.reference}`:""}`, commandeId:c.id,
+        source:`Annulation sortie — ${c.numInterne?`#${c.numInterne} · `:""}Commande ${c.numero}${c.reference?` · ${c.reference}`:""}`, commandeId:c.id,
       });
     });
     stockDeduit = false;
@@ -8478,7 +8491,10 @@ return (
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
         <div>
           <p style={{fontSize:10,color:"#F2C94C",fontWeight:700,textTransform:"uppercase",letterSpacing:".08em"}}>{view.source==="shopify"?"🛒 Shopify":view.source==="partenaire"||view.source==="prestataire"?"🤝 Partenaire":"👤 Personne"}</p>
-          <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:22,fontWeight:700,color:"#fff",marginTop:2}}>{view.numero}</p>
+          <div style={{display:"flex",alignItems:"center",gap:8,marginTop:2}}>
+            {view.numInterne ? <span style={{fontSize:12,fontWeight:800,color:"#0A0A0A",background:"#F2C94C",borderRadius:6,padding:"2px 8px"}}>#{view.numInterne}</span> : null}
+            <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:22,fontWeight:700,color:"#fff"}}>{view.numero}</p>
+          </div>
           {view.reference && <p style={{fontSize:11,color:"#F2C94C",marginTop:2,fontWeight:600}}>🏷 {view.reference}</p>}
           <p style={{fontSize:11,color:"#aaa",marginTop:4}}>{fmt(view.date)}</p>
         </div>
@@ -8962,6 +8978,7 @@ Commandes
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:6}}>
               <div style={{flex:1,minWidth:0}}>
                 <div style={{display:"flex",alignItems:"center",gap:6}}>
+                  {c.numInterne ? <span style={{fontSize:10,fontWeight:800,color:"#fff",background:"#0A0A0A",borderRadius:5,padding:"1px 6px"}}>#{c.numInterne}</span> : null}
                   <p style={{fontWeight:700,fontSize:13}}>{c.numero}</p>
                   {(()=>{const sl=getSourceLabel(c.source||"personne");return <span style={{fontSize:9,fontWeight:700,padding:"2px 6px",borderRadius:4,background:sl.bg,color:sl.c}}>{sl.label}</span>;})()}
                 </div>
@@ -11860,7 +11877,7 @@ const creerCommandeAchat = (offre) => {
   const numero = "CMD-"+y+"-"+String(n).padStart(3,"0");
   const cid = uid();
   const lignesOk = (offre.lignes||[]).filter(l=>l.qte>0).map(l=>({produitId:l.produitId,qte:l.qte}));
-  const newCmd = {
+    const newCmd:any = {
     id:cid, numero, date:today(),
     clientId:"", client:offre.clientNom,
     email:offre.clientEmail||"", telephone:"", adresse:offre.clientAdresse||"",
@@ -11874,6 +11891,9 @@ const creerCommandeAchat = (offre) => {
     offreId:offre.id,
   };
   setSt(p=>{
+    const nextNum = Math.max(0, ...(p.commandes||[]).map((c:any)=>c.numInterne||0)) + 1;
+    newCmd.numInterne = nextNum;
+    const srcLabel = `#${nextNum} · Commande ${numero} (offre ${offre.numero})`;
     let newStocks = [...(p.stocks||[])];
     const newMouvements = [...(p.mouvementsStock||[])];
     lignesOk.forEach(l=>{
@@ -11884,7 +11904,7 @@ const creerCommandeAchat = (offre) => {
         restant -= dedd;
         return {...s, qte:(s.qte||0)-dedd};
       });
-      newMouvements.push({id:uid(),date:today(),type:"sortie",produitId:l.produitId,qte:-(parseInt(l.qte)||0),source:`Commande ${numero} (offre ${offre.numero})`,commandeId:cid});
+      newMouvements.push({id:uid(),date:today(),type:"sortie",produitId:l.produitId,qte:-(parseInt(l.qte)||0),source:srcLabel,commandeId:cid});
     });
     return {
       ...p,
