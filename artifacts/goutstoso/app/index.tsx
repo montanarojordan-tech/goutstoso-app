@@ -1457,45 +1457,72 @@ sendEmail({to:"admin@goutstoso.ch",subject:subj,body:bodyTxt||body||""});
 };
 
 const Stocks = ({st,setSt}) => {
-const [modal,setModal] = useState(null);
-const [form,setForm] = useState({produitId:"",qte:0,lot:genLot(),dateEntree:today(),notes:""});
+const [modal,setModal] = useState<string|null>(null);
+const [filtreMouv,setFiltreMouv] = useState("tous");
+const [form,setForm] = useState({produitId:"",qte:"",lot:genLot(),dateEntree:today(),notes:""});
 const [ajustForm,setAjustForm] = useState({produitId:"",cibleQte:"",notes:""});
 
-const save = () => {
-if(!form.produitId||!form.qte) return;
-const newEntry = {...form,id:uid(),qte:+form.qte};
-setSt(p=>({...p,
-  stocks:[...p.stocks,newEntry],
-  mouvementsStock:[...(p.mouvementsStock||[]),{
-    id:uid(),date:form.dateEntree,type:"entrée",
-    produitId:form.produitId,qte:+form.qte,
-    source:"Production / entrée manuelle",lot:form.lot||"",notes:form.notes||"",stockEntreeId:newEntry.id,
-  }],
-}));
-setModal(null);
-setForm({produitId:"",qte:0,lot:"",dateEntree:today(),notes:""});
+// ── Entrée de stock (production) ──────────────────────────────
+const saveEntree = () => {
+  if(!form.produitId||!form.qte) return;
+  const qteN = parseInt(form.qte)||0;
+  if(qteN<=0) return;
+  const newEntry = {id:uid(),produitId:form.produitId,qte:qteN,lot:form.lot||"",dateEntree:form.dateEntree,notes:form.notes||""};
+  setSt(p=>({...p,
+    stocks:[...(p.stocks||[]),newEntry],
+    mouvementsStock:[...(p.mouvementsStock||[]),{
+      id:uid(),date:form.dateEntree,type:"entrée",
+      produitId:form.produitId,qte:qteN,
+      source:"Production"+(form.lot?" · Lot "+form.lot:"")+(form.notes?" · "+form.notes:""),
+      stockEntreeId:newEntry.id,
+    }],
+  }));
+  setModal(null);
+  setForm({produitId:"",qte:"",lot:genLot(),dateEntree:today(),notes:""});
 };
 
-const del = id => {
-const s = (st.stocks||[]).find(x=>x.id===id);
-if(!s) return;
-setSt(p=>({...p,
-  stocks:p.stocks.filter(x=>x.id!==id),
-  mouvementsStock:[...(p.mouvementsStock||[]),{
-    id:uid(),date:today(),type:"correction",
-    produitId:s.produitId,qte:-(s.qte||0),
-    source:"Suppression entrée de stock",lot:s.lot||"",
-  }],
-}));
+// ── Suppression d'une entrée ─────────────────────────────────
+const delEntree = (id:string) => {
+  const s = (st.stocks||[]).find((x:any)=>x.id===id);
+  if(!s) return;
+  setSt(p=>({...p,
+    stocks:(p.stocks||[]).filter((x:any)=>x.id!==id),
+    mouvementsStock:[...(p.mouvementsStock||[]),{
+      id:uid(),date:today(),type:"correction",
+      produitId:s.produitId,qte:-(s.qte||0),
+      source:"Suppression entrée de stock",
+    }],
+  }));
 };
 
+// ── Ajustement (inventaire physique) ─────────────────────────
+const ajuster = () => {
+  if(!ajustForm.produitId||ajustForm.cibleQte==="") return;
+  const cible = parseInt(ajustForm.cibleQte)||0;
+  const actuel = sum((st.stocks||[]).filter((s:any)=>s.produitId===ajustForm.produitId).map((s:any)=>s.qte));
+  const delta = cible - actuel;
+  if(delta===0){setModal(null);return;}
+  const adjEntry = {id:uid(),produitId:ajustForm.produitId,qte:delta,lot:"",dateEntree:today(),notes:ajustForm.notes||""};
+  setSt(p=>({...p,
+    stocks:[...(p.stocks||[]),adjEntry],
+    mouvementsStock:[...(p.mouvementsStock||[]),{
+      id:uid(),date:today(),type:"régularisation",
+      produitId:ajustForm.produitId,qte:delta,
+      source:"Inventaire physique"+(ajustForm.notes?" · "+ajustForm.notes:""),
+    }],
+  }));
+  setModal(null);
+  setAjustForm({produitId:"",cibleQte:"",notes:""});
+};
+
+// ── Annuler un mouvement ──────────────────────────────────────
 const annulerMouvement = (m:any) => {
-  const prod = st.produits.find((p:any)=>p.id===m.produitId);
-  if(!window.confirm(`Annuler ce mouvement ?\n\n${prod?.nom||""} ${prod?.variante||""} · ${m.qte>0?"+":""}${m.qte}\n${m.source||""}\n\nUn mouvement inverse sera créé pour corriger le stock.`)) return;
+  const prod = (st.produits||[]).find((p:any)=>p.id===m.produitId);
+  if(!window.confirm(`Annuler ce mouvement ?\n\n${prod?.nom||""} ${prod?.variante||""} · ${m.qte>0?"+":""}${m.qte}\n${m.source||""}\n\nUn mouvement inverse sera créé.`)) return;
   const reverseQte = -(m.qte);
   setSt((p:any)=>{
     let newStocks = [...(p.stocks||[])];
-    if(reverseQte>0) {
+    if(reverseQte>0){
       let done=false;
       newStocks=newStocks.map((s:any)=>{if(s.produitId!==m.produitId||done)return s;done=true;return{...s,qte:(s.qte||0)+reverseQte};});
       if(!done)newStocks.push({id:uid(),produitId:m.produitId,qte:reverseQte,lot:"",dateEntree:today(),notes:"Annulation mouvement"});
@@ -1514,124 +1541,69 @@ const annulerMouvement = (m:any) => {
   });
 };
 
-const syncMouvements = () => {
-let added = 0;
-setSt(p=>{
-  const dejaSynced = new Set(
-    (p.mouvementsStock||[]).filter(m=>m.commandeId).map(m=>m.commandeId)
-  );
-  const newMouvements = [...(p.mouvementsStock||[])];
-  (p.commandes||[]).filter(c=>c.stockDeduit).forEach(c=>{
-    if(!dejaSynced.has(c.id)){
-      (c.lignes||[]).filter(l=>l.produitId&&(parseInt(l.qte)||0)>0).forEach(l=>{
-        newMouvements.push({
-          id:uid(),date:c.date||today(),type:"sortie",
-          produitId:l.produitId,qte:-(parseInt(l.qte)||0),
-          source:`${c.numInterne?`#${c.numInterne} · `:""}Commande ${c.numero}${c.reference?` · ${c.reference}`:""}`,commandeId:c.id,
-        });
-        added++;
-      });
-    }
-  });
-  if(added===0) return p;
-  return {...p,mouvementsStock:newMouvements};
-});
-if(added>0) alert(`✅ ${added} mouvement(s) synchronisé(s) depuis les commandes existantes.`);
-else alert("✅ Tout est déjà à jour, aucun mouvement manquant.");
-};
-
-const ajuster = () => {
-if(!ajustForm.produitId||ajustForm.cibleQte==="") return;
-const cible = parseInt(ajustForm.cibleQte)||0;
-const actuel = sum((st.stocks||[]).filter(s=>s.produitId===ajustForm.produitId).map(s=>s.qte));
-const delta = cible - actuel;
-if(delta===0) { setModal(null); return; }
-const adjEntry = {id:uid(),produitId:ajustForm.produitId,qte:delta,lot:"",dateEntree:today(),notes:ajustForm.notes||""};
-setSt(p=>({...p,
-  stocks:[...(p.stocks||[]),adjEntry],
-  mouvementsStock:[...(p.mouvementsStock||[]),{
-    id:uid(),date:today(),type:"régularisation",
-    produitId:ajustForm.produitId,qte:delta,
-    source:"Régularisation manuelle"+(ajustForm.notes?" · "+ajustForm.notes:""),
-  }],
-}));
-setModal(null);
-setAjustForm({produitId:"",cibleQte:"",notes:""});
-};
-
 const exportStocks = () => {
-const rows = st.produits.map(p=>{
-const qte = sum((st.stocks||[]).filter(s=>s.produitId===p.id).map(s=>s.qte));
-const enDepot = sum((st.depotStocks||[]).filter(d=>d.produitId===p.id).map(d=>d.qteDeposee-d.qteVendue-d.qteRetournee));
-return {Produit:p.nom+" "+p.variante,Format:p.format,"Stock total":qte,"En dépôt":enDepot,"Stock propre":qte-enDepot,"Valeur (coût)":qte*(p.coutRevient||0)};
-});
-exportCSV(rows,"goutstoso_stocks.csv");
+  const rows = (st.produits||[]).map((p:any)=>{
+    const qte = sum((st.stocks||[]).filter((s:any)=>s.produitId===p.id).map((s:any)=>s.qte));
+    return {Produit:p.nom+" "+p.variante,Format:p.format,"Stock physique":qte};
+  });
+  exportCSV(rows,"goutstoso_stocks.csv");
 };
+
+// ── Calcul stock par produit ──────────────────────────────────
+const stockParProduit = (produitId:string) =>
+  sum((st.stocks||[]).filter((s:any)=>s.produitId===produitId).map((s:any)=>s.qte));
+
+// ── Mouvements filtrés ────────────────────────────────────────
+const tousMovts = (st.mouvementsStock||[]).slice().sort((a:any,b:any)=>(b.date||"").localeCompare(a.date||""));
+const mouvsAffiches = filtreMouv==="tous" ? tousMovts
+  : filtreMouv==="entrées" ? tousMovts.filter((m:any)=>m.type==="entrée")
+  : filtreMouv==="sorties" ? tousMovts.filter((m:any)=>m.type==="sortie")
+  : tousMovts.filter((m:any)=>["régularisation","correction","annulation","restauration"].includes(m.type));
+
+const typeBadge = (t:string) =>
+  t==="entrée"   ? {bg:"#DCFCE7",c:"#166534",l:"↑ Production"}
+  :t==="sortie"   ? {bg:"#FEE2E2",c:"#991B1B",l:"↓ Vente"}
+  :t==="régularisation"?{bg:"#FEF3C7",c:"#92400E",l:"⚖ Inventaire"}
+  :t==="restauration"  ?{bg:"#DBEAFE",c:"#1E40AF",l:"↩ Annulation"}
+  :t==="annulation"    ?{bg:"#F3F4F6",c:"#6B7280",l:"✕ Annulé"}
+  :                     {bg:"#F4F4F2",c:"#525252",l:"✎ Correction"};
+
+// ── Alerte stock bas ──────────────────────────────────────────
+const produitsBas = (st.produits||[]).filter((p:any)=>p.actif&&!p.nom.includes("Coffret")).filter((p:any)=>{
+  const q=stockParProduit(p.id); return q>=0&&q<=3;
+});
 
 return (
 <div className="fade">
-{/* Alerte email stock bas */}
-{st.produits.filter(p=>p.actif&&!p.nom.includes("Coffret")).some(p=>{
-const total = sum((st.stocks||[]).filter(s=>s.produitId===p.id).map(s=>s.qte));
-const dep=sum((st.depotStocks||[]).filter(d=>d.produitId===p.id).map(d=>d.qteDeposee-d.qteVendue-d.qteRetournee));
-const propre=total-dep;
-return propre <= 3 && propre > 0;
-}) && (
-<div style={{background:"#FEE2E2",border:"1px solid #FCA5A5",borderRadius:12,padding:"10px 14px",marginBottom:12,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-<div>
-<p style={{fontWeight:700,color:"#991B1B",fontSize:13}}>⚠️ Stock bas détecté (chez moi)</p>
-<p style={{fontSize:11,color:"#B91C1C",marginTop:1}}>
-{st.produits.filter(p=>p.actif&&!p.nom.includes("Coffret")).filter(p=>{
-const t=sum((st.stocks||[]).filter(s=>s.produitId===p.id).map(s=>s.qte));
-const dep=sum((st.depotStocks||[]).filter(d=>d.produitId===p.id).map(d=>d.qteDeposee-d.qteVendue-d.qteRetournee));
-return (t-dep)<=3&&(t-dep)>0;
-}).map(p=>`${p.nom} ${p.variante} ${p.format}`).join(", ")}
-</p>
-</div>
-<button onClick={()=>{
-const prodsBas = st.produits.filter(p=>p.actif&&!p.nom.includes("Coffret")).filter(p=>{
-const t=sum((st.stocks||[]).filter(s=>s.produitId===p.id).map(s=>s.qte));
-const dep=sum((st.depotStocks||[]).filter(d=>d.produitId===p.id).map(d=>d.qteDeposee-d.qteVendue-d.qteRetournee));
-return (t-dep)<=3&&(t-dep)>0;
-});
-const lignesBas = prodsBas.map(p=>{
-const t=sum((st.stocks||[]).filter(s=>s.produitId===p.id).map(s=>s.qte));
-const dep=sum((st.depotStocks||[]).filter(d=>d.produitId===p.id).map(d=>d.qteDeposee-d.qteVendue-d.qteRetournee));
-return `• ${p.nom} ${p.variante} ${p.format} : ${t-dep} unités restantes`;
-}).join("\n");
-const bodyAlerte =
-"Bonjour Jordan,\n\n"+
-"Une alerte stock bas vient d'être détectée. Les produits suivants ont atteint un niveau critique (≤ 3 unités) :\n\n"+
-lignesBas+"\n\n"+
-"Merci de planifier une production dès que possible afin d'éviter toute rupture.\n\n"+
-"Bonne journée,\nGoûtstoso";
-const subj2 = "⚠️ Alerte stock bas - Goûtstoso";
-sendEmail({to:"admin@goutstoso.ch",subject:subj2,body:bodyAlerte});
-}} style={{background:"#991B1B",color:"#fff",border:"none",borderRadius:8,padding:"7px 12px",fontSize:12,fontWeight:700,cursor:"pointer",flexShrink:0,marginLeft:8}}>
-✉️ Alerter
-</button>
-</div>
-)}
+  {/* Alerte stock bas */}
+  {produitsBas.length>0&&(
+    <div style={{background:"#FEE2E2",border:"1px solid #FCA5A5",borderRadius:12,padding:"10px 14px",marginBottom:12,display:"flex",justifyContent:"space-between",alignItems:"center",gap:8}}>
+      <div>
+        <p style={{fontWeight:700,color:"#991B1B",fontSize:13}}>⚠️ Stock bas — {produitsBas.length} produit{produitsBas.length>1?"s":""}</p>
+        <p style={{fontSize:11,color:"#B91C1C",marginTop:2}}>{produitsBas.map((p:any)=>`${p.nom} ${p.variante} (${stockParProduit(p.id)})`).join(", ")}</p>
+      </div>
+      <button onClick={()=>setModal("ajust")} style={{background:"#991B1B",color:"#fff",border:"none",borderRadius:8,padding:"7px 12px",fontSize:12,fontWeight:700,cursor:"pointer",flexShrink:0}}>Ajuster</button>
+    </div>
+  )}
 
   <SectionTitle action={
     <div style={{display:"flex",gap:8}}>
       <Btn icon="export" variant="ghost" small onClick={exportStocks}>Export</Btn>
-      <Btn variant="ghost" small onClick={()=>setModal("ajust")}>Ajuster</Btn>
-      <Btn icon="plus" small onClick={()=>setModal("form")}>Entrée</Btn>
+      <Btn variant="ghost" small onClick={()=>{setAjustForm({produitId:"",cibleQte:"",notes:""});setModal("ajust");}}>⚖ Inventaire</Btn>
+      <Btn icon="plus" small onClick={()=>{setForm({produitId:"",qte:"",lot:genLot(),dateEntree:today(),notes:""});setModal("form");}}>+ Production</Btn>
     </div>
-  }>Stocks</SectionTitle>
+  }>Stock physique</SectionTitle>
 
   {/* Résumé par produit */}
   <div style={{display:"grid",gap:10,marginBottom:20}}>
-    {st.produits.filter(p=>p.actif && !p.nom.includes("Coffret")).map(p=>{
-      const total = sum((st.stocks||[]).filter(s=>s.produitId===p.id).map(s=>s.qte));
-      const enDepot = sum((st.depotStocks||[]).filter(d=>d.produitId===p.id).map(d=>d.qteDeposee-d.qteVendue-d.qteRetournee));
-      const propre = total - enDepot;
+    {(st.produits||[]).filter((p:any)=>p.actif&&!p.nom.includes("Coffret")).map((p:any)=>{
+      const qte = stockParProduit(p.id);
       const img = getImg(p);
       const c = getCouleur(p);
-      const alerte = propre > 0 && propre <= 3;
+      const alerte = qte<=3;
+      const niveau = qte<=0?"vide":qte<=3?"bas":"ok";
       return (
-        <Card key={p.id} style={{padding:"12px 14px"}}>
+        <Card key={p.id} style={{padding:"12px 14px",borderLeft:niveau==="vide"?"3px solid #EF4444":niveau==="bas"?"3px solid #F59E0B":"3px solid #22C55E"}}>
           <div style={{display:"flex",alignItems:"center",gap:12}}>
             {img
               ? <img src={img} style={{width:36,height:48,objectFit:"contain",borderRadius:6,background:c.light,padding:2}}/>
@@ -1641,174 +1613,144 @@ sendEmail({to:"admin@goutstoso.ch",subject:subj2,body:bodyAlerte});
               <p style={{fontWeight:700,fontSize:13,color:"#111"}}>{p.nom} <span style={{color:c.accent,fontWeight:400}}>{p.variante}</span></p>
               <p style={{fontSize:11,color:"#9CA3AF"}}>{p.format}</p>
             </div>
-            {alerte && <span style={{background:"#FEE2E2",color:"#991B1B",borderRadius:6,padding:"2px 8px",fontSize:10,fontWeight:700}}>⚠ Bas</span>}
-          </div>
-          <div style={{display:"flex",alignItems:"center",gap:10,marginTop:10}}>
-            <div style={{flex:1,background:propre<5?"#FEE2E2":"#DCFCE7",borderRadius:10,padding:"10px 12px",textAlign:"center"}}>
-              <p style={{fontSize:9,color:"#9CA3AF",fontWeight:700,textTransform:"uppercase",letterSpacing:".06em"}}>Chez moi</p>
-              <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:30,fontWeight:700,color:propre<5?"#991B1B":"#166534",lineHeight:1.1}}>{propre}</p>
-              <p style={{fontSize:9,color:"#9CA3AF"}}>unités</p>
+            <div style={{textAlign:"right"}}>
+              <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:34,fontWeight:700,color:niveau==="vide"?"#991B1B":niveau==="bas"?"#92400E":"#166534",lineHeight:1}}>{qte}</p>
+              <p style={{fontSize:10,color:"#9CA3AF"}}>unités</p>
+              {alerte&&<span style={{background:niveau==="vide"?"#FEE2E2":"#FEF3C7",color:niveau==="vide"?"#991B1B":"#92400E",borderRadius:6,padding:"2px 6px",fontSize:9,fontWeight:700}}>{niveau==="vide"?"RUPTURE":"⚠ BAS"}</span>}
             </div>
-            {enDepot>0 && (
-              <div style={{background:"#DBEAFE",borderRadius:10,padding:"10px 12px",textAlign:"center",minWidth:72}}>
-                <p style={{fontSize:9,color:"#9CA3AF",fontWeight:700,textTransform:"uppercase",letterSpacing:".06em"}}>En dépôt</p>
-                <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:22,fontWeight:700,color:"#1E3A5F",lineHeight:1.1}}>{enDepot}</p>
-                <p style={{fontSize:9,color:"#9CA3AF"}}>chez partenaires</p>
-              </div>
-            )}
+          </div>
+          <div style={{display:"flex",gap:8,marginTop:10}}>
+            <button onClick={()=>{setForm({produitId:p.id,qte:"",lot:genLot(),dateEntree:today(),notes:""});setModal("form");}} style={{flex:1,background:"#DCFCE7",border:"none",borderRadius:8,padding:"7px",fontSize:12,fontWeight:600,color:"#166534",cursor:"pointer"}}>+ Production</button>
+            <button onClick={()=>{const actuel=stockParProduit(p.id);setAjustForm({produitId:p.id,cibleQte:String(actuel),notes:""});setModal("ajust");}} style={{flex:1,background:"#F5F5F0",border:"none",borderRadius:8,padding:"7px",fontSize:12,fontWeight:500,color:"#374151",cursor:"pointer"}}>⚖ Inventaire</button>
           </div>
         </Card>
       );
     })}
   </div>
 
-  {/* Mouvements de stock */}
-  {(() => {
-    const mouvements = (st.mouvementsStock||[]).slice().sort((a,b)=>(b.date||"").localeCompare(a.date||""));
-    const typeStyle = (t:string) => t==="entrée"
-      ? {bg:"#DCFCE7",color:"#166534",label:"↑ Entrée"}
-      : t==="sortie"
-      ? {bg:"#FEE2E2",color:"#991B1B",label:"↓ Sortie"}
-      : t==="restauration"
-      ? {bg:"#DBEAFE",color:"#1E40AF",label:"↩ Restauration"}
-      : t==="régularisation"
-      ? {bg:"#FEF3C7",color:"#92400E",label:"⚖ Régul."}
-      : t==="annulation"
-      ? {bg:"#F3F4F6",color:"#6B7280",label:"✕ Annulation"}
-      : {bg:"#F4F4F2",color:"#525252",label:"✎ Correction"};
+  {/* Historique des mouvements */}
+  <Card>
+    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
+      <h3 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:18,fontWeight:700}}>Historique des mouvements</h3>
+    </div>
+    {/* Filtres */}
+    <div style={{display:"flex",gap:6,marginBottom:12,flexWrap:"wrap"}}>
+      {[{id:"tous",l:"Tous"},{id:"entrées",l:"Productions"},{id:"sorties",l:"Ventes"},{id:"autres",l:"Corrections"}].map(f=>(
+        <button key={f.id} onClick={()=>setFiltreMouv(f.id)} style={{background:filtreMouv===f.id?"#111":"#F5F5F0",color:filtreMouv===f.id?"#F2C94C":"#6B7280",border:"none",borderRadius:20,padding:"5px 12px",fontSize:11,fontWeight:filtreMouv===f.id?700:400,cursor:"pointer"}}>{f.l}</button>
+      ))}
+    </div>
+    {mouvsAffiches.length===0?(
+      <div style={{textAlign:"center",padding:"30px 20px",color:"#9CA3AF"}}>
+        <p style={{fontSize:36,marginBottom:8}}>📦</p>
+        <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:18,fontWeight:600,color:"#374151"}}>Aucun mouvement</p>
+        <p style={{fontSize:12,marginTop:4}}>Enregistre ta première production pour commencer le suivi.</p>
+        <button onClick={()=>setModal("form")} style={{marginTop:14,background:"#F2C94C",border:"none",borderRadius:12,padding:"11px 22px",fontWeight:700,fontSize:13,cursor:"pointer"}}>+ Première production</button>
+      </div>
+    ):(
+      <div style={{display:"flex",flexDirection:"column",gap:0}}>
+        {mouvsAffiches.map((m:any,i:number)=>{
+          const prod = (st.produits||[]).find((x:any)=>x.id===m.produitId);
+          const tb = typeBadge(m.type);
+          return (
+            <div key={m.id||i} style={{display:"flex",alignItems:"center",gap:10,padding:"9px 0",borderBottom:i<mouvsAffiches.length-1?"1px solid #F5F5F0":"none",opacity:m.annule?0.4:1}}>
+              <span style={{background:tb.bg,color:tb.c,borderRadius:6,padding:"3px 8px",fontSize:10,fontWeight:700,whiteSpace:"nowrap",flexShrink:0}}>{tb.l}</span>
+              <div style={{flex:1,minWidth:0}}>
+                <p style={{fontSize:12,fontWeight:600,color:"#111",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                  {prod?.nom} {prod?.variante} {prod?.format}
+                  {m.annule&&<span style={{fontSize:9,color:"#9CA3AF",fontStyle:"italic",marginLeft:6}}>annulé</span>}
+                </p>
+                <p style={{fontSize:10,color:"#9CA3AF",marginTop:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                  {fmt(m.date)}{m.lot?` · Lot ${m.lot}`:""}{m.source?` · ${m.source}`:""}
+                </p>
+              </div>
+              <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:20,fontWeight:700,color:tb.c,flexShrink:0}}>{m.qte>0?"+":""}{m.qte}</span>
+              {m.stockEntreeId&&!m.annule&&(
+                <button onClick={()=>delEntree(m.stockEntreeId)} style={{background:"#FEE2E2",border:"none",borderRadius:8,padding:5,cursor:"pointer",display:"flex",flexShrink:0}}><Ic n="trash" s={12}/></button>
+              )}
+              {!m.annule&&!m.stockEntreeId&&m.type!=="annulation"&&(
+                <button onClick={()=>annulerMouvement(m)} style={{background:"#FEF3C7",border:"1px solid #FCD34D",borderRadius:8,padding:"4px 8px",fontSize:10,fontWeight:700,color:"#92400E",cursor:"pointer",flexShrink:0}}>✕ Annuler</button>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    )}
+  </Card>
 
-    return (
-      <Card>
-        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
-          <h3 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:18}}>Mouvements de stock</h3>
-          <button onClick={syncMouvements} style={{background:"#F4F4F2",border:"none",borderRadius:8,padding:"5px 10px",fontSize:11,fontWeight:600,color:"#525252",cursor:"pointer"}}>⟳ Sync</button>
-        </div>
-        {mouvements.length === 0 ? (
-          <div style={{textAlign:"center",padding:"30px 20px",color:"#9CA3AF"}}>
-            <p style={{fontSize:36,marginBottom:8}}>📦</p>
-            <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:18,fontWeight:600,color:"#374151"}}>Aucun mouvement</p>
-            <p style={{fontSize:12,marginTop:4}}>Enregistre ta première production pour commencer le suivi.</p>
-            <button onClick={()=>setModal("form")} style={{marginTop:14,background:"#F2C94C",border:"none",borderRadius:12,padding:"11px 22px",fontWeight:700,fontSize:13,cursor:"pointer"}}>
-              + Première entrée
-            </button>
-          </div>
-        ) : (
-          <div style={{display:"flex",flexDirection:"column",gap:0}}>
-            {mouvements.map((m,i)=>{
-              const prod = st.produits.find(x=>x.id===m.produitId);
-              const ts = typeStyle(m.type);
-              return (
-                <div key={m.id} style={{display:"flex",alignItems:"center",gap:10,padding:"9px 0",borderBottom:i<mouvements.length-1?"1px solid #F5F5F0":"none",opacity:m.annule?0.45:1}}>
-                  {/* Badge type */}
-                  <span style={{background:ts.bg,color:ts.color,borderRadius:6,padding:"3px 8px",fontSize:10,fontWeight:700,whiteSpace:"nowrap",flexShrink:0}}>{ts.label}</span>
-                  {/* Infos */}
-                  <div style={{flex:1,minWidth:0}}>
-                    <p style={{fontSize:12,fontWeight:600,color:"#111",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
-                      {prod?.nom} {prod?.variante} {prod?.format}
-                      {m.annule && <span style={{fontSize:9,color:"#9CA3AF",fontStyle:"italic",marginLeft:6}}>annulé</span>}
-                    </p>
-                    <p style={{fontSize:10,color:"#9CA3AF",marginTop:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
-                      {fmt(m.date)}{m.lot?` · Lot ${m.lot}`:""} · {m.source}
-                    </p>
-                  </div>
-                  {/* Qté */}
-                  <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:18,fontWeight:700,color:ts.color,flexShrink:0}}>
-                    {m.qte>0?"+":""}{m.qte}
-                  </span>
-                  {/* Supprimer si c'est une entrée manuelle */}
-                  {m.stockEntreeId && !m.annule && (
-                    <button onClick={()=>del(m.stockEntreeId)} style={{background:"#FEE2E2",border:"none",borderRadius:8,padding:5,cursor:"pointer",display:"flex",flexShrink:0}}>
-                      <Ic n="trash" s={12}/>
-                    </button>
-                  )}
-                  {/* Annuler si ce n'est pas déjà annulé ni une annulation */}
-                  {!m.annule && !m.stockEntreeId && m.type!=="annulation" && (
-                    <button onClick={()=>annulerMouvement(m)} style={{background:"#FEF3C7",border:"1px solid #FCD34D",borderRadius:8,padding:"4px 8px",fontSize:10,fontWeight:700,color:"#92400E",cursor:"pointer",flexShrink:0,whiteSpace:"nowrap"}}>
-                      ✕ Annuler
-                    </button>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </Card>
-    );
-  })()}
-
-  {/* Modal nouvelle entrée */}
+  {/* Modal nouvelle production */}
   {modal==="form"&&(
-    <Modal title="Nouvelle entrée de stock" onClose={()=>setModal(null)}>
+    <Modal title="Nouvelle production" onClose={()=>setModal(null)}>
       <div style={{display:"grid",gap:14}}>
-        <Sel label="Produit" value={form.produitId} onChange={v=>setForm(p=>({...p,produitId:v}))} required
-          options={[{v:"",l:"- Sélectionner un produit -"},...st.produits.filter(p=>p.actif && !p.nom.includes("Coffret")).map(p=>({v:p.id,l:`${p.nom} ${p.variante} ${p.format}`}))]}/>
+        <Sel label="Produit" value={form.produitId} onChange={(v:string)=>setForm(p=>({...p,produitId:v}))} required
+          options={[{v:"",l:"- Sélectionner un produit -"},...(st.produits||[]).filter((p:any)=>p.actif&&!p.nom.includes("Coffret")).map((p:any)=>({v:p.id,l:`${p.nom} ${p.variante} ${p.format}`}))]}/>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-          <F label="Quantité" type="number" value={form.qte} onChange={v=>setForm(p=>({...p,qte:v}))} required/>
-          <F label="N° de lot" value={form.lot} onChange={v=>setForm(p=>({...p,lot:v}))} placeholder="ex: 01-03.2026"/>
+          <F label="Quantité" type="number" value={form.qte} onChange={(v:string)=>setForm(p=>({...p,qte:v}))} required/>
+          <F label="N° de lot" value={form.lot} onChange={(v:string)=>setForm(p=>({...p,lot:v}))} placeholder="ex: 01-03.2026"/>
         </div>
-        <F label="Date d'entrée" type="date" value={form.dateEntree} onChange={v=>setForm(p=>({...p,dateEntree:v,lot:genLot(v)}))}/>
-        <F label="Notes" value={form.notes} onChange={v=>setForm(p=>({...p,notes:v}))} placeholder="Observations, conditions..."/>
-        <div style={{background:"#FEF9E7",borderRadius:10,padding:"10px 12px",fontSize:12,color:"#92400E"}}>
-          💡 Tu peux enregistrer ta production par lot pour avoir une traçabilité complète.
-        </div>
+        <F label="Date de production" type="date" value={form.dateEntree} onChange={(v:string)=>setForm(p=>({...p,dateEntree:v}))}/>
+        <F label="Notes" value={form.notes} onChange={(v:string)=>setForm(p=>({...p,notes:v}))} placeholder="Observations..."/>
+        {form.produitId&&(()=>{
+          const actuel=stockParProduit(form.produitId);
+          const apres=actuel+(parseInt(form.qte)||0);
+          return <div style={{background:"#F0FDF4",border:"1px solid #86EFAC",borderRadius:10,padding:"10px 14px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <span style={{fontSize:12,color:"#166534"}}>Stock après production</span>
+            <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:22,fontWeight:700,color:"#166534"}}>{actuel} → {apres}</span>
+          </div>;
+        })()}
       </div>
       <div style={{display:"flex",gap:10,marginTop:20}}>
-        <Btn onClick={save} full icon="check">Enregistrer</Btn>
+        <Btn onClick={saveEntree} full icon="check">Enregistrer</Btn>
         <Btn onClick={()=>setModal(null)} variant="ghost" full>Annuler</Btn>
       </div>
     </Modal>
   )}
 
-  {/* Modal ajustement de stock */}
+  {/* Modal ajustement inventaire */}
   {modal==="ajust"&&(
-    <Modal title="Ajustement de stock" onClose={()=>setModal(null)}>
+    <Modal title="Inventaire physique" onClose={()=>setModal(null)}>
       <div style={{display:"grid",gap:14}}>
-        <Sel label="Produit" value={ajustForm.produitId} onChange={v=>{
-          const actuel = sum((st.stocks||[]).filter(s=>s.produitId===v).map(s=>s.qte));
+        <div style={{background:"#FEF9E7",borderRadius:10,padding:"10px 12px",fontSize:12,color:"#92400E"}}>
+          ⚖️ Compare ton stock dans l'app avec ce que tu as physiquement. L'écart sera enregistré.
+        </div>
+        <Sel label="Produit" value={ajustForm.produitId} onChange={(v:string)=>{
+          const actuel=stockParProduit(v);
           setAjustForm(p=>({...p,produitId:v,cibleQte:String(actuel)}));
         }} required
-          options={[{v:"",l:"- Sélectionner un produit -"},...st.produits.filter(p=>p.actif && !p.nom.includes("Coffret")).map(p=>({v:p.id,l:`${p.nom} ${p.variante} ${p.format}`}))]}/>
+          options={[{v:"",l:"- Sélectionner un produit -"},...(st.produits||[]).filter((p:any)=>p.actif&&!p.nom.includes("Coffret")).map((p:any)=>({v:p.id,l:`${p.nom} ${p.variante} ${p.format} (${stockParProduit(p.id)} en stock)`}))]}/>
         {ajustForm.produitId&&(()=>{
-          const actuel = sum((st.stocks||[]).filter(s=>s.produitId===ajustForm.produitId).map(s=>s.qte));
-          const cible = parseInt(ajustForm.cibleQte)||0;
-          const delta = cible - actuel;
+          const actuel=stockParProduit(ajustForm.produitId);
+          const cible=parseInt(ajustForm.cibleQte)||0;
+          const delta=cible-actuel;
           return (
             <div style={{background:"#F5F5F0",borderRadius:10,padding:"10px 14px",display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,textAlign:"center"}}>
               <div>
-                <p style={{fontSize:10,color:"#9CA3AF",fontWeight:600,textTransform:"uppercase"}}>Actuel</p>
-                <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:22,fontWeight:700,color:"#111"}}>{actuel}</p>
+                <p style={{fontSize:10,color:"#9CA3AF",fontWeight:600,textTransform:"uppercase"}}>App</p>
+                <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:26,fontWeight:700,color:"#111"}}>{actuel}</p>
               </div>
               <div>
-                <p style={{fontSize:10,color:"#9CA3AF",fontWeight:600,textTransform:"uppercase"}}>Cible</p>
-                <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:22,fontWeight:700,color:"#111"}}>{cible}</p>
+                <p style={{fontSize:10,color:"#9CA3AF",fontWeight:600,textTransform:"uppercase"}}>Physique</p>
+                <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:26,fontWeight:700,color:"#111"}}>{cible}</p>
               </div>
               <div>
                 <p style={{fontSize:10,color:"#9CA3AF",fontWeight:600,textTransform:"uppercase"}}>Écart</p>
-                <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:22,fontWeight:700,color:delta===0?"#9CA3AF":delta>0?"#166534":"#991B1B"}}>{delta>0?"+":""}{delta}</p>
+                <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:26,fontWeight:700,color:delta===0?"#9CA3AF":delta>0?"#166534":"#991B1B"}}>{delta>0?"+":""}{delta}</p>
               </div>
             </div>
           );
         })()}
-        <F label="Nouveau stock (unités)" type="number" value={ajustForm.cibleQte} onChange={v=>setAjustForm(p=>({...p,cibleQte:v}))} required/>
-        <F label="Motif (optionnel)" value={ajustForm.notes} onChange={v=>setAjustForm(p=>({...p,notes:v}))} placeholder="ex: Inventaire physique, casse, perte..."/>
-        <div style={{background:"#FEF9E7",borderRadius:10,padding:"10px 12px",fontSize:12,color:"#92400E"}}>
-          ⚖️ L'écart sera enregistré en "Régularisation" dans l'historique des mouvements.
-        </div>
+        <F label="Stock physique réel (unités comptées)" type="number" value={ajustForm.cibleQte} onChange={(v:string)=>setAjustForm(p=>({...p,cibleQte:v}))} required/>
+        <F label="Motif (optionnel)" value={ajustForm.notes} onChange={(v:string)=>setAjustForm(p=>({...p,notes:v}))} placeholder="ex: Inventaire mensuel, casse, perte..."/>
       </div>
       <div style={{display:"flex",gap:10,marginTop:20}}>
-        <Btn onClick={ajuster} full icon="check">Valider l'ajustement</Btn>
+        <Btn onClick={ajuster} full icon="check">Valider</Btn>
         <Btn onClick={()=>setModal(null)} variant="ghost" full>Annuler</Btn>
       </div>
     </Modal>
   )}
 </div>
-
 );
 };
 
-// ══════════════════════════════════════════════════════════════
-// PAGE: PARTENAIRES / POINTS DE VENTE
-// ══════════════════════════════════════════════════════════════
 const SignaturePad = ({onSave,onCancel}) => {
 const canvasRef = useRef(null);
 const [drawing,setDrawing] = useState(false);
@@ -8329,70 +8271,11 @@ const newStatut = CYCLE_STATUT[Math.min(idx+1,CYCLE_STATUT.length-1)] || "comman
 
 const hEntry = {ancien:c.statut||"—",nouveau:newStatut,date:today(),heure:new Date().toLocaleTimeString("fr-CH",{hour:"2-digit",minute:"2-digit"})};
 
-const STATUTS_SORTIS = ["expédié","livré","expédiée","livrée","payée"];
-const vaEtreEnvoye = STATUTS_SORTIS.includes(newStatut);
-const etaitEnvoye = c.stockDeduit === true;
-
-setSt(p=>{
-  let newStocks = p.stocks ? [...p.stocks] : [];
-  let stockDeduit = c.stockDeduit || false;
-  const newMouvements = [...(p.mouvementsStock||[])];
-
-  if(!etaitEnvoye && vaEtreEnvoye) {
-    // Décrémentation : distribuer sur les entrées de stock disponibles
-    (c.lignes||[]).filter(l=>l.produitId&&(l.qte||0)>0).forEach(l=>{
-      let restant = parseInt(l.qte)||0;
-      newStocks = newStocks.map(s=>{
-        if(s.produitId!==l.produitId || restant<=0) return s;
-        const dedd = Math.min(s.qte||0, restant);
-        restant -= dedd;
-        return {...s, qte: (s.qte||0) - dedd};
-      });
-      // Mouvement de sortie par ligne
-      newMouvements.push({
-        id:uid(), date:today(), type:"sortie",
-        produitId:l.produitId, qte:-(parseInt(l.qte)||0),
-        source:`${c.numInterne?`#${c.numInterne} · `:""}Commande ${c.numero}${c.reference?` · ${c.reference}`:""}`, commandeId:c.id,
-      });
-    });
-    stockDeduit = true;
-  } else if(etaitEnvoye && !vaEtreEnvoye) {
-    // Restauration stock si on revient en arrière
-    (c.lignes||[]).filter(l=>l.produitId&&(l.qte||0)>0).forEach(l=>{
-      let aRestorer = parseInt(l.qte)||0;
-      let done = false;
-      newStocks = newStocks.map(s=>{
-        if(s.produitId!==l.produitId || done) return s;
-        done = true;
-        return {...s, qte: (s.qte||0) + aRestorer};
-      });
-      // Mouvement de restauration par ligne
-      newMouvements.push({
-        id:uid(), date:today(), type:"restauration",
-        produitId:l.produitId, qte:+(parseInt(l.qte)||0),
-        source:`Annulation sortie — ${c.numInterne?`#${c.numInterne} · `:""}Commande ${c.numero}${c.reference?` · ${c.reference}`:""}`, commandeId:c.id,
-      });
-    });
-    stockDeduit = false;
-  }
-
-  return {
-    ...p,
-    stocks: newStocks,
-    mouvementsStock: newMouvements,
-    commandes: p.commandes.map(x=>x.id===c.id?{...x,statut:newStatut,stockDeduit,historique:[...(x.historique||[]),hEntry]}:x),
-  };
-});
-
-// Confirmation visible si stock déduit
-if(!etaitEnvoye && vaEtreEnvoye) {
-  const lignes = (c.lignes||[]).filter(l=>l.produitId&&(l.qte||0)>0);
-  const details = lignes.map(l=>{
-    const prod = st.produits.find(x=>x.id===l.produitId);
-    return `• ${prod?.nom||""} ${prod?.variante||""} ${prod?.format||""} : -${l.qte}`;
-  }).join("\n");
-  alert(`📦 Stock mis à jour — ${c.numero}\n\n${details}\n\nStatut → ${newStatut}`);
-}
+// Le stock est toujours déduit à la création de la commande — pas de double-déduction ici
+setSt(p=>({
+  ...p,
+  commandes: p.commandes.map(x=>x.id===c.id?{...x,statut:newStatut,historique:[...(x.historique||[]),hEntry]}:x),
+}));
 };
 
 const togglePaiement = (c) => {
