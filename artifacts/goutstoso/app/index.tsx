@@ -15615,6 +15615,166 @@ const Diagnostics = ({st,setSt}:{st:any,setSt:any}) => {
   );
 };
 
+// ══════════════════════════════════════════════════════════════
+// PROSPECTS
+// ══════════════════════════════════════════════════════════════
+const Prospects = ({st, setSt, setTab}:{st:any,setSt:any,setTab?:any}) => {
+  const [filtre, setFiltre] = useState("actifs");
+  const [modal, setModal] = useState<string|null>(null);
+  const [form, setForm] = useState<any>({});
+  const [viewId, setViewId] = useState<string|null>(null);
+
+  const uid = () => Math.random().toString(36).slice(2,10);
+  const todayStr = () => new Date().toISOString().slice(0,10);
+
+  const emptyP = {id:null, nom:"", statut:"contacté", email:"", telephone:"", source:"", notes:"", derniereInteraction:todayStr()};
+
+  const prospects = st.prospects||[];
+  const filtrees = prospects.filter((p:any)=>{
+    if(filtre==="actifs") return !["converti","perdu"].includes(p.statut);
+    if(filtre==="convertis") return p.statut==="converti";
+    if(filtre==="perdus") return p.statut==="perdu";
+    return true;
+  });
+
+  const save = () => {
+    if(!form.nom?.trim()){alert("Nom requis");return;}
+    if(form.id) {
+      setSt((p:any)=>({...p, prospects:p.prospects.map((x:any)=>x.id===form.id?{...form}:x)}));
+    } else {
+      setSt((p:any)=>({...p, prospects:[...(p.prospects||[]),{...form,id:uid(),derniereInteraction:form.derniereInteraction||todayStr()}]}));
+    }
+    setModal(null);
+  };
+
+  const del = (id:string) => {
+    if(window.confirm("Supprimer ce prospect ?"))
+      setSt((p:any)=>({...p, prospects:(p.prospects||[]).filter((x:any)=>x.id!==id)}));
+  };
+
+  const relancer = (id:string) => setSt((p:any)=>({...p, prospects:(p.prospects||[]).map((x:any)=>x.id===id?{...x,derniereInteraction:todayStr()}:x)}));
+
+  const setStatut = (id:string, statut:string) => setSt((p:any)=>({...p, prospects:(p.prospects||[]).map((x:any)=>x.id===id?{...x,statut}:x)}));
+
+  const view = viewId ? prospects.find((p:any)=>p.id===viewId) : null;
+
+  const statutColor:any = {
+    "contacté":   {bg:"#DBEAFE",txt:"#1E40AF"},
+    "contacte":   {bg:"#DBEAFE",txt:"#1E40AF"},
+    "intéressé":  {bg:"#FEF3C7",txt:"#92400E"},
+    "interesse":  {bg:"#FEF3C7",txt:"#92400E"},
+    "converti":   {bg:"#DCFCE7",txt:"#166534"},
+    "perdu":      {bg:"#FEE2E2",txt:"#991B1B"},
+  };
+  const sc = (s:string) => statutColor[s]||{bg:"#F5F5F0",txt:"#374151"};
+  const jours = (d:string) => d ? Math.floor((Date.now()-new Date(d).getTime())/86400000) : null;
+  const fmt2 = (d:string) => { if(!d) return "—"; const dt=new Date(d); return `${String(dt.getDate()).padStart(2,"0")}/${String(dt.getMonth()+1).padStart(2,"0")}/${dt.getFullYear()}`; };
+
+  return (
+    <div style={{padding:"0 0 100px"}}>
+      {/* Header */}
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+        <div>
+          <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:22,fontWeight:700,color:"#111"}}>🎯 Prospects</p>
+          <p style={{fontSize:11,color:"#6B7280",marginTop:2}}>{prospects.filter((p:any)=>!["converti","perdu"].includes(p.statut)).length} prospect(s) actif(s)</p>
+        </div>
+        <button onClick={()=>{setForm({...emptyP});setModal("form");}} style={{background:"#F2C94C",border:"none",borderRadius:12,padding:"10px 16px",fontWeight:700,fontSize:13,cursor:"pointer"}}>+ Nouveau</button>
+      </div>
+
+      {/* Filtres */}
+      <div style={{display:"flex",gap:6,marginBottom:14,overflowX:"auto"}}>
+        {[["actifs","Actifs"],["convertis","Convertis"],["perdus","Perdus"],["tous","Tous"]].map(([k,l])=>(
+          <button key={k} onClick={()=>setFiltre(k)} style={{background:filtre===k?"#0A0A0A":"#F5F5F0",color:filtre===k?"#fff":"#374151",border:"none",borderRadius:20,padding:"6px 14px",fontSize:12,fontWeight:600,cursor:"pointer",whiteSpace:"nowrap"}}>{l}</button>
+        ))}
+      </div>
+
+      {/* Liste */}
+      {filtrees.length===0 ? (
+        <div style={{textAlign:"center",padding:"40px 20px",color:"#9CA3AF"}}>
+          <p style={{fontSize:40,marginBottom:12}}>🎯</p>
+          <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:20,fontWeight:600,color:"#374151"}}>Aucun prospect</p>
+          <button onClick={()=>{setForm({...emptyP});setModal("form");}} style={{marginTop:16,background:"#F2C94C",border:"none",borderRadius:12,padding:"12px 24px",fontWeight:700,fontSize:14,cursor:"pointer"}}>+ Ajouter un prospect</button>
+        </div>
+      ) : filtrees.map((p:any)=>{
+        const j = jours(p.derniereInteraction);
+        const alerte = j!==null && j>=7 && !["converti","perdu"].includes(p.statut);
+        const c = sc(p.statut);
+        return (
+          <Card key={p.id} style={{marginBottom:10,borderLeft:alerte?"3px solid #F59E0B":"3px solid transparent"}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}} onClick={()=>setViewId(p.id===viewId?null:p.id)}>
+              <div style={{cursor:"pointer",flex:1}}>
+                <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
+                  <p style={{fontWeight:700,fontSize:14}}>{p.nom}</p>
+                  <span style={{background:c.bg,color:c.txt,borderRadius:20,padding:"2px 10px",fontSize:10,fontWeight:700}}>{p.statut}</span>
+                </div>
+                {(p.email||p.telephone)&&<p style={{fontSize:12,color:"#6B7280"}}>{p.email||p.telephone}</p>}
+                {p.source&&<p style={{fontSize:11,color:"#9CA3AF",marginTop:2}}>Source : {p.source}</p>}
+                <p style={{fontSize:11,color:alerte?"#D97706":"#9CA3AF",marginTop:2}}>
+                  {j===null?"Pas de contact" : j===0?"Contact aujourd'hui" : `Dernier contact : ${fmt2(p.derniereInteraction)} (${j}j)`}
+                  {alerte&&" ⚠️"}
+                </p>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+              <button onClick={()=>relancer(p.id)} style={{flex:1,background:"#D1FAE5",border:"none",borderRadius:8,padding:"7px",fontSize:11,fontWeight:600,color:"#065F46",cursor:"pointer"}}>✅ Relancé</button>
+              {!["converti","perdu"].includes(p.statut)&&(
+                <button onClick={()=>setStatut(p.id,"converti")} style={{flex:1,background:"#DCFCE7",border:"none",borderRadius:8,padding:"7px",fontSize:11,fontWeight:600,color:"#166534",cursor:"pointer"}}>🎉 Converti</button>
+              )}
+              {p.email&&<button onClick={()=>{const s=encodeURIComponent("Goutstoso — Suivi");const b=encodeURIComponent(`Bonjour ${p.nom},\n\n`);window.open(`mailto:${p.email}?subject=${s}&body=${b}`,"_blank");}} style={{background:"#FEF9E7",border:"none",borderRadius:8,padding:"7px 10px",fontSize:11,fontWeight:600,color:"#92400E",cursor:"pointer"}}>✉️</button>}
+              <button onClick={()=>{setForm({...p});setModal("form");}} style={{background:"#F5F5F0",border:"none",borderRadius:8,padding:"7px 10px",fontSize:11,cursor:"pointer"}}>✏️</button>
+              <button onClick={()=>del(p.id)} style={{background:"#FEE2E2",border:"none",borderRadius:8,padding:"7px 10px",cursor:"pointer"}}><Ic n="trash" s={14}/></button>
+            </div>
+
+            {/* Détail prospect */}
+            {viewId===p.id&&(
+              <div style={{marginTop:12,borderTop:"1px solid #E5E5E0",paddingTop:12}}>
+                {p.notes&&<p style={{fontSize:12,color:"#374151",lineHeight:1.6,marginBottom:8}}>{p.notes}</p>}
+                <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                  {!["converti","perdu"].includes(p.statut)&&(
+                    <>
+                      {p.statut!=="intéressé"&&<button onClick={()=>setStatut(p.id,"intéressé")} style={{background:"#FEF3C7",border:"none",borderRadius:8,padding:"6px 12px",fontSize:11,fontWeight:600,color:"#92400E",cursor:"pointer"}}>⭐ Intéressé</button>}
+                      <button onClick={()=>setStatut(p.id,"perdu")} style={{background:"#FEE2E2",border:"none",borderRadius:8,padding:"6px 12px",fontSize:11,fontWeight:600,color:"#991B1B",cursor:"pointer"}}>❌ Perdu</button>
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
+          </Card>
+        );
+      })}
+
+      {/* Modal ajout/édition */}
+      {modal==="form"&&(
+        <Modal title={form.id?"Modifier prospect":"Nouveau prospect"} onClose={()=>setModal(null)}>
+          <div style={{display:"grid",gap:12}}>
+            <F label="Nom *" value={form.nom} onChange={(v:string)=>setForm((p:any)=>({...p,nom:v}))}/>
+            <Sel label="Statut" value={form.statut} onChange={(v:string)=>setForm((p:any)=>({...p,statut:v}))} options={[
+              {v:"contacté",l:"Contacté"},
+              {v:"intéressé",l:"Intéressé"},
+              {v:"converti",l:"Converti"},
+              {v:"perdu",l:"Perdu"},
+            ]}/>
+            <F label="Email" value={form.email} onChange={(v:string)=>setForm((p:any)=>({...p,email:v}))}/>
+            <F label="Téléphone" value={form.telephone} onChange={(v:string)=>setForm((p:any)=>({...p,telephone:v}))}/>
+            <F label="Source (comment connu ?)" value={form.source} onChange={(v:string)=>setForm((p:any)=>({...p,source:v}))}/>
+            <F label="Dernier contact" type="date" value={form.derniereInteraction} onChange={(v:string)=>setForm((p:any)=>({...p,derniereInteraction:v}))}/>
+            <div>
+              <label style={{fontSize:11,fontWeight:600,color:"#9CA3AF",textTransform:"uppercase" as const,letterSpacing:".06em",display:"block",marginBottom:6}}>Notes</label>
+              <textarea value={form.notes||""} onChange={e=>setForm((p:any)=>({...p,notes:e.target.value}))} rows={3}
+                style={{width:"100%",padding:"10px",fontSize:13,border:"1.5px solid #E5E5E0",borderRadius:10,resize:"vertical",fontFamily:"inherit",boxSizing:"border-box" as const}}/>
+            </div>
+            <button onClick={save} style={{background:"#F2C94C",border:"none",borderRadius:12,padding:"13px",fontWeight:700,fontSize:14,cursor:"pointer"}}>
+              {form.id?"Enregistrer":"Ajouter le prospect"}
+            </button>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+};
+
 const NAV_MAIN = [
   {id:"dashboard", label:"Accueil",    icon:"dash",    emoji:"🏠"},
   {id:"clients",   label:"Clients",    icon:"prod",    emoji:"👥"},
