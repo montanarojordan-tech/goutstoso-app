@@ -7902,22 +7902,24 @@ try {
 };
 
 
-const genererFactureDepuisCommande = (cmd, st, setSt) => {
+const genererFactureDepuisCommande = (cmd:any, st:any, setSt:any) => {
   const y = new Date().getFullYear();
-  const existing = (st.factures||[]).map(f=>f.numero);
+  const existing = (st.factures||[]).map((f:any)=>f.numero);
   let n=1; while(existing.includes("FAC-"+y+"-"+String(n).padStart(3,"0"))) n++;
   const numero = "FAC-"+y+"-"+String(n).padStart(3,"0");
   const typeClient = cmd.typeClient||"revendeur";
-  const lignesOk = (cmd.lignes||[]).filter(l=>l.produitId&&l.qte>0).map(l=>{
-    const prod=(st.produits||[]).find(p=>p.id===l.produitId);
+  const pv = (st.partenaires||[]).find((par:any)=>par.id===cmd.partenaireId);
+  const lignesOk = (cmd.lignes||[]).filter((l:any)=>l.produitId&&l.qte>0).map((l:any)=>{
+    const prod=(st.produits||[]).find((p:any)=>p.id===l.produitId);
     const pu = prod?(typeClient==="revendeur"?(prod.prixRevendeur||0):(prod.prixClient||0)):0;
     return {produitId:l.produitId,designation:prod?prod.nom+" "+(prod.variante||""):l.produitId,qte:l.qte,prix:pu};
   });
-  const brut = lignesOk.reduce((s,l)=>s+l.qte*l.prix,0);
+  const brut = lignesOk.reduce((s:number,l:any)=>s+l.qte*l.prix,0);
   const rabais = parseFloat(cmd.rabais)||0;
   const total = Math.max(0, brut - rabais);
+  const facId = uid();
   const newFac = {
-    id:uid(), numero, date:today(), dateEcheance:"", statut:"en attente",
+    id:facId, numero, date:today(), dateEcheance:"", statut:"payée", datePaiement:today(),
     typeClient,
     clientNom:cmd.client, clientEmail:cmd.email||"",
     clientAdresse:cmd.adresse||"", clientNpa:cmd.npa||"", clientVille:cmd.ville||"",
@@ -7925,13 +7927,31 @@ const genererFactureDepuisCommande = (cmd, st, setSt) => {
     lignes:lignesOk, lignesOffertes:[], total,
     totalRabais:rabais, comptOffert:"3800",
     notes:"Issue de la commande "+cmd.numero, commandeId:cmd.id,
+    envoyee:true,
   };
+  const newTrans:any[] = [{
+    id:uid(), factureId:facId, date:today(),
+    compte:"3200", libelle:"Paiement "+numero,
+    type:"recette", categorie:"Encaissement facture",
+    montant:total,
+    description:"Paiement facture "+numero+" — "+(pv?.nom||cmd.client||""),
+    postfinance:false,
+  }];
+  if(rabais>0) newTrans.push({
+    id:uid(), factureId:facId, date:today(),
+    compte:"3210", libelle:"Remise commerciale",
+    type:"remise", categorie:"Remises accordées",
+    montant:rabais,
+    description:"Remise facture "+numero+" — "+(pv?.nom||cmd.client||""),
+    postfinance:false,
+  });
   setSt((p:any)=>({
     ...p,
     factures:[...(p.factures||[]),newFac],
-    commandes:p.commandes.map((c:any)=>c.id===cmd.id?{...c,factureNumero:numero}:c),
+    commandes:(p.commandes||[]).map((c:any)=>c.id===cmd.id?{...c,factureNumero:numero}:c),
+    transactions:[...(p.transactions||[]),...newTrans],
   }));
-  alert("✅ Facture "+numero+" créée ! Retrouve-la dans Comptabilité → Factures.\n\nUne fois marquée payée, les écritures comptables seront générées automatiquement.");
+  alert("✅ Facture "+numero+" créée et comptabilisée !\n\nRetrouve-la dans l'onglet Factures.");
 };
 
 const annulerFactureDepuisCommande = (cmd:any, st:any, setSt:any) => {
@@ -7962,9 +7982,14 @@ const genererFactureDepuisShopify = (s:any, st:any, setSt:any, setTab:any) => {
     return {produitId:l.produitId,designation:prod?prod.nom+" "+(prod.variante||""):(l.designation||l.produitId),qte:l.qte,prix};
   });
   const fpEnc = parseFloat(s.fraisPortEncaisse??s.fraisPort??0);
-  const brut = lignesOk.reduce((sum:number,l:any)=>sum+l.qte*l.prix,0)+fpEnc;
+  const fpPaye = parseFloat(s.fraisPortPaye||0);
+  const commission = parseFloat(s.commissionShopify||0);
+  const produitsTotal = lignesOk.reduce((sum:number,l:any)=>sum+l.qte*l.prix,0);
+  const brut = produitsTotal + fpEnc;
+  const facId = uid();
+  const date = s.dateCommande||today();
   const newFac = {
-    id:uid(), numero, date:s.dateCommande||today(), dateEcheance:"", statut:"payée",
+    id:facId, numero, date, dateEcheance:"", statut:"payée", datePaiement:date,
     typeClient:"client",
     clientNom:s.clientShopify?.nom||"", clientEmail:s.clientShopify?.email||"",
     clientAdresse:s.clientShopify?.adresse||"", clientNpa:s.clientShopify?.npa||"", clientVille:s.clientShopify?.ville||"",
@@ -7976,12 +8001,20 @@ const genererFactureDepuisShopify = (s:any, st:any, setSt:any, setTab:any) => {
     shopifyId:s.id,
     envoyee:true,
   };
+  const newTrans:any[] = [];
+  if(produitsTotal>0) newTrans.push({id:uid(),factureId:facId,ventesShopifyId:s.id,date,compte:"3001",libelle:"Vente Shopify #"+s.orderNumberShopify,type:"recette",categorie:"Vente Shopify",montant:produitsTotal,description:s.clientShopify?.nom||"",postfinance:true});
+  if(fpEnc>0) newTrans.push({id:uid(),factureId:facId,ventesShopifyId:s.id,date,compte:"3600",libelle:"Port encaissé Shopify #"+s.orderNumberShopify,type:"recette",categorie:"Frais expédition facturés",montant:fpEnc,description:s.clientShopify?.nom||"",postfinance:true});
+  if(fpPaye>0) newTrans.push({id:uid(),factureId:facId,ventesShopifyId:s.id,date,compte:"6315",libelle:"Frais envoi Shopify #"+s.orderNumberShopify,type:"depense",categorie:"Frais d'expédition (envois)",montant:fpPaye,description:"Transporteur: "+(s.transporteur||"—"),postfinance:false});
+  if(commission>0) newTrans.push({id:uid(),factureId:facId,ventesShopifyId:s.id,date,compte:"6700",libelle:"Commission Shopify #"+s.orderNumberShopify,type:"depense",categorie:"Commissions",montant:commission,description:"Commission Shopify",postfinance:false});
+  const soldeDiff = parseFloat(((produitsTotal)+(fpEnc)).toFixed(2));
   setSt((p:any)=>({
     ...p,
     factures:[...(p.factures||[]),newFac],
-    ventesShopify:(p.ventesShopify||[]).map((x:any)=>x.id===s.id?{...x,factureNumero:numero}:x),
+    ventesShopify:(p.ventesShopify||[]).map((x:any)=>x.id===s.id?{...x,factureNumero:numero,statutPaiement:"paye",datePaiement:date}:x),
+    transactions:[...(p.transactions||[]),...newTrans],
+    soldeBancaire:parseFloat((parseFloat(p.soldeBancaire||0)+soldeDiff).toFixed(2)),
   }));
-  alert("✅ Facture "+numero+" créée !\n\nRetrouve-la dans l'onglet Factures.\nElle est déjà marquée payée.");
+  alert("✅ Facture "+numero+" créée et comptabilisée !\n\nRetrouve-la dans l'onglet Factures.");
   if(setTab) setTab("factures");
 };
 
