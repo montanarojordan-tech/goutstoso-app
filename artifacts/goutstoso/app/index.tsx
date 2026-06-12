@@ -5577,7 +5577,7 @@ return {Numero:f.numero,Date:f.date,Client:pv?.nom,Total:total,Statut:f.statut};
         </button>
       </div>
     : filtrees.map(f=>{
-        const pv=st.partenaires.find(p=>p.id===f.partenaireId);
+        const pv=st.partenaires.find(p=>p.id===f.partenaireId)||(st.clients||[]).find(c=>c.id===f.partenaireId);
         const total=calcTotalNet(f,st.produits);
         const retard=getInfosRetard(f);
         const pr=getProchainRappel(f);
@@ -5587,7 +5587,7 @@ return {Numero:f.numero,Date:f.date,Client:pv?.nom,Total:total,Statut:f.statut};
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:6}} onClick={()=>setView(f)}>
               <div style={{cursor:"pointer"}}>
                 <p style={{fontWeight:700,fontSize:13}}>{f.numero}</p>
-                <p style={{fontSize:12,color:"#6B7280",marginTop:1}}>{pv?.nom}</p>
+                <p style={{fontSize:12,color:pv?"#6B7280":"#DC2626",fontWeight:pv?400:600,marginTop:1}}>{pv?.nom||"⚠️ Client non assigné"}</p>
                 <p style={{fontSize:11,color:"#9CA3AF",marginTop:1}}>{fmt(f.date)}</p>
               </div>
               <div style={{textAlign:"right"}}>
@@ -5616,6 +5616,7 @@ return {Numero:f.numero,Date:f.date,Client:pv?.nom,Total:total,Statut:f.statut};
                   </button>
                 : <button onClick={()=>envoyerEmail(f,null)} style={{flex:1,background:"#FEF9E7",border:"none",borderRadius:8,padding:"7px",fontSize:12,fontWeight:600,color:"#92400E",cursor:"pointer"}}>✉️ Email</button>
               }
+              {!pv&&<button onClick={()=>{setForm({...f,lignesOffertes:f.lignesOffertes||[]});setView(null);setModal("form");}} style={{flex:1,background:"#FEF3C7",border:"1.5px solid #F59E0B",borderRadius:8,padding:"7px",fontSize:12,fontWeight:700,color:"#92400E",cursor:"pointer"}}>👤 Assigner</button>}
               <button onClick={()=>{if(window.confirm("Supprimer ?"))del(f.id);}} style={{background:"#FEE2E2",border:"none",borderRadius:8,padding:"7px 10px",cursor:"pointer",display:"flex"}}><Ic n="trash" s={14}/></button>
             </div>
           </Card>
