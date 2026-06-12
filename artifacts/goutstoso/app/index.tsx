@@ -4926,15 +4926,15 @@ const totalFinal = total+frais;
 const echeance = new Date(new Date(f.date).getTime()+30*86400000).toISOString().slice(0,10);
 const dateRappel = today();
 const newRappel = {degree:deg, date:dateRappel, frais};
+const updatedFac = {...f, rappels:[...(f.rappels||[]), newRappel], statut:"rappel "+deg};
 
 // Enregistrer le rappel dans l'état + mettre à jour le statut
 setSt(p=>({
   ...p,
-  factures: p.factures.map(fac=>fac.id===f.id
-    ? {...fac, rappels:[...(fac.rappels||[]), newRappel], statut:"rappel "+deg}
-    : fac
-  )
+  factures: p.factures.map(fac=>fac.id===f.id ? updatedFac : fac)
 }));
+// Mettre à jour la vue détail pour éviter l'état stale
+setView(updatedFac);
 
 try {
   await new Promise((res,rej)=>{
@@ -5544,7 +5544,7 @@ return {Numero:f.numero,Date:f.date,Client:pv?.nom,Total:total,Statut:f.statut};
                       {icone} Rappel {r.degree}
                     </span>
                     <span style={{fontSize:12,fontWeight:600}}>{r.facture.numero}</span>
-                    <Badge c={estPayee?"green":r.degree>=2?"red":"yellow"}>{estPayee?"Payée":"En attente"}</Badge>
+                    <Badge c={estPayee?"green":r.facture.statut==="rappel 3"||r.facture.statut==="rappel 2"?"red":r.facture.statut==="rappel 1"?"orange":"yellow"}>{estPayee?"Payée":r.facture.statut==="rappel 1"?"Rappel 1":r.facture.statut==="rappel 2"?"Rappel 2":r.facture.statut==="rappel 3"?"Rappel 3":"En attente"}</Badge>
                   </div>
                   <p style={{fontSize:12,color:"#6B7280"}}>{r.pv?.nom||"—"}</p>
                   <p style={{fontSize:11,color:"#9CA3AF",marginTop:2}}>Envoyé le {fmt(r.date)}</p>
