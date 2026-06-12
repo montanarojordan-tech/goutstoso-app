@@ -7902,6 +7902,105 @@ try {
 };
 
 
+const genererBLCommandePDF = async (cmd:any, st:any) => {
+try {
+  await new Promise((res:any,rej:any)=>{
+    if((window as any).jspdf){res(null);return;}
+    const s=document.createElement("script");
+    s.src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";
+    s.onload=res;s.onerror=rej;document.head.appendChild(s);
+  });
+  const {jsPDF}=(window as any).jspdf;
+  const doc=new jsPDF({unit:"mm",format:"a4"});
+  const W=210,mg=18;
+  doc.setFillColor(242,201,76);doc.rect(0,0,W,6,"F");
+  pdfLogo(doc,mg);
+  doc.setFontSize(20);doc.setFont("helvetica","bold");doc.setTextColor(17,17,17);
+  doc.text("BON DE LIVRAISON",W-mg,20,{align:"right"});
+  doc.setFontSize(11);doc.setTextColor(212,160,23);
+  doc.text(cmd.blNumero||cmd.numero,W-mg,28,{align:"right"});
+  doc.setFontSize(9);doc.setTextColor(120,120,120);doc.setFont("helvetica","normal");
+  doc.text("Date : "+fmt(cmd.date),W-mg,34,{align:"right"});
+  if(cmd.numero) doc.text("Réf. commande : "+cmd.numero,W-mg,39,{align:"right"});
+  doc.setDrawColor(230,230,228);doc.setLineWidth(0.3);doc.line(mg,44,W-mg,44);
+  let y=52;
+  doc.setFontSize(8);doc.setFont("helvetica","bold");doc.setTextColor(156,163,175);
+  doc.text("FOURNISSEUR",mg,y);doc.text("DESTINATAIRE",W/2+2,y);
+  doc.setDrawColor(242,201,76);doc.setLineWidth(0.5);
+  doc.line(mg,y+1,mg+22,y+1);doc.line(W/2+2,y+1,W/2+26,y+1);
+  y+=7;
+  doc.setFontSize(11);doc.setFont("helvetica","bold");doc.setTextColor(17,17,17);
+  doc.text("Goûtstoso",mg,y);doc.text(cmd.client||"",W/2+2,y);
+  doc.setFontSize(8.5);doc.setFont("helvetica","normal");doc.setTextColor(107,114,128);
+  ["Jordan Montanaro","Rue des Sources 19","2613 Villeret","admin@goutstoso.ch"].forEach((l:string,i:number)=>doc.text(l,mg,y+5+i*4.5));
+  const clientLines=[cmd.adresse||"",[cmd.npa,cmd.ville].filter(Boolean).join(" "),cmd.telephone||"",cmd.email||""].filter(Boolean);
+  clientLines.forEach((l:string,i:number)=>doc.text(l,W/2+2,y+5+i*4.5));
+  y+=34;
+  doc.setFillColor(17,17,17);doc.rect(mg,y,W-mg*2,9,"F");
+  doc.setFontSize(8);doc.setFont("helvetica","bold");doc.setTextColor(242,201,76);
+  doc.text("DÉSIGNATION",mg+3,y+6);
+  doc.setTextColor(180,180,180);
+  doc.text("FORMAT",120,y+6,{align:"center"});
+  doc.text("QTÉ",W-mg-2,y+6,{align:"right"});
+  y+=9;
+  (cmd.lignes||[]).filter((l:any)=>l.produitId&&l.qte>0).forEach((l:any,i:number)=>{
+    const p=(st.produits||[]).find((x:any)=>x.id===l.produitId);
+    doc.setFillColor(i%2===0?250:255,i%2===0?250:255,i%2===0?248:255);
+    doc.rect(mg,y,W-mg*2,12,"F");
+    doc.setDrawColor(240,240,238);doc.setLineWidth(0.2);doc.rect(mg,y,W-mg*2,12,"S");
+    doc.setFontSize(10);doc.setFont("helvetica","bold");doc.setTextColor(17,17,17);
+    doc.text((p?.nom||"")+" "+(p?.variante||""),mg+3,y+5);
+    doc.setFontSize(7.5);doc.setFont("helvetica","normal");doc.setTextColor(150,150,150);
+    doc.text((p?.format||"")+" · 30% vol. · alc.",mg+3,y+10);
+    doc.setFontSize(8.5);doc.setTextColor(107,114,128);
+    doc.text(p?.format||"",120,y+7,{align:"center"});
+    doc.setFont("helvetica","bold");doc.setFontSize(16);doc.setTextColor(17,17,17);
+    doc.text(String(l.qte),W-mg-2,y+8,{align:"right"});
+    y+=12;
+  });
+  y+=8;
+  if(cmd.notes){
+    doc.setFillColor(254,249,231);doc.roundedRect(mg,y,W-mg*2,16,3,3,"F");
+    doc.setFontSize(8);doc.setFont("helvetica","bold");doc.setTextColor(146,64,14);
+    doc.text("NOTES",mg+4,y+5);
+    doc.setFont("helvetica","normal");doc.setFontSize(8.5);doc.setTextColor(120,80,30);
+    const notesLines=doc.splitTextToSize(cmd.notes,W-mg*2-8);
+    doc.text(notesLines,mg+4,y+11);
+    y+=20;
+  }
+  doc.setFillColor(245,245,242);doc.roundedRect(mg,y,W-mg*2,18,3,3,"F");
+  doc.setFontSize(8);doc.setFont("helvetica","bold");doc.setTextColor(80,80,80);
+  doc.text("CONDITIONS DE LIVRAISON",mg+4,y+5);
+  doc.setFont("helvetica","normal");doc.setFontSize(8);doc.setTextColor(107,114,128);
+  doc.text("Marchandise livrée fermement — facturation au prix professionnel.",mg+4,y+11);
+  doc.text("Paiement à 30 jours · IBAN : CH23 0900 0000 1565 1485 8 (PostFinance)",mg+4,y+16);
+  y+=24;
+  if(y>220){doc.addPage();doc.setFillColor(242,201,76);doc.rect(0,0,W,6,"F");pdfLogo(doc,mg);y=20;}
+  doc.setFontSize(8);doc.setFont("helvetica","bold");doc.setTextColor(80,80,80);
+  doc.text("SIGNATURES",mg,y);y+=5;
+  const sigW=(W-mg*2-10)/2;
+  doc.setDrawColor(200,200,200);doc.setLineWidth(0.3);
+  doc.roundedRect(mg,y,sigW,36,2,2,"S");
+  doc.setFontSize(7);doc.setFont("helvetica","bold");doc.setTextColor(150,150,150);
+  doc.text("Goûtstoso — Jordan Montanaro",mg+3,y+5);
+  if(cmd.blSignJordan){try{doc.addImage(cmd.blSignJordan,"PNG",mg+3,y+8,sigW-6,24);}catch(e){}}
+  else{doc.setDrawColor(220,220,216);doc.line(mg+4,y+30,mg+sigW-4,y+30);doc.setFontSize(6.5);doc.setFont("helvetica","normal");doc.setTextColor(180,180,180);doc.text("Signature Goûtstoso",mg+3,y+34);}
+  const cx=mg+sigW+10;
+  doc.setDrawColor(200,200,200);doc.setLineWidth(0.3);
+  doc.roundedRect(cx,y,sigW,36,2,2,"S");
+  doc.setFontSize(7);doc.setFont("helvetica","bold");doc.setTextColor(150,150,150);
+  doc.text((cmd.client||"Client").substring(0,30),cx+3,y+5);
+  if(cmd.blSignClient){try{doc.addImage(cmd.blSignClient,"PNG",cx+3,y+8,sigW-6,24);}catch(e){}}
+  else{doc.setDrawColor(220,220,216);doc.line(cx+4,y+30,cx+sigW-4,y+30);doc.setFontSize(6.5);doc.setFont("helvetica","normal");doc.setTextColor(180,180,180);doc.text("Signature client",cx+3,y+34);}
+  doc.setDrawColor(230,230,228);doc.setLineWidth(0.3);doc.line(mg,277,W-mg,277);
+  doc.setFontSize(7.5);doc.setFont("helvetica","normal");doc.setTextColor(150,150,150);
+  doc.text("Goûtstoso - Jordan Montanaro · Rue des Sources 19 · 2613 Villeret · admin@goutstoso.ch · www.goutstoso.ch",W/2,282,{align:"center"});
+  doc.setFillColor(242,201,76);doc.rect(0,292,W,5,"F");
+  ajouterDocAnnexe(doc,"cgv",st);
+  doc.save("BL-"+((cmd.blNumero||cmd.numero)||"livraison")+".pdf");
+} catch(e){alert("Erreur PDF : "+(e as any).message);}
+};
+
 const genererFactureDepuisCommande = (cmd:any, st:any, setSt:any) => {
   const y = new Date().getFullYear();
   const existing = (st.factures||[]).map((f:any)=>f.numero);
@@ -8038,6 +8137,7 @@ const [modal,setModal] = useState(null);
 const [viewId,setViewId] = useState(null);
 const [filtre,setFiltre] = useState("toutes");
 const [sigJordanCmd,setSigJordanCmd] = useState(false);
+const [blSigMode,setBlSigMode] = useState<string|null>(null);
 const [showImportShopify,setShowImportShopify] = useState(false);
 const [editShopifyOrder,setEditShopifyOrder] = useState<any>(null);
 
@@ -8114,6 +8214,28 @@ const body =
 `Pour toute question, n'hésitez pas à nous contacter à admin@goutstoso.ch.\n\n`+
 `Cordialement,\n\nJordan Montanaro\nGoûtstoso\nadmin@goutstoso.ch · www.goutstoso.ch`;
 setSt(p=>({...p,commandes:(p.commandes||[]).map(x=>x.id===c.id?{...x,confirmationEnvoyee:today()}:x)}));
+sendEmail({to:c.email,toName:c.client,subject,body});
+};
+
+const envoyerBLEmail = (c:any) => {
+if(!c.email) { alert("Ce client n'a pas d'email enregistré."); return; }
+const lignesTxt = (c.lignes||[]).filter((l:any)=>l.produitId&&l.qte>0).map((l:any)=>{
+  const p = (st.produits||[]).find((x:any)=>x.id===l.produitId);
+  return "  • "+(p?.nom||"")+" "+(p?.variante||"")+" "+(p?.format||"")+" × "+l.qte+" bouteille"+(l.qte>1?"s":"");
+}).join("\n");
+const blRef = c.blNumero||c.numero;
+const subject = "Bon de livraison "+blRef+" — Goûtstoso";
+const body =
+`Bonjour ${c.client},\n\n`+
+`Veuillez trouver ci-joint votre bon de livraison N° ${blRef}.\n\n`+
+`Détail de la livraison :\n${lignesTxt}\n\n`+
+`Adresse de livraison : ${[c.adresse,[c.npa,c.ville].filter(Boolean).join(" ")].filter(Boolean).join(", ")||"À définir"}\n\n`+
+(c.blSignJordan&&c.blSignClient
+  ? `Ce bon a été signé par les deux parties.\n\n`
+  : `Merci de nous retourner ce bon signé pour validation.\n\n`)+
+`Pour toute question, n'hésitez pas à nous contacter.\n\n`+
+`Cordialement,\nJordan Montanaro\nGoûtstoso\nadmin@goutstoso.ch · www.goutstoso.ch`;
+setSt((p:any)=>({...p,commandes:(p.commandes||[]).map((x:any)=>x.id===c.id?{...x,blEnvoye:today()}:x)}));
 sendEmail({to:c.email,toName:c.client,subject,body});
 };
 
@@ -8446,6 +8568,60 @@ if(sigJordanCmd) {
   );
 }
 
+// Signature BL — Jordan
+if(blSigMode==="jordan") {
+  return (
+    <div className="fade">
+      <button onClick={()=>setBlSigMode(null)} style={{display:"flex",alignItems:"center",gap:6,background:"none",border:"none",color:"#9CA3AF",fontSize:13,marginBottom:16,padding:0,cursor:"pointer"}}>← Retour</button>
+      <div style={{background:"#FFF7ED",borderRadius:12,padding:"12px 14px",marginBottom:16,border:"1.5px solid #FED7AA"}}>
+        <p style={{fontWeight:700,fontSize:13}}>✍️ Signature Goûtstoso — Bon de livraison</p>
+        <p style={{fontSize:11,color:"#C2410C",marginTop:4}}>{view.blNumero||view.numero} — {view.client}</p>
+        <p style={{fontSize:10,color:"#6B7280",marginTop:2}}>Signez pour valider le bon de livraison en tant que Goûtstoso</p>
+      </div>
+      <SignaturePad
+        onSave={(sig:any)=>{
+          setSt((p:any)=>({...p,commandes:(p.commandes||[]).map((c:any)=>c.id===view.id?{...c,blSignJordan:sig}:c)}));
+          setBlSigMode(null);
+        }}
+        onCancel={()=>setBlSigMode(null)}
+      />
+      {view.blSignJordan && (
+        <div style={{marginTop:12,padding:"10px 12px",background:"#FFF7ED",borderRadius:10,border:"1px solid #FED7AA"}}>
+          <p style={{fontSize:11,color:"#C2410C",fontWeight:600,marginBottom:6}}>✓ Signature actuelle :</p>
+          <img src={view.blSignJordan} alt="signature" style={{height:40,maxWidth:180,objectFit:"contain",display:"block"}}/>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Signature BL — Client
+if(blSigMode==="client") {
+  return (
+    <div className="fade">
+      <button onClick={()=>setBlSigMode(null)} style={{display:"flex",alignItems:"center",gap:6,background:"none",border:"none",color:"#9CA3AF",fontSize:13,marginBottom:16,padding:0,cursor:"pointer"}}>← Retour</button>
+      <div style={{background:"#F0FDF4",borderRadius:12,padding:"12px 14px",marginBottom:16,border:"1.5px solid #86EFAC"}}>
+        <p style={{fontWeight:700,fontSize:13}}>✍️ Signature Client — Bon de livraison</p>
+        <p style={{fontSize:11,color:"#166534",marginTop:4}}>{view.blNumero||view.numero} — {view.client}</p>
+        <p style={{fontSize:10,color:"#6B7280",marginTop:2}}>Faites signer le client sur cet écran pour confirmer la réception</p>
+      </div>
+      <SignaturePad
+        onSave={(sig:any)=>{
+          setSt((p:any)=>({...p,commandes:(p.commandes||[]).map((c:any)=>c.id===view.id?{...c,blSignClient:sig}:c)}));
+          setBlSigMode(null);
+        }}
+        onCancel={()=>setBlSigMode(null)}
+      />
+      {view.blSignClient && (
+        <div style={{marginTop:12,padding:"10px 12px",background:"#F0FDF4",borderRadius:10,border:"1px solid #86EFAC"}}>
+          <p style={{fontSize:11,color:"#166534",fontWeight:600,marginBottom:6}}>✓ Signature actuelle :</p>
+          <img src={view.blSignClient} alt="signature" style={{height:40,maxWidth:180,objectFit:"contain",display:"block"}}/>
+        </div>
+      )}
+    </div>
+  );
+}
+
 return (
 <div className="fade">
 <Breadcrumb crumbs={[{label:"Commandes",onClick:()=>setViewId(null)},{label:view.numero}]}/>
@@ -8531,6 +8707,59 @@ return (
         {view.signJordan?"✅ Ma signature enregistrée (modifier)":"✍️ Signer en tant que Goûtstoso"}
       </button>
       {view.confirmationNumero && <p style={{fontSize:10,color:"#3B82F6",marginTop:6,textAlign:"center"}}>{view.confirmationNumero}</p>}
+    </div>
+
+    {/* Bon de livraison */}
+    <div style={{background:"#FFF7ED",border:"1.5px solid #FED7AA",borderRadius:12,padding:"12px 14px",marginBottom:12}}>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
+        <p style={{fontSize:11,fontWeight:700,color:"#C2410C",textTransform:"uppercase",letterSpacing:".05em"}}>📦 Bon de livraison</p>
+        {view.blNumero && <span style={{fontSize:10,fontWeight:700,color:"#EA580C",background:"#FFEDD5",borderRadius:6,padding:"2px 8px"}}>{view.blNumero}</span>}
+      </div>
+      {/* Statut signatures */}
+      <div style={{display:"flex",gap:6,marginBottom:10,flexWrap:"wrap"}}>
+        <span style={{fontSize:10,padding:"3px 8px",borderRadius:6,background:view.blSignJordan?"#DCFCE7":"#F5F5F0",color:view.blSignJordan?"#166534":"#9CA3AF",fontWeight:600}}>
+          {view.blSignJordan?"✅ Goûtstoso signé":"⬜ Goûtstoso"}
+        </span>
+        <span style={{fontSize:10,padding:"3px 8px",borderRadius:6,background:view.blSignClient?"#DCFCE7":"#F5F5F0",color:view.blSignClient?"#166534":"#9CA3AF",fontWeight:600}}>
+          {view.blSignClient?"✅ Client signé":"⬜ Client"}
+        </span>
+        {view.blEnvoye && <span style={{fontSize:10,padding:"3px 8px",borderRadius:6,background:"#DBEAFE",color:"#1E40AF",fontWeight:600}}>✉️ Envoyé {fmt(view.blEnvoye)}</span>}
+      </div>
+      {/* Actions BL — ligne 1 : PDF + email */}
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginBottom:6}}>
+        <button onClick={async()=>{
+          let blNum = view.blNumero;
+          if(!blNum){
+            const y2=new Date().getFullYear();
+            const ex=(st.commandes||[]).filter((c:any)=>c.blNumero).map((c:any)=>c.blNumero);
+            let n=1; while(ex.includes("BL-"+y2+"-"+String(n).padStart(3,"0"))) n++;
+            blNum="BL-"+y2+"-"+String(n).padStart(3,"0");
+            setSt((p:any)=>({...p,commandes:(p.commandes||[]).map((c:any)=>c.id===view.id?{...c,blNumero:blNum}:c)}));
+          }
+          await genererBLCommandePDF({...view,blNumero:blNum},st);
+        }} style={{background:"#EA580C",color:"#fff",border:"none",borderRadius:8,padding:"10px",fontWeight:700,fontSize:12,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:5}}>
+          📄 {view.blNumero?"Re-télécharger":"Générer PDF"}
+        </button>
+        <button onClick={()=>envoyerBLEmail(view)} style={{background:view.blEnvoye?"#F0FDF4":"#fff",color:view.blEnvoye?"#166534":"#EA580C",border:"1.5px solid "+(view.blEnvoye?"#86EFAC":"#FED7AA"),borderRadius:8,padding:"10px",fontWeight:700,fontSize:12,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:5}}>
+          {view.blEnvoye ? "✓ Email envoyé" : "✉️ Envoyer email"}
+        </button>
+      </div>
+      {/* Actions BL — ligne 2 : signatures */}
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
+        <button onClick={()=>setBlSigMode("jordan")} style={{background:view.blSignJordan?"#DCFCE7":"#F5F5F0",border:view.blSignJordan?"1.5px solid #86EFAC":"1.5px solid #E5E7EB",borderRadius:8,padding:"9px",fontWeight:600,fontSize:11,color:view.blSignJordan?"#166534":"#374151",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:4}}>
+          {view.blSignJordan?"✅ Goûtstoso":"✍️ Signer (Goûtstoso)"}
+        </button>
+        <button onClick={()=>setBlSigMode("client")} style={{background:view.blSignClient?"#DCFCE7":"#F5F5F0",border:view.blSignClient?"1.5px solid #86EFAC":"1.5px solid #E5E7EB",borderRadius:8,padding:"9px",fontWeight:600,fontSize:11,color:view.blSignClient?"#166534":"#374151",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:4}}>
+          {view.blSignClient?"✅ Client signé":"✍️ Faire signer client"}
+        </button>
+      </div>
+      {/* Aperçu des signatures */}
+      {(view.blSignJordan||view.blSignClient) && (
+        <div style={{display:"flex",gap:12,marginTop:10,padding:"8px 10px",background:"#fff",borderRadius:8}}>
+          {view.blSignJordan && <div><p style={{fontSize:9,color:"#9CA3AF",marginBottom:3}}>Goûtstoso</p><img src={view.blSignJordan} style={{height:28,maxWidth:90,objectFit:"contain"}}/></div>}
+          {view.blSignClient && <div><p style={{fontSize:9,color:"#9CA3AF",marginBottom:3}}>Client</p><img src={view.blSignClient} style={{height:28,maxWidth:90,objectFit:"contain"}}/></div>}
+        </div>
+      )}
     </div>
 
     {/* Actions */}
