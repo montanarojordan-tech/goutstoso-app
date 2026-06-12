@@ -7951,6 +7951,52 @@ const annulerFactureDepuisCommande = (cmd:any, st:any, setSt:any) => {
   }));
 };
 
+const genererFactureDepuisShopify = (s:any, st:any, setSt:any, setTab:any) => {
+  const y = new Date().getFullYear();
+  const existing = (st.factures||[]).map((f:any)=>f.numero);
+  let n=1; while(existing.includes("FAC-"+y+"-"+String(n).padStart(3,"0"))) n++;
+  const numero = "FAC-"+y+"-"+String(n).padStart(3,"0");
+  const lignesOk = (s.lignes||[]).filter((l:any)=>l.produitId&&l.qte>0).map((l:any)=>{
+    const prod=(st.produits||[]).find((p:any)=>p.id===l.produitId);
+    const prix = parseFloat(l.prixUnitaire)||0;
+    return {produitId:l.produitId,designation:prod?prod.nom+" "+(prod.variante||""):(l.designation||l.produitId),qte:l.qte,prix};
+  });
+  const fpEnc = parseFloat(s.fraisPortEncaisse??s.fraisPort??0);
+  const brut = lignesOk.reduce((sum:number,l:any)=>sum+l.qte*l.prix,0)+fpEnc;
+  const newFac = {
+    id:uid(), numero, date:s.dateCommande||today(), dateEcheance:"", statut:"payée",
+    typeClient:"client",
+    clientNom:s.clientShopify?.nom||"", clientEmail:s.clientShopify?.email||"",
+    clientAdresse:s.clientShopify?.adresse||"", clientNpa:s.clientShopify?.npa||"", clientVille:s.clientShopify?.ville||"",
+    partenaireId:"",
+    lignes:lignesOk, lignesOffertes:[], total:brut,
+    totalRabais:0, remiseMontant:0, comptOffert:"3900",
+    fraisLivraison:fpEnc, livraisonGratuite:fpEnc===0,
+    notes:"Issue de la commande Shopify #"+s.orderNumberShopify,
+    shopifyId:s.id,
+    envoyee:true,
+  };
+  setSt((p:any)=>({
+    ...p,
+    factures:[...(p.factures||[]),newFac],
+    ventesShopify:(p.ventesShopify||[]).map((x:any)=>x.id===s.id?{...x,factureNumero:numero}:x),
+  }));
+  alert("✅ Facture "+numero+" créée !\n\nRetrouve-la dans l'onglet Factures.\nElle est déjà marquée payée.");
+  if(setTab) setTab("factures");
+};
+
+const annulerFactureDepuisShopify = (s:any, st:any, setSt:any) => {
+  const facture = (st.factures||[]).find((f:any)=>f.numero===s.factureNumero && f.shopifyId===s.id);
+  if(facture?.statut==="payée" && !window.confirm("La facture "+s.factureNumero+" est marquée payée. La supprimer quand même ?")) return;
+  if(!facture && !window.confirm("Délier la facture "+s.factureNumero+" de cette commande Shopify ?")) return;
+  if(facture && !window.confirm("Supprimer la facture "+s.factureNumero+" liée à Shopify #"+s.orderNumberShopify+" ?")) return;
+  setSt((p:any)=>({
+    ...p,
+    factures: facture ? (p.factures||[]).filter((f:any)=>f.id!==facture.id) : (p.factures||[]),
+    ventesShopify:(p.ventesShopify||[]).map((x:any)=>x.id===s.id?{...x,factureNumero:undefined}:x),
+  }));
+};
+
 // ══════════════════════════════════════════════════════════════
 // PAGE: COMMANDES (ventes en ligne Shopify)
 // ══════════════════════════════════════════════════════════════
@@ -8775,6 +8821,11 @@ Commandes
             ) : (
               <span style={{flex:1,textAlign:"center",fontSize:11,color:"#166534",fontWeight:700,padding:"7px",background:"#DCFCE7",borderRadius:8}}>✅ Payée</span>
             )}
+            {s.factureNumero ? (
+              <button onClick={()=>setTab("factures")} style={{flex:1,background:"#DCFCE7",color:"#166534",border:"none",borderRadius:8,padding:"7px",fontSize:11,fontWeight:700,cursor:"pointer"}}>🧾 {s.factureNumero}</button>
+            ) : (
+              <button onClick={()=>genererFactureDepuisShopify(s,st,setSt,setTab)} style={{flex:1,background:"#0A0A0A",color:"#F2C94C",border:"none",borderRadius:8,padding:"7px",fontSize:11,fontWeight:700,cursor:"pointer"}}>🧾 Facture</button>
+            )}
             <button onClick={()=>setEditShopifyOrder(s)} style={{background:"#EDE9FE",border:"none",borderRadius:8,padding:"7px 10px",cursor:"pointer",fontSize:11,color:"#5B21B6",fontWeight:700}}>✏️</button>
             <button onClick={()=>{if(window.confirm("Supprimer cette commande Shopify ?")) setSt((p:any)=>({...p,ventesShopify:(p.ventesShopify||[]).filter((x:any)=>x.id!==s.id)}));}} style={{background:"#FEE2E2",border:"none",borderRadius:8,padding:"7px 10px",cursor:"pointer",display:"flex"}}><Ic n="trash" s={13}/></button>
           </div>
@@ -8848,6 +8899,11 @@ Commandes
                 })} style={{flex:1,background:"#22C55E",color:"#fff",border:"none",borderRadius:8,padding:"7px",fontSize:11,fontWeight:700,cursor:"pointer"}}>💳 Marquer payée</button>
               ) : (
                 <span style={{flex:1,textAlign:"center",fontSize:11,color:"#166534",fontWeight:700,padding:"7px",background:"#DCFCE7",borderRadius:8}}>✅ Payée</span>
+              )}
+              {s.factureNumero ? (
+                <button onClick={()=>setTab("factures")} style={{flex:1,background:"#DCFCE7",color:"#166534",border:"none",borderRadius:8,padding:"7px",fontSize:11,fontWeight:700,cursor:"pointer"}}>🧾 {s.factureNumero}</button>
+              ) : (
+                <button onClick={()=>genererFactureDepuisShopify(s,st,setSt,setTab)} style={{flex:1,background:"#0A0A0A",color:"#F2C94C",border:"none",borderRadius:8,padding:"7px",fontSize:11,fontWeight:700,cursor:"pointer"}}>🧾 Facture</button>
               )}
               <button onClick={()=>setEditShopifyOrder(s)} style={{background:"#EDE9FE",border:"none",borderRadius:8,padding:"7px 10px",cursor:"pointer",fontSize:11,color:"#5B21B6",fontWeight:700}}>✏️</button>
             </div>
