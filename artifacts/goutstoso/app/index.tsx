@@ -6346,7 +6346,7 @@ return (
               {/* Justificatif badge */}
               {t.justificatif && (
                 <div style={{marginBottom:6}}>
-                  <button onClick={()=>{ const w=window.open(); w.document.write('<html><body style="margin:0"><iframe src="'+t.justificatif+'" width="100%" height="100%" style="border:none"></iframe></body></html>'); w.document.close(); }}
+                  <button onClick={()=>ouvrirFichier(t.justificatif,t.justificatifNom||"justificatif")}
                     style={{background:"#EFF6FF",color:"#1D4ED8",border:"1px solid #BFDBFE",borderRadius:6,padding:"4px 10px",fontSize:11,fontWeight:600,cursor:"pointer",display:"flex",alignItems:"center",gap:5}}>
                     📎 <span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:180}}>{t.justificatifNom||"Justificatif"}</span>
                   </button>
@@ -7417,21 +7417,27 @@ return (
                 <p style={{fontSize:11,fontWeight:600,color:"#374151",marginBottom:6}}>📷 Capture du virement (optionnel)</p>
                 {apportForm.captureVirement ? (
                   <div style={{position:"relative"}}>
-                    <img src={getFileUrl(apportForm.captureVirement)} alt="capture" style={{width:"100%",maxHeight:180,objectFit:"contain",borderRadius:8,border:"1.5px solid #E5E5E0"}}/>
-                    <button onClick={()=>setApportForm((p:any)=>({...p,captureVirement:null}))} style={{position:"absolute",top:4,right:4,background:"#B91C1C",color:"#fff",border:"none",borderRadius:6,padding:"3px 7px",fontSize:10,fontWeight:700,cursor:"pointer"}}>✕ Supprimer</button>
+                    {(apportForm.captureVirementType||"").includes("pdf") || (apportForm.captureVirementNom||"").toLowerCase().endsWith(".pdf")
+                      ? <button onClick={()=>ouvrirFichier(apportForm.captureVirement,apportForm.captureVirementNom||"justificatif.pdf")} style={{width:"100%",background:"#DBEAFE",color:"#1D4ED8",border:"1.5px solid #BFDBFE",borderRadius:8,padding:"12px",fontWeight:600,fontSize:12,cursor:"pointer",display:"flex",alignItems:"center",gap:8}}>
+                          📄 {apportForm.captureVirementNom||"Justificatif PDF"} — Cliquer pour ouvrir
+                        </button>
+                      : <img src={getFileUrl(apportForm.captureVirement)} alt="capture" style={{width:"100%",maxHeight:180,objectFit:"contain",borderRadius:8,border:"1.5px solid #E5E5E0"}}/>
+                    }
+                    <button onClick={()=>setApportForm((p:any)=>({...p,captureVirement:null,captureVirementNom:null,captureVirementType:null}))} style={{position:"absolute",top:4,right:4,background:"#B91C1C",color:"#fff",border:"none",borderRadius:6,padding:"3px 7px",fontSize:10,fontWeight:700,cursor:"pointer"}}>✕</button>
                   </div>
                 ) : (
                   <label style={{display:"block",border:"1.5px dashed #D1D5DB",borderRadius:8,padding:"14px",textAlign:"center",cursor:"pointer",background:"#FAFAF7"}}>
-                    <p style={{fontSize:11,color:"#9CA3AF"}}>📂 Clique pour choisir une photo</p>
-                    <p style={{fontSize:9,color:"#D1D5DB",marginTop:3}}>JPG, PNG — screenshot virement ou paiement</p>
-                    <input type="file" accept="image/*" style={{display:"none"}} onChange={async e=>{
+                    <p style={{fontSize:11,color:"#9CA3AF"}}>📂 Clique pour choisir un fichier</p>
+                    <p style={{fontSize:9,color:"#D1D5DB",marginTop:3}}>JPG, PNG, PDF — screenshot virement ou justificatif</p>
+                    <input type="file" accept="image/*,application/pdf" style={{display:"none"}} onChange={async e=>{
                       const file=(e.target as HTMLInputElement).files?.[0];
                       if(!file) return;
+                      if(file.size>20*1024*1024){alert("Fichier trop grand (max 20 Mo)");return;}
                       const reader=new FileReader();
                       reader.onload=async ev=>{
                         const b64=(ev.target as FileReader).result as string;
-                        const fileId=await uploadFile(b64,file.name,file.type||"image/jpeg");
-                        setApportForm((p:any)=>({...p,captureVirement:fileId||b64}));
+                        const fileId=await uploadFile(b64,file.name,file.type||"application/octet-stream");
+                        setApportForm((p:any)=>({...p,captureVirement:fileId||b64,captureVirementNom:file.name,captureVirementType:file.type}));
                       };
                       reader.readAsDataURL(file);
                     }}/>
@@ -7723,7 +7729,7 @@ return (
           <p style={{fontSize:11,fontWeight:600,color:"#374151",marginBottom:8}}>📎 Justificatif (reçu, facture, relevé…)</p>
           {form.justificatif ? (
             <div style={{display:"flex",alignItems:"center",gap:8}}>
-              <button onClick={()=>{ const w=window.open(); w.document.write('<html><body style="margin:0"><iframe src="'+form.justificatif+'" width="100%" height="100%" style="border:none"></iframe></body></html>'); w.document.close(); }}
+              <button onClick={()=>ouvrirFichier(form.justificatif,form.justificatifNom||"justificatif")}
                 style={{flex:1,background:"#DBEAFE",color:"#1D4ED8",border:"none",borderRadius:8,padding:"8px 12px",fontSize:12,fontWeight:600,cursor:"pointer",textAlign:"left",display:"flex",alignItems:"center",gap:6,overflow:"hidden"}}>
                 📄 <span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{form.justificatifNom||"Justificatif"}</span>
               </button>
@@ -7736,11 +7742,15 @@ return (
                 <span style={{fontSize:18}}>📎</span>
                 <span>Choisir un fichier PDF ou image</span>
               </div>
-              <input type="file" accept="image/*,application/pdf" style={{display:"none"}} onChange={e=>{
+              <input type="file" accept="image/*,application/pdf" style={{display:"none"}} onChange={async e=>{
                 const file = e.target.files?.[0]; if(!file) return;
-                if(file.size > 8*1024*1024){alert("Fichier trop grand (max 8 Mo)");return;}
+                if(file.size > 20*1024*1024){alert("Fichier trop grand (max 20 Mo)");return;}
                 const reader = new FileReader();
-                reader.onload = ev => setForm(p=>({...p,justificatif:ev.target.result as string,justificatifNom:file.name}));
+                reader.onload = async ev => {
+                  const b64 = ev.target.result as string;
+                  const fileId = await uploadFile(b64, file.name, file.type||"application/octet-stream");
+                  setForm((p:any)=>({...p,justificatif:fileId||b64,justificatifNom:file.name,justificatifType:file.type}));
+                };
                 reader.readAsDataURL(file);
                 e.target.value="";
               }}/>
