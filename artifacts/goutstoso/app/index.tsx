@@ -9373,7 +9373,14 @@ Commandes
                   <Ic n="trash" s={13}/>
                 </button>
               </div>
-              {isCoffret && (
+              {isCoffret && (()=>{
+                // Trier les bouteilles par stock disponible (dispo d'abord, rupture à la fin)
+                const optsAvecStock = opts.map((p:any)=>({
+                  ...p,
+                  qStock:(st.stocks||[]).filter((s:any)=>s.produitId===p.id).reduce((a:number,s:any)=>a+(s.qte||0),0)
+                }));
+                const optsTries = [...optsAvecStock].sort((a:any,b:any)=>b.qStock-a.qStock);
+                return (
                 <div style={{background:"#F0FDF4",border:"1.5px solid #86EFAC",borderRadius:10,padding:"10px 12px",marginTop:4}}>
                   <p style={{fontSize:10,fontWeight:700,color:"#166534",textTransform:"uppercase",letterSpacing:".05em",marginBottom:8}}>
                     📦 Composition du coffret{(l.qte||1)>1?` × ${l.qte} coffrets`:""} — 3 arômes au choix
@@ -9381,32 +9388,65 @@ Commandes
                   {[0,1,2].map(slot=>{
                     const contenu:any[] = l.coffretContenu||[];
                     const c = contenu[slot]||{produitId:"",qte:1};
+                    const selProd = optsAvecStock.find((p:any)=>p.id===c.produitId);
+                    const selStock = selProd?.qStock??null;
+                    const selBorderColor = selProd==null?"#86EFAC":selStock===0?"#FCA5A5":selStock<=3?"#FCD34D":"#86EFAC";
                     return (
-                      <div key={slot} style={{display:"flex",alignItems:"center",gap:6,marginBottom:6}}>
-                        <span style={{fontSize:10,fontWeight:700,color:"#166534",width:16,flexShrink:0}}>{slot+1}.</span>
-                        <select value={c.produitId||""} onChange={e=>{
-                          const nc2=[...((l.coffretContenu||[{produitId:"",qte:1},{produitId:"",qte:1},{produitId:"",qte:1}]) as any[])];
-                          while(nc2.length<3) nc2.push({produitId:"",qte:1});
-                          nc2[slot]={...nc2[slot],produitId:e.target.value};
-                          setForm((p:any)=>({...p,lignes:p.lignes.map((x:any,j:number)=>j===i?{...x,coffretContenu:nc2}:x)}));
-                        }} style={{flex:1,padding:"8px 10px",fontSize:12,border:"1.5px solid #86EFAC",borderRadius:8,background:"#fff",color:"#111",outline:"none"}}>
-                          <option value="">— Arôme {slot+1} —</option>
-                          {opts.map((p:any)=>{
-                            const qStock = (st.stocks||[]).filter((s:any)=>s.produitId===p.id).reduce((a:number,s:any)=>a+(s.qte||0),0);
-                            return <option key={p.id} value={p.id}>{p.nom} {p.variante} {p.format} ({qStock} en stock)</option>;
-                          })}
-                        </select>
+                      <div key={slot} style={{marginBottom:8}}>
+                        <div style={{display:"flex",alignItems:"center",gap:6}}>
+                          <span style={{fontSize:10,fontWeight:700,color:"#166534",width:16,flexShrink:0}}>{slot+1}.</span>
+                          <select value={c.produitId||""} onChange={e=>{
+                            const nc2=[...((l.coffretContenu||[{produitId:"",qte:1},{produitId:"",qte:1},{produitId:"",qte:1}]) as any[])];
+                            while(nc2.length<3) nc2.push({produitId:"",qte:1});
+                            nc2[slot]={...nc2[slot],produitId:e.target.value};
+                            setForm((p:any)=>({...p,lignes:p.lignes.map((x:any,j:number)=>j===i?{...x,coffretContenu:nc2}:x)}));
+                          }} style={{flex:1,padding:"8px 10px",fontSize:12,border:"1.5px solid "+selBorderColor,borderRadius:8,background:"#fff",color:"#111",outline:"none"}}>
+                            <option value="">— Arôme {slot+1} —</option>
+                            <optgroup label="✅ En stock">
+                              {optsTries.filter((p:any)=>p.qStock>0).map((p:any)=>(
+                                <option key={p.id} value={p.id}>{p.nom} {p.variante} {p.format} ({p.qStock} en stock)</option>
+                              ))}
+                            </optgroup>
+                            {optsTries.some((p:any)=>p.qStock===0) && (
+                              <optgroup label="⚠️ Rupture de stock">
+                                {optsTries.filter((p:any)=>p.qStock===0).map((p:any)=>(
+                                  <option key={p.id} value={p.id} style={{color:"#9CA3AF"}}>{p.nom} {p.variante} {p.format} (rupture)</option>
+                                ))}
+                              </optgroup>
+                            )}
+                          </select>
+                        </div>
+                        {selProd && selStock===0 && (
+                          <p style={{fontSize:9,color:"#EF4444",fontWeight:600,marginLeft:22,marginTop:2}}>⚠️ Rupture — déduction impossible</p>
+                        )}
+                        {selProd && selStock!==null && selStock>0 && selStock<=3 && (
+                          <p style={{fontSize:9,color:"#92400E",fontWeight:600,marginLeft:22,marginTop:2}}>⚠️ Stock bas ({selStock} restant{selStock>1?"s":""})</p>
+                        )}
                       </div>
                     );
                   })}
+                  {/* Frais de port coffret */}
+                  <div style={{borderTop:"1px solid #86EFAC",paddingTop:8,marginTop:4,display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+                    <div>
+                      <label style={{fontSize:9,fontWeight:700,color:"#166534",textTransform:"uppercase",letterSpacing:".04em",display:"block",marginBottom:4}}>Port encaissé (CHF)</label>
+                      <input type="number" value={form.fraisPort||""} min={0} step="0.05" onChange={e=>setForm((p:any)=>({...p,fraisPort:e.target.value}))} placeholder="0.00"
+                        style={{width:"100%",padding:"7px 8px",fontSize:12,border:"1.5px solid #86EFAC",borderRadius:8,background:"#fff",color:"#111",outline:"none",boxSizing:"border-box"}}/>
+                    </div>
+                    <div>
+                      <label style={{fontSize:9,fontWeight:700,color:"#166534",textTransform:"uppercase",letterSpacing:".04em",display:"block",marginBottom:4}}>Port coûté (CHF)</label>
+                      <input type="number" value={form.fraisPortCoute||""} min={0} step="0.05" onChange={e=>setForm((p:any)=>({...p,fraisPortCoute:e.target.value}))} placeholder="0.00"
+                        style={{width:"100%",padding:"7px 8px",fontSize:12,border:"1.5px solid #86EFAC",borderRadius:8,background:"#fff",color:"#111",outline:"none",boxSizing:"border-box"}}/>
+                    </div>
+                  </div>
                   {(l.coffretContenu||[]).filter((c:any)=>c.produitId).length<3 && (
-                    <p style={{fontSize:10,color:"#EF4444",fontWeight:600,marginTop:4}}>⚠️ Sélectionne les 3 arômes pour la déduction de stock</p>
+                    <p style={{fontSize:10,color:"#EF4444",fontWeight:600,marginTop:8}}>⚠️ Sélectionne les 3 arômes pour la déduction de stock</p>
                   )}
                   {(l.qte||1)>1 && (l.coffretContenu||[]).filter((c:any)=>c.produitId).length===3 && (
-                    <p style={{fontSize:10,color:"#166534",marginTop:4}}>→ {(l.qte)*3} bouteilles déduites du stock au total</p>
+                    <p style={{fontSize:10,color:"#166534",marginTop:4}}>→ {(l.qte||1)*3} bouteilles déduites du stock au total</p>
                   )}
                 </div>
-              )}
+                );
+              })()}
             </div>
             );
           })}
