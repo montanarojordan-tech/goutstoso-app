@@ -9209,6 +9209,7 @@ Commandes
                 <button onClick={()=>genererFactureDepuisShopify(s,st,setSt,setTab)} style={{flex:1,background:"#0A0A0A",color:"#F2C94C",border:"none",borderRadius:8,padding:"7px",fontSize:11,fontWeight:700,cursor:"pointer"}}>🧾 Facture</button>
               )}
               <button onClick={()=>setEditShopifyOrder(s)} style={{background:"#EDE9FE",border:"none",borderRadius:8,padding:"7px 10px",cursor:"pointer",fontSize:11,color:"#5B21B6",fontWeight:700}}>✏️</button>
+              <button onClick={()=>{if(window.confirm("Supprimer la commande Shopify #"+s.orderNumberShopify+" ?")) setSt((p:any)=>({...p,ventesShopify:(p.ventesShopify||[]).filter((x:any)=>x.id!==s.id)}));}} style={{background:"#FEE2E2",border:"none",borderRadius:8,padding:"7px 10px",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}><Ic n="trash" s={13}/></button>
             </div>
           </Card>
         );
