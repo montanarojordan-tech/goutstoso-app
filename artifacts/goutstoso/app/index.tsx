@@ -1784,6 +1784,95 @@ onTouchStart={start} onTouchMove={draw} onTouchEnd={stop}/>
 );
 };
 
+const genererInventaireTarifePDF = async (pv, depots, produits, lignesModif) => {
+try {
+await new Promise((res,rej)=>{
+if((window as any).jspdf){res();return;}
+const s=document.createElement("script");
+s.src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";
+s.onload=res;s.onerror=rej;document.head.appendChild(s);
+});
+const {jsPDF}=(window as any).jspdf;
+const doc=new jsPDF({orientation:"portrait",unit:"mm",format:"a4"});
+const W=doc.internal.pageSize.getWidth();
+const mg=14;let y=14;
+
+// Bandeau header
+doc.setFillColor(17,17,17);doc.rect(0,0,W,24,"F");
+doc.setFont("helvetica","bold");doc.setFontSize(13);doc.setTextColor(242,201,76);
+doc.text("INVENTAIRE TARIFÉ",W/2,10,{align:"center"});
+doc.setFontSize(8);doc.setFont("helvetica","normal");doc.setTextColor(180,180,180);
+doc.text("Prix prestataire — Document confidentiel Goûtstoso",W/2,17,{align:"center"});
+y=30;
+
+// Info partenaire / date
+doc.setFontSize(9);doc.setFont("helvetica","bold");doc.setTextColor(17,17,17);
+doc.text("À : "+pv.nom,mg,y);
+doc.setFont("helvetica","normal");doc.setTextColor(107,114,128);
+const pvAddr=[pv.adresse,[pv.npa,pv.ville].filter(Boolean).join(" ")].filter(Boolean).join(", ");
+if(pvAddr) doc.text(pvAddr,mg,y+5);
+doc.text("Date : "+new Date().toLocaleDateString("fr-CH"),W-mg,y,{align:"right"});
+y+=14;
+
+// Titre tableau
+doc.setFillColor(17,17,17);doc.rect(mg,y,W-mg*2,9,"F");
+doc.setFontSize(8);doc.setFont("helvetica","bold");doc.setTextColor(242,201,76);
+doc.text("DÉSIGNATION",mg+3,y+6);
+doc.setTextColor(180,180,180);
+doc.text("EN DÉPÔT",120,y+6,{align:"center"});
+doc.text("PRIX PRESTATAIRE",W-mg-2,y+6,{align:"right"});
+y+=9;
+
+// Lignes produits
+let totalVal=0;
+depots.forEach((d:any,i:number)=>{
+  const p=produits.find((x:any)=>x.id===d.produitId);
+  const reste=(d.qteDeposee||0)-(d.qteVendue||0)-(d.qteRetournee||0);
+  if(reste<=0) return;
+  const modif=(lignesModif||[]).find((l:any)=>l.produitId===d.produitId);
+  const prix=parseFloat(modif?.prix)||p?.prixRevendeur||0;
+  totalVal+=reste*prix;
+  doc.setFillColor(i%2===0?250:255,i%2===0?250:255,i%2===0?248:255);
+  doc.rect(mg,y,W-mg*2,12,"F");
+  doc.setDrawColor(240,240,238);doc.setLineWidth(0.2);doc.rect(mg,y,W-mg*2,12,"S");
+  doc.setFontSize(10);doc.setFont("helvetica","bold");doc.setTextColor(17,17,17);
+  doc.text((p?.nom||"")+" "+(p?.variante||""),mg+3,y+5);
+  doc.setFontSize(8);doc.setFont("helvetica","normal");doc.setTextColor(150,150,150);
+  doc.text((p?.format||"")+" · 30% vol.",mg+3,y+10);
+  doc.setFontSize(12);doc.setFont("helvetica","bold");doc.setTextColor(30,58,95);
+  doc.text(String(reste),120,y+7,{align:"center"});
+  doc.setTextColor(17,17,17);
+  doc.text("CHF "+prix.toFixed(2),W-mg-2,y+7,{align:"right"});
+  y+=12;
+});
+y+=4;
+
+// Total
+doc.setFillColor(242,201,76);doc.roundedRect(mg,y,W-mg*2,13,2,2,"F");
+doc.setFontSize(10);doc.setFont("helvetica","bold");doc.setTextColor(17,17,17);
+doc.text("VALEUR TOTALE EN DÉPÔT",mg+4,y+9);
+doc.text("CHF "+totalVal.toFixed(2),W-mg-4,y+9,{align:"right"});
+y+=19;
+
+// Conditions
+doc.setFillColor(245,245,242);doc.roundedRect(mg,y,W-mg*2,22,2,2,"F");
+doc.setFontSize(8);doc.setFont("helvetica","bold");doc.setTextColor(80,80,80);
+doc.text("CONDITIONS",mg+4,y+5);
+doc.setFont("helvetica","normal");doc.setFontSize(8.5);doc.setTextColor(107,114,128);
+doc.text("Marchandise en dépôt-vente — propriété de Goûtstoso jusqu'au paiement effectif.",mg+4,y+11);
+doc.text("Prix prestataire applicables. Facturation après inventaire des ventes (30j).",mg+4,y+17);
+y+=28;
+
+// Pied
+doc.setDrawColor(230,230,228);doc.setLineWidth(0.3);doc.line(mg,277,W-mg,277);
+doc.setFontSize(7.5);doc.setFont("helvetica","normal");doc.setTextColor(150,150,150);
+doc.text("Goûtstoso - Jordan Montanaro · Rue des Sources 19 · 2613 Villeret · admin@goutstoso.ch · www.goutstoso.ch",W/2,282,{align:"center"});
+doc.setFillColor(242,201,76);doc.rect(0,292,W,5,"F");
+
+doc.save("Inventaire_tarife_"+pv.nom.replace(/\s+/g,"-")+"_"+new Date().toISOString().slice(0,10)+".pdf");
+} catch(e:any){alert("Erreur PDF: "+e.message);}
+};
+
 const genererBulletinPDF = async (c, pv, st) => {
 try {
 await new Promise((res,rej)=>{
@@ -2831,6 +2920,7 @@ const [form,setForm] = useState({nom:"",adresse:"",npa:"",ville:"",contact:"",te
 const [livForm,setLivForm] = useState({type:"depot-vente",date:today(),lignes:[{produitId:"",qte:1}],notes:""});
 const [signingBulletin,setSigningBulletin] = useState(null);
 const [showContratDetail,setShowContratDetail] = useState(false);
+const [invTarife,setInvTarife] = useState<any>(null); // {pvId, lignes:[{produitId,prix}]}
 
 const savePV = () => {
 if(!form.nom) return;
@@ -3215,6 +3305,27 @@ return (
       }
     </Card>
 
+    {/* CA encaissé */}
+    {(()=>{
+      const facs = (st.factures||[]).filter((f:any)=>f.partenaireId===pv.id);
+      const caEnc = sum(facs.filter((f:any)=>f.statut==="payée").map((f:any)=>calcTotalNet(f,st.produits)));
+      const caAtt = sum(facs.filter((f:any)=>f.statut!=="payée").map((f:any)=>calcTotalNet(f,st.produits)));
+      return (
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:14}}>
+          <div style={{background:"#DCFCE7",borderRadius:10,padding:"10px 12px",textAlign:"center"}}>
+            <p style={{fontSize:9,color:"#9CA3AF",fontWeight:600,textTransform:"uppercase",letterSpacing:".05em"}}>CA encaissé</p>
+            <p style={{fontSize:16,fontWeight:700,color:"#166534",marginTop:3}}>{chf(caEnc)}</p>
+            <p style={{fontSize:9,color:"#6B7280",marginTop:2}}>{facs.filter((f:any)=>f.statut==="payée").length} facture(s) payée(s)</p>
+          </div>
+          <div style={{background:"#FEF9E7",borderRadius:10,padding:"10px 12px",textAlign:"center"}}>
+            <p style={{fontSize:9,color:"#9CA3AF",fontWeight:600,textTransform:"uppercase",letterSpacing:".05em"}}>En attente</p>
+            <p style={{fontSize:16,fontWeight:700,color:"#92400E",marginTop:3}}>{chf(caAtt)}</p>
+            <p style={{fontSize:9,color:"#6B7280",marginTop:2}}>{facs.filter((f:any)=>f.statut!=="payée").length} facture(s)</p>
+          </div>
+        </div>
+      );
+    })()}
+
     {/* Actions */}
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
       <button onClick={()=>{setSelected(pv);setModal("livraison");}} style={{background:"#F2C94C",border:"none",borderRadius:12,padding:"12px",fontWeight:700,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
@@ -3224,6 +3335,14 @@ return (
         📋 Faire l'inventaire
       </button>
     </div>
+    <button onClick={()=>{
+      const deps=(st.depotStocks||[]).filter((d:any)=>d.partenaireId===pv.id&&(d.qteDeposee-d.qteVendue-(d.qteRetournee||0))>0);
+      if(!deps.length){alert("Aucun stock en dépôt actuellement.");return;}
+      const lignes=deps.map((d:any)=>{const p=st.produits.find((x:any)=>x.id===d.produitId);return {produitId:d.produitId,prix:String(p?.prixRevendeur||0)};});
+      setInvTarife({pvId:pv.id,lignes});
+    }} style={{width:"100%",background:"#1E3A5F",color:"#fff",border:"none",borderRadius:12,padding:"12px",fontWeight:700,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6,marginBottom:10}}>
+      📄 Inventaire tarifé (prix prestataire)
+    </button>
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:16}}>
       <button onClick={()=>{setForm({...pv});setView(null);setModal("form");}} style={{background:"#F5F5F0",border:"none",borderRadius:12,padding:"12px",fontWeight:600,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
         <Ic n="edit" s={14}/> Modifier
@@ -3370,10 +3489,7 @@ Dépôts-vente
     : st.partenaires.map(pv=>{
         const depots = (st.depotStocks||[]).filter(d=>d.partenaireId===pv.id);
         const totalProduits = sum(depots.map(d=>d.qteDeposee-d.qteVendue-d.qteRetournee));
-        const caGenere = sum(depots.map(d=>{
-          const p = st.produits.find(x=>x.id===d.produitId);
-          return d.qteVendue*(p?.prixRevendeur||0);
-        }));
+        const caEncaisse = sum((st.factures||[]).filter((f:any)=>f.partenaireId===pv.id&&f.statut==="payée").map((f:any)=>calcTotalNet(f,st.produits)));
         return (
           <Card key={pv.id} style={{marginBottom:10,cursor:"pointer"}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:10}}>
@@ -3390,7 +3506,7 @@ Dépôts-vente
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}} onClick={()=>setView(pv)}>
               {[
                 {l:"En dépôt",v:totalProduits+" u.",c:"#1E3A5F",bg:"#DBEAFE"},
-                {l:"CA généré",v:chf(caGenere),c:"#166534",bg:"#DCFCE7"},
+                {l:"CA encaissé",v:chf(caEncaisse),c:"#166534",bg:"#DCFCE7"},
                 {l:"Type",v:pv.type==="depot-vente"?"Dépôt":"Livraison",c:"#92400E",bg:"#FEF9E7"},
               ].map((k,i)=>(
                 <div key={i} style={{background:k.bg,borderRadius:8,padding:"7px 8px",textAlign:"center"}}>
@@ -3406,6 +3522,81 @@ Dépôts-vente
         );
       })
   }
+
+  {/* Modal inventaire tarifé */}
+  {invTarife&&(()=>{
+    const pv=(st.partenaires||[]).find((p:any)=>p.id===invTarife.pvId);
+    const deps=(st.depotStocks||[]).filter((d:any)=>d.partenaireId===invTarife.pvId&&(d.qteDeposee-d.qteVendue-(d.qteRetournee||0))>0);
+    const total=deps.reduce((acc:number,d:any)=>{
+      const modif=invTarife.lignes.find((l:any)=>l.produitId===d.produitId);
+      const px=parseFloat(modif?.prix)||0;
+      return acc+((d.qteDeposee-d.qteVendue-(d.qteRetournee||0))*px);
+    },0);
+    return (
+      <Modal title={"📄 Inventaire tarifé — "+(pv?.nom||"")} onClose={()=>setInvTarife(null)}>
+        <p style={{fontSize:11,color:"#6B7280",marginBottom:12}}>Modifie les prix prestataire si besoin, puis génère le PDF ou envoie par email.</p>
+        <div style={{marginBottom:14}}>
+          {deps.map((d:any)=>{
+            const prod=st.produits.find((x:any)=>x.id===d.produitId);
+            const reste=(d.qteDeposee||0)-(d.qteVendue||0)-(d.qteRetournee||0);
+            const modif=invTarife.lignes.find((l:any)=>l.produitId===d.produitId)||{produitId:d.produitId,prix:String(prod?.prixRevendeur||0)};
+            return (
+              <div key={d.id} style={{display:"grid",gridTemplateColumns:"1fr auto auto",gap:8,alignItems:"center",marginBottom:8,background:"#F9F9F6",borderRadius:10,padding:"10px 12px"}}>
+                <div>
+                  <p style={{fontSize:13,fontWeight:600}}>{prod?.nom} {prod?.variante} {prod?.format}</p>
+                  <p style={{fontSize:10,color:"#6B7280",marginTop:1}}>Qté en dépôt : <strong>{reste}</strong></p>
+                </div>
+                <div style={{display:"flex",alignItems:"center",gap:4}}>
+                  <span style={{fontSize:11,color:"#9CA3AF"}}>CHF</span>
+                  <input type="number" min={0} step={0.5} value={modif.prix}
+                    onChange={e=>{
+                      const v=e.target.value;
+                      setInvTarife((prev:any)=>({...prev,lignes:prev.lignes.map((l:any)=>l.produitId===d.produitId?{...l,prix:v}:l)}));
+                    }}
+                    style={{width:64,padding:"7px 8px",fontSize:13,border:"1.5px solid #D1D5DB",borderRadius:8,textAlign:"right",fontWeight:700}}/>
+                </div>
+                <div style={{textAlign:"right",minWidth:52}}>
+                  <p style={{fontSize:10,color:"#9CA3AF"}}>Total</p>
+                  <p style={{fontSize:12,fontWeight:700,color:"#1E3A5F"}}>{chf(reste*(parseFloat(modif.prix)||0))}</p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        <div style={{background:"#F2C94C",borderRadius:10,padding:"10px 14px",display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+          <span style={{fontWeight:700,fontSize:13}}>Valeur totale en dépôt</span>
+          <span style={{fontWeight:700,fontSize:16}}>{chf(total)}</span>
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+          <button onClick={async()=>{
+            if(pv) await genererInventaireTarifePDF(pv,deps,st.produits,invTarife.lignes);
+          }} style={{background:"#111",color:"#F2C94C",border:"none",borderRadius:12,padding:"13px",fontWeight:700,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+            📄 Générer PDF
+          </button>
+          <button onClick={()=>{
+            if(!pv?.email){alert("Aucun email enregistré pour ce partenaire.");return;}
+            const lignesText=deps.map((d:any)=>{
+              const prod=st.produits.find((x:any)=>x.id===d.produitId);
+              const reste=(d.qteDeposee||0)-(d.qteVendue||0)-(d.qteRetournee||0);
+              const modif=invTarife.lignes.find((l:any)=>l.produitId===d.produitId);
+              const px=parseFloat(modif?.prix)||prod?.prixRevendeur||0;
+              return `• ${prod?.nom} ${prod?.variante} ${prod?.format} — ${reste} u. × CHF ${px.toFixed(2)} = CHF ${(reste*px).toFixed(2)}`;
+            }).join("\n");
+            const total2=deps.reduce((acc:number,d:any)=>{
+              const modif=invTarife.lignes.find((l:any)=>l.produitId===d.produitId);
+              const px=parseFloat(modif?.prix)||0;
+              return acc+((d.qteDeposee-d.qteVendue-(d.qteRetournee||0))*px);
+            },0);
+            const subj=encodeURIComponent("Inventaire tarifé Goûtstoso — "+new Date().toLocaleDateString("fr-CH"));
+            const body=encodeURIComponent(`Bonjour ${pv?.contact||pv?.nom||""},\n\nVeuillez trouver ci-joint l'inventaire tarifé de votre dépôt Goûtstoso.\n\n=== INVENTAIRE TARIFÉ ===\nDate : ${new Date().toLocaleDateString("fr-CH")}\n\n${lignesText}\n\nValeur totale en dépôt : CHF ${total2.toFixed(2)}\n\nCes prix prestataire sont applicables pour facturation lors de l'inventaire des ventes.\n\nCordialement,\nJordan Montanaro — Goûtstoso\nadmin@goutstoso.ch`);
+            window.open(`mailto:${pv.email}?subject=${subj}&body=${body}`);
+          }} style={{background:"#DBEAFE",color:"#1E3A5F",border:"none",borderRadius:12,padding:"13px",fontWeight:700,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+            ✉️ Envoyer
+          </button>
+        </div>
+      </Modal>
+    );
+  })()}
 
   {/* Modal nouveau partenaire */}
   {modal==="form"&&(
