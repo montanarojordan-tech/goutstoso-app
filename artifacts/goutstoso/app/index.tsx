@@ -8315,20 +8315,49 @@ if(form.id) {
     const srcLabel = `#${nextNum} · Commande ${cleaned.numero}${cleaned.reference?` · ${cleaned.reference}`:""}`;
     let newStocks = [...(p.stocks||[])];
     const newMouvements = [...(p.mouvementsStock||[])];
-    lignesOk.forEach(l=>{
-      let restant = parseInt(l.qte)||0;
-      newStocks = newStocks.map(s=>{
-        if(s.produitId!==l.produitId || restant<=0) return s;
-        const dedd = Math.min(s.qte||0, restant);
-        restant -= dedd;
-        return {...s, qte:(s.qte||0)-dedd};
-      });
-      newMouvements.push({id:uid(),date:cleaned.date||today(),type:"sortie",produitId:l.produitId,qte:-(parseInt(l.qte)||0),source:srcLabel,commandeId:cleaned.id});
+    lignesOk.forEach((l:any)=>{
+      const lProd = (st.produits||[]).find((x:any)=>x.id===l.produitId);
+      const isCoffret = (lProd?.nom||"").includes("Coffret");
+      const coffretContenu:any[] = l.coffretContenu||[];
+      if(isCoffret && coffretContenu.filter((c:any)=>c.produitId).length>0) {
+        // Coffret : déduire les bouteilles individuelles choisies
+        const qteCoffrets = parseInt(l.qte)||1;
+        coffretContenu.filter((c:any)=>c.produitId).forEach((c:any)=>{
+          let restant = (parseInt(c.qte)||1) * qteCoffrets;
+          newStocks = newStocks.map((s:any)=>{
+            if(s.produitId!==c.produitId || restant<=0) return s;
+            const dedd = Math.min(s.qte||0, restant);
+            restant -= dedd;
+            return {...s, qte:(s.qte||0)-dedd};
+          });
+          const cProd = (st.produits||[]).find((x:any)=>x.id===c.produitId);
+          newMouvements.push({id:uid(),date:cleaned.date||today(),type:"sortie",produitId:c.produitId,qte:-((parseInt(c.qte)||1)*qteCoffrets),source:srcLabel+" · Coffret ("+lProd?.nom+" "+lProd?.variante+")",commandeId:cleaned.id});
+        });
+      } else if(!isCoffret) {
+        // Produit individuel : déduction normale
+        let restant = parseInt(l.qte)||0;
+        newStocks = newStocks.map((s:any)=>{
+          if(s.produitId!==l.produitId || restant<=0) return s;
+          const dedd = Math.min(s.qte||0, restant);
+          restant -= dedd;
+          return {...s, qte:(s.qte||0)-dedd};
+        });
+        newMouvements.push({id:uid(),date:cleaned.date||today(),type:"sortie",produitId:l.produitId,qte:-(parseInt(l.qte)||0),source:srcLabel,commandeId:cleaned.id});
+      }
+      // Si coffret sans composition définie : aucune déduction (à compléter manuellement)
     });
     return {...p, stocks:newStocks, mouvementsStock:newMouvements, commandes:[...(p.commandes||[]),cleaned]};
   });
-  const details = lignesOk.map(l=>{
-    const prod = st.produits.find(x=>x.id===l.produitId);
+  const details = lignesOk.map((l:any)=>{
+    const prod = (st.produits||[]).find((x:any)=>x.id===l.produitId);
+    const isCoffret = (prod?.nom||"").includes("Coffret");
+    if(isCoffret && (l.coffretContenu||[]).filter((c:any)=>c.produitId).length>0) {
+      const lignesDesc = (l.coffretContenu||[]).filter((c:any)=>c.produitId).map((c:any)=>{
+        const cp = (st.produits||[]).find((x:any)=>x.id===c.produitId);
+        return `  - ${cp?.nom||""} ${cp?.variante||""} × ${(parseInt(c.qte)||1)*(parseInt(l.qte)||1)}`;
+      }).join("\n");
+      return `• ${prod?.nom||""} ${prod?.variante||""} × ${l.qte}\n${lignesDesc}`;
+    }
     return `• ${prod?.nom||""} ${prod?.variante||""} ${prod?.format||""} : -${l.qte}`;
   }).join("\n");
   alert(`✅ Commande ${numero} créée\n\n📦 Stock déduit :\n${details}`);
@@ -9316,17 +9345,70 @@ Commandes
 
         <div>
           <label style={{fontSize:11,fontWeight:600,color:"#9CA3AF",textTransform:"uppercase",display:"block",marginBottom:8}}>Produits</label>
-          {(form.lignes||[]).map((l,i)=>(
-            <div key={i} style={{display:"grid",gridTemplateColumns:"1fr 60px 36px",gap:6,marginBottom:8,alignItems:"flex-end"}}>
-              <Sel label="" value={l.produitId} onChange={v=>updLigne(i,"produitId",v)}
-                options={[{v:"",l:"- Produit -"},...st.produits.filter(p=>p.actif).map(p=>({v:p.id,l:p.nom+" "+p.variante+" "+p.format+" ("+chf(p.prixClient)+")"}))]}/>
-              <input type="number" value={l.qte||1} min={1} onChange={e=>updLigne(i,"qte",+e.target.value)}
-                style={{padding:"11px 6px",fontSize:14,border:"1.5px solid #E5E5E0",borderRadius:10,textAlign:"center",width:60}}/>
-              <button onClick={()=>delLigne(i)} style={{background:"#FEE2E2",border:"none",borderRadius:8,padding:"10px 6px",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>
-                <Ic n="trash" s={13}/>
-              </button>
+          {(form.lignes||[]).map((l,i)=>{
+            const ligneProd = st.produits.find((x:any)=>x.id===l.produitId);
+            const isCoffret = (ligneProd?.nom||"").includes("Coffret");
+            const ligneFormat = ligneProd?.format||"50cl";
+            const bouteillesCompat = (st.produits||[]).filter((p:any)=>p.actif&&!p.nom.includes("Coffret")&&p.format===ligneFormat);
+            const bouteillesTous = (st.produits||[]).filter((p:any)=>p.actif&&!p.nom.includes("Coffret"));
+            const opts = bouteillesCompat.length>=3 ? bouteillesCompat : bouteillesTous;
+            return (
+            <div key={i} style={{marginBottom:8}}>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 60px 36px",gap:6,alignItems:"flex-end"}}>
+                <Sel label="" value={l.produitId} onChange={v=>{
+                  const np = (st.produits||[]).find((x:any)=>x.id===v);
+                  const nc = (np?.nom||"").includes("Coffret");
+                  const nf = np?.format||"50cl";
+                  const nOpts = (st.produits||[]).filter((p:any)=>p.actif&&!p.nom.includes("Coffret")&&p.format===nf);
+                  const fallback = (st.produits||[]).filter((p:any)=>p.actif&&!p.nom.includes("Coffret"));
+                  const pool = nOpts.length>=3 ? nOpts : fallback;
+                  const defaultContenu = nc ? pool.slice(0,3).map((p:any)=>({produitId:p.id,qte:1})) : undefined;
+                  setForm((p:any)=>({...p,lignes:p.lignes.map((x:any,j:number)=>j===i?{...x,produitId:v,coffretContenu:defaultContenu!==undefined?defaultContenu:x.coffretContenu}:x)}));
+                }}
+                  options={[{v:"",l:"- Produit -"},...(st.produits||[]).filter((p:any)=>p.actif).map((p:any)=>({v:p.id,l:p.nom+" "+p.variante+" "+p.format+" ("+chf(p.prixClient)+")"+(p.nom.includes("Coffret")?" 🎁":"")}))]}/>
+                <input type="number" value={l.qte||1} min={1} onChange={e=>updLigne(i,"qte",+e.target.value)}
+                  style={{padding:"11px 6px",fontSize:14,border:"1.5px solid #E5E5E0",borderRadius:10,textAlign:"center",width:60}}/>
+                <button onClick={()=>delLigne(i)} style={{background:"#FEE2E2",border:"none",borderRadius:8,padding:"10px 6px",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>
+                  <Ic n="trash" s={13}/>
+                </button>
+              </div>
+              {isCoffret && (
+                <div style={{background:"#F0FDF4",border:"1.5px solid #86EFAC",borderRadius:10,padding:"10px 12px",marginTop:4}}>
+                  <p style={{fontSize:10,fontWeight:700,color:"#166534",textTransform:"uppercase",letterSpacing:".05em",marginBottom:8}}>
+                    📦 Composition du coffret{(l.qte||1)>1?` × ${l.qte} coffrets`:""} — 3 arômes au choix
+                  </p>
+                  {[0,1,2].map(slot=>{
+                    const contenu:any[] = l.coffretContenu||[];
+                    const c = contenu[slot]||{produitId:"",qte:1};
+                    return (
+                      <div key={slot} style={{display:"flex",alignItems:"center",gap:6,marginBottom:6}}>
+                        <span style={{fontSize:10,fontWeight:700,color:"#166534",width:16,flexShrink:0}}>{slot+1}.</span>
+                        <select value={c.produitId||""} onChange={e=>{
+                          const nc2=[...((l.coffretContenu||[{produitId:"",qte:1},{produitId:"",qte:1},{produitId:"",qte:1}]) as any[])];
+                          while(nc2.length<3) nc2.push({produitId:"",qte:1});
+                          nc2[slot]={...nc2[slot],produitId:e.target.value};
+                          setForm((p:any)=>({...p,lignes:p.lignes.map((x:any,j:number)=>j===i?{...x,coffretContenu:nc2}:x)}));
+                        }} style={{flex:1,padding:"8px 10px",fontSize:12,border:"1.5px solid #86EFAC",borderRadius:8,background:"#fff",color:"#111",outline:"none"}}>
+                          <option value="">— Arôme {slot+1} —</option>
+                          {opts.map((p:any)=>{
+                            const qStock = (st.stocks||[]).filter((s:any)=>s.produitId===p.id).reduce((a:number,s:any)=>a+(s.qte||0),0);
+                            return <option key={p.id} value={p.id}>{p.nom} {p.variante} {p.format} ({qStock} en stock)</option>;
+                          })}
+                        </select>
+                      </div>
+                    );
+                  })}
+                  {(l.coffretContenu||[]).filter((c:any)=>c.produitId).length<3 && (
+                    <p style={{fontSize:10,color:"#EF4444",fontWeight:600,marginTop:4}}>⚠️ Sélectionne les 3 arômes pour la déduction de stock</p>
+                  )}
+                  {(l.qte||1)>1 && (l.coffretContenu||[]).filter((c:any)=>c.produitId).length===3 && (
+                    <p style={{fontSize:10,color:"#166534",marginTop:4}}>→ {(l.qte)*3} bouteilles déduites du stock au total</p>
+                  )}
+                </div>
+              )}
             </div>
-          ))}
+            );
+          })}
           <button onClick={addLigne} style={{background:"none",border:"1.5px dashed #E5E5E0",borderRadius:10,padding:"8px",width:"100%",color:"#9CA3AF",fontSize:13,cursor:"pointer"}}>
             + Ajouter un produit
           </button>
