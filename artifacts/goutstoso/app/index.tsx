@@ -5880,8 +5880,8 @@ const PLAN_COMPTABLE = {
 "1020":"Compte PostFinance",
 "1021":"Caisse / Petite caisse",
 "1100":"Débiteurs (créances clients)",
+"1300":"Stock produits finis",
 "3100":"Stock matières premières",
-"3200":"Stock produits finis",
 // CAPITAUX PROPRES
 "2000":"Capital social",
 "2800":"Réserves / Report à nouveau",
@@ -5891,11 +5891,13 @@ const PLAN_COMPTABLE = {
 "3003":"Vente Clementino",
 "3004":"Vente Coffrets",
 "3005":"Vente Fragoli",
+"3200":"Encaissements — Ventes B2B (factures)",
 "3400":"Ventes de prestations",
 "3600":"Frais d'expédition facturés",
 "3700":"Autres produits d'exploitation",
 "3750":"Frais de rappel encaissés",
-"3800":"Produits divers",
+"3800":"Produits divers / Autres recettes",
+// DÉDUCTIONS SUR VENTES
 "3210":"Remises et rabais accordés",
 "3220":"Escomptes accordés",
 "3900":"Rabais accordés sur ventes",
@@ -7135,17 +7137,17 @@ return (
       <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:19,fontWeight:700,marginBottom:2}}>Plan comptable</p>
       <p style={{fontSize:11,color:"#737373",marginBottom:14}}>Goûtstoso · Raison individuelle suisse (PME simplifiée)</p>
       {[
-        {titre:"ACTIFS",comptes:["1020","1021","1100","3200","3100"],color:"#DBEAFE",border:"#BFDBFE",txt:"#1E3A5F"},
+        {titre:"ACTIFS",comptes:["1020","1021","1100","1300","3100"],color:"#DBEAFE",border:"#BFDBFE",txt:"#1E3A5F"},
         {titre:"CAPITAUX PROPRES",comptes:["2000","2800"],color:"#EDE9FE",border:"#C4B5FD",txt:"#4C1D95"},
-        {titre:"PRODUITS / RECETTES",comptes:[...[...new Set((st.produits||[]).map((p:any)=>getCompteVente(p)))].sort(),"3600","3750"],color:"#DCFCE7",border:"#86EFAC",txt:"#166534"},
-        {titre:"DÉDUCTIONS DES VENTES",comptes:["3900"],color:"#FFF7ED",border:"#FED7AA",txt:"#9A3412"},
+        {titre:"PRODUITS / RECETTES",comptes:[...[...new Set((st.produits||[]).map((p:any)=>getCompteVente(p)))].sort(),"3200","3600","3750","3800"],color:"#DCFCE7",border:"#86EFAC",txt:"#166534"},
+        {titre:"DÉDUCTIONS DES VENTES",comptes:["3900","3210","3220"],color:"#FFF7ED",border:"#FED7AA",txt:"#9A3412"},
         {titre:"CHARGES — MATIÈRES PREMIÈRES",comptes:["4000","4010","4100","4200","4210","4220","4400"],color:"#FEF9E7",border:"#FCD34D",txt:"#92400E"},
         {titre:"CHARGES — EXPLOITATION",comptes:["5000","5201","6000","6200","6300","6315","6400","6510","6512","6513","6530","6600","6610","6700","6800","6900","8900"],color:"#FEF2F2",border:"#FECACA",txt:"#991B1B"},
       ].map((grp,gi)=>{
         const getSolde = (k:string):number => {
           if(k==="1020") return st.soldeBancaire||0;
           if(k==="1100") return creancesClients||0;
-          if(k==="3200") return valeurStock||0;
+          if(k==="1300") return valeurStock||0;
           if(k==="3100") return 0;
           if(k==="2000") return sum((st.transactions||[]).filter((t:any)=>t.type==="capital").map((t:any)=>+t.montant));
           if(k==="2800") return 0;
@@ -7162,7 +7164,7 @@ return (
             </div>
             {cpts.map(k=>{
               const solde = getSolde(k);
-              const isAuto = ["1020","1100","3200","3100","2000"].includes(k);
+              const isAuto = ["1020","1100","1300","3100","2000"].includes(k);
               return (
                 <div key={k} style={{display:"flex",alignItems:"center",gap:10,padding:"9px 14px",borderBottom:"1px solid #F5F5F0"}}>
                   <span style={{fontSize:10,fontFamily:"monospace",fontWeight:700,color:grp.txt,background:grp.color,padding:"2px 7px",borderRadius:5,flexShrink:0}}>{k}</span>
@@ -8509,7 +8511,7 @@ if(newPaiement==="payé") {
   if(parseFloat(cmd.fraisPort)>0) newTrans.push({id:uid(),commandeId:cmd.id,date:dateOp,compte:"3600",libelle:"Frais expédition clients",type:"recette",categorie:"Frais expédition facturés",montant:parseFloat(cmd.fraisPort),description:srcLbl+" "+cmd.numero+" - Port encaissé",postfinance:true});
   if(parseFloat(cmd.fraisPortCoute)>0) newTrans.push({id:uid(),commandeId:cmd.id,date:dateOp,compte:"6315",libelle:"Frais d'envoi",type:"depense",categorie:"Frais d'expédition (envois)",montant:parseFloat(cmd.fraisPortCoute),description:srcLbl+" "+cmd.numero+" - Port coûté",postfinance:false});
   if(parseFloat(cmd.commissionShopify)>0) newTrans.push({id:uid(),commandeId:cmd.id,date:dateOp,compte:"6700",libelle:"Commission Shopify",type:"depense",categorie:"Commissions",montant:parseFloat(cmd.commissionShopify),description:srcLbl+" "+cmd.numero+" - Commission",postfinance:false});
-  if(parseFloat(cmd.rabais)>0) newTrans.push({id:uid(),commandeId:cmd.id,date:dateOp,compte:"3800",libelle:"Rabais accordé",type:"depense",categorie:"Rabais",montant:parseFloat(cmd.rabais),description:srcLbl+" "+cmd.numero+" - Rabais",postfinance:false});
+  if(parseFloat(cmd.rabais)>0) newTrans.push({id:uid(),commandeId:cmd.id,date:dateOp,compte:"3900",libelle:"Rabais accordé",type:"depense",categorie:"Rabais accordés sur ventes",montant:parseFloat(cmd.rabais),description:srcLbl+" "+cmd.numero+" - Rabais",postfinance:false});
   const oldTrans = (st.transactions||[]).filter((t:any)=>t.commandeId!==cmd.id);
   const oldPFImpact = c.envoyeeCompta ? (st.transactions||[]).filter((t:any)=>t.commandeId===cmd.id&&t.postfinance).reduce((s:number,t:any)=>t.type==="recette"?s+parseFloat(t.montant||0):s-parseFloat(t.montant||0),0) : 0;
   const newPFImpact = newTrans.filter(t=>t.postfinance).reduce((s,t)=>t.type==="recette"?s+parseFloat(t.montant||0):s-parseFloat(t.montant||0),0);
@@ -10999,11 +11001,11 @@ const map = {
 "Étiquettes": "4210",
 "Matériel": "4000",
 "Marketing": "6610",
-"Services": "6500",
-"Transport": "6513",
+"Services": "6530",
+"Transport": "6200",
 "Assurances": "6300",
-"Télécommunications": "6400",
-"Loyer": "6100",
+"Télécommunications": "6510",
+"Loyer": "6000",
 "Autres": "6900",
 };
 return map[cat] || "6900";
@@ -14338,7 +14340,11 @@ const save = () => {
   const newVD = isNew ? [...(st.ventesDirectes||[]),vd] : (st.ventesDirectes||[]).map((v:any)=>v.id===vd.id?vd:v);
   const newTrans = [...(st.transactions||[])];
   if(isNew && vd.statutPaiement==="paye") {
-    newTrans.push({id:"vd_"+vd.id,date:vd.dateVente,compte:"3001",libelle:"Vente directe "+vd.numero,type:"recette",categorie:"Vente directe",montant:vd.totalTTC,description:vd.client?.nom||"Vente directe"});
+    (vd.lignes||[]).forEach((l:any)=>{
+      const prod = (st.produits||[]).find((x:any)=>x.id===l.produitId); if(!prod) return;
+      const montantL = Math.round(l.qte*(prod.prixClient||0)*100)/100; if(montantL<=0) return;
+      newTrans.push({id:"vd_"+vd.id+"_"+prod.id,date:vd.dateVente,compte:getCompteVente(prod),libelle:"Vente directe "+vd.numero+" — "+prod.nom,type:"recette",categorie:getCategorieVente(prod),montant:montantL,description:vd.client?.nom||"Vente directe"});
+    });
   }
   setSt((p:any)=>({...p, ventesDirectes:newVD, transactions:newTrans}));
   setModal(null);
@@ -14387,7 +14393,12 @@ if(view) return (
   <button onClick={()=>{setForm({...view});setModal("form");setViewId(null);}} style={{width:"100%",background:"#F5F5F0",border:"none",borderRadius:12,padding:"12px",fontWeight:600,fontSize:13,cursor:"pointer",marginBottom:6}}>✏️ Modifier</button>
   {view.statutPaiement!=="paye" && <button onClick={()=>{
     const newVD = (st.ventesDirectes||[]).map((v:any)=>v.id===view.id?{...v,statutPaiement:"paye"}:v);
-    const newTrans = [...(st.transactions||[]),{id:"vd_"+view.id,date:today(),compte:"3001",libelle:"Vente directe "+view.numero,type:"recette",categorie:"Vente directe",montant:view.totalTTC,description:view.client?.nom||""}];
+    const lignesTrans = (view.lignes||[]).flatMap((l:any)=>{
+      const prod = (st.produits||[]).find((x:any)=>x.id===l.produitId); if(!prod) return [];
+      const montantL = Math.round(l.qte*(prod.prixClient||0)*100)/100; if(montantL<=0) return [];
+      return [{id:"vd_"+view.id+"_"+prod.id,date:today(),compte:getCompteVente(prod),libelle:"Vente directe "+view.numero+" — "+prod.nom,type:"recette",categorie:getCategorieVente(prod),montant:montantL,description:view.client?.nom||""}];
+    });
+    const newTrans = [...(st.transactions||[]),...lignesTrans];
     setSt((p:any)=>({...p,ventesDirectes:newVD,transactions:newTrans}));
     setViewId(null);
   }} style={{width:"100%",background:"#DCFCE7",border:"none",borderRadius:12,padding:"12px",fontWeight:700,fontSize:13,color:"#166534",cursor:"pointer"}}>✅ Marquer comme payée</button>}
@@ -14925,7 +14936,8 @@ const save = (data:any = null) => {
   };
   const buildTrans = (ordreId:string, orderNum:string, clientNom:string, date:string) => {
     const trans:any[] = [];
-    if(produitsTotal>0) trans.push({id:uid(),ventesShopifyId:ordreId,date,compte:"3001",libelle:"Vente Shopify #"+orderNum,type:"recette",categorie:"Vente Shopify",montant:produitsTotal,description:clientNom,postfinance:true});
+    (d.lignes||[]).forEach((l:any)=>{const prod=(st.produits||[]).find((x:any)=>x.id===l.produitId);const montantL=Math.round(l.qte*(l.prixUnitaire||0)*100)/100;if(!prod||montantL<=0)return;trans.push({id:uid(),ventesShopifyId:ordreId,date,compte:getCompteVente(prod),libelle:"Vente Shopify #"+orderNum+" — "+prod.nom,type:"recette",categorie:getCategorieVente(prod),montant:montantL,description:clientNom,postfinance:true});});
+    if((d.lignes||[]).filter((l:any)=>(st.produits||[]).find((x:any)=>x.id===l.produitId)).length===0 && produitsTotal>0) trans.push({id:uid(),ventesShopifyId:ordreId,date,compte:"3001",libelle:"Vente Shopify #"+orderNum,type:"recette",categorie:"Vente Shopify",montant:produitsTotal,description:clientNom,postfinance:true});
     if(rabaisMontant>0) trans.push({id:uid(),ventesShopifyId:ordreId,date,compte:"3900",libelle:"Rabais "+rabaisP+"% Shopify #"+orderNum,type:"depense",categorie:"Rabais accordés",montant:rabaisMontant,description:"Rabais "+rabaisP+"% sur "+clientNom,postfinance:true});
     if(fpEnc>0) trans.push({id:uid(),ventesShopifyId:ordreId,date,compte:"3600",libelle:"Port encaissé Shopify #"+orderNum,type:"recette",categorie:"Frais expédition facturés",montant:fpEnc,description:clientNom,postfinance:true});
     if(fpPaye>0) trans.push({id:uid(),ventesShopifyId:ordreId,date,compte:"6315",libelle:"Frais envoi Shopify #"+orderNum,type:"depense",categorie:"Frais d'expédition (envois)",montant:fpPaye,description:"Transporteur: "+(vd.transporteur||"—"),postfinance:false});
