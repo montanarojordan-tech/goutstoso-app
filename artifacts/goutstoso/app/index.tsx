@@ -583,7 +583,8 @@ action: "contrats",
 // Offres à relancer (envoyées il y a 7j+ sans réponse, ou relancées il y a 7j+)
 (st.offres||[]).filter(o=>
   o.statut==="envoyée" &&
-  o.date
+  o.date &&
+  !o.archived
 ).forEach(o=>{
 const dateRef = o.dateRelance || o.date;
 const joursDepuis = Math.floor((now - new Date(dateRef))/86400000);
@@ -900,7 +901,7 @@ Bonjour {authUser.display_name||authUser.username}
   {/* PIPELINE COMMERCIAL */}
   {(()=>{
     const nProspects=(st.prospects||[]).filter((p:any)=>!["converti","perdu"].includes(p.statut)).length;
-    const nOffres=(st.offres||[]).filter((o:any)=>["envoyée","intérêt","brouillon"].includes(o.statut)).length;
+    const nOffres=(st.offres||[]).filter((o:any)=>["envoyée","intérêt","brouillon"].includes(o.statut)&&!o.archived).length;
     const total=nProspects+nOffres;
     if(total===0) return null;
     return (
@@ -9513,7 +9514,7 @@ const contrats = (st.contrats||[]).filter(c=>
   c.type!=="offre" && !c.livraison && linkedPv && c.partenaireId===linkedPv.id
 );
 const offresV5=(st.offres||[]).filter((o:any)=>
-  (clientNom&&o.clientNom===clientNom)||(linkedPv&&o.partenaireId===linkedPv.id)
+  !o.archived&&((clientNom&&o.clientNom===clientNom)||(linkedPv&&o.partenaireId===linkedPv.id))
 );
 const ca = sum(commandes.map(c=>{
 const t = sum((c.lignes||[]).filter(l=>l.produitId).map(l=>{
