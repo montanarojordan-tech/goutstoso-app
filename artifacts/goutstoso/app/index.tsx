@@ -12392,11 +12392,15 @@ if(view) return (
     <button onClick={()=>{setForm({...view,lignes:allProduitsLignes(view.lignes||[])});setModal("form");setViewId(null);}} style={{background:"#FEF9E7",border:"1.5px solid #F2C94C",borderRadius:10,padding:"11px 4px",fontWeight:600,fontSize:11,cursor:"pointer",color:"#92400E"}}>✏️ Modifier</button>
     <button onClick={()=>supprimerOffre(view.id)} style={{background:"#FEE2E2",border:"none",borderRadius:10,padding:"11px 4px",fontWeight:600,fontSize:11,cursor:"pointer",color:"#991B1B"}}>🗑 Suppr.</button>
   </div>
-  {(view.statut==="acceptée"||view.statut==="refusée")&&(
-    <button onClick={()=>{setSt((p:any)=>({...p,offres:(p.offres||[]).map((o:any)=>o.id===view.id?{...o,archived:!o.archived}:o)}));setViewId(null);}} style={{width:"100%",marginBottom:8,background:"#F5F5F0",border:"1px solid #E5E5E0",borderRadius:10,padding:"10px",fontWeight:600,fontSize:12,cursor:"pointer",color:"#6B7280",textAlign:"center"}}>
-      {view.archived?"♻️ Désarchiver":"🗄 Archiver cette offre"}
-    </button>
-  )}
+  {(()=>{
+    const isExpired = view.dateValidite && view.dateValidite<today() && view.statut==="envoyée";
+    if(view.statut==="acceptée"||view.statut==="refusée"||isExpired) return (
+      <button onClick={()=>{setSt((p:any)=>({...p,offres:(p.offres||[]).map((o:any)=>o.id===view.id?{...o,archived:!o.archived}:o)}));setViewId(null);}} style={{width:"100%",marginBottom:8,background:"#F5F5F0",border:"1px solid #E5E5E0",borderRadius:10,padding:"10px",fontWeight:600,fontSize:12,cursor:"pointer",color:"#6B7280",textAlign:"center"}}>
+        {view.archived?"♻️ Désarchiver":"🗄 Archiver cette offre"}
+      </button>
+    );
+    return null;
+  })()}
   <button onClick={()=>creerContactDepuisOffre(view)} style={{width:"100%",marginBottom:8,background:"#EFF6FF",border:"1.5px solid #BFDBFE",borderRadius:10,padding:"10px",fontWeight:600,fontSize:12,color:"#1E40AF",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
     👤 Créer un contact depuis cette offre
   </button>
@@ -12570,10 +12574,22 @@ return (
               <p style={{fontSize:10,color:"#9CA3AF"}}>{(o.lignes||[]).length} produit(s)</p>
             </div>
           </div>
-          <button onClick={e=>{e.stopPropagation();genererOffrePDF(o,st);}}
-            style={{background:"#111",color:"#F2C94C",border:"none",borderRadius:8,padding:"6px 14px",fontSize:11,fontWeight:700,cursor:"pointer",marginTop:4}}>
-            📄 PDF
-          </button>
+          <div style={{display:"flex",gap:6,marginTop:4}}>
+            <button onClick={e=>{e.stopPropagation();genererOffrePDF(o,st);}}
+              style={{flex:1,background:"#111",color:"#F2C94C",border:"none",borderRadius:8,padding:"6px 10px",fontSize:11,fontWeight:700,cursor:"pointer"}}>
+              📄 PDF
+            </button>
+            {expired&&<>
+              <button onClick={e=>{e.stopPropagation();setSt((p:any)=>({...p,offres:(p.offres||[]).map((x:any)=>x.id===o.id?{...x,archived:!x.archived}:x)}));}}
+                style={{background:"#F5F5F0",border:"1px solid #E5E5E0",borderRadius:8,padding:"6px 10px",fontSize:11,fontWeight:600,cursor:"pointer",color:"#6B7280",whiteSpace:"nowrap"}}>
+                {o.archived?"♻️ Désarchiver":"🗄 Archiver"}
+              </button>
+              <button onClick={e=>{e.stopPropagation();if(window.confirm("Supprimer cette offre expirée ?"))supprimerOffre(o.id);}}
+                style={{background:"#FEE2E2",border:"none",borderRadius:8,padding:"6px 10px",fontSize:11,fontWeight:600,cursor:"pointer",color:"#991B1B"}}>
+                🗑
+              </button>
+            </>}
+          </div>
         </Card>
       );
     })}
@@ -16520,11 +16536,12 @@ const [syncing, setSyncing] = React.useState(false);
 const isFileId = (val:any):boolean => val && typeof val==="string" && !val.startsWith("data:") && val.length>=10 && val.length<=100;
 
 // Retourne l'URL d'accès à un fichier (base64 → as-is, fileId → URL API)
-const getFileUrl = (val:string):string => {
+// Déclarée comme function (hoistée) pour être disponible partout dans le module
+function getFileUrl(val:string):string {
   if(!val) return "";
   if(val.startsWith("data:")) return val;
   return `${CLOUD_URL}/files/${val}?token=${getToken()}`;
-};
+}
 
 // Upload un fichier sur le serveur et retourne son fileId (null si erreur → fallback base64 en state)
 const uploadFile = async (base64:string, nom:string, mime:string):Promise<string|null> => {
