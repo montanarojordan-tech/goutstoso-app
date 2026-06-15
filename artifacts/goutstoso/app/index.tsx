@@ -9350,7 +9350,8 @@ Commandes
             const ligneProd = st.produits.find((x:any)=>x.id===l.produitId);
             const isCoffret = (ligneProd?.nom||"").includes("Coffret");
             const ligneFormat = ligneProd?.format||"50cl";
-            const bouteillesCompat = (st.produits||[]).filter((p:any)=>p.actif&&!p.nom.includes("Coffret")&&p.format===ligneFormat);
+            const normFmt = (f:string)=>{ const s=(f||"").toLowerCase().replace(/\s/g,""); if(s==="500ml"||s==="50cl") return "50cl"; if(s==="250ml"||s==="25cl") return "25cl"; return s; };
+            const bouteillesCompat = (st.produits||[]).filter((p:any)=>p.actif&&!p.nom.includes("Coffret")&&normFmt(p.format)===normFmt(ligneFormat));
             const bouteillesTous = (st.produits||[]).filter((p:any)=>p.actif&&!p.nom.includes("Coffret"));
             const opts = bouteillesCompat.length>=3 ? bouteillesCompat : bouteillesTous;
             return (
