@@ -1787,12 +1787,12 @@ onTouchStart={start} onTouchMove={draw} onTouchEnd={stop}/>
 const genererInventaireTarifePDF = async (pv, depots, produits, lignesModif) => {
 try {
 await new Promise((res,rej)=>{
-if((window as any).jspdf){res();return;}
+if(window.jspdf){res();return;}
 const s=document.createElement("script");
 s.src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";
 s.onload=res;s.onerror=rej;document.head.appendChild(s);
 });
-const {jsPDF}=(window as any).jspdf;
+const {jsPDF}=window.jspdf;
 const doc=new jsPDF({orientation:"portrait",unit:"mm",format:"a4"});
 const W=doc.internal.pageSize.getWidth();
 const mg=14;let y=14;
@@ -16330,6 +16330,241 @@ const Prospects = ({st, setSt, setTab}:{st:any,setSt:any,setTab?:any}) => {
   );
 };
 
+// ── RELEVÉ DES POSTES OUVERTS ─────────────────────────────────────────────────
+const genererRelevePostesPDF = async (client:any, factures:any[], produits:any[], isGlobal=false) => {
+  try {
+    await new Promise((res,rej)=>{
+      if(window.jspdf){res();return;}
+      const s=document.createElement("script");
+      s.src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";
+      s.onload=res;s.onerror=rej;document.head.appendChild(s);
+    });
+    const {jsPDF}=window.jspdf;
+    const doc=new jsPDF({orientation:"portrait",unit:"mm",format:"a4"});
+    const W=doc.internal.pageSize.getWidth();
+    const mg=14; let y=14;
+
+    // Header bandeau
+    doc.setFillColor(17,17,17); doc.rect(0,0,W,26,"F");
+    doc.setFont("helvetica","bold"); doc.setFontSize(12); doc.setTextColor(242,201,76);
+    doc.text(isGlobal?"RELEVÉ GLOBAL DES POSTES OUVERTS":"RELEVÉ DES POSTES OUVERTS", W/2,11,{align:"center"});
+    doc.setFontSize(8); doc.setFont("helvetica","normal"); doc.setTextColor(180,180,180);
+    doc.text("Goûtstoso — Suivi des factures ouvertes", W/2,18,{align:"center"});
+    y=34;
+
+    // Infos client / date
+    doc.setFontSize(9); doc.setFont("helvetica","bold"); doc.setTextColor(17,17,17);
+    if(!isGlobal&&client) {
+      doc.text("Destinataire : "+client.nom, mg, y);
+      doc.setFont("helvetica","normal"); doc.setTextColor(107,114,128);
+      const adresse=[client.adresse,client.npa&&client.ville?client.npa+" "+client.ville:""].filter(Boolean).join(" · ");
+      if(adresse) doc.text(adresse, mg, y+5);
+    } else {
+      doc.text("Récapitulatif global — tous clients", mg, y);
+    }
+    doc.setFont("helvetica","normal"); doc.setFontSize(8); doc.setTextColor(107,114,128);
+    doc.text("Édité le "+new Date().toLocaleDateString("fr-CH"), W-mg, y, {align:"right"});
+    y+=16;
+
+    // Tableau header
+    const colNum=mg+3; const colClient=mg+46; const colDate=isGlobal?115:95; const colStatut=isGlobal?143:125; const colMt=W-mg-2;
+    doc.setFillColor(17,17,17); doc.rect(mg,y,W-mg*2,9,"F");
+    doc.setFontSize(7.5); doc.setFont("helvetica","bold"); doc.setTextColor(242,201,76);
+    doc.text("N° FACTURE",colNum,y+6);
+    if(isGlobal) doc.text("CLIENT",colClient,y+6);
+    doc.setTextColor(180,180,180);
+    doc.text("DATE",colDate,y+6,{align:"center"});
+    doc.text("STATUT",colStatut,y+6,{align:"center"});
+    doc.text("MONTANT CHF",colMt,y+6,{align:"right"});
+    y+=9;
+
+    // Lignes factures
+    let total=0;
+    factures.forEach((f:any,i:number)=>{
+      if(y>268){doc.addPage();y=14;}
+      const mt=parseFloat(f._total)||0;
+      total+=mt;
+      doc.setFillColor(i%2===0?250:255,i%2===0?250:255,i%2===0?248:255);
+      doc.rect(mg,y,W-mg*2,10,"F");
+      doc.setDrawColor(235,233,228); doc.setLineWidth(0.2); doc.rect(mg,y,W-mg*2,10,"S");
+      doc.setFontSize(9); doc.setFont("helvetica","bold"); doc.setTextColor(17,17,17);
+      doc.text((f.numero||"FAC-???").substring(0,16),colNum,y+7);
+      if(isGlobal&&f._clientNom){
+        doc.setFont("helvetica","normal"); doc.setFontSize(7.5); doc.setTextColor(55,65,81);
+        doc.text((f._clientNom||"").substring(0,22),colClient,y+7);
+      }
+      doc.setFont("helvetica","normal"); doc.setFontSize(8); doc.setTextColor(107,114,128);
+      doc.text(f.date?new Date(f.date).toLocaleDateString("fr-CH"):"-",colDate,y+7,{align:"center"});
+      const statutShort=(f.statut||"").replace("en attente de paiement","en attente").substring(0,14);
+      doc.text(statutShort,colStatut,y+7,{align:"center"});
+      doc.setFont("helvetica","bold"); doc.setFontSize(10); doc.setTextColor(185,28,28);
+      doc.text(mt.toFixed(2),colMt,y+7,{align:"right"});
+      y+=10;
+    });
+    y+=4;
+
+    // Total
+    doc.setFillColor(242,201,76); doc.roundedRect(mg,y,W-mg*2,14,2,2,"F");
+    doc.setFontSize(11); doc.setFont("helvetica","bold"); doc.setTextColor(17,17,17);
+    doc.text("TOTAL POSTES OUVERTS",mg+5,y+9);
+    doc.text("CHF "+total.toFixed(2),colMt,y+9,{align:"right"});
+    y+=20;
+
+    // Note de bas de page
+    doc.setDrawColor(220,220,218); doc.setLineWidth(0.3); doc.line(mg,274,W-mg,274);
+    doc.setFontSize(7.5); doc.setFont("helvetica","normal"); doc.setTextColor(150,150,150);
+    doc.text("Goûtstoso · Jordan Montanaro · Villeret · admin@goutstoso.ch · IBAN CH23 0900 0000 1565 1485 8",W/2,279,{align:"center"});
+    doc.setFillColor(242,201,76); doc.rect(0,289,W,5,"F");
+
+    const fname=isGlobal
+      ?"Releve_postes_ouverts_"+new Date().toISOString().slice(0,10)+".pdf"
+      :"Releve_"+(client.nom||"client").replace(/[^a-zA-Z0-9]/g,"-")+"_"+new Date().toISOString().slice(0,10)+".pdf";
+    doc.save(fname);
+  } catch(e:any){ alert("Erreur PDF: "+(e?.message||e)); }
+};
+
+const RelevePostesOuverts = ({st,setSt,sendEmail}:{st:any,setSt:any,sendEmail?:any}) => {
+  const [selected, setSelected] = useState<string|null>(null);
+
+  const pvMap:{[k:string]:any} = {};
+  (st.partenaires||[]).forEach((p:any)=>{ pvMap[p.id]=p; });
+
+  const ouvertes = (st.factures||[]).filter((f:any)=>f.statut!=="payée"&&f.statut!=="annulée");
+
+  const groupes:{[k:string]:any} = {};
+  ouvertes.forEach((f:any)=>{
+    const pv = f.partenaireId ? pvMap[f.partenaireId] : null;
+    const key = f.partenaireId || ("__client__"+(f.client||"Particulier"));
+    if(!groupes[key]){
+      groupes[key]={
+        id:key,
+        nom: pv?.nom || f.client || "Client particulier",
+        email: pv?.email || f.email || "",
+        adresse: pv?.adresse||"",
+        npa: pv?.npa||"",
+        ville: pv?.ville||"",
+        factures:[],
+        total:0,
+      };
+    }
+    const mt = calcTotalNet(f, st.produits);
+    groupes[key].factures.push({...f, _total:mt});
+    groupes[key].total += mt;
+  });
+
+  const clients:any[] = Object.values(groupes).sort((a:any,b:any)=>b.total-a.total);
+  const totalGlobal = clients.reduce((s:number,c:any)=>s+c.total, 0);
+
+  const toutesAvecNom = ouvertes.map((f:any)=>{
+    const pv = f.partenaireId ? pvMap[f.partenaireId] : null;
+    return {...f, _total:calcTotalNet(f,st.produits), _clientNom:pv?.nom||f.client||"Particulier"};
+  }).sort((a:any,b:any)=>(a._clientNom||"").localeCompare(b._clientNom||""));
+
+  // ─── Vue individuelle ────────────────────────────────────────────────────────
+  if(selected){
+    const client = clients.find((c:any)=>c.id===selected);
+    if(!client){ setSelected(null); return null; }
+    return (
+      <div style={{padding:"0 0 80px"}} className="fade">
+        <Breadcrumb crumbs={[{label:"Postes ouverts",onClick:()=>setSelected(null)},{label:client.nom}]}/>
+        {/* Bandeau client */}
+        <div style={{background:"#111",borderRadius:14,padding:"16px 18px",marginBottom:14}}>
+          <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:22,fontWeight:700,color:"#fff",marginBottom:2}}>{client.nom}</p>
+          {client.email&&<p style={{fontSize:11,color:"#60A5FA"}}>✉️ {client.email}</p>}
+          {client.adresse&&<p style={{fontSize:11,color:"#9CA3AF",marginTop:2}}>{client.adresse}{client.npa?" · "+client.npa+" "+client.ville:""}</p>}
+        </div>
+        {/* Total */}
+        <div style={{background:"#FEF2F2",border:"1.5px solid #FECACA",borderRadius:12,padding:"12px 16px",marginBottom:14,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+          <div>
+            <p style={{fontSize:9,fontWeight:700,color:"#9CA3AF",textTransform:"uppercase",letterSpacing:".06em"}}>Total à encaisser</p>
+            <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:28,fontWeight:700,color:"#B91C1C",marginTop:2}}>{chf(client.total)}</p>
+          </div>
+          <p style={{fontSize:12,color:"#6B7280",fontWeight:600}}>{client.factures.length} facture(s)</p>
+        </div>
+        {/* Liste factures */}
+        <div style={{marginBottom:16}}>
+          {client.factures.map((f:any)=>(
+            <div key={f.id} style={{background:"#fff",borderRadius:10,padding:"12px 14px",marginBottom:8,border:"1px solid #EAE7E0"}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                <div>
+                  <p style={{fontWeight:700,fontSize:13,color:"#0A0A0A"}}>{f.numero}</p>
+                  <p style={{fontSize:11,color:"#6B7280",marginTop:2}}>Émise le {fmt(f.date)} · <span style={{background:"#FEF3C7",color:"#92400E",padding:"1px 6px",borderRadius:4,fontSize:10}}>{f.statut}</span></p>
+                </div>
+                <p style={{fontWeight:700,fontSize:15,color:"#B91C1C"}}>{chf(f._total)}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+        {/* Actions */}
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:20}}>
+          <button onClick={async()=>await genererRelevePostesPDF(client,client.factures,st.produits,false)}
+            style={{background:"#111",color:"#F2C94C",border:"none",borderRadius:12,padding:"13px",fontWeight:700,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+            📄 PDF
+          </button>
+          <button onClick={()=>{
+            if(!client.email){alert("Aucun email enregistré pour ce client.");return;}
+            const lignes=client.factures.map((f:any)=>`• ${f.numero} du ${fmt(f.date)} — CHF ${(f._total||0).toFixed(2)} (${f.statut})`).join("\n");
+            const subj=encodeURIComponent("Relevé des postes ouverts — Goûtstoso");
+            const bod=encodeURIComponent(`Bonjour,\n\nVeuillez trouver ci-dessous votre relevé des postes ouverts au ${new Date().toLocaleDateString("fr-CH")}.\n\n${lignes}\n\nTotal ouvert : CHF ${client.total.toFixed(2)}\n\nMerci de procéder au règlement dans les meilleurs délais.\n\nCordialement,\nJordan Montanaro — Goûtstoso`);
+            window.open(`mailto:${client.email}?subject=${subj}&body=${bod}`,"_blank");
+          }}
+            style={{background:"#DBEAFE",color:"#1E3A5F",border:"none",borderRadius:12,padding:"13px",fontWeight:700,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+            ✉️ Email
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ─── Vue globale ─────────────────────────────────────────────────────────────
+  return (
+    <div style={{padding:"0 0 80px"}} className="fade">
+      <div style={{padding:"0 0 4px"}}>
+        <h2 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:26,fontWeight:700,marginBottom:2}}>Postes ouverts</h2>
+        <p style={{fontSize:12,color:"#9CA3AF",marginBottom:16}}>Factures non encaissées, par client</p>
+      </div>
+
+      {/* Résumé global */}
+      <div style={{background:"#111",borderRadius:14,padding:"18px",marginBottom:14}}>
+        <p style={{fontSize:9,fontWeight:700,color:"#F2C94C",textTransform:"uppercase",letterSpacing:".06em",marginBottom:4}}>Total à encaisser</p>
+        <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:34,fontWeight:700,color:"#fff"}}>{chf(totalGlobal)}</p>
+        <p style={{fontSize:11,color:"#9CA3AF",marginTop:4}}>{ouvertes.length} facture(s) · {clients.length} client(s) concerné(s)</p>
+      </div>
+
+      {/* Bouton PDF global */}
+      {ouvertes.length>0&&(
+        <button onClick={async()=>await genererRelevePostesPDF(null,toutesAvecNom,st.produits,true)}
+          style={{width:"100%",background:"#1E3A5F",color:"#fff",border:"none",borderRadius:12,padding:"13px",fontWeight:700,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:7,marginBottom:14}}>
+          📄 Générer le relevé global (PDF)
+        </button>
+      )}
+
+      {ouvertes.length===0
+        ? <div style={{textAlign:"center",padding:"48px 20px"}}>
+            <p style={{fontSize:44,marginBottom:12}}>✅</p>
+            <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:22,fontWeight:700,color:"#374151"}}>Aucun poste ouvert</p>
+            <p style={{fontSize:13,color:"#9CA3AF",marginTop:6}}>Toutes les factures sont payées.</p>
+          </div>
+        : clients.map((c:any)=>(
+          <Card key={c.id} onClick={()=>setSelected(c.id)} style={{marginBottom:10,cursor:"pointer"}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <div style={{flex:1,minWidth:0,marginRight:12}}>
+                <p style={{fontWeight:700,fontSize:14,marginBottom:2}}>{c.nom}</p>
+                <p style={{fontSize:11,color:"#6B7280"}}>{c.factures.length} facture(s) ouverte(s)</p>
+                {c.email&&<p style={{fontSize:10,color:"#9CA3AF",marginTop:1}}>✉️ {c.email}</p>}
+              </div>
+              <div style={{textAlign:"right"}}>
+                <p style={{fontWeight:700,fontSize:16,color:"#B91C1C"}}>{chf(c.total)}</p>
+                <p style={{fontSize:11,color:"#D1D5DB",marginTop:2}}>›</p>
+              </div>
+            </div>
+          </Card>
+        ))
+      }
+    </div>
+  );
+};
+
 const NAV_MAIN = [
   {id:"dashboard", label:"Accueil",    icon:"dash",    emoji:"🏠"},
   {id:"clients",   label:"Clients",    icon:"prod",    emoji:"👥"},
@@ -16340,6 +16575,7 @@ const NAV_MAIN = [
 ];
 
 const NAV_MORE = [
+  {id:"relevePostes",   label:"Postes ouverts",    icon:"compta",  emoji:"📋"},
   {id:"documents",      label:"Documents légaux",  icon:"contrat", emoji:"📜"},
   {id:"production",     label:"Recettes",           icon:"prod",    emoji:"🏭"},
   {id:"parametres",     label:"Paramètres",         icon:"settings",emoji:"⚙️"},
@@ -17173,6 +17409,7 @@ ventesDirectes:   <VentesDirectes  st={st} setSt={setSt}/>,
 emailTemplates:   <EmailTemplates  st={st} setSt={setSt}/>,
 sauvegardes: <Sauvegardes  authUser={authUser} st={st} setSt={setSt}/>,
 diagnostics:      <Diagnostics     st={st} setSt={setSt}/>,
+relevePostes:     <RelevePostesOuverts st={st} setSt={setSt} sendEmail={sendEmail}/>,
 };
 
 const allTabs = [...NAV_MAIN.filter(t=>t.id!=="more"), ...NAV_MORE];
