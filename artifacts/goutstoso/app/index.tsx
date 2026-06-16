@@ -17623,14 +17623,15 @@ return (
             {id:"compta",     label:"Compta",     emoji:"📊"},
           ]},
           {groupe:"Modules détaillés", items:[
-            {id:"prospects",        label:"Prospects",     emoji:"🎯"},
-            {id:"partenaires", label:"Dépôts-vente",emoji:"🤝"},
-            {id:"offres",      label:"Offres",      emoji:"📄"},
-            {id:"factures",    label:"Factures",    emoji:"🧾"},
-            {id:"commandes",   label:"Commandes",   emoji:"📦"},
-            {id:"contrats",    label:"Contrats",    emoji:"📋"},
-            {id:"fournisseurs",label:"Fournisseurs",emoji:"🏭"},
-            {id:"produits",    label:"Produits",    emoji:"🍋"},
+            {id:"prospects",        label:"Prospects",      emoji:"🎯"},
+            {id:"partenaires",      label:"Dépôts-vente",   emoji:"🤝"},
+            {id:"offres",           label:"Offres",         emoji:"📄"},
+            {id:"factures",         label:"Factures",       emoji:"🧾"},
+            {id:"relevePostes",     label:"Postes ouverts", emoji:"📋"},
+            {id:"commandes",        label:"Commandes",      emoji:"📦"},
+            {id:"contrats",         label:"Contrats",       emoji:"📋"},
+            {id:"fournisseurs",     label:"Fournisseurs",   emoji:"🏭"},
+            {id:"produits",         label:"Produits",       emoji:"🍋"},
           ]},
           {groupe:"Plus", items:[
             {id:"documents",      label:"Documents légaux", emoji:"📜"},
@@ -17638,7 +17639,7 @@ return (
             {id:"emailTemplates", label:"Templates emails", emoji:"✉️"},
             {id:"parametres",     label:"Paramètres",       emoji:"⚙️"},
             {id:"sauvegardes",    label:"Sauvegardes",      emoji:"💾"},
-            {id:"diagnostics",    label:"Tests de santé", emoji:"🔧"},
+            {id:"diagnostics",    label:"Tests de santé",   emoji:"🔧"},
           ]},
         ].map((section,si)=>(
           <div key={si} style={{marginBottom:6}}>
