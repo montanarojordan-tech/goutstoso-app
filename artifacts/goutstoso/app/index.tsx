@@ -17450,10 +17450,10 @@ return (
           ]},
           {groupe:"Modules détaillés", items:[
             {id:"prospects",        label:"Prospects",      emoji:"🎯"},
-
             {id:"partenaires", label:"Dépôts-vente",emoji:"🤝"},
             {id:"offres",      label:"Offres",      emoji:"📄"},
             {id:"factures",    label:"Factures",    emoji:"🧾"},
+            {id:"relevePostes",label:"Postes ouverts",emoji:"📋"},
             {id:"commandes",   label:"Commandes",   emoji:"📦"},
             {id:"contrats",    label:"Contrats",    emoji:"📋"},
             {id:"fournisseurs",label:"Fournisseurs",emoji:"🏭"},
