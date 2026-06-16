@@ -16566,16 +16566,15 @@ const RelevePostesOuverts = ({st,setSt,sendEmail}:{st:any,setSt:any,sendEmail?:a
 };
 
 const NAV_MAIN = [
-  {id:"dashboard", label:"Accueil",    icon:"dash",    emoji:"🏠"},
-  {id:"clients",   label:"Clients",    icon:"prod",    emoji:"👥"},
-  {id:"ventes",    label:"Ventes",     icon:"facture", emoji:"💰"},
-  {id:"production",label:"Production", icon:"prod",    emoji:"🏭"},
-  {id:"stocks",    label:"Stock",      icon:"stock",   emoji:"📦"},
-  {id:"compta",    label:"Compta",     icon:"compta",  emoji:"📊"},
+  {id:"dashboard",   label:"Accueil",   icon:"dash",    emoji:"🏠"},
+  {id:"clients",     label:"Clients",   icon:"prod",    emoji:"👥"},
+  {id:"ventes",      label:"Ventes",    icon:"facture", emoji:"💰"},
+  {id:"stocks",      label:"Stock",     icon:"stock",   emoji:"📦"},
+  {id:"compta",      label:"Compta",    icon:"compta",  emoji:"📊"},
+  {id:"relevePostes",label:"Postes",    icon:"compta",  emoji:"📋"},
 ];
 
 const NAV_MORE = [
-  {id:"relevePostes",   label:"Postes ouverts",    icon:"compta",  emoji:"📋"},
   {id:"documents",      label:"Documents légaux",  icon:"contrat", emoji:"📜"},
   {id:"production",     label:"Recettes",           icon:"prod",    emoji:"🏭"},
   {id:"parametres",     label:"Paramètres",         icon:"settings",emoji:"⚙️"},
