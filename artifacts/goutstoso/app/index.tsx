@@ -4648,18 +4648,61 @@ const marquerPayee = (id) => {
   const viaPostFinance = window.confirm("Paiement reçu sur PostFinance ?\n(OK = oui, Annuler = autre moyen de paiement)");
   setSt(p => {
     const newTrans = [...(p.transactions||[])];
-    newTrans.push({
-      id: uid(),
-      factureId: id,
-      date: today(),
-      compte: "3200",
-      libelle: "Paiement "+facture.numero,
-      type: "recette",
-      categorie: "Encaissement facture",
-      montant,
-      description: "Paiement facture "+(facture.numero||"")+" — "+((pv?.nom)||""),
-      postfinance: viaPostFinance,
+
+    // ── Ventilation par compte produit ─────────────────────────────────────
+    const prods = p.produits||[];
+    const lignesActives = (facture.lignes||[]).filter((l:any)=>l.produitId&&parseFloat(l.qte)>0);
+    const comptesMap:Record<string,{montant:number,libelle:string,categorie:string}> = {};
+    lignesActives.forEach((l:any)=>{
+      const produit = prods.find((pr:any)=>pr.id===l.produitId);
+      if(!produit) return;
+      const compte = getCompteVente(produit);
+      const categorie = getCategorieVente(produit);
+      const prixUnit = parseFloat(l.prixUnitaire||l.prix||0)||(facture.typeClient==="revendeur"?parseFloat(produit.prixRevendeur)||0:parseFloat(produit.prixClient)||0);
+      const sous = parseFloat((prixUnit*(parseFloat(l.qte)||0)).toFixed(2));
+      if(!comptesMap[compte]) comptesMap[compte]={montant:0,libelle:"Vente "+produit.nom,categorie};
+      comptesMap[compte].montant=parseFloat((comptesMap[compte].montant+sous).toFixed(2));
     });
+
+    if(Object.keys(comptesMap).length>0) {
+      // Une écriture par compte produit
+      Object.entries(comptesMap).forEach(([compte,data])=>{
+        if(data.montant<=0) return;
+        newTrans.push({
+          id:uid(), factureId:id, date:today(),
+          compte,
+          libelle:data.libelle+" — "+(facture.numero||""),
+          type:"recette", categorie:data.categorie,
+          montant:data.montant,
+          description:"Facture "+(facture.numero||"")+" — "+((pv?.nom)||""),
+          postfinance:viaPostFinance,
+        });
+      });
+      // Frais de livraison → compte 3600
+      const fraisLiv = parseFloat(facture.fraisLivraison||0);
+      if(fraisLiv>0&&!facture.livraisonGratuite) {
+        newTrans.push({
+          id:uid(), factureId:id, date:today(),
+          compte:"3600",
+          libelle:"Frais de livraison — "+(facture.numero||""),
+          type:"recette", categorie:"Frais expédition facturés",
+          montant:fraisLiv,
+          description:"Facture "+(facture.numero||"")+" — "+((pv?.nom)||""),
+          postfinance:viaPostFinance,
+        });
+      }
+    } else {
+      // Fallback écriture globale si aucune ligne trouvée
+      newTrans.push({
+        id:uid(), factureId:id, date:today(),
+        compte:"3200",
+        libelle:"Paiement "+facture.numero,
+        type:"recette", categorie:"Encaissement facture",
+        montant,
+        description:"Paiement facture "+(facture.numero||"")+" — "+((pv?.nom)||""),
+        postfinance:viaPostFinance,
+      });
+    }
     if(frais>0) {
       newTrans.push({
         id: "rappel-"+id+"-"+Date.now(),
