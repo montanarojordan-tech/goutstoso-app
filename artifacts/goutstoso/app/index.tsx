@@ -3469,6 +3469,81 @@ return (
     </Modal>
   )}
 
+  {/* Modal inventaire tarifé */}
+  {invTarife&&(()=>{
+    const pvT=(st.partenaires||[]).find((p:any)=>p.id===invTarife.pvId);
+    const depsT=(st.depotStocks||[]).filter((d:any)=>d.partenaireId===invTarife.pvId&&(d.qteDeposee-d.qteVendue-(d.qteRetournee||0))>0);
+    const totalT=depsT.reduce((acc:number,d:any)=>{
+      const modif=invTarife.lignes.find((l:any)=>l.produitId===d.produitId);
+      const px=parseFloat(modif?.prix)||0;
+      return acc+((d.qteDeposee-d.qteVendue-(d.qteRetournee||0))*px);
+    },0);
+    return (
+      <Modal title={"📄 Inventaire tarifé — "+(pvT?.nom||"")} onClose={()=>setInvTarife(null)}>
+        <p style={{fontSize:11,color:"#6B7280",marginBottom:12}}>Modifie les prix prestataire si besoin, puis génère le PDF ou envoie par email.</p>
+        <div style={{marginBottom:14}}>
+          {depsT.map((d:any)=>{
+            const prod=st.produits.find((x:any)=>x.id===d.produitId);
+            const reste=(d.qteDeposee||0)-(d.qteVendue||0)-(d.qteRetournee||0);
+            const modif=invTarife.lignes.find((l:any)=>l.produitId===d.produitId)||{produitId:d.produitId,prix:String(prod?.prixRevendeur||0)};
+            return (
+              <div key={d.id} style={{display:"grid",gridTemplateColumns:"1fr auto auto",gap:8,alignItems:"center",marginBottom:8,background:"#F9F9F6",borderRadius:10,padding:"10px 12px"}}>
+                <div>
+                  <p style={{fontSize:13,fontWeight:600}}>{prod?.nom} {prod?.variante} {prod?.format}</p>
+                  <p style={{fontSize:10,color:"#6B7280",marginTop:1}}>Qté en dépôt : <strong>{reste}</strong></p>
+                </div>
+                <div style={{display:"flex",alignItems:"center",gap:4}}>
+                  <span style={{fontSize:11,color:"#9CA3AF"}}>CHF</span>
+                  <input type="number" min={0} step={0.5} value={modif.prix}
+                    onChange={e=>{
+                      const v=e.target.value;
+                      setInvTarife((prev:any)=>({...prev,lignes:prev.lignes.map((l:any)=>l.produitId===d.produitId?{...l,prix:v}:l)}));
+                    }}
+                    style={{width:64,padding:"7px 8px",fontSize:13,border:"1.5px solid #D1D5DB",borderRadius:8,textAlign:"right",fontWeight:700}}/>
+                </div>
+                <div style={{textAlign:"right",minWidth:52}}>
+                  <p style={{fontSize:10,color:"#9CA3AF"}}>Total</p>
+                  <p style={{fontSize:12,fontWeight:700,color:"#1E3A5F"}}>{chf(reste*(parseFloat(modif.prix)||0))}</p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        <div style={{background:"#F2C94C",borderRadius:10,padding:"10px 14px",display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+          <span style={{fontWeight:700,fontSize:13}}>Valeur totale en dépôt</span>
+          <span style={{fontWeight:700,fontSize:16}}>{chf(totalT)}</span>
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+          <button onClick={async()=>{
+            if(pvT) await genererInventaireTarifePDF(pvT,depsT,st.produits,invTarife.lignes);
+          }} style={{background:"#111",color:"#F2C94C",border:"none",borderRadius:12,padding:"13px",fontWeight:700,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+            📄 Générer PDF
+          </button>
+          <button onClick={()=>{
+            if(!pvT?.email){alert("Aucun email enregistré pour ce partenaire.");return;}
+            const lignesText=depsT.map((d:any)=>{
+              const prod=st.produits.find((x:any)=>x.id===d.produitId);
+              const reste=(d.qteDeposee||0)-(d.qteVendue||0)-(d.qteRetournee||0);
+              const modif=invTarife.lignes.find((l:any)=>l.produitId===d.produitId);
+              const px=parseFloat(modif?.prix)||prod?.prixRevendeur||0;
+              return `• ${prod?.nom} ${prod?.variante} ${prod?.format} — ${reste} u. × CHF ${px.toFixed(2)} = CHF ${(reste*px).toFixed(2)}`;
+            }).join("\n");
+            const total2=depsT.reduce((acc:number,d:any)=>{
+              const modif=invTarife.lignes.find((l:any)=>l.produitId===d.produitId);
+              const px=parseFloat(modif?.prix)||0;
+              return acc+((d.qteDeposee-d.qteVendue-(d.qteRetournee||0))*px);
+            },0);
+            const subj=encodeURIComponent("Inventaire tarifé Goûtstoso — "+new Date().toLocaleDateString("fr-CH"));
+            const body=encodeURIComponent(`Bonjour ${pvT?.contact||pvT?.nom||""},\n\nVeuillez trouver ci-joint l'inventaire tarifé de votre dépôt Goûtstoso.\n\n=== INVENTAIRE TARIFÉ ===\nDate : ${new Date().toLocaleDateString("fr-CH")}\n\n${lignesText}\n\nValeur totale en dépôt : CHF ${total2.toFixed(2)}\n\nCes prix prestataire sont applicables pour facturation lors de l'inventaire des ventes.\n\nCordialement,\nJordan Montanaro — Goûtstoso\nadmin@goutstoso.ch`);
+            window.open(`mailto:${pvT.email}?subject=${subj}&body=${body}`);
+          }} style={{background:"#DBEAFE",color:"#1E3A5F",border:"none",borderRadius:12,padding:"13px",fontWeight:700,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+            ✉️ Envoyer
+          </button>
+        </div>
+      </Modal>
+    );
+  })()}
+
 </>
 );
 
@@ -3640,80 +3715,6 @@ Dépôts-vente
     </Modal>
   )}
 
-  {/* Modal inventaire tarifé (vue détail partenaire) */}
-  {invTarife&&(()=>{
-    const pvT=(st.partenaires||[]).find((p:any)=>p.id===invTarife.pvId);
-    const depsT=(st.depotStocks||[]).filter((d:any)=>d.partenaireId===invTarife.pvId&&(d.qteDeposee-d.qteVendue-(d.qteRetournee||0))>0);
-    const totalT=depsT.reduce((acc:number,d:any)=>{
-      const modif=invTarife.lignes.find((l:any)=>l.produitId===d.produitId);
-      const px=parseFloat(modif?.prix)||0;
-      return acc+((d.qteDeposee-d.qteVendue-(d.qteRetournee||0))*px);
-    },0);
-    return (
-      <Modal title={"📄 Inventaire tarifé — "+(pvT?.nom||"")} onClose={()=>setInvTarife(null)}>
-        <p style={{fontSize:11,color:"#6B7280",marginBottom:12}}>Modifie les prix prestataire si besoin, puis génère le PDF ou envoie par email.</p>
-        <div style={{marginBottom:14}}>
-          {depsT.map((d:any)=>{
-            const prod=st.produits.find((x:any)=>x.id===d.produitId);
-            const reste=(d.qteDeposee||0)-(d.qteVendue||0)-(d.qteRetournee||0);
-            const modif=invTarife.lignes.find((l:any)=>l.produitId===d.produitId)||{produitId:d.produitId,prix:String(prod?.prixRevendeur||0)};
-            return (
-              <div key={d.id} style={{display:"grid",gridTemplateColumns:"1fr auto auto",gap:8,alignItems:"center",marginBottom:8,background:"#F9F9F6",borderRadius:10,padding:"10px 12px"}}>
-                <div>
-                  <p style={{fontSize:13,fontWeight:600}}>{prod?.nom} {prod?.variante} {prod?.format}</p>
-                  <p style={{fontSize:10,color:"#6B7280",marginTop:1}}>Qté en dépôt : <strong>{reste}</strong></p>
-                </div>
-                <div style={{display:"flex",alignItems:"center",gap:4}}>
-                  <span style={{fontSize:11,color:"#9CA3AF"}}>CHF</span>
-                  <input type="number" min={0} step={0.5} value={modif.prix}
-                    onChange={e=>{
-                      const v=e.target.value;
-                      setInvTarife((prev:any)=>({...prev,lignes:prev.lignes.map((l:any)=>l.produitId===d.produitId?{...l,prix:v}:l)}));
-                    }}
-                    style={{width:64,padding:"7px 8px",fontSize:13,border:"1.5px solid #D1D5DB",borderRadius:8,textAlign:"right",fontWeight:700}}/>
-                </div>
-                <div style={{textAlign:"right",minWidth:52}}>
-                  <p style={{fontSize:10,color:"#9CA3AF"}}>Total</p>
-                  <p style={{fontSize:12,fontWeight:700,color:"#1E3A5F"}}>{chf(reste*(parseFloat(modif.prix)||0))}</p>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-        <div style={{background:"#F2C94C",borderRadius:10,padding:"10px 14px",display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
-          <span style={{fontWeight:700,fontSize:13}}>Valeur totale en dépôt</span>
-          <span style={{fontWeight:700,fontSize:16}}>{chf(totalT)}</span>
-        </div>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-          <button onClick={async()=>{
-            if(pvT) await genererInventaireTarifePDF(pvT,depsT,st.produits,invTarife.lignes);
-          }} style={{background:"#111",color:"#F2C94C",border:"none",borderRadius:12,padding:"13px",fontWeight:700,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
-            📄 Générer PDF
-          </button>
-          <button onClick={()=>{
-            if(!pvT?.email){alert("Aucun email enregistré pour ce partenaire.");return;}
-            const lignesText=depsT.map((d:any)=>{
-              const prod=st.produits.find((x:any)=>x.id===d.produitId);
-              const reste=(d.qteDeposee||0)-(d.qteVendue||0)-(d.qteRetournee||0);
-              const modif=invTarife.lignes.find((l:any)=>l.produitId===d.produitId);
-              const px=parseFloat(modif?.prix)||prod?.prixRevendeur||0;
-              return `• ${prod?.nom} ${prod?.variante} ${prod?.format} — ${reste} u. × CHF ${px.toFixed(2)} = CHF ${(reste*px).toFixed(2)}`;
-            }).join("\n");
-            const total2=depsT.reduce((acc:number,d:any)=>{
-              const modif=invTarife.lignes.find((l:any)=>l.produitId===d.produitId);
-              const px=parseFloat(modif?.prix)||0;
-              return acc+((d.qteDeposee-d.qteVendue-(d.qteRetournee||0))*px);
-            },0);
-            const subj=encodeURIComponent("Inventaire tarifé Goûtstoso — "+new Date().toLocaleDateString("fr-CH"));
-            const body=encodeURIComponent(`Bonjour ${pvT?.contact||pvT?.nom||""},\n\nVeuillez trouver ci-joint l'inventaire tarifé de votre dépôt Goûtstoso.\n\n=== INVENTAIRE TARIFÉ ===\nDate : ${new Date().toLocaleDateString("fr-CH")}\n\n${lignesText}\n\nValeur totale en dépôt : CHF ${total2.toFixed(2)}\n\nCes prix prestataire sont applicables pour facturation lors de l'inventaire des ventes.\n\nCordialement,\nJordan Montanaro — Goûtstoso\nadmin@goutstoso.ch`);
-            window.open(`mailto:${pvT.email}?subject=${subj}&body=${body}`);
-          }} style={{background:"#DBEAFE",color:"#1E3A5F",border:"none",borderRadius:12,padding:"13px",fontWeight:700,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
-            ✉️ Envoyer
-          </button>
-        </div>
-      </Modal>
-    );
-  })()}
 </div>
 
 );
