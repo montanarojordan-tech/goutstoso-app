@@ -12431,12 +12431,13 @@ const envoyerPourSignature = async (documentType, documentTitle, documentData, e
     if(email) {
       const corps = encodeURIComponent(emailBody);
       const mailtoUrl = `mailto:${email}?subject=${sujet}&body=${corps}`;
-      // Tentative d'ouverture du client email
-      const opened = window.open(mailtoUrl, "_blank");
-      // Toujours afficher le lien (certains navigateurs bloquent window.open)
-      if(!opened) {
-        alert(`📧 Ouvrez votre client email et envoyez ce lien à ${email} :\n\n${signingUrl}\n\n(Lien copié dans le presse-papiers)`);
-      }
+      // location.href évite le blocage popup des navigateurs modernes (contrairement à window.open après await)
+      const a = document.createElement("a");
+      a.href = mailtoUrl;
+      a.style.display = "none";
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(()=>document.body.removeChild(a), 500);
     } else {
       alert(`✅ Lien de signature créé et copié !\n\n${signingUrl}\n\nEnvoyez ce lien à votre partenaire pour qu'il signe en ligne.`);
     }
