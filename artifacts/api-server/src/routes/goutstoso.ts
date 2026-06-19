@@ -73,7 +73,12 @@ async function saveUser(u: User): Promise<void> {
 async function ensureDefaultAdmin(): Promise<void> {
   const rows = await q<{ count: string }>("SELECT COUNT(*)::text AS count FROM gs_users");
   if (parseInt(rows[0]?.count ?? "0") === 0) {
-    const password = await hashPassword("Goutstoso2026!");
+    const defaultPass = process.env.GOUTSTOSO_ADMIN_PASSWORD;
+    if (!defaultPass) {
+      console.error("GOUTSTOSO_ADMIN_PASSWORD env var not set — skipping default admin creation");
+      return;
+    }
+    const password = await hashPassword(defaultPass);
     await saveUser({
       id: "u1", username: "jordan", password,
       display_name: "Jordan Montanaro", role: "admin",
