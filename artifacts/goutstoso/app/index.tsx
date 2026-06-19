@@ -1994,7 +1994,7 @@ if(signedC){
   try{doc.addImage(c.signClient,"PNG",cx2+4,y+14,sigW-8,20);}catch(e){}
   doc.setFillColor(220,252,231);doc.rect(cx2,y+sigH-9,sigW,9,"F");
   doc.setFont("helvetica","bold");doc.setFontSize(6);doc.setTextColor(21,128,61);
-  doc.text("✓ Validé électroniquement le "+(c.signedAt?new Date(c.signedAt).toLocaleDateString("fr-CH"):fmt(c.dateSignature||today())),cx2+3,y+sigH-4);
+  doc.text("Valide electroniquement le "+(c.signedAt?new Date(c.signedAt).toLocaleDateString("fr-CH"):fmt(c.dateSignature||today())),cx2+3,y+sigH-4);
 }else{
   doc.setFont("helvetica","italic");doc.setFontSize(7.5);doc.setTextColor(180,180,180);
   doc.text("Signature à apposer",cx2+4,y+22);
@@ -2277,7 +2277,7 @@ if(signedF){
   try{doc.addImage(c.signFournisseur,"PNG",mg+4,y+11,sigWC-8,22);}catch(e){}
   doc.setFillColor(220,252,231);doc.rect(mg,y+sigHC-9,sigWC,9,"F");
   doc.setFont("helvetica","bold");doc.setFontSize(6);doc.setTextColor(21,128,61);
-  doc.text("✓ Validé électroniquement le "+fmt(c.dateSignature||today()),mg+3,y+sigHC-4);
+  doc.text("Valide electroniquement le "+fmt(c.dateSignature||today()),mg+3,y+sigHC-4);
 }else{
   doc.setFont("helvetica","italic");doc.setFontSize(7.5);doc.setTextColor(180,180,180);
   doc.text("Signature à apposer",mg+4,y+22);
@@ -2295,7 +2295,7 @@ if(signedCl){
   try{doc.addImage(c.signClient,"PNG",cxC+4,y+14,sigWC-8,20);}catch(e){}
   doc.setFillColor(220,252,231);doc.rect(cxC,y+sigHC-9,sigWC,9,"F");
   doc.setFont("helvetica","bold");doc.setFontSize(6);doc.setTextColor(21,128,61);
-  doc.text("✓ Validé électroniquement le "+(c.signedAt?new Date(c.signedAt).toLocaleDateString("fr-CH"):fmt(c.dateSignature||today())),cxC+3,y+sigHC-4);
+  doc.text("Valide electroniquement le "+(c.signedAt?new Date(c.signedAt).toLocaleDateString("fr-CH"):fmt(c.dateSignature||today())),cxC+3,y+sigHC-4);
 }else{
   doc.setFont("helvetica","italic");doc.setFontSize(7.5);doc.setTextColor(180,180,180);
   doc.text("Signature à apposer",cxC+4,y+22);
@@ -12318,7 +12318,7 @@ try {
       try{doc.addImage(offre.signJordan,"PNG",mg+4,y+11,sigColW-8,22);}catch(e){}
       doc.setFillColor(220,252,231);doc.rect(mg,y+sigHO-9,sigColW,9,"F");
       doc.setFont("helvetica","bold");doc.setFontSize(6);doc.setTextColor(21,128,61);
-      doc.text("✓ Validé électroniquement le "+fmt(today()),mg+3,y+sigHO-4);
+      doc.text("Valide electroniquement le "+fmt(today()),mg+3,y+sigHO-4);
     }else{
       doc.setFont("helvetica","italic");doc.setFontSize(7.5);doc.setTextColor(180,180,180);
       doc.text("Signature à apposer",mg+4,y+22);
@@ -12336,7 +12336,7 @@ try {
       try{doc.addImage(offre.signClient,"PNG",cx2O+4,y+14,sigColW-8,20);}catch(e){}
       doc.setFillColor(220,252,231);doc.rect(cx2O,y+sigHO-9,sigColW,9,"F");
       doc.setFont("helvetica","bold");doc.setFontSize(6);doc.setTextColor(21,128,61);
-      doc.text("✓ Validé électroniquement le "+(offre.signedAt?new Date(offre.signedAt).toLocaleDateString("fr-CH"):fmt(today())),cx2O+3,y+sigHO-4);
+      doc.text("Valide electroniquement le "+(offre.signedAt?new Date(offre.signedAt).toLocaleDateString("fr-CH"):fmt(today())),cx2O+3,y+sigHO-4);
     }else{
       doc.setFont("helvetica","italic");doc.setFontSize(7.5);doc.setTextColor(180,180,180);
       doc.text("Signature à apposer",cx2O+4,y+22);
