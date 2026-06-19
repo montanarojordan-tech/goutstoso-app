@@ -12255,18 +12255,45 @@ try {
     doc.text(nlines,mg,y); y+=nlines.length*5+4;
   }
 
-  // Signature Goûtstoso uniquement
-  if(offre.signJordan) {
+  // Signatures (Goûtstoso + Client)
+  if(offre.signJordan || offre.signClient) {
     y+=6;
     const sigColW = (W - mg*2 - 10) / 2;
-    doc.setFillColor(240,253,244); doc.rect(mg,y,sigColW,28,"F");
-    doc.setDrawColor(134,239,172); doc.setLineWidth(0.3); doc.rect(mg,y,sigColW,28,"S");
-    doc.setFont("helvetica","bold"); doc.setFontSize(8); doc.setTextColor(21,128,61);
-    doc.text("Pour Goutstoso - Jordan Montanaro",mg+4,y+6);
-    try { doc.addImage(offre.signJordan,"PNG",mg+4,y+8,sigColW-8,16); } catch(e){}
-    doc.setFont("helvetica","normal"); doc.setFontSize(7); doc.setTextColor(21,128,61);
-    doc.text("Signe le "+fmt(today()),mg+4,y+26);
-    y+=34;
+    // Colonne gauche — Goûtstoso
+    doc.setFillColor(offre.signJordan?240:249,offre.signJordan?253:249,offre.signJordan?244:246);
+    doc.rect(mg,y,sigColW,30,"F");
+    doc.setDrawColor(offre.signJordan?134:220,offre.signJordan?239:220,offre.signJordan?172:218);
+    doc.setLineWidth(0.3); doc.rect(mg,y,sigColW,30,"S");
+    doc.setFont("helvetica","bold"); doc.setFontSize(7.5);
+    doc.setTextColor(offre.signJordan?21:120,offre.signJordan?128:120,offre.signJordan?61:120);
+    doc.text("Pour Goûtstoso — Jordan Montanaro",mg+4,y+6);
+    if(offre.signJordan){
+      try { doc.addImage(offre.signJordan,"PNG",mg+4,y+8,sigColW-8,16); } catch(e){}
+      doc.setFont("helvetica","normal"); doc.setFontSize(7); doc.setTextColor(21,128,61);
+      doc.text("Signé le "+fmt(today()),mg+4,y+27);
+    } else {
+      doc.setFont("helvetica","italic"); doc.setFontSize(7.5); doc.setTextColor(150,150,150);
+      doc.text("Signature à apposer",mg+4,y+18);
+    }
+    // Colonne droite — Client
+    const cx2 = mg+sigColW+10;
+    const clientLabel = (offre.clientNom||"Le Client")+(offre.signerNom?" — "+offre.signerNom:"");
+    doc.setFillColor(offre.signClient?240:249,offre.signClient?253:249,offre.signClient?244:246);
+    doc.rect(cx2,y,sigColW,30,"F");
+    doc.setDrawColor(offre.signClient?134:220,offre.signClient?239:220,offre.signClient?172:218);
+    doc.setLineWidth(0.3); doc.rect(cx2,y,sigColW,30,"S");
+    doc.setFont("helvetica","bold"); doc.setFontSize(7.5);
+    doc.setTextColor(offre.signClient?21:120,offre.signClient?128:120,offre.signClient?61:120);
+    doc.text(clientLabel,cx2+4,y+6,{maxWidth:sigColW-8});
+    if(offre.signClient){
+      try { doc.addImage(offre.signClient,"PNG",cx2+4,y+8,sigColW-8,16); } catch(e){}
+      doc.setFont("helvetica","normal"); doc.setFontSize(7); doc.setTextColor(21,128,61);
+      doc.text("Signé le "+fmt(today()),cx2+4,y+27);
+    } else {
+      doc.setFont("helvetica","italic"); doc.setFontSize(7.5); doc.setTextColor(150,150,150);
+      doc.text("Signature à apposer",cx2+4,y+18);
+    }
+    y+=36;
   } else {
     y+=8;
   }
