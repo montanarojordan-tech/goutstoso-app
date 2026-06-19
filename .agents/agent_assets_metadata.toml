@@ -59,3 +59,9 @@ id = "al-JRxLvYMtSoa0wI7CGA"
 uri = "file://artifacts/goutstoso/app/index_export.txt"
 type = "text"
 title = "Goutstoso — code complet (index.tsx)"
+
+[[outputs]]
+id = "B-2voP8nIj39GleNmp-m-"
+uri = "file://goutstoso_app.txt"
+type = "text"
+title = "goutstoso — index.tsx (code complet, 17 893 lignes)"
