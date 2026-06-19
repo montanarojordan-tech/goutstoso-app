@@ -8305,9 +8305,34 @@ try {
     y+=9;
   });
   y+=4;
+  const cmdRabais = parseFloat(cmd.rabais)||0;
+  const cmdPort = parseFloat(cmd.fraisPort)||0;
+  // Ligne sous-total si rabais ou port présent
+  if(cmdRabais>0 || cmdPort>0) {
+    doc.setFillColor(248,248,245); doc.rect(sx,y,tW,8,"F");
+    doc.setFont("helvetica","normal");doc.setFontSize(8);doc.setTextColor(100,100,100);
+    doc.text("Sous-total produits",sx+4,y+5.5);
+    doc.text("CHF "+grandTotal.toFixed(2),sx+tW-4,y+5.5,{align:"right"});
+    y+=8;
+  }
+  if(cmdRabais>0) {
+    doc.setFillColor(254,242,242); doc.rect(sx,y,tW,8,"F");
+    doc.setFont("helvetica","bold");doc.setFontSize(8);doc.setTextColor(153,27,27);
+    doc.text("Remise commerciale"+(cmd.justifRabais?" ("+cmd.justifRabais+")":""),sx+4,y+5.5);
+    doc.text("- CHF "+cmdRabais.toFixed(2),sx+tW-4,y+5.5,{align:"right"});
+    y+=8;
+  }
+  if(cmdPort>0) {
+    doc.setFillColor(248,248,245); doc.rect(sx,y,tW,8,"F");
+    doc.setFont("helvetica","normal");doc.setFontSize(8);doc.setTextColor(100,100,100);
+    doc.text("Frais de port",sx+4,y+5.5);
+    doc.text("+ CHF "+cmdPort.toFixed(2),sx+tW-4,y+5.5,{align:"right"});
+    y+=8;
+  }
+  const netTotal = Math.max(0, grandTotal - cmdRabais + cmdPort);
   doc.setFillColor(10,10,10); doc.rect(sx,y,tW,10,"F");
   doc.setFont("helvetica","bold");doc.setFontSize(10);doc.setTextColor(242,201,76);
-  doc.text("TOTAL COMMANDE : CHF "+grandTotal.toFixed(2),W/2,y+7,{align:"center"});
+  doc.text("TOTAL : CHF "+netTotal.toFixed(2),W/2,y+7,{align:"center"});
   y+=18;
   // Conditions
   doc.setFillColor(254,249,231); doc.rect(mg,y,W-mg*2,18,"F");
