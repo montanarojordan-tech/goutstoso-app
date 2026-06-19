@@ -2958,7 +2958,7 @@ const [selected,setSelected] = useState(null);
 const [view,setView] = useState(null);
 const [sigMode,setSigMode] = useState(false);
 const [form,setForm] = useState({nom:"",adresse:"",npa:"",ville:"",contact:"",tel:"",email:"",site:"",type:"depot-vente",commission:0,statut:"actif"});
-const [livForm,setLivForm] = useState({type:"depot-vente",date:today(),lignes:[{produitId:"",qte:1}],notes:""});
+const [livForm,setLivForm] = useState({type:"depot-vente",date:today(),lignes:[{produitId:"",qte:1}],notes:"",deduireStock:true});
 const [signingBulletin,setSigningBulletin] = useState(null);
 const [showContratDetail,setShowContratDetail] = useState(false);
 const [invTarife,setInvTarife] = useState<any>(null); // {pvId, lignes:[{produitId,prix}]}
@@ -3043,22 +3043,43 @@ if(livForm.type==="livraison" && sig) {
   };
 }
 
-setSt(p=>({...p,
-  depotStocks:newDepots,
-  contrats:[...p.contrats,{
-    id:doc.id, numero:doc.numero, type:doc.type,
-    partenaireId:doc.partenaireId, dateSignature:sig?doc.date:null,
-    dateDebut:doc.date, dateFin:"", commission:pv.commission||0,
-    statut:doc.statut, lignes:doc.lignes, notes:doc.notes,
-    signClient:doc.signature, signFournisseur:null,
-    lieuSignature:"", livraison:true,
-  }],
-  factures: autoFac ? [...(p.factures||[]), autoFac] : (p.factures||[]),
-}));
+setSt(p=>{
+  // Déduire du stock propre Goûtstoso si option activée
+  let newStocks = [...(p.stocks||[])];
+  const newMouvements = [...(p.mouvementsStock||[])];
+  if(livForm.deduireStock) {
+    lignesValides.forEach(l=>{
+      let restant = +l.qte;
+      newStocks = newStocks.map(s=>{
+        if(s.produitId!==l.produitId||restant<=0) return s;
+        const d = Math.min(s.qte||0, restant);
+        restant -= d;
+        return {...s, qte:(s.qte||0)-d};
+      });
+      // Si stock insuffisant, on ajoute une entrée négative
+      if(restant>0) newStocks.push({id:uid(),produitId:l.produitId,qte:-restant,lot:"",dateEntree:doc.date,notes:"Livraison "+doc.numero});
+      newMouvements.push({id:uid(),date:doc.date,type:"sortie",produitId:l.produitId,qte:-(+l.qte),source:"Livraison dépôt-vente "+doc.numero+" → "+pv.nom});
+    });
+  }
+  return {...p,
+    stocks:newStocks,
+    mouvementsStock:newMouvements,
+    depotStocks:newDepots,
+    contrats:[...p.contrats,{
+      id:doc.id, numero:doc.numero, type:doc.type,
+      partenaireId:doc.partenaireId, dateSignature:sig?doc.date:null,
+      dateDebut:doc.date, dateFin:"", commission:pv.commission||0,
+      statut:doc.statut, lignes:doc.lignes, notes:doc.notes,
+      signClient:doc.signature, signFournisseur:null,
+      lieuSignature:"", livraison:true,
+    }],
+    factures: autoFac ? [...(p.factures||[]), autoFac] : (p.factures||[]),
+  };
+});
 
 setModal(null);
 setSigMode(false);
-setLivForm({type:"depot-vente",date:today(),lignes:[{produitId:"",qte:1}],notes:""});
+setLivForm({type:"depot-vente",date:today(),lignes:[{produitId:"",qte:1}],notes:"",deduireStock:true});
 if(autoFac) {
   alert(num+" enregistré avec signature.\n✅ Facture "+autoFacNum+" créée — pensez à l'envoyer (alerte sur l'Accueil).");
 } else {
@@ -3480,6 +3501,15 @@ return (
             </button>
           </div>
           <F label="Notes" value={livForm.notes||""} onChange={v=>setLivForm(p=>({...p,notes:v}))} placeholder="Observations..."/>
+          <button onClick={()=>setLivForm(p=>({...p,deduireStock:!p.deduireStock}))} style={{display:"flex",alignItems:"center",gap:10,background:livForm.deduireStock?"#F0FDF4":"#F5F5F0",border:livForm.deduireStock?"1.5px solid #86EFAC":"1.5px solid #E5E5E0",borderRadius:10,padding:"10px 14px",cursor:"pointer",width:"100%",textAlign:"left" as const}}>
+            <div style={{width:36,height:20,borderRadius:10,background:livForm.deduireStock?"#22C55E":"#D1D5DB",position:"relative",flexShrink:0,transition:"background .2s"}}>
+              <div style={{position:"absolute",top:2,left:livForm.deduireStock?18:2,width:16,height:16,borderRadius:"50%",background:"#fff",transition:"left .2s"}}/>
+            </div>
+            <div>
+              <div style={{fontWeight:700,fontSize:12,color:livForm.deduireStock?"#166534":"#374151"}}>📦 Déduire du stock Goûtstoso</div>
+              <div style={{fontSize:10,color:"#9CA3AF",marginTop:1}}>{livForm.deduireStock?"Les quantités livrées seront retirées du stock propre":"Sans déduction de stock"}</div>
+            </div>
+          </button>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginTop:4}}>
             <button onClick={()=>saveLivraison(null)} style={{background:"#F5F5F0",border:"none",borderRadius:12,padding:"13px",fontWeight:600,fontSize:13,cursor:"pointer"}}>
               Enregistrer sans signature
