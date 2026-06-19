@@ -3772,6 +3772,7 @@ const [form,setForm] = useState(null);
 const [filtreC,setFiltreC] = useState("tous");
 const [recoveryTokenC, setRecoveryTokenC] = useState("");
 const [convEditing, setConvEditing] = useState(false);
+const [sigShare, setSigShare] = useState<{url:string,email:string,sujet:string,corps:string}|null>(null);
 
 // Toujours récupérer le contrat frais depuis le state
 const view = viewId ? (st.contrats||[]).find(c=>c.id===viewId) : null;
@@ -3948,9 +3949,49 @@ return (
       <button onClick={()=>envoyerContrat(view)} style={{background:"#FEF9E7",color:"#92400E",border:"1.5px solid #F2C94C",borderRadius:10,padding:"11px 4px",fontWeight:700,fontSize:11,cursor:"pointer"}}>✉️ Email</button>
       <button onClick={()=>{setForm({...view});setModal("form");setViewId(null);}} style={{background:"#F5F5F0",border:"none",borderRadius:10,padding:"11px 4px",fontWeight:600,fontSize:11,cursor:"pointer"}}>✏️ Modifier</button>
     </div>
-    <button onClick={async()=>{const pvLocal=(st.partenaires||[]).find(p=>p.id===view.partenaireId);const enriched={...view,partenaireNom:view.partenaireNom||pvLocal?.nom||"",lignes:(view.lignes||[]).map(l=>{const prod=(st.produits||[]).find(p=>p.id===l.produitId);return {...l,designation:prod?`${prod.nom}${prod.format?" · "+prod.format:""}`:l.produitId};})};const token=await envoyerPourSignature("contrat","Contrat "+view.numero,enriched,pvLocal?.email||view.partenaireEmail||"");if(token)setSt(p=>({...p,contrats:p.contrats.map(c=>c.id===view.id?{...c,signingToken:token}:c)}));}} style={{width:"100%",marginBottom:view.signingToken?4:8,background:"linear-gradient(135deg,#0a0a0a,#1a1a1a)",border:"none",borderRadius:10,padding:"11px",fontWeight:700,fontSize:12,color:"#F2C94C",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+    <button onClick={async()=>{
+      setSigShare(null);
+      const pvLocal=(st.partenaires||[]).find(p=>p.id===view.partenaireId);
+      const enriched={...view,partenaireNom:view.partenaireNom||pvLocal?.nom||"",lignes:(view.lignes||[]).map(l=>{const prod=(st.produits||[]).find(p=>p.id===l.produitId);return {...l,designation:prod?`${prod.nom}${prod.format?" · "+prod.format:""}`:l.produitId};})};
+      try {
+        const r=await fetch(`${SIGN_API}/sign`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({documentType:"contrat",documentTitle:"Contrat "+view.numero,documentData:enriched,expiresInDays:30})});
+        if(!r.ok) throw new Error("Erreur serveur "+r.status);
+        const {token,signingUrl}=await r.json();
+        const email=pvLocal?.email||view.partenaireEmail||"";
+        const sig=`L'équipe Goûtstoso\nT : +41 79 522 06 56 · admin@goutstoso.ch · www.goutstoso.ch`;
+        const corps=`Madame, Monsieur,\n\nNous avons le plaisir de vous faire parvenir notre Contrat ${view.numero}.\n\nVeuillez signer électroniquement en cliquant sur ce lien :\n\n${signingUrl}\n\nCe lien est valable 30 jours. Aucune application n'est nécessaire.\n\nCordialement,\n\n${sig}`;
+        const sujet=`Signature requise — Contrat ${view.numero}`;
+        try{await navigator.clipboard.writeText(signingUrl);}catch(_){}
+        setSigShare({url:signingUrl,email,sujet,corps});
+        setSt(p=>({...p,contrats:p.contrats.map(c=>c.id===view.id?{...c,signingToken:token}:c)}));
+      } catch(e){alert("Erreur : "+e.message);}
+    }} style={{width:"100%",marginBottom:4,background:"linear-gradient(135deg,#0a0a0a,#1a1a1a)",border:"none",borderRadius:10,padding:"11px",fontWeight:700,fontSize:12,color:"#F2C94C",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
       🔏 Envoyer pour signature
     </button>
+    {sigShare&&(
+      <div style={{background:"#F0FDF4",border:"1.5px solid #86EFAC",borderRadius:12,padding:"14px 16px",marginBottom:8}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+          <span style={{fontWeight:700,fontSize:13,color:"#166534"}}>🔗 Lien de signature prêt !</span>
+          <button onClick={()=>setSigShare(null)} style={{background:"none",border:"none",fontSize:16,cursor:"pointer",color:"#9CA3AF",padding:0}}>✕</button>
+        </div>
+        <div style={{background:"#fff",borderRadius:8,padding:"8px 10px",marginBottom:10,border:"1px solid #D1FAE5",wordBreak:"break-all",fontSize:11,color:"#374151",fontFamily:"monospace"}}>
+          {sigShare.url}
+        </div>
+        <div style={{display:"flex",flexDirection:"column",gap:8}}>
+          <button onClick={async()=>{try{await navigator.clipboard.writeText(sigShare.url);alert("✅ Lien copié !");}catch(_){alert("Copiez ce lien :\n\n"+sigShare.url);}}} style={{background:"#166534",color:"#fff",border:"none",borderRadius:8,padding:"10px",fontWeight:700,fontSize:12,cursor:"pointer"}}>
+            📋 Copier le lien
+          </button>
+          {sigShare.email?(
+            <a href={`mailto:${sigShare.email}?subject=${encodeURIComponent(sigShare.sujet)}&body=${encodeURIComponent(sigShare.corps)}`}
+               style={{background:"#0a0a0a",color:"#F2C94C",borderRadius:8,padding:"10px",fontWeight:700,fontSize:12,cursor:"pointer",textDecoration:"none",textAlign:"center",display:"block"}}>
+              📧 Ouvrir mon email ({sigShare.email})
+            </a>
+          ):(
+            <p style={{fontSize:11,color:"#6B7280",margin:0,textAlign:"center"}}>Aucun email sur ce partenaire — copiez le lien et envoyez-le manuellement.</p>
+          )}
+        </div>
+      </div>
+    )}
     {view.signingToken&&<button onClick={async()=>{try{const r=await fetch(`${SIGN_API}/sign/${view.signingToken}`);const d=await r.json();if(d.status!=="signed"){alert("Pas encore signé. Relancez une fois que votre partenaire a cliqué le lien.");return;}setSt(p=>({...p,contrats:p.contrats.map(c=>c.id===view.id?{...c,signClient:d.signatureData,statut:"signé",signerNom:d.signerName,signingToken:null}:c)}));alert(`✅ ${d.signerName} a signé !\nLa signature est maintenant intégrée dans le PDF.`);}catch(e){alert("Erreur : "+e.message);}}} style={{width:"100%",marginBottom:4,background:"#DCFCE7",border:"1.5px solid #86EFAC",borderRadius:10,padding:"10px",fontWeight:700,fontSize:12,color:"#166534",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>🔄 Vérifier la signature</button>}
     {!view.signingToken&&!view.signClient&&(<div style={{display:"flex",gap:6,marginBottom:8,alignItems:"center"}}>
       <input value={recoveryTokenC} onChange={e=>setRecoveryTokenC(e.target.value)} placeholder="Token de signature existant…" style={{flex:1,padding:"8px 10px",borderRadius:8,border:"1px solid #E5E7EB",fontSize:11,outline:"none",color:"#374151"}}/>
