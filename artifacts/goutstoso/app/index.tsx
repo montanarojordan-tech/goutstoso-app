@@ -4094,7 +4094,7 @@ return (
           npa: pv?.npa||"",
           ville: pv?.ville||"",
           lignes: (view.lignes||[]).filter(l=>l.produitId).map(l=>({produitId:l.produitId,qte:l.qte})),
-          rabais: 0,
+          rabais: view.rabais||0,
           fraisPort: 0,
           commissionShopify: 0,
           statut: "à préparer",
@@ -17593,6 +17593,24 @@ setSt(p=>{
     newClients.findIndex(x=>(x.nom||"").toLowerCase().trim()===(c.nom||"").toLowerCase().trim() && x.categorie===c.categorie)===i
   );
   return {...p,clients:uniqueClients,partenaires:newPartenaires};
+});
+},[loading]);
+
+// Migration : recopier le rabais de l'offre source sur les commandes liées sans rabais
+React.useEffect(()=>{
+if(loading) return;
+setSt(p=>{
+  const offres = p.offres||[];
+  const updated = (p.commandes||[]).map(cmd=>{
+    if(!cmd.offreId) return cmd;
+    if(parseFloat(cmd.rabais)>0) return cmd; // déjà un rabais, on ne touche pas
+    const offre = offres.find(o=>o.id===cmd.offreId);
+    if(!offre || !parseFloat(offre.rabais)) return cmd;
+    return {...cmd, rabais: offre.rabais};
+  });
+  const hasChanges = updated.some((cmd,i)=>cmd!==((p.commandes||[])[i]));
+  if(!hasChanges) return p;
+  return {...p, commandes: updated};
 });
 },[loading]);
 
