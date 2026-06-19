@@ -1967,20 +1967,39 @@ y+=28;
 
 // Signatures
 doc.setFontSize(8);doc.setFont("helvetica","bold");doc.setTextColor(80,80,80);
-doc.text("SIGNATURES",mg,y);y+=4;
+doc.text("SIGNATURES",mg,y);y+=5;
 const sigW = (W-mg*2-10)/2;
-// Box fournisseur
-doc.setDrawColor(200,200,200);doc.setLineWidth(0.3);
-doc.roundedRect(mg,y,sigW,32,2,2,"S");
-doc.setFontSize(7);doc.setFont("helvetica","bold");doc.setTextColor(150,150,150);
-doc.text("Goûtstoso - Jordan Montanaro",mg+3,y+5);
-// Box client
-doc.roundedRect(mg+sigW+10,y,sigW,32,2,2,"S");
-doc.text(pv?.nom||"Client",mg+sigW+13,y+5);
-// Insert signature client si présente
-if(c.signClient) {
-  try { doc.addImage(c.signClient,"PNG",mg+sigW+13,y+8,sigW-6,20); } catch(e){}
+const sigH = 44;
+// Helper couleurs
+const sigFill=(signed)=>signed?[240,253,244]:[248,248,246];
+const sigBorder=(signed)=>signed?[134,239,172]:[210,210,210];
+// Box Goûtstoso (gauche)
+doc.setFillColor(...sigFill(false));doc.setDrawColor(...sigBorder(false));doc.setLineWidth(0.4);
+doc.roundedRect(mg,y,sigW,sigH,3,3,"FD");
+doc.setFillColor(10,10,10);doc.roundedRect(mg,y,sigW,9,3,3,"F");doc.rect(mg,y+5,sigW,4,"F");
+doc.setFont("helvetica","bold");doc.setFontSize(7);doc.setTextColor(242,201,76);
+doc.text("GOÛTSTOSO — JORDAN MONTANARO",mg+4,y+6);
+doc.setFont("helvetica","italic");doc.setFontSize(7.5);doc.setTextColor(180,180,180);
+doc.text("Signature à apposer",mg+4,y+22);
+// Box Client (droite)
+const cx2=mg+sigW+10;
+const signedC=!!(c.signClient);
+doc.setFillColor(...sigFill(signedC));doc.setDrawColor(...sigBorder(signedC));doc.setLineWidth(0.4);
+doc.roundedRect(cx2,y,sigW,sigH,3,3,"FD");
+doc.setFillColor(signedC?21:10,signedC?128:10,signedC?61:10);doc.roundedRect(cx2,y,sigW,9,3,3,"F");doc.rect(cx2,y+5,sigW,4,"F");
+doc.setFont("helvetica","bold");doc.setFontSize(7);doc.setTextColor(signedC?220:242,signedC?252:201,signedC?231:76);
+doc.text((pv?.nom||"CLIENT").toUpperCase().slice(0,38),cx2+4,y+6);
+if(signedC){
+  if(c.signerNom){doc.setFont("helvetica","normal");doc.setFontSize(6.5);doc.setTextColor(60,120,80);doc.text("Signataire : "+c.signerNom,cx2+4,y+13);}
+  try{doc.addImage(c.signClient,"PNG",cx2+4,y+14,sigW-8,20);}catch(e){}
+  doc.setFillColor(220,252,231);doc.rect(cx2,y+sigH-9,sigW,9,"F");
+  doc.setFont("helvetica","bold");doc.setFontSize(6);doc.setTextColor(21,128,61);
+  doc.text("✓ Validé électroniquement le "+(c.signedAt?new Date(c.signedAt).toLocaleDateString("fr-CH"):fmt(c.dateSignature||today())),cx2+3,y+sigH-4);
+}else{
+  doc.setFont("helvetica","italic");doc.setFontSize(7.5);doc.setTextColor(180,180,180);
+  doc.text("Signature à apposer",cx2+4,y+22);
 }
+y+=sigH+2;
 
 // Pied de page
 doc.setDrawColor(230,230,228);doc.setLineWidth(0.3);doc.line(mg,277,W-mg,277);
@@ -2240,26 +2259,52 @@ if(c.type==="offre" && c.modeAcceptation==="commande") {
 
 // Signatures (sauf si acceptation par commande)
 if(!(c.type==="offre" && c.modeAcceptation==="commande")) {
-y+=4;
+y+=5;
 doc.setFontSize(8);doc.setFont("helvetica","bold");doc.setTextColor(80,80,80);
-doc.text("SIGNATURES",mg,y);y+=4;
-const sigW = (W-mg*2-10)/2;
-doc.setDrawColor(200,200,200);doc.setLineWidth(0.3);
-doc.roundedRect(mg,y,sigW,32,2,2,"S");
-doc.setFontSize(7);doc.setFont("helvetica","bold");doc.setTextColor(150,150,150);
-doc.text("Goûtstoso - Jordan Montanaro",mg+3,y+5);
-if(c.signFournisseur) {
-  try { doc.addImage(c.signFournisseur,"PNG",mg+3,y+8,sigW-6,20); } catch(e){}
+doc.text("SIGNATURES",mg,y);y+=5;
+const sigWC = (W-mg*2-10)/2;
+const sigHC = 44;
+const sigFillC=(s)=>s?[240,253,244]:[248,248,246];
+const sigBorderC=(s)=>s?[134,239,172]:[210,210,210];
+// Box Goûtstoso
+const signedF=!!(c.signFournisseur);
+doc.setFillColor(...sigFillC(signedF));doc.setDrawColor(...sigBorderC(signedF));doc.setLineWidth(0.4);
+doc.roundedRect(mg,y,sigWC,sigHC,3,3,"FD");
+doc.setFillColor(signedF?21:10,signedF?128:10,signedF?61:10);doc.roundedRect(mg,y,sigWC,9,3,3,"F");doc.rect(mg,y+5,sigWC,4,"F");
+doc.setFont("helvetica","bold");doc.setFontSize(7);doc.setTextColor(signedF?220:242,signedF?252:201,signedF?231:76);
+doc.text("GOÛTSTOSO — JORDAN MONTANARO",mg+4,y+6);
+if(signedF){
+  try{doc.addImage(c.signFournisseur,"PNG",mg+4,y+11,sigWC-8,22);}catch(e){}
+  doc.setFillColor(220,252,231);doc.rect(mg,y+sigHC-9,sigWC,9,"F");
+  doc.setFont("helvetica","bold");doc.setFontSize(6);doc.setTextColor(21,128,61);
+  doc.text("✓ Validé électroniquement le "+fmt(c.dateSignature||today()),mg+3,y+sigHC-4);
+}else{
+  doc.setFont("helvetica","italic");doc.setFontSize(7.5);doc.setTextColor(180,180,180);
+  doc.text("Signature à apposer",mg+4,y+22);
 }
-doc.roundedRect(mg+sigW+10,y,sigW,32,2,2,"S");
-doc.text(pv?.nom||"Client",mg+sigW+13,y+5);
-if(c.signClient) {
-  try { doc.addImage(c.signClient,"PNG",mg+sigW+13,y+8,sigW-6,20); } catch(e){}
+// Box Client
+const cxC=mg+sigWC+10;
+const signedCl=!!(c.signClient);
+doc.setFillColor(...sigFillC(signedCl));doc.setDrawColor(...sigBorderC(signedCl));doc.setLineWidth(0.4);
+doc.roundedRect(cxC,y,sigWC,sigHC,3,3,"FD");
+doc.setFillColor(signedCl?21:10,signedCl?128:10,signedCl?61:10);doc.roundedRect(cxC,y,sigWC,9,3,3,"F");doc.rect(cxC,y+5,sigWC,4,"F");
+doc.setFont("helvetica","bold");doc.setFontSize(7);doc.setTextColor(signedCl?220:242,signedCl?252:201,signedCl?231:76);
+doc.text((pv?.nom||"CLIENT").toUpperCase().slice(0,38),cxC+4,y+6);
+if(signedCl){
+  if(c.signerNom){doc.setFont("helvetica","normal");doc.setFontSize(6.5);doc.setTextColor(60,120,80);doc.text("Signataire : "+c.signerNom,cxC+4,y+13);}
+  try{doc.addImage(c.signClient,"PNG",cxC+4,y+14,sigWC-8,20);}catch(e){}
+  doc.setFillColor(220,252,231);doc.rect(cxC,y+sigHC-9,sigWC,9,"F");
+  doc.setFont("helvetica","bold");doc.setFontSize(6);doc.setTextColor(21,128,61);
+  doc.text("✓ Validé électroniquement le "+(c.signedAt?new Date(c.signedAt).toLocaleDateString("fr-CH"):fmt(c.dateSignature||today())),cxC+3,y+sigHC-4);
+}else{
+  doc.setFont("helvetica","italic");doc.setFontSize(7.5);doc.setTextColor(180,180,180);
+  doc.text("Signature à apposer",cxC+4,y+22);
 }
-if(c.dateSignature) {
-  y+=36;
-  doc.setFontSize(8);doc.setFont("helvetica","normal");doc.setTextColor(150,150,150);
-  doc.text("Signé le "+fmt(c.dateSignature)+" à "+(c.lieuSignature||"Villeret"),W/2,y,{align:"center"});
+y+=sigHC+2;
+if(c.lieuSignature){
+  doc.setFont("helvetica","italic");doc.setFontSize(7);doc.setTextColor(150,150,150);
+  doc.text("Signé à "+c.lieuSignature,W/2,y+4,{align:"center"});
+  y+=8;
 }
 
 doc.setDrawColor(230,230,228);doc.setLineWidth(0.3);doc.line(mg,277,W-mg,277);
@@ -4021,10 +4066,10 @@ return (
         </div>
       </div>
     )}
-    {view.signingToken&&<button onClick={async()=>{try{const _sapi=(process.env.EXPO_PUBLIC_DOMAIN?`https://${process.env.EXPO_PUBLIC_DOMAIN}`:"https://goutstoso.replit.app")+"/api";const r=await fetch(`${_sapi}/sign/${view.signingToken}`);const d=await r.json();if(d.status!=="signed"){alert("Pas encore signé. Relancez une fois que votre partenaire a cliqué le lien.");return;}setSt(p=>({...p,contrats:p.contrats.map(c=>c.id===view.id?{...c,signClient:d.signatureData,statut:"signé",signerNom:d.signerName,signingToken:null}:c)}));alert(`✅ ${d.signerName} a signé !\nLa signature est maintenant intégrée dans le PDF.`);}catch(e){alert("Erreur : "+e.message);}}} style={{width:"100%",marginBottom:4,background:"#DCFCE7",border:"1.5px solid #86EFAC",borderRadius:10,padding:"10px",fontWeight:700,fontSize:12,color:"#166534",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>🔄 Vérifier la signature</button>}
+    {view.signingToken&&<button onClick={async()=>{try{const _sapi=(process.env.EXPO_PUBLIC_DOMAIN?`https://${process.env.EXPO_PUBLIC_DOMAIN}`:"https://goutstoso.replit.app")+"/api";const r=await fetch(`${_sapi}/sign/${view.signingToken}`);const d=await r.json();if(d.status!=="signed"){alert("Pas encore signé. Relancez une fois que votre partenaire a cliqué le lien.");return;}setSt(p=>({...p,contrats:p.contrats.map(c=>c.id===view.id?{...c,signClient:d.signatureData,statut:"signé",signerNom:d.signerName,signedAt:d.signedAt||new Date().toISOString(),signingToken:null}:c)}));alert(`✅ ${d.signerName} a signé !\nLa signature est maintenant intégrée dans le PDF.`);}catch(e){alert("Erreur : "+e.message);}}} style={{width:"100%",marginBottom:4,background:"#DCFCE7",border:"1.5px solid #86EFAC",borderRadius:10,padding:"10px",fontWeight:700,fontSize:12,color:"#166534",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>🔄 Vérifier la signature</button>}
     {!view.signingToken&&!view.signClient&&(<div style={{display:"flex",gap:6,marginBottom:8,alignItems:"center"}}>
       <input value={recoveryTokenC} onChange={e=>setRecoveryTokenC(e.target.value)} placeholder="Token de signature existant…" style={{flex:1,padding:"8px 10px",borderRadius:8,border:"1px solid #E5E7EB",fontSize:11,outline:"none",color:"#374151"}}/>
-      <button onClick={async()=>{const t=recoveryTokenC.trim();if(!t)return;try{const _sapi=(process.env.EXPO_PUBLIC_DOMAIN?`https://${process.env.EXPO_PUBLIC_DOMAIN}`:"https://goutstoso.replit.app")+"/api";const r=await fetch(`${_sapi}/sign/${t}`);const d=await r.json();if(d.status!=="signed"){alert("Ce token n'est pas encore signé.");return;}setSt(p=>({...p,contrats:p.contrats.map(c=>c.id===view.id?{...c,signClient:d.signatureData,statut:"signé",signerNom:d.signerName}:c)}));setRecoveryTokenC("");alert(`✅ Signature de ${d.signerName} intégrée dans le PDF !`);}catch(e){alert("Erreur : "+e.message);}}} style={{padding:"8px 10px",borderRadius:8,background:"#F9F9F6",border:"1px solid #E5E7EB",fontSize:11,fontWeight:600,cursor:"pointer",whiteSpace:"nowrap",color:"#374151"}}>🔍 Récupérer</button>
+      <button onClick={async()=>{const t=recoveryTokenC.trim();if(!t)return;try{const _sapi=(process.env.EXPO_PUBLIC_DOMAIN?`https://${process.env.EXPO_PUBLIC_DOMAIN}`:"https://goutstoso.replit.app")+"/api";const r=await fetch(`${_sapi}/sign/${t}`);const d=await r.json();if(d.status!=="signed"){alert("Ce token n'est pas encore signé.");return;}setSt(p=>({...p,contrats:p.contrats.map(c=>c.id===view.id?{...c,signClient:d.signatureData,statut:"signé",signerNom:d.signerName,signedAt:d.signedAt||new Date().toISOString()}:c)}));setRecoveryTokenC("");alert(`✅ Signature de ${d.signerName} intégrée dans le PDF !`);}catch(e){alert("Erreur : "+e.message);}}} style={{padding:"8px 10px",borderRadius:8,background:"#F9F9F6",border:"1px solid #E5E7EB",fontSize:11,fontWeight:600,cursor:"pointer",whiteSpace:"nowrap",color:"#374151"}}>🔍 Récupérer</button>
     </div>)}
     {/* CONVERSION pour offre → commande */}
     {view.type==="offre" && (
@@ -12259,41 +12304,44 @@ try {
   if(offre.signJordan || offre.signClient) {
     y+=6;
     const sigColW = (W - mg*2 - 10) / 2;
+    const sigHO = 44;
+    const oFill=(s)=>s?[240,253,244]:[248,248,246];
+    const oBorder=(s)=>s?[134,239,172]:[210,210,210];
     // Colonne gauche — Goûtstoso
-    doc.setFillColor(offre.signJordan?240:249,offre.signJordan?253:249,offre.signJordan?244:246);
-    doc.rect(mg,y,sigColW,30,"F");
-    doc.setDrawColor(offre.signJordan?134:220,offre.signJordan?239:220,offre.signJordan?172:218);
-    doc.setLineWidth(0.3); doc.rect(mg,y,sigColW,30,"S");
-    doc.setFont("helvetica","bold"); doc.setFontSize(7.5);
-    doc.setTextColor(offre.signJordan?21:120,offre.signJordan?128:120,offre.signJordan?61:120);
-    doc.text("Pour Goûtstoso — Jordan Montanaro",mg+4,y+6);
-    if(offre.signJordan){
-      try { doc.addImage(offre.signJordan,"PNG",mg+4,y+8,sigColW-8,16); } catch(e){}
-      doc.setFont("helvetica","normal"); doc.setFontSize(7); doc.setTextColor(21,128,61);
-      doc.text("Signé le "+fmt(today()),mg+4,y+27);
-    } else {
-      doc.setFont("helvetica","italic"); doc.setFontSize(7.5); doc.setTextColor(150,150,150);
-      doc.text("Signature à apposer",mg+4,y+18);
+    const hasJ=!!(offre.signJordan);
+    doc.setFillColor(...oFill(hasJ));doc.setDrawColor(...oBorder(hasJ));doc.setLineWidth(0.4);
+    doc.roundedRect(mg,y,sigColW,sigHO,3,3,"FD");
+    doc.setFillColor(hasJ?21:10,hasJ?128:10,hasJ?61:10);doc.roundedRect(mg,y,sigColW,9,3,3,"F");doc.rect(mg,y+5,sigColW,4,"F");
+    doc.setFont("helvetica","bold");doc.setFontSize(7);doc.setTextColor(hasJ?220:242,hasJ?252:201,hasJ?231:76);
+    doc.text("GOÛTSTOSO — JORDAN MONTANARO",mg+4,y+6);
+    if(hasJ){
+      try{doc.addImage(offre.signJordan,"PNG",mg+4,y+11,sigColW-8,22);}catch(e){}
+      doc.setFillColor(220,252,231);doc.rect(mg,y+sigHO-9,sigColW,9,"F");
+      doc.setFont("helvetica","bold");doc.setFontSize(6);doc.setTextColor(21,128,61);
+      doc.text("✓ Validé électroniquement le "+fmt(today()),mg+3,y+sigHO-4);
+    }else{
+      doc.setFont("helvetica","italic");doc.setFontSize(7.5);doc.setTextColor(180,180,180);
+      doc.text("Signature à apposer",mg+4,y+22);
     }
     // Colonne droite — Client
-    const cx2 = mg+sigColW+10;
-    const clientLabel = (offre.clientNom||"Le Client")+(offre.signerNom?" — "+offre.signerNom:"");
-    doc.setFillColor(offre.signClient?240:249,offre.signClient?253:249,offre.signClient?244:246);
-    doc.rect(cx2,y,sigColW,30,"F");
-    doc.setDrawColor(offre.signClient?134:220,offre.signClient?239:220,offre.signClient?172:218);
-    doc.setLineWidth(0.3); doc.rect(cx2,y,sigColW,30,"S");
-    doc.setFont("helvetica","bold"); doc.setFontSize(7.5);
-    doc.setTextColor(offre.signClient?21:120,offre.signClient?128:120,offre.signClient?61:120);
-    doc.text(clientLabel,cx2+4,y+6,{maxWidth:sigColW-8});
-    if(offre.signClient){
-      try { doc.addImage(offre.signClient,"PNG",cx2+4,y+8,sigColW-8,16); } catch(e){}
-      doc.setFont("helvetica","normal"); doc.setFontSize(7); doc.setTextColor(21,128,61);
-      doc.text("Signé le "+fmt(today()),cx2+4,y+27);
-    } else {
-      doc.setFont("helvetica","italic"); doc.setFontSize(7.5); doc.setTextColor(150,150,150);
-      doc.text("Signature à apposer",cx2+4,y+18);
+    const cx2O = mg+sigColW+10;
+    const hasC=!!(offre.signClient);
+    doc.setFillColor(...oFill(hasC));doc.setDrawColor(...oBorder(hasC));doc.setLineWidth(0.4);
+    doc.roundedRect(cx2O,y,sigColW,sigHO,3,3,"FD");
+    doc.setFillColor(hasC?21:10,hasC?128:10,hasC?61:10);doc.roundedRect(cx2O,y,sigColW,9,3,3,"F");doc.rect(cx2O,y+5,sigColW,4,"F");
+    doc.setFont("helvetica","bold");doc.setFontSize(7);doc.setTextColor(hasC?220:242,hasC?252:201,hasC?231:76);
+    doc.text((offre.clientNom||"CLIENT").toUpperCase().slice(0,38),cx2O+4,y+6);
+    if(hasC){
+      if(offre.signerNom){doc.setFont("helvetica","normal");doc.setFontSize(6.5);doc.setTextColor(60,120,80);doc.text("Signataire : "+offre.signerNom,cx2O+4,y+13);}
+      try{doc.addImage(offre.signClient,"PNG",cx2O+4,y+14,sigColW-8,20);}catch(e){}
+      doc.setFillColor(220,252,231);doc.rect(cx2O,y+sigHO-9,sigColW,9,"F");
+      doc.setFont("helvetica","bold");doc.setFontSize(6);doc.setTextColor(21,128,61);
+      doc.text("✓ Validé électroniquement le "+(offre.signedAt?new Date(offre.signedAt).toLocaleDateString("fr-CH"):fmt(today())),cx2O+3,y+sigHO-4);
+    }else{
+      doc.setFont("helvetica","italic");doc.setFontSize(7.5);doc.setTextColor(180,180,180);
+      doc.text("Signature à apposer",cx2O+4,y+22);
     }
-    y+=36;
+    y+=sigHO+4;
   } else {
     y+=8;
   }
@@ -12952,10 +13000,10 @@ if(view) return (
   <button onClick={async()=>{const enriched={...view,lignes:(view.lignes||[]).map(l=>{const prod=(st.produits||[]).find(p=>p.id===l.produitId);return {...l,designation:prod?`${prod.nom}${prod.format?" · "+prod.format:""}`:l.produitId,prixUnitaire:prod?.prixRevendeur||0};})};const token=await envoyerPourSignature("offre","Offre "+view.numero,enriched,view.clientEmail||"");if(token)setSt(p=>({...p,offres:p.offres.map(o=>o.id===view.id?{...o,signingToken:token}:o)}));}} style={{width:"100%",marginBottom:view.signingToken?4:10,background:"linear-gradient(135deg,#0a0a0a,#1a1a1a)",border:"none",borderRadius:10,padding:"11px",fontWeight:700,fontSize:12,color:"#F2C94C",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
     🔏 Envoyer pour signature
   </button>
-  {view.signingToken&&<button onClick={async()=>{try{const r=await fetch(`${SIGN_API}/sign/${view.signingToken}`);const d=await r.json();if(d.status!=="signed"){alert("Pas encore signé. Relancez une fois que votre partenaire a cliqué le lien.");return;}setSt(p=>({...p,offres:p.offres.map(o=>o.id===view.id?{...o,signClient:d.signatureData,statut:"acceptée",signerNom:d.signerName,signingToken:null}:o)}));alert(`✅ ${d.signerName} a signé !\nLa signature est maintenant intégrée dans le PDF.`);}catch(e){alert("Erreur : "+e.message);}}} style={{width:"100%",marginBottom:4,background:"#DCFCE7",border:"1.5px solid #86EFAC",borderRadius:10,padding:"10px",fontWeight:700,fontSize:12,color:"#166534",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>🔄 Vérifier la signature</button>}
+  {view.signingToken&&<button onClick={async()=>{try{const r=await fetch(`${SIGN_API}/sign/${view.signingToken}`);const d=await r.json();if(d.status!=="signed"){alert("Pas encore signé. Relancez une fois que votre partenaire a cliqué le lien.");return;}setSt(p=>({...p,offres:p.offres.map(o=>o.id===view.id?{...o,signClient:d.signatureData,statut:"acceptée",signerNom:d.signerName,signedAt:d.signedAt||new Date().toISOString(),signingToken:null}:o)}));alert(`✅ ${d.signerName} a signé !\nLa signature est maintenant intégrée dans le PDF.`);}catch(e){alert("Erreur : "+e.message);}}} style={{width:"100%",marginBottom:4,background:"#DCFCE7",border:"1.5px solid #86EFAC",borderRadius:10,padding:"10px",fontWeight:700,fontSize:12,color:"#166534",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>🔄 Vérifier la signature</button>}
   {!view.signingToken&&!view.signClient&&(<div style={{display:"flex",gap:6,marginBottom:10,alignItems:"center"}}>
     <input value={recoveryToken} onChange={e=>setRecoveryToken(e.target.value)} placeholder="Token de signature existant…" style={{flex:1,padding:"8px 10px",borderRadius:8,border:"1px solid #E5E7EB",fontSize:11,outline:"none",color:"#374151"}}/>
-    <button onClick={async()=>{const t=recoveryToken.trim();if(!t)return;try{const r=await fetch(`${SIGN_API}/sign/${t}`);const d=await r.json();if(d.status!=="signed"){alert("Ce token n'est pas encore signé.");return;}setSt(p=>({...p,offres:p.offres.map(o=>o.id===view.id?{...o,signClient:d.signatureData,statut:"acceptée",signerNom:d.signerName}:o)}));setRecoveryToken("");alert(`✅ Signature de ${d.signerName} intégrée dans le PDF !`);}catch(e){alert("Erreur : "+e.message);}}} style={{padding:"8px 10px",borderRadius:8,background:"#F9F9F6",border:"1px solid #E5E7EB",fontSize:11,fontWeight:600,cursor:"pointer",whiteSpace:"nowrap",color:"#374151"}}>🔍 Récupérer</button>
+    <button onClick={async()=>{const t=recoveryToken.trim();if(!t)return;try{const r=await fetch(`${SIGN_API}/sign/${t}`);const d=await r.json();if(d.status!=="signed"){alert("Ce token n'est pas encore signé.");return;}setSt(p=>({...p,offres:p.offres.map(o=>o.id===view.id?{...o,signClient:d.signatureData,statut:"acceptée",signerNom:d.signerName,signedAt:d.signedAt||new Date().toISOString()}:o)}));setRecoveryToken("");alert(`✅ Signature de ${d.signerName} intégrée dans le PDF !`);}catch(e){alert("Erreur : "+e.message);}}} style={{padding:"8px 10px",borderRadius:8,background:"#F9F9F6",border:"1px solid #E5E7EB",fontSize:11,fontWeight:600,cursor:"pointer",whiteSpace:"nowrap",color:"#374151"}}>🔍 Récupérer</button>
   </div>)}
 
   {/* Statut */}
