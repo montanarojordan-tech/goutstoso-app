@@ -2141,36 +2141,77 @@ if(c.commission>0) {
 if((c.lignes||[]).filter(l=>l.produitId).length>0) {
   doc.setFontSize(9);doc.setFont("helvetica","bold");doc.setTextColor(80,80,80);
   doc.text("PRODUITS CONCERNÉS",mg,y);y+=5;
-  doc.setFillColor(17,17,17);doc.rect(mg,y,W-mg*2,8,"F");
-  doc.setFontSize(7.5);doc.setFont("helvetica","bold");doc.setTextColor(242,201,76);
-  doc.text("DÉSIGNATION",mg+3,y+5.5);
-  doc.setTextColor(180,180,180);
-  doc.text("QTÉ",130,y+5.5,{align:"center"});
-  doc.text("PRIX U.",155,y+5.5,{align:"right"});
-  doc.text("TOTAL",W-mg-2,y+5.5,{align:"right"});
-  y+=8;
-  let total=0;
-  (c.lignes||[]).filter(l=>l.produitId).forEach((l,i)=>{
-    const p=st.produits.find(x=>x.id===l.produitId);
-    const pu=l.prixUnitaire||(p?.prixRevendeur||0);
-    const t=(l.qte||0)*pu; total+=t;
-    doc.setFillColor(i%2===0?250:255,i%2===0?250:255,i%2===0?248:255);
-    doc.rect(mg,y,W-mg*2,10,"F");
-    doc.setFontSize(9);doc.setFont("helvetica","bold");doc.setTextColor(17,17,17);
-    doc.text((p?.nom||"")+" "+(p?.variante||"")+" "+(p?.format||""),mg+3,y+6);
-    doc.setFont("helvetica","normal");doc.setTextColor(107,114,128);
-    doc.text(String(l.qte||0),130,y+6,{align:"center"});
-    doc.text("CHF "+pu.toFixed(2),155,y+6,{align:"right"});
-    doc.setFont("helvetica","bold");doc.setTextColor(17,17,17);
-    doc.text("CHF "+t.toFixed(2),W-mg-2,y+6,{align:"right"});
-    y+=10;
-  });
-  if(total>0) {
+
+  if(c.type==="depot-vente"||c.type==="partenariat") {
+    // ── Tableau tarifs dépôt-vente : deux colonnes de prix ──────────────
+    doc.setFillColor(17,17,17);doc.rect(mg,y,W-mg*2,8,"F");
+    doc.setFontSize(7);doc.setFont("helvetica","bold");doc.setTextColor(242,201,76);
+    doc.text("DÉSIGNATION",mg+3,y+5.5);
+    doc.setTextColor(180,180,180);
+    doc.text("PRIX PRESTATAIRE",145,y+5.5,{align:"center"});
+    doc.text("PRIX PUBLIC",W-mg-2,y+5.5,{align:"right"});
+    y+=8;
+    (c.lignes||[]).filter(l=>l.produitId).forEach((l,i)=>{
+      const p=st.produits.find(x=>x.id===l.produitId);
+      const prixPrest=parseFloat(l.prixUnitaire||0)||(parseFloat(p?.prixRevendeur)||0);
+      const prixPublic=parseFloat(p?.prixClient)||0;
+      doc.setFillColor(i%2===0?250:255,i%2===0?250:255,i%2===0?248:255);
+      doc.rect(mg,y,W-mg*2,11,"F");
+      doc.setFontSize(9);doc.setFont("helvetica","bold");doc.setTextColor(17,17,17);
+      doc.text((p?.nom||"")+" "+(p?.variante||"")+" "+(p?.format||""),mg+3,y+5);
+      doc.setFontSize(7.5);doc.setFont("helvetica","normal");doc.setTextColor(150,150,150);
+      doc.text("30% vol. · "+((p?.ingredients||"").split(",")[0]||""),mg+3,y+10);
+      doc.setFontSize(9);doc.setFont("helvetica","bold");doc.setTextColor(30,58,95);
+      doc.text("CHF "+prixPrest.toFixed(2),145,y+7,{align:"center"});
+      doc.setTextColor(17,17,17);
+      doc.text("CHF "+prixPublic.toFixed(2),W-mg-2,y+7,{align:"right"});
+      y+=11;
+    });
+    // Note TVA + conditions tarifaires
+    y+=3;
+    doc.setFillColor(245,245,242);doc.roundedRect(mg,y,W-mg*2,14,2,2,"F");
+    doc.setFontSize(7.5);doc.setFont("helvetica","italic");doc.setTextColor(120,120,120);
+    doc.text("Goûtstoso n'est pas assujetti à la TVA — Prix en CHF, toutes charges comprises.",mg+4,y+5.5);
+    doc.text("Prix prestataire : tarif réservé aux partenaires dépositaires. Prix public : tarif conseillé à la vente au consommateur final.",mg+4,y+11);
+    y+=18;
+  } else {
+    // ── Tableau standard (offre, livraison, autre) ───────────────────────
+    doc.setFillColor(17,17,17);doc.rect(mg,y,W-mg*2,8,"F");
+    doc.setFontSize(7.5);doc.setFont("helvetica","bold");doc.setTextColor(242,201,76);
+    doc.text("DÉSIGNATION",mg+3,y+5.5);
+    doc.setTextColor(180,180,180);
+    doc.text("QTÉ",130,y+5.5,{align:"center"});
+    doc.text("PRIX U.",155,y+5.5,{align:"right"});
+    doc.text("TOTAL",W-mg-2,y+5.5,{align:"right"});
+    y+=8;
+    let total=0;
+    (c.lignes||[]).filter(l=>l.produitId).forEach((l,i)=>{
+      const p=st.produits.find(x=>x.id===l.produitId);
+      const pu=l.prixUnitaire||(p?.prixRevendeur||0);
+      const t=(l.qte||0)*pu; total+=t;
+      doc.setFillColor(i%2===0?250:255,i%2===0?250:255,i%2===0?248:255);
+      doc.rect(mg,y,W-mg*2,10,"F");
+      doc.setFontSize(9);doc.setFont("helvetica","bold");doc.setTextColor(17,17,17);
+      doc.text((p?.nom||"")+" "+(p?.variante||"")+" "+(p?.format||""),mg+3,y+6);
+      doc.setFont("helvetica","normal");doc.setTextColor(107,114,128);
+      doc.text(String(l.qte||0),130,y+6,{align:"center"});
+      doc.text("CHF "+pu.toFixed(2),155,y+6,{align:"right"});
+      doc.setFont("helvetica","bold");doc.setTextColor(17,17,17);
+      doc.text("CHF "+t.toFixed(2),W-mg-2,y+6,{align:"right"});
+      y+=10;
+    });
+    if(total>0) {
+      y+=2;
+      doc.setFillColor(254,249,231);doc.roundedRect(W/2+10,y,W/2-mg-10,10,2,2,"F");
+      doc.setFontSize(11);doc.setFont("helvetica","bold");doc.setTextColor(17,17,17);
+      doc.text("TOTAL : CHF "+total.toFixed(2),W-mg-3,y+7,{align:"right"});
+      y+=14;
+    }
+    // TVA note universelle
     y+=2;
-    doc.setFillColor(254,249,231);doc.roundedRect(W/2+10,y,W/2-mg-10,10,2,2,"F");
-    doc.setFontSize(11);doc.setFont("helvetica","bold");doc.setTextColor(17,17,17);
-    doc.text("TOTAL : CHF "+total.toFixed(2),W-mg-3,y+7,{align:"right"});
-    y+=14;
+    doc.setFontSize(7.5);doc.setFont("helvetica","italic");doc.setTextColor(150,150,150);
+    doc.text("Goûtstoso n'est pas assujetti à la TVA — Prix en CHF, toutes charges comprises.",mg,y);
+    y+=6;
   }
 }
 
@@ -3830,6 +3871,21 @@ if(c.type==="offre") {
     bodyTxt += "Pour accepter cette offre, nous vous remercions de nous retourner le document signé, par email ou par courrier postal.\n\n";
   }
   bodyTxt += "Nous demeurons à votre entière disposition pour toute question ou information complémentaire.\n\n";
+} else if(c.type==="depot-vente"||c.type==="partenariat") {
+  const domainBase = (process.env.EXPO_PUBLIC_DOMAIN ? "https://"+process.env.EXPO_PUBLIC_DOMAIN : "https://goutstoso.replit.app");
+  const sigURL = c.signingToken ? domainBase+"/sign/"+c.signingToken : null;
+  bodyTxt +=
+    "Veuillez trouver ci-joint le "+typeL+" N° "+c.numero+" établi entre Goûtstoso et votre établissement.\n\n"+
+    "Ce document précise les conditions de notre partenariat, notamment :\n"+
+    "  • Les tarifs prestataires (prix que vous nous réglez)\n"+
+    "  • Les prix publics conseillés Goûtstoso (prix de vente au consommateur final)\n\n"+
+    "À noter : Goûtstoso n'est actuellement pas assujetti à la TVA. Tous les prix sont indiqués en CHF, toutes charges comprises.\n\n";
+  if(sigURL) {
+    bodyTxt += "Pour signer ce contrat numériquement, veuillez cliquer sur le lien suivant :\n\n"+sigURL+"\n\nCe lien est valable 30 jours. La signature est simple et ne nécessite aucune application.\n\n";
+  } else {
+    bodyTxt += "Nous vous remercions de nous retourner ce document signé dans les meilleurs délais.\nSi vous souhaitez signer numériquement, répondez à cet email et nous vous ferons parvenir un lien de signature.\n\n";
+  }
+  bodyTxt += "Pour toute question, n'hésitez pas à nous contacter.\n\n";
 } else {
   bodyTxt +=
     "Veuillez trouver ci-joint le "+typeL+" N° "+c.numero+".\n\n"+
