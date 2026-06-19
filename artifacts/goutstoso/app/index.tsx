@@ -12413,26 +12413,21 @@ const SIGN_API = (process.env.EXPO_PUBLIC_DOMAIN
 
 const envoyerPourSignature = async (documentType, documentTitle, documentData, email="") => {
   try {
+    const body: any = {documentType, documentTitle, documentData, expiresInDays:30};
+    if(email) body.recipientEmail = email;
     const r = await fetch(`${SIGN_API}/sign`, {
       method: "POST",
       headers: {"Content-Type":"application/json"},
-      body: JSON.stringify({documentType, documentTitle, documentData, expiresInDays:30}),
+      body: JSON.stringify(body),
     });
-    if(!r.ok) throw new Error("Erreur serveur");
-    const {token, signingUrl} = await r.json();
+    if(!r.ok) throw new Error("Erreur serveur "+r.status);
+    const {token, signingUrl, emailSent, emailError} = await r.json();
     try { await navigator.clipboard.writeText(signingUrl); } catch(_){}
-    const signature = `L'équipe Goûtstoso\n\nGoûtstoso · Administratif\nT : +41 79 522 06 56\nadmin@goutstoso.ch\nRue des Sources 19 · 2613 Villeret - SWITZERLAND\nwww.goutstoso.ch`;
-    const emailBody = documentType==="prospection"
-      ? `Madame, Monsieur,\n\nVous trouverez ci-joint notre offre de prospection présentant la gamme Goûtstoso et nos tarifs partenaires.\n\nSi vous êtes d'accord avec celle-ci, veuillez vous rendre sur le lien suivant pour accepter nos prix :\n\n${signingUrl}\n\nSi cela vous intéresse, veuillez nous envoyer votre commande en répondant à cet e-mail.\n\nNous restons à votre disposition pour tout renseignement complémentaire.\n\nCordialement,\n\n${signature}`
-      : `Madame, Monsieur,\n\nNous avons le plaisir de vous faire parvenir notre ${documentTitle} relative à la vente de nos liqueurs artisanales Goûtstoso.\n\nVeuillez trouver ci-dessous le lien vous permettant de consulter l'offre dans son intégralité. Si celle-ci vous convient et que vous souhaitez la valider, nous vous invitons à apposer votre signature électronique directement en ligne :\n\n${signingUrl}\n\nCe lien est valable 30 jours. La signature est simple et rapide — aucune application n'est nécessaire.\n\nNous demeurons bien entendu à votre disposition pour tout renseignement complémentaire.\n\nCordialement,\n\n${signature}`;
-    const sujet = documentType==="prospection"
-      ? encodeURIComponent("Goûtstoso · Offre de prospection")
-      : encodeURIComponent(`Signature requise — ${documentTitle}`);
-    if(email) {
-      const corps = encodeURIComponent(emailBody);
-      window.open(`mailto:${email}?subject=${sujet}&body=${corps}`, "_blank");
+    if(emailSent) {
+      alert(`✅ Email envoyé à ${email}\n\nLien de signature :\n${signingUrl}`);
     } else {
-      alert(`✅ Lien de signature créé et copié !\n\n${signingUrl}`);
+      // SMTP non disponible — afficher le lien pour envoi manuel
+      alert(`🔗 Lien de signature prêt !\n\n${signingUrl}\n\n(Lien copié dans le presse-papiers — valable 30 jours)\n\nEnvoyez ce lien à ${email||"votre partenaire"} pour qu'il signe en ligne.`);
     }
     return token;
   } catch(e) {
