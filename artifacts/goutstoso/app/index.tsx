@@ -4685,7 +4685,8 @@ return sousTotal - remiseGlobale + (parseFloat(f.fraisLivraison)||0);
 
 const Factures = ({st,setSt}) => {
 const [modal,setModal] = useState(null);
-const [view,setView] = useState(null);
+const [viewId,setViewId] = useState<string|null>(null);
+const view = viewId ? (st.factures||[]).find((f:any)=>f.id===viewId)||null : null;
 const [filtre,setFiltre] = useState("toutes");
 const [sigMode,setSigMode] = useState(false);
 const [pjModal,setPjModal] = useState(false);
@@ -5297,7 +5298,6 @@ const newRappel = {degree:deg, date:dateRappel, frais};
 const facActuelle = (st.factures||[]).find(fac=>fac.id===f.id)||f;
 const updatedFac = {...facActuelle, rappels:[...(facActuelle.rappels||[]), newRappel], statut:"rappel envoyé"};
 setSt(p=>({...p, factures: p.factures.map(fac=>fac.id===f.id ? updatedFac : fac)}));
-setView(updatedFac);
 try {
   const saved = localStorage.getItem("goutstoso_v2");
   const local = saved ? JSON.parse(saved) : {};
@@ -5493,7 +5493,7 @@ const rappelsEnvoyes = view.rappels||[];
 
 return (
   <div className="fade">
-    <Breadcrumb crumbs={[{label:"Factures",onClick:()=>{setView(null);setPjModal(false);}},{label:view.numero}]}/>
+    <Breadcrumb crumbs={[{label:"Factures",onClick:()=>{setViewId(null);setPjModal(false);}},{label:view.numero}]}/>
 
     {/* Alerte retard + prochain rappel */}
     {retard&&(
@@ -5551,7 +5551,7 @@ return (
       <button onClick={()=>setPjModal(true)} style={{background:"#FEF9E7",color:"#92400E",border:"1.5px solid #F2C94C",borderRadius:12,padding:"13px",fontWeight:600,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
         ✉️ Email
       </button>
-      <button onClick={()=>{setForm({...view,lignesOffertes:view.lignesOffertes||[]});setView(null);setModal("form");}} style={{background:"#F5F5F0",border:"1.5px solid #E5E5E0",borderRadius:12,padding:"13px",fontWeight:600,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+      <button onClick={()=>{setForm({...view,lignesOffertes:view.lignesOffertes||[]});setViewId(null);setModal("form");}} style={{background:"#F5F5F0",border:"1.5px solid #E5E5E0",borderRadius:12,padding:"13px",fontWeight:600,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
         ✏️ Modifier
       </button>
     </div>
@@ -5609,10 +5609,10 @@ return (
     <button onClick={async()=>{const pvLocal=(st.partenaires||[]).find(p=>p.id===view.partenaireId);const enriched={...view,clientNom:view.clientNom||pvLocal?.nom||"",lignes:(view.lignes||[]).map(l=>{const prod=(st.produits||[]).find(p=>p.id===l.produitId);return {...l,designation:prod?`${prod.nom}${prod.format?" · "+prod.format:""}`:l.produitId,prixUnitaire:prod?.prixRevendeur||0};})};const token=await envoyerPourSignature("facture","Facture "+view.numero,enriched,enriched.clientNom?pvLocal?.email||view.clientEmail||"":"");if(token)setSt(p=>({...p,factures:p.factures.map(f=>f.id===view.id?{...f,signingToken:token}:f)}));}} style={{width:"100%",marginBottom:view.signingToken?4:8,background:"linear-gradient(135deg,#0a0a0a,#1a1a1a)",border:"none",borderRadius:10,padding:"11px",fontWeight:700,fontSize:12,color:"#F2C94C",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
       🔏 Envoyer pour signature
     </button>
-    {view.signingToken&&<button onClick={async()=>{try{const r=await fetch(`${SIGN_API}/sign/${view.signingToken}`);const d=await r.json();if(d.status!=="signed"){alert("Pas encore signé. Relancez une fois que votre partenaire a cliqué le lien.");return;}setSt(p=>({...p,factures:p.factures.map(f=>f.id===view.id?{...f,signFournisseur:d.signatureData,statut:"signée",signerNom:d.signerName,signingToken:null}:f)}));setView(v=>({...v,signFournisseur:d.signatureData,statut:"signée",signerNom:d.signerName,signingToken:null}));alert(`✅ ${d.signerName} a signé !\nLa signature est maintenant intégrée dans le PDF.`);}catch(e){alert("Erreur : "+e.message);}}} style={{width:"100%",marginBottom:4,background:"#DCFCE7",border:"1.5px solid #86EFAC",borderRadius:10,padding:"10px",fontWeight:700,fontSize:12,color:"#166534",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>🔄 Vérifier la signature</button>}
+    {view.signingToken&&<button onClick={async()=>{try{const r=await fetch(`${SIGN_API}/sign/${view.signingToken}`);const d=await r.json();if(d.status!=="signed"){alert("Pas encore signé. Relancez une fois que votre partenaire a cliqué le lien.");return;}setSt(p=>({...p,factures:p.factures.map(f=>f.id===view.id?{...f,signFournisseur:d.signatureData,statut:"signée",signerNom:d.signerName,signingToken:null}:f)}));alert(`✅ ${d.signerName} a signé !\nLa signature est maintenant intégrée dans le PDF.`);}catch(e){alert("Erreur : "+e.message);}}} style={{width:"100%",marginBottom:4,background:"#DCFCE7",border:"1.5px solid #86EFAC",borderRadius:10,padding:"10px",fontWeight:700,fontSize:12,color:"#166534",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>🔄 Vérifier la signature</button>}
     {!view.signingToken&&!view.signFournisseur&&(<div style={{display:"flex",gap:6,marginBottom:8,alignItems:"center"}}>
       <input value={recoveryTokenF} onChange={e=>setRecoveryTokenF(e.target.value)} placeholder="Token de signature existant…" style={{flex:1,padding:"8px 10px",borderRadius:8,border:"1px solid #E5E7EB",fontSize:11,outline:"none",color:"#374151"}}/>
-      <button onClick={async()=>{const t=recoveryTokenF.trim();if(!t)return;try{const r=await fetch(`${SIGN_API}/sign/${t}`);const d=await r.json();if(d.status!=="signed"){alert("Ce token n'est pas encore signé.");return;}setSt(p=>({...p,factures:p.factures.map(f=>f.id===view.id?{...f,signFournisseur:d.signatureData,statut:"signée",signerNom:d.signerName}:f)}));setView(v=>({...v,signFournisseur:d.signatureData,statut:"signée",signerNom:d.signerName}));setRecoveryTokenF("");alert(`✅ Signature de ${d.signerName} intégrée dans le PDF !`);}catch(e){alert("Erreur : "+e.message);}}} style={{padding:"8px 10px",borderRadius:8,background:"#F9F9F6",border:"1px solid #E5E7EB",fontSize:11,fontWeight:600,cursor:"pointer",whiteSpace:"nowrap",color:"#374151"}}>🔍 Récupérer</button>
+      <button onClick={async()=>{const t=recoveryTokenF.trim();if(!t)return;try{const r=await fetch(`${SIGN_API}/sign/${t}`);const d=await r.json();if(d.status!=="signed"){alert("Ce token n'est pas encore signé.");return;}setSt(p=>({...p,factures:p.factures.map(f=>f.id===view.id?{...f,signFournisseur:d.signatureData,statut:"signée",signerNom:d.signerName}:f)}));setRecoveryTokenF("");alert(`✅ Signature de ${d.signerName} intégrée dans le PDF !`);}catch(e){alert("Erreur : "+e.message);}}} style={{padding:"8px 10px",borderRadius:8,background:"#F9F9F6",border:"1px solid #E5E7EB",fontSize:11,fontWeight:600,cursor:"pointer",whiteSpace:"nowrap",color:"#374151"}}>🔍 Récupérer</button>
     </div>)}
     {view.statut!=="payée"&&(
       <div style={{marginBottom:8}}>
@@ -5621,7 +5621,7 @@ return (
               <p style={{fontSize:12,color:"#1E40AF",fontWeight:600}}>✉️ Facture envoyée</p>
               <button onClick={()=>setSt(p=>({...p,factures:p.factures.map(x=>x.id===view.id?{...x,envoyee:false}:x)}))} style={{fontSize:10,color:"#9CA3AF",background:"none",border:"none",cursor:"pointer",textDecoration:"underline"}}>Annuler</button>
             </div>
-          : <button onClick={()=>{setSt(p=>({...p,factures:p.factures.map(x=>x.id===view.id?{...x,envoyee:true}:x)}));setView(v=>({...v,envoyee:true}));}} style={{width:"100%",background:"#EFF6FF",border:"1.5px solid #BFDBFE",borderRadius:10,padding:"10px",fontWeight:700,fontSize:13,color:"#1E40AF",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6,marginBottom:8}}>
+          : <button onClick={()=>{setSt(p=>({...p,factures:p.factures.map(x=>x.id===view.id?{...x,envoyee:true}:x)}));}} style={{width:"100%",background:"#EFF6FF",border:"1.5px solid #BFDBFE",borderRadius:10,padding:"10px",fontWeight:700,fontSize:13,color:"#1E40AF",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6,marginBottom:8}}>
               📤 Marquer comme envoyée
             </button>
         }
@@ -5630,7 +5630,7 @@ return (
     {view.statut!=="payée"&&(
       <div style={{marginBottom:8}}>
         <Sel label="Statut de paiement" value={view.statut==="en attente"?"en attente de paiement":view.statut||"en attente de paiement"}
-          onChange={v=>{setSt(p=>({...p,factures:p.factures.map(x=>x.id===view.id?{...x,statut:v}:x)}));setView(vw=>({...vw,statut:v}));}}
+          onChange={v=>{setSt(p=>({...p,factures:p.factures.map(x=>x.id===view.id?{...x,statut:v}:x)}));}}
           options={[
             {v:"envoyée",l:"📤 Envoyée (en attente de paiement)"},
             {v:"en attente de paiement",l:"⏳ En attente de paiement"},
@@ -5640,7 +5640,7 @@ return (
     )}
     {view.statut!=="payée"&&(
       <div style={{marginBottom:16}}>
-        <button onClick={()=>{marquerPayee(view.id);setView(null);}} style={{width:"100%",background:"#DCFCE7",border:"none",borderRadius:12,padding:"12px",fontWeight:700,fontSize:13,color:"#166534",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+        <button onClick={()=>{marquerPayee(view.id);setViewId(null);}} style={{width:"100%",background:"#DCFCE7",border:"none",borderRadius:12,padding:"12px",fontWeight:700,fontSize:13,color:"#166534",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
           ✅ Marquer comme payée
         </button>
         {(view.rappels||[]).length>0&&(()=>{
@@ -5656,7 +5656,7 @@ return (
     )}
     {view.statut==="payée"&&(
       <div style={{marginBottom:12}}>
-        <button onClick={()=>{demarquerPayee(view.id);setView(null);}} style={{width:"100%",background:"#FEF2F2",border:"1px solid #FECACA",borderRadius:10,padding:"10px",fontWeight:600,fontSize:12,color:"#991B1B",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+        <button onClick={()=>{demarquerPayee(view.id);setViewId(null);}} style={{width:"100%",background:"#FEF2F2",border:"1px solid #FECACA",borderRadius:10,padding:"10px",fontWeight:600,fontSize:12,color:"#991B1B",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
           ↩️ Dé-marquer comme payée
         </button>
         <p style={{fontSize:10,color:"#9CA3AF",textAlign:"center",marginTop:4}}>Annule l'écriture comptable et corrige le solde PostFinance</p>
@@ -5804,7 +5804,7 @@ return (
       <div style={{marginTop:10,lineHeight:1.7,whiteSpace:"pre-wrap"}}>{CGV}</div>
     </details>
     {view.statut==="payée"&&(
-      <button onClick={()=>{setSt((p:any)=>({...p,factures:(p.factures||[]).map((f:any)=>f.id===view.id?{...f,archived:!f.archived}:f)}));setView(null);}} style={{display:"block",width:"calc(100% - 32px)",margin:"12px 16px 24px",background:"#F5F5F0",border:"1px solid #E5E5E0",borderRadius:10,padding:"11px",fontWeight:600,fontSize:12,cursor:"pointer",color:"#6B7280",textAlign:"center"}}>
+      <button onClick={()=>{setSt((p:any)=>({...p,factures:(p.factures||[]).map((f:any)=>f.id===view.id?{...f,archived:!f.archived}:f)}));setViewId(null);}} style={{display:"block",width:"calc(100% - 32px)",margin:"12px 16px 24px",background:"#F5F5F0",border:"1px solid #E5E5E0",borderRadius:10,padding:"11px",fontWeight:600,fontSize:12,cursor:"pointer",color:"#6B7280",textAlign:"center"}}>
         {view.archived?"♻️ Désarchiver":"🗄 Archiver cette facture"}
       </button>
     )}
@@ -5912,7 +5912,7 @@ return {Numero:f.numero,Date:f.date,Client:pv?.nom,Total:total,Statut:f.statut};
           const estPayee = r.facture.statut==="payée";
           return (
             <Card key={i} style={{marginBottom:8,borderLeft:"3px solid "+(estPayee?"#22C55E":r.degree===3?"#EF4444":r.degree===2?"#F97316":"#F59E0B")}}>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",cursor:"pointer"}} onClick={()=>setView(r.facture)}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",cursor:"pointer"}} onClick={()=>setViewId(r.facture.id)}>
                 <div>
                   <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
                     <span style={{background:coulBg,color:coulTxt,borderRadius:20,padding:"2px 10px",fontSize:11,fontWeight:700}}>
@@ -5959,7 +5959,7 @@ return {Numero:f.numero,Date:f.date,Client:pv?.nom,Total:total,Statut:f.statut};
         const rappelsEnvoyes=f.rappels||[];
         return (
           <Card key={f.id} style={{marginBottom:10,borderLeft:retard?"3px solid #EF4444":f.statut==="payée"?"3px solid #22C55E":"3px solid #F2C94C"}}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:6}} onClick={()=>setView(f)}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:6}} onClick={()=>setViewId(f.id)}>
               <div style={{cursor:"pointer"}}>
                 <p style={{fontWeight:700,fontSize:13}}>{f.numero}</p>
                 <p style={{fontSize:12,color:pv?"#6B7280":"#DC2626",fontWeight:pv?400:600,marginTop:1}}>{pv?.nom||"⚠️ Client non assigné"}</p>
@@ -5983,7 +5983,7 @@ return {Numero:f.numero,Date:f.date,Client:pv?.nom,Total:total,Statut:f.statut};
               </div>
             )}
             <div style={{display:"flex",gap:6}}>
-              <button onClick={()=>setView(f)} style={{flex:1,background:"#F5F5F0",border:"none",borderRadius:8,padding:"7px",fontSize:12,fontWeight:500,cursor:"pointer"}}>👁 Voir</button>
+              <button onClick={()=>setViewId(f.id)} style={{flex:1,background:"#F5F5F0",border:"none",borderRadius:8,padding:"7px",fontSize:12,fontWeight:500,cursor:"pointer"}}>👁 Voir</button>
               {f.statut!=="payée"&&<button onClick={()=>marquerPayee(f.id)} style={{flex:1,background:"#DCFCE7",border:"none",borderRadius:8,padding:"7px",fontSize:12,fontWeight:600,color:"#166534",cursor:"pointer"}}>✅ Payée</button>}
               {pr?.available&&f.statut!=="payée"
                 ? <button onClick={()=>genererRappelPDF(f)} style={{flex:1,background:pr.degree===1?"#FEF3C7":pr.degree===2?"#FFEDD5":"#FEE2E2",border:"none",borderRadius:8,padding:"7px",fontSize:12,fontWeight:700,color:pr.degree===1?"#92400E":pr.degree===2?"#9A3412":"#991B1B",cursor:"pointer"}}>
@@ -5991,7 +5991,7 @@ return {Numero:f.numero,Date:f.date,Client:pv?.nom,Total:total,Statut:f.statut};
                   </button>
                 : <button onClick={()=>envoyerEmail(f,null)} style={{flex:1,background:"#FEF9E7",border:"none",borderRadius:8,padding:"7px",fontSize:12,fontWeight:600,color:"#92400E",cursor:"pointer"}}>✉️ Email</button>
               }
-              {!pv&&<button onClick={()=>{setForm({...f,lignesOffertes:f.lignesOffertes||[]});setView(null);setModal("form");}} style={{flex:1,background:"#FEF3C7",border:"1.5px solid #F59E0B",borderRadius:8,padding:"7px",fontSize:12,fontWeight:700,color:"#92400E",cursor:"pointer"}}>👤 Assigner</button>}
+              {!pv&&<button onClick={()=>{setForm({...f,lignesOffertes:f.lignesOffertes||[]});setViewId(null);setModal("form");}} style={{flex:1,background:"#FEF3C7",border:"1.5px solid #F59E0B",borderRadius:8,padding:"7px",fontSize:12,fontWeight:700,color:"#92400E",cursor:"pointer"}}>👤 Assigner</button>}
               <button onClick={()=>{if(window.confirm("Supprimer ?"))del(f.id);}} style={{background:"#FEE2E2",border:"none",borderRadius:8,padding:"7px 10px",cursor:"pointer",display:"flex"}}><Ic n="trash" s={14}/></button>
             </div>
           </Card>
