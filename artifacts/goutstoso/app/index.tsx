@@ -5295,15 +5295,17 @@ const totalFinal = total+frais;
 const echeance = new Date(new Date(f.date).getTime()+30*86400000).toISOString().slice(0,10);
 const dateRappel = today();
 const newRappel = {degree:deg, date:dateRappel, frais};
-const updatedFac = {...f, rappels:[...(f.rappels||[]), newRappel], statut:"rappel "+deg};
 
 // Enregistrer le rappel dans l'état + mettre à jour le statut
-setSt(p=>({
-  ...p,
-  factures: p.factures.map(fac=>fac.id===f.id ? updatedFac : fac)
-}));
-// Mettre à jour la vue détail pour éviter l'état stale
-setView(updatedFac);
+// Utilise la version fraîche de la facture depuis le state pour éviter tout stale closure
+let updatedFac;
+setSt(p=>{
+  const fresh = p.factures.find(fac=>fac.id===f.id)||f;
+  updatedFac = {...fresh, rappels:[...(fresh.rappels||[]), newRappel], statut:"rappel envoyé"};
+  return {...p, factures: p.factures.map(fac=>fac.id===f.id ? updatedFac : fac)};
+});
+// Mettre à jour la vue détail
+if(typeof setView==="function") setView(v=>v&&v.id===f.id?{...v, rappels:[...(v.rappels||[]),newRappel], statut:"rappel envoyé"}:v);
 
 try {
   await new Promise((res,rej)=>{
@@ -5627,9 +5629,7 @@ return (
           options={[
             {v:"envoyée",l:"📤 Envoyée (en attente de paiement)"},
             {v:"en attente de paiement",l:"⏳ En attente de paiement"},
-            {v:"rappel 1",l:"🔔 Rappel 1"},
-            {v:"rappel 2",l:"⚠️ Rappel 2"},
-            {v:"rappel 3",l:"🚨 Rappel 3"},
+            {v:"rappel envoyé",l:"🔔 Rappel envoyé"},
           ]}/>
       </div>
     )}
@@ -5672,7 +5672,7 @@ return (
           <p style={{fontSize:12,fontWeight:700,color:"#D4A017",marginTop:2}}>{view.numero}</p>
           <p style={{fontSize:10,color:"#9CA3AF",marginTop:2}}>Émise le {fmt(view.date)}</p>
           <p style={{fontSize:10,color:retard?"#DC2626":"#9CA3AF"}}>Échéance {fmt(echeance)}</p>
-          <div style={{marginTop:6}}><Badge c={view.statut==="payée"?"green":view.statut==="rappel 3"||view.statut==="rappel 2"?"red":view.statut==="rappel 1"?"orange":view.statut==="envoyée"?"blue":retard?"red":"yellow"}>{view.statut==="payée"?"Payée":view.statut==="rappel 1"?"Rappel 1":view.statut==="rappel 2"?"Rappel 2":view.statut==="rappel 3"?"Rappel 3":view.statut==="envoyée"?"Envoyée":retard?"En retard":"En attente"}</Badge></div>
+          <div style={{marginTop:6}}><Badge c={view.statut==="payée"?"green":view.statut==="rappel envoyé"?((view.rappels||[]).slice(-1)[0]?.degree>=2?"red":"orange"):view.statut==="envoyée"?"blue":retard?"red":"yellow"}>{view.statut==="payée"?"Payée":view.statut==="rappel envoyé"?"Rappel envoyé":view.statut==="envoyée"?"Envoyée":retard?"En retard":"En attente"}</Badge></div>
         </div>
       </div>
       <div style={{margin:"12px 16px",height:1,background:"#F5F5F0"}}/>
@@ -5914,7 +5914,7 @@ return {Numero:f.numero,Date:f.date,Client:pv?.nom,Total:total,Statut:f.statut};
                       {icone} Rappel {r.degree}
                     </span>
                     <span style={{fontSize:12,fontWeight:600}}>{r.facture.numero}</span>
-                    <Badge c={estPayee?"green":r.facture.statut==="rappel 3"||r.facture.statut==="rappel 2"?"red":r.facture.statut==="rappel 1"?"orange":"yellow"}>{estPayee?"Payée":r.facture.statut==="rappel 1"?"Rappel 1":r.facture.statut==="rappel 2"?"Rappel 2":r.facture.statut==="rappel 3"?"Rappel 3":"En attente"}</Badge>
+                    <Badge c={estPayee?"green":r.facture.statut==="rappel envoyé"?(r.degree>=2?"red":"orange"):"yellow"}>{estPayee?"Payée":r.facture.statut==="rappel envoyé"?"Rappel envoyé":"En attente"}</Badge>
                   </div>
                   <p style={{fontSize:12,color:"#6B7280"}}>{r.pv?.nom||"—"}</p>
                   <p style={{fontSize:11,color:"#9CA3AF",marginTop:2}}>Envoyé le {fmt(r.date)}</p>
@@ -5965,8 +5965,8 @@ return {Numero:f.numero,Date:f.date,Client:pv?.nom,Total:total,Statut:f.statut};
                   CHF {total.toFixed(2)}
                 </p>
                 <div style={{marginTop:4,display:"flex",gap:4,justifyContent:"flex-end",flexWrap:"wrap"}}>
-                  <Badge c={f.statut==="payée"?"green":f.statut==="rappel 3"||f.statut==="rappel 2"?"red":f.statut==="rappel 1"?"orange":retard?"red":"yellow"}>
-                    {f.statut==="payée"?"Payée":f.statut==="rappel 1"?"Rappel 1":f.statut==="rappel 2"?"Rappel 2":f.statut==="rappel 3"?"Rappel 3":f.statut==="envoyée"?"Envoyée":retard?`Retard ${retard.jours}j`:"En attente"}
+                  <Badge c={f.statut==="payée"?"green":f.statut==="rappel envoyé"?((f.rappels||[]).slice(-1)[0]?.degree>=2?"red":"orange"):retard?"red":"yellow"}>
+                    {f.statut==="payée"?"Payée":f.statut==="rappel envoyé"?"Rappel envoyé":f.statut==="envoyée"?"Envoyée":retard?`Retard ${retard.jours}j`:"En attente"}
                   </Badge>
                 </div>
               </div>
