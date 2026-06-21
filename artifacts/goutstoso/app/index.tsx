@@ -5296,16 +5296,21 @@ const echeance = new Date(new Date(f.date).getTime()+30*86400000).toISOString().
 const dateRappel = today();
 const newRappel = {degree:deg, date:dateRappel, frais};
 
-// Enregistrer le rappel dans l'état + mettre à jour le statut
-// Utilise la version fraîche de la facture depuis le state pour éviter tout stale closure
-let updatedFac;
-setSt(p=>{
-  const fresh = p.factures.find(fac=>fac.id===f.id)||f;
-  updatedFac = {...fresh, rappels:[...(fresh.rappels||[]), newRappel], statut:"rappel envoyé"};
-  return {...p, factures: p.factures.map(fac=>fac.id===f.id ? updatedFac : fac)};
-});
-// Mettre à jour la vue détail
-if(typeof setView==="function") setView(v=>v&&v.id===f.id?{...v, rappels:[...(v.rappels||[]),newRappel], statut:"rappel envoyé"}:v);
+// Construire l'objet mis à jour à partir de la facture actuelle dans st
+const facActuelle = (st.factures||[]).find(fac=>fac.id===f.id)||f;
+const updatedFac = {...facActuelle, rappels:[...(facActuelle.rappels||[]), newRappel], statut:"rappel envoyé"};
+
+// Mettre à jour l'état global et la vue détail de façon directe et fiable
+setSt(p=>({...p, factures: p.factures.map(fac=>fac.id===f.id ? updatedFac : fac)}));
+setView(updatedFac);
+
+// Sauvegarder immédiatement en localStorage pour ne pas perdre le changement
+try {
+  const saved = localStorage.getItem("goutstoso_v2");
+  const local = saved ? JSON.parse(saved) : {};
+  const newLocal = {...local, factures:(local.factures||[]).map((fac:any)=>fac.id===f.id?updatedFac:fac)};
+  localStorage.setItem("goutstoso_v2", JSON.stringify(newLocal));
+} catch(e){}
 
 try {
   await new Promise((res,rej)=>{
