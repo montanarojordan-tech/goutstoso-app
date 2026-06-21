@@ -5285,32 +5285,31 @@ const echeance=new Date(new Date(f.date).getTime()+30*86400000).toISOString().sl
 
 // ── GÉNÉRER LETTRE RAPPEL FORMELLE ──────────────────────────────
 const genererRappelPDF = async (f) => {
+try {
 const pr = getProchainRappel(f);
 if(!pr || !pr.available) { alert("Aucun rappel disponible pour cette facture."); return; }
 const deg = pr.degree;
 const frais = pr.frais;
-const pv = st.partenaires.find(p=>p.id===f.partenaireId);
-const total = calcTotalNet(f,st.produits);
-const totalFinal = total+frais;
-const echeance = new Date(new Date(f.date).getTime()+30*86400000).toISOString().slice(0,10);
 const dateRappel = today();
 const newRappel = {degree:deg, date:dateRappel, frais};
 
-// Construire l'objet mis à jour à partir de la facture actuelle dans st
+// ── 1. Mise à jour du statut EN PREMIER (avant tout code qui peut échouer) ──
 const facActuelle = (st.factures||[]).find(fac=>fac.id===f.id)||f;
 const updatedFac = {...facActuelle, rappels:[...(facActuelle.rappels||[]), newRappel], statut:"rappel envoyé"};
-
-// Mettre à jour l'état global et la vue détail de façon directe et fiable
 setSt(p=>({...p, factures: p.factures.map(fac=>fac.id===f.id ? updatedFac : fac)}));
 setView(updatedFac);
-
-// Sauvegarder immédiatement en localStorage pour ne pas perdre le changement
 try {
   const saved = localStorage.getItem("goutstoso_v2");
   const local = saved ? JSON.parse(saved) : {};
   const newLocal = {...local, factures:(local.factures||[]).map((fac:any)=>fac.id===f.id?updatedFac:fac)};
   localStorage.setItem("goutstoso_v2", JSON.stringify(newLocal));
-} catch(e){}
+} catch(lsErr){}
+
+// ── 2. Génération PDF (code qui peut échouer, n'affecte pas le statut) ──
+const pv = st.partenaires.find(p=>p.id===f.partenaireId);
+const total = calcTotalNet(f,st.produits);
+const totalFinal = total+frais;
+const echeance = new Date(new Date(f.date||today()).getTime()+30*86400000).toISOString().slice(0,10);
 
 try {
   await new Promise((res,rej)=>{
@@ -5462,6 +5461,7 @@ try {
   doc.save("RAPPEL-"+deg+"-"+f.numero+".pdf");
   alert("✅ Rappel "+deg+" généré et enregistré !");
 } catch(e){alert("Erreur PDF : "+e.message);}
+} catch(outerErr){alert("Erreur rappel : "+(outerErr?.message||String(outerErr)));}
 };
 
 // Filtres
