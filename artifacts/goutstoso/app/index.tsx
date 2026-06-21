@@ -17638,6 +17638,22 @@ setSt(p=>{
 });
 },[loading]);
 
+// Migration : factures avec rappels → statut "rappel envoyé"
+React.useEffect(()=>{
+if(loading) return;
+setSt(p=>{
+  const updated = (p.factures||[]).map(f=>{
+    if(f.statut==="payée" || f.statut==="rappel envoyé") return f;
+    const rappels = f.rappels||[];
+    if(rappels.length===0) return f;
+    return {...f, statut:"rappel envoyé"};
+  });
+  const hasChanges = updated.some((f,i)=>f!==((p.factures||[])[i]));
+  if(!hasChanges) return p;
+  return {...p, factures: updated};
+});
+},[loading]);
+
 // Sauvegarder à chaque changement
 const saveTimer = React.useRef(null);
 const lastLocalChange = React.useRef(0);
