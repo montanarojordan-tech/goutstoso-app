@@ -627,7 +627,7 @@ if(joursDepuis >= 7) {
 const stocksBas = {};
 (st.depotStocks||[]).filter(ds=>{
 const restant = (ds.qteDeposee||0)-(ds.qteVendue||0)-(ds.qteRetournee||0);
-return restant <= 2 && restant > 0;
+return restant < 0;
 }).forEach(ds=>{
 const key = ds.partenaireId;
 if(!stocksBas[key]) stocksBas[key] = [];
