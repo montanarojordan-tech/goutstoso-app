@@ -12730,7 +12730,7 @@ const convertirEnCommande = (offre) => {
 
 const setStatut = (id, statut) => setSt(p=>({...p,offres:(p.offres||[]).map(o=>o.id===id?{...o,statut}:o)}));
 
-const getPrixOffre = (prod, tc) => tc==="client" ? (prod?.prixClient||0) : (prod?.prixRevendeur||0);
+const getPrixOffre = (prod, tc) => tc==="client" ? (prod?.prixClient||0) : (prod?.prixRevendeur||prod?.prixClient||0);
 const totalOffre = (offre) => {
   const tc = offre.typeClient||"revendeur";
   const base = (offre.lignes||[]).reduce((s,l)=>{
