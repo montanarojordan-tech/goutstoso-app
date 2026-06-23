@@ -12216,13 +12216,14 @@ try {
   y+=8;
 
   // Lignes produits
+  const tcOffre = offre.typeClient||"revendeur";
   const lignesValides = (offre.lignes||[]).filter(l=>l.produitId);
   let totalPrixBrut = 0; let totalPrix = 0; let totalPublic = 0;
   lignesValides.forEach((l,i)=>{
     const prod = (st.produits||[]).find(p=>p.id===l.produitId);
     if(!prod) return;
-    const pPart = prod.prixRevendeur||0;
     const pPub = prod.prixClient||0;
+    const pPart = tcOffre==="client" ? pPub : (prod.prixRevendeur||pPub||0);
     const brutLigneO = pPart*(l.qte||0);
     const remPctO = parseFloat(l.remise)||0;
     const total = remPctO>0?brutLigneO*(1-remPctO/100):brutLigneO;
@@ -12299,7 +12300,7 @@ try {
   doc.setFillColor(10,10,10);
   doc.rect(startX,y,tableW,10,"F");
   doc.setFont("helvetica","bold"); doc.setFontSize(10); doc.setTextColor(242,201,76);
-  doc.text("TOTAL PARTENAIRE (hors TVA)",startX+4,y+6.5);
+  doc.text((tcOffre==="client"?"TOTAL CLIENT":"TOTAL PARTENAIRE")+" (hors TVA)",startX+4,y+6.5);
   doc.text("CHF "+totalAvecFrais.toFixed(2),startX+tableW-4,y+6.5,{align:"right"});
   y+=10;
 
