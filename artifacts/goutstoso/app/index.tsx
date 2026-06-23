@@ -12540,6 +12540,7 @@ const emptyForm = () => ({
   fraisLivraison:0,
   livraisonGratuite:false,
   remiseGlobale:{type:"pourcent",valeur:0},
+  typeClient:"revendeur",
 });
 
 const saveOffre = () => {
@@ -12729,10 +12730,12 @@ const convertirEnCommande = (offre) => {
 
 const setStatut = (id, statut) => setSt(p=>({...p,offres:(p.offres||[]).map(o=>o.id===id?{...o,statut}:o)}));
 
+const getPrixOffre = (prod, tc) => tc==="client" ? (prod?.prixClient||0) : (prod?.prixRevendeur||0);
 const totalOffre = (offre) => {
+  const tc = offre.typeClient||"revendeur";
   const base = (offre.lignes||[]).reduce((s,l)=>{
     const p=(st.produits||[]).find(x=>x.id===l.produitId);
-    const brut=(p?.prixRevendeur||0)*(l.qte||0);
+    const brut=getPrixOffre(p,tc)*(l.qte||0);
     const remisePct=parseFloat(l.remise)||0;
     return s+(remisePct>0?brut*(1-remisePct/100):brut);
   },0);
@@ -13018,7 +13021,7 @@ if(view) return (
         {view.signJordan?"✅ Ma signature enregistrée (modifier)":"✍️ Apposer ma signature (Goûtstoso)"}
       </button>}
 
-  <button onClick={async()=>{const enriched={...view,lignes:(view.lignes||[]).map(l=>{const prod=(st.produits||[]).find(p=>p.id===l.produitId);return {...l,designation:prod?`${prod.nom}${prod.format?" · "+prod.format:""}`:l.produitId,prixUnitaire:prod?.prixRevendeur||0};})};const token=await envoyerPourSignature("offre","Offre "+view.numero,enriched,view.clientEmail||"");if(token)setSt(p=>({...p,offres:p.offres.map(o=>o.id===view.id?{...o,signingToken:token}:o)}));}} style={{width:"100%",marginBottom:view.signingToken?4:10,background:"linear-gradient(135deg,#0a0a0a,#1a1a1a)",border:"none",borderRadius:10,padding:"11px",fontWeight:700,fontSize:12,color:"#F2C94C",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+  <button onClick={async()=>{const enriched={...view,lignes:(view.lignes||[]).map(l=>{const prod=(st.produits||[]).find(p=>p.id===l.produitId);return {...l,designation:prod?`${prod.nom}${prod.format?" · "+prod.format:""}`:l.produitId,prixUnitaire:getPrixOffre(prod,view.typeClient)};})};const token=await envoyerPourSignature("offre","Offre "+view.numero,enriched,view.clientEmail||"");if(token)setSt(p=>({...p,offres:p.offres.map(o=>o.id===view.id?{...o,signingToken:token}:o)}));}} style={{width:"100%",marginBottom:view.signingToken?4:10,background:"linear-gradient(135deg,#0a0a0a,#1a1a1a)",border:"none",borderRadius:10,padding:"11px",fontWeight:700,fontSize:12,color:"#F2C94C",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
     🔏 Envoyer pour signature
   </button>
   {view.signingToken&&<button onClick={async()=>{try{const r=await fetch(`${SIGN_API}/sign/${view.signingToken}`);const d=await r.json();if(d.status!=="signed"){alert("Pas encore signé. Relancez une fois que votre partenaire a cliqué le lien.");return;}setSt(p=>({...p,offres:p.offres.map(o=>o.id===view.id?{...o,signClient:d.signatureData,statut:"acceptée",signerNom:d.signerName,signedAt:d.signedAt||new Date().toISOString(),signingToken:null}:o)}));alert(`✅ ${d.signerName} a signé !\nLa signature est maintenant intégrée dans le PDF.`);}catch(e){alert("Erreur : "+e.message);}}} style={{width:"100%",marginBottom:4,background:"#DCFCE7",border:"1.5px solid #86EFAC",borderRadius:10,padding:"10px",fontWeight:700,fontSize:12,color:"#166534",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>🔄 Vérifier la signature</button>}
@@ -13067,34 +13070,36 @@ if(view) return (
   <Card style={{padding:0,overflow:"hidden",marginBottom:12}}>
     <div style={{background:"#0A0A0A",padding:"10px 14px",display:"grid",gridTemplateColumns:"1fr auto auto auto",gap:8,alignItems:"center"}}>
       <p style={{fontSize:10,fontWeight:700,color:"#F2C94C",textTransform:"uppercase"}}>Produit</p>
-      <p style={{fontSize:10,fontWeight:700,color:"#9CA3AF",width:50,textAlign:"center"}}>Prix public</p>
-      <p style={{fontSize:10,fontWeight:700,color:"#F2C94C",width:60,textAlign:"center"}}>Prix part.</p>
+      <p style={{fontSize:10,fontWeight:700,color:"#9CA3AF",width:50,textAlign:"center"}}>{view.typeClient==="client"?"":"Prix pub."}</p>
+      <p style={{fontSize:10,fontWeight:700,color:"#F2C94C",width:60,textAlign:"center"}}>Prix</p>
       <p style={{fontSize:10,fontWeight:700,color:"#9CA3AF",width:30,textAlign:"center"}}>Qté</p>
     </div>
     {(view.lignes||[]).map((l,i)=>{
       const prod=(st.produits||[]).find(p=>p.id===l.produitId);
       if(!prod) return null;
-      const total=(prod.prixRevendeur||0)*(l.qte||0);
+      const total=getPrixOffre(prod,view.typeClient)*(l.qte||0);
       return (
         <div key={i} style={{padding:"10px 14px",display:"grid",gridTemplateColumns:"1fr auto auto auto",gap:8,alignItems:"center",borderBottom:"1px solid #F5F5F0",background:i%2===0?"#fff":"#FAFAF8"}}>
           <div>
             <p style={{fontWeight:600,fontSize:13}}>{prod.nom} {prod.variante}</p>
             <p style={{fontSize:10,color:"#9CA3AF"}}>{prod.format} · {prod.alcool||"30% vol."}</p>
           </div>
-          <p style={{fontSize:11,color:"#9CA3AF",width:50,textAlign:"center",textDecoration:"line-through"}}>CHF {(prod.prixClient||0).toFixed(2)}</p>
-          <p style={{fontSize:12,fontWeight:700,color:"#166534",width:60,textAlign:"center"}}>CHF {(prod.prixRevendeur||0).toFixed(2)}</p>
+          {view.typeClient!=="client"&&<p style={{fontSize:11,color:"#9CA3AF",width:50,textAlign:"center",textDecoration:"line-through"}}>CHF {(prod.prixClient||0).toFixed(2)}</p>}
+          {view.typeClient==="client"&&<p style={{width:50}}/>}
+          <p style={{fontSize:12,fontWeight:700,color:"#166534",width:60,textAlign:"center"}}>CHF {getPrixOffre(prod,view.typeClient).toFixed(2)}</p>
           <p style={{fontSize:13,fontWeight:700,width:30,textAlign:"center"}}>{l.qte}</p>
         </div>
       );
     })}
     <div style={{padding:"12px 14px",background:"#0A0A0A",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-      <p style={{fontSize:12,fontWeight:600,color:"#9CA3AF"}}>TOTAL PARTENAIRE</p>
+      <p style={{fontSize:12,fontWeight:600,color:"#9CA3AF"}}>{view.typeClient==="client"?"TOTAL CLIENT":"TOTAL PARTENAIRE"}</p>
       <p style={{fontSize:16,fontWeight:700,color:"#F2C94C",fontFamily:"'Cormorant Garamond',serif"}}>{chf(totalOffre(view))}</p>
     </div>
   </Card>
 
   {/* Économie */}
   {(()=>{
+    if(view.typeClient==="client") return null;
     const pub = (view.lignes||[]).reduce((s,l)=>{const p=(st.produits||[]).find(x=>x.id===l.produitId);return s+(p?.prixClient||0)*(l.qte||0);},0);
     const part = totalOffre(view);
     const eco = pub-part;
@@ -13223,9 +13228,9 @@ return (
             const pv=(st.partenaires||[]).find(p=>p.id===v);
             const cl=(st.clients||[]).find(c=>c.id===v);
             if(pv){
-              setForm(p=>({...p,partenaireId:v,clientNom:pv.nom,clientContact:pv.contact||"",clientAdresse:pv.adresse||"",clientNpa:pv.npa||"",clientVille:pv.ville||"",clientEmail:pv.email||"",clientTel:pv.tel||"",clientSite:pv.site||"",clientLogo:pv.logo||""}));
+              setForm(p=>({...p,partenaireId:v,typeClient:"revendeur",clientNom:pv.nom,clientContact:pv.contact||"",clientAdresse:pv.adresse||"",clientNpa:pv.npa||"",clientVille:pv.ville||"",clientEmail:pv.email||"",clientTel:pv.tel||"",clientSite:pv.site||"",clientLogo:pv.logo||""}));
             } else if(cl){
-              setForm(p=>({...p,partenaireId:v,clientNom:cl.nom,clientContact:"",clientAdresse:cl.adresse||"",clientNpa:cl.npa||"",clientVille:cl.ville||"",clientEmail:cl.email||"",clientTel:cl.telephone||"",clientSite:"",clientLogo:""}));
+              setForm(p=>({...p,partenaireId:v,typeClient:"client",clientNom:cl.nom,clientContact:"",clientAdresse:cl.adresse||"",clientNpa:cl.npa||"",clientVille:cl.ville||"",clientEmail:cl.email||"",clientTel:cl.telephone||"",clientSite:"",clientLogo:""}));
             }
           }} style={{width:"100%",padding:"10px 12px",fontSize:13,borderRadius:10,border:"1.5px solid #D1D5DB",background:"#fff",fontFamily:"inherit",color:"#111",boxSizing:"border-box" as any}}>
             <option value="">— Nouveau / saisie manuelle —</option>
@@ -13318,6 +13323,19 @@ return (
           style={{width:"100%",minHeight:70,padding:"8px 10px",fontSize:12,border:"1.5px solid #D1D5DB",borderRadius:10,resize:"vertical",fontFamily:"inherit",boxSizing:"border-box"}}/>
       </div>
 
+      {/* Type de prix */}
+      <div style={{marginBottom:12}}>
+        <label style={{fontSize:11,fontWeight:600,color:"#6B7280",textTransform:"uppercase",letterSpacing:".06em",display:"block",marginBottom:5}}>Type de tarif</label>
+        <div style={{display:"flex",gap:8}}>
+          <button type="button" onClick={()=>setForm(p=>({...p,typeClient:"revendeur"}))} style={{flex:1,padding:"9px",borderRadius:10,border:"1.5px solid "+(form.typeClient==="revendeur"?"#0A0A0A":"#D1D5DB"),background:form.typeClient==="revendeur"?"#0A0A0A":"#fff",color:form.typeClient==="revendeur"?"#F2C94C":"#374151",fontWeight:700,fontSize:12,cursor:"pointer"}}>
+            🤝 Partenaire / Revendeur
+          </button>
+          <button type="button" onClick={()=>setForm(p=>({...p,typeClient:"client"}))} style={{flex:1,padding:"9px",borderRadius:10,border:"1.5px solid "+(form.typeClient==="client"?"#0A0A0A":"#D1D5DB"),background:form.typeClient==="client"?"#0A0A0A":"#fff",color:form.typeClient==="client"?"#F2C94C":"#374151",fontWeight:700,fontSize:12,cursor:"pointer"}}>
+            👤 Client / Public
+          </button>
+        </div>
+      </div>
+
       {/* Produits */}
       <div>
         <p style={{fontSize:11,fontWeight:700,color:"#374151",marginBottom:8,textTransform:"uppercase",letterSpacing:".04em"}}>Produits & quantités</p>
@@ -13327,13 +13345,14 @@ return (
           if(!prod) return null;
           const qte = l.qte||0;
           const remisePct = parseFloat(l.remise)||0;
-          const brut = (prod.prixRevendeur||0)*qte;
+          const pu = getPrixOffre(prod, form.typeClient);
+          const brut = pu*qte;
           return (
             <div key={i} style={{borderRadius:10,overflow:"hidden",border:"1.5px solid "+(qte>0?"#86EFAC":"#EAE7E0"),marginBottom:0}}>
               <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,background:qte>0?"#F0FDF4":"#fff",padding:"10px 12px"}}>
                 <div style={{flex:1,minWidth:0}}>
                   <p style={{fontWeight:600,fontSize:13,color:"#111"}}>{prod.nom} {prod.variante}</p>
-                  <p style={{fontSize:10,color:"#9CA3AF"}}>{prod.format} · <span style={{color:"#166534",fontWeight:700}}>CHF {prod.prixRevendeur}</span><span style={{color:"#9CA3AF",textDecoration:"line-through",marginLeft:4}}>CHF {prod.prixClient}</span>
+                  <p style={{fontSize:10,color:"#9CA3AF"}}>{prod.format} · <span style={{color:"#166534",fontWeight:700}}>CHF {pu.toFixed(2)}</span>
                     {remisePct>0&&<span style={{color:"#D97706",fontWeight:700,marginLeft:4}}>→ CHF {(brut>0?(brut*(1-remisePct/100)/Math.max(qte,1)):0).toFixed(2)}/u.</span>}
                   </p>
                 </div>
@@ -13367,7 +13386,7 @@ return (
         })}
         </div>
         {(()=>{
-          const total=sum((form.lignes||[]).map(l=>{const p=(st.produits||[]).find(x=>x.id===l.produitId);const brut=(p?.prixRevendeur||0)*(l.qte||0);const remisePct=parseFloat(l.remise)||0;return remisePct>0?brut*(1-remisePct/100):brut;}));
+          const total=sum((form.lignes||[]).map(l=>{const p=(st.produits||[]).find(x=>x.id===l.produitId);const brut=getPrixOffre(p,form.typeClient)*(l.qte||0);const remisePct=parseFloat(l.remise)||0;return remisePct>0?brut*(1-remisePct/100):brut;}));
           const remiseGlobaleMontant=calcRemiseGlobale(total,form.remiseGlobale);
           if(!total) return null;
           return (
@@ -13377,7 +13396,7 @@ return (
                 <p style={{fontSize:11,color:"#F59E0B"}}>- {chf(remiseGlobaleMontant)}</p>
               </div>}
               <div style={{display:"flex",justifyContent:"space-between"}}>
-                <p style={{fontSize:12,color:"#9CA3AF",fontWeight:600}}>TOTAL PARTENAIRE</p>
+                <p style={{fontSize:12,color:"#9CA3AF",fontWeight:600}}>{form.typeClient==="client"?"TOTAL CLIENT":"TOTAL PARTENAIRE"}</p>
                 <p style={{fontSize:14,fontWeight:700,color:"#F2C94C"}}>{chf(total-remiseGlobaleMontant)}</p>
               </div>
             </div>
@@ -13416,7 +13435,7 @@ return (
             )}
           </div>
           {((form.remiseGlobale||{}).valeur>0)&&(()=>{
-            const baseTotal=sum((form.lignes||[]).map(l=>{const p=(st.produits||[]).find(x=>x.id===l.produitId);const brut=(p?.prixRevendeur||0)*(l.qte||0);const rp=parseFloat(l.remise)||0;return rp>0?brut*(1-rp/100):brut;}));
+            const baseTotal=sum((form.lignes||[]).map(l=>{const p=(st.produits||[]).find(x=>x.id===l.produitId);const brut=getPrixOffre(p,form.typeClient)*(l.qte||0);const rp=parseFloat(l.remise)||0;return rp>0?brut*(1-rp/100):brut;}));
             const remAmt=calcRemiseGlobale(baseTotal,form.remiseGlobale);
             return <p style={{fontSize:11,color:"#166534",fontWeight:700,marginTop:8,textAlign:"center"}}>Remise : - {chf(remAmt)}</p>;
           })()}
