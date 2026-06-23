@@ -5073,6 +5073,7 @@ const fraisLivPDF=parseFloat(f.fraisLivraison)||0;
 const sousTotal2=totalBrutPDF-totalRabaisPDF;
 const remiseMontantPDF=calcRemiseGlobale(sousTotal2,f.remiseGlobale);
 const total=sousTotal2-remiseMontantPDF+fraisLivPDF;
+const retard=null;
 const totalFinal=total;
 const echeance=new Date(new Date(f.date).getTime()+30*86400000).toISOString().slice(0,10);
 
