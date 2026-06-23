@@ -5073,8 +5073,7 @@ const fraisLivPDF=parseFloat(f.fraisLivraison)||0;
 const sousTotal2=totalBrutPDF-totalRabaisPDF;
 const remiseMontantPDF=calcRemiseGlobale(sousTotal2,f.remiseGlobale);
 const total=sousTotal2-remiseMontantPDF+fraisLivPDF;
-const retard=getInfosRetard(f);
-const totalFinal=total+(retard?.frais||0);
+const totalFinal=total;
 const echeance=new Date(new Date(f.date).getTime()+30*86400000).toISOString().slice(0,10);
 
   // Bande jaune top
@@ -5083,29 +5082,21 @@ const echeance=new Date(new Date(f.date).getTime()+30*86400000).toISOString().sl
   // Header
   pdfLogo(doc,mg);
   doc.setFontSize(26);doc.setFont("helvetica","bold");doc.setTextColor(17,17,17);
-  doc.text(retard?"RAPPEL":"FACTURE",W-mg,20,{align:"right"});
+  doc.text("FACTURE",W-mg,20,{align:"right"});
   doc.setFontSize(10);doc.setTextColor(212,160,23);
   doc.text(f.numero,W-mg,27,{align:"right"});
   doc.setFontSize(8);doc.setTextColor(120,120,120);doc.setFont("helvetica","normal");
   doc.text("Date : "+fmt(f.date),W-mg,33,{align:"right"});
-  doc.text("Échéance : "+fmt(echeance),W-mg,38,{align:"right"});
+  doc.text("Echéance : "+fmt(echeance),W-mg,38,{align:"right"});
 
   // Références liées
   const cmdRef = f.commandeId ? (st.commandes||[]).find((c:any)=>c.id===f.commandeId) : null;
   let refY = 38;
   doc.setFontSize(8);doc.setTextColor(120,120,120);doc.setFont("helvetica","normal");
-  if(cmdRef){refY+=4.5;doc.text("Réf. commande : "+cmdRef.numero,W-mg,refY,{align:"right"});}
-
-  // Alerte retard
-  if(retard) {
-    doc.setFillColor(254,226,226);doc.setDrawColor(252,165,165);
-    doc.roundedRect(mg,44,W-mg*2,10,2,2,"FD");
-    doc.setFontSize(8);doc.setFont("helvetica","bold");doc.setTextColor(153,27,27);
-    doc.text("⚠ PAIEMENT EN RETARD : "+retard.jours+" jours"+(retard.frais>0?" - Frais de rappel : CHF "+retard.frais.toFixed(2):""),W/2,51,{align:"center"});
-  }
+  if(cmdRef){refY+=4.5;doc.text("Ref. commande : "+cmdRef.numero,W-mg,refY,{align:"right"});}
 
   // Sépar
-  const yBase=retard?Math.max(60,refY+10):Math.max(50,refY+6);
+  const yBase=Math.max(50,refY+6);
   doc.setDrawColor(230,230,228);doc.setLineWidth(0.3);doc.line(mg,yBase,W-mg,yBase);
 
   // Parties
