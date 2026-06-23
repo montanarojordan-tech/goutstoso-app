@@ -114,23 +114,32 @@ function DocumentPreview({ req }: { req: SigningRequest }) {
                   <tr>
                     <th className="text-left px-3 py-2 text-gray-500 font-medium">Désignation</th>
                     {!isProspection && <th className="text-center px-3 py-2 text-gray-500 font-medium">Qté</th>}
+                    {!isProspection && <th className="text-right px-3 py-2 text-gray-500 font-medium">Prix u.</th>}
                     <th className="text-right px-3 py-2 text-gray-500 font-medium">
                       {isProspection ? "Prix / unité CHF" : "Total CHF"}
                     </th>
                   </tr>
                 </thead>
                 <tbody>
-                  {items.map((item, i) => (
-                    <tr key={i} className={i % 2 === 0 ? "bg-white" : "bg-gray-50/50"}>
-                      <td className="px-3 py-2 text-gray-800">{item.designation}</td>
-                      {!isProspection && <td className="px-3 py-2 text-center text-gray-600">{item.quantite}</td>}
-                      <td className="px-3 py-2 text-right text-gray-800 font-medium">
-                        {isProspection
-                          ? Number(item.prixUnitaire || 0).toFixed(2)
-                          : ((item.quantite || 0) * (item.prixUnitaire || 0)).toFixed(2)}
-                      </td>
-                    </tr>
-                  ))}
+                  {items.map((item: any, i) => {
+                    const remisePct = Number(item.remisePct || 0);
+                    const totalLigne = item.totalLigne !== undefined ? Number(item.totalLigne) : (item.quantite || 0) * (item.prixUnitaire || 0);
+                    return (
+                      <tr key={i} className={i % 2 === 0 ? "bg-white" : "bg-gray-50/50"}>
+                        <td className="px-3 py-2 text-gray-800">
+                          {item.designation}
+                          {remisePct > 0 && <span className="ml-1 text-xs text-amber-600 font-semibold">(-{remisePct}%)</span>}
+                        </td>
+                        {!isProspection && <td className="px-3 py-2 text-center text-gray-600">{item.quantite}</td>}
+                        {!isProspection && <td className="px-3 py-2 text-right text-gray-500 text-xs">CHF {Number(item.prixUnitaire || 0).toFixed(2)}</td>}
+                        <td className="px-3 py-2 text-right text-gray-800 font-medium">
+                          {isProspection
+                            ? Number(item.prixUnitaire || 0).toFixed(2)
+                            : totalLigne.toFixed(2)}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -142,23 +151,66 @@ function DocumentPreview({ req }: { req: SigningRequest }) {
           </div>
         )}
 
-        {d.totalHT !== undefined && (
-          <div className="pt-3 border-t border-gray-100 flex justify-between font-bold text-gray-900">
-            <span>Total HT</span>
-            <span>CHF {Number(d.totalHT).toFixed(2)}</span>
+        {d._totalFinal !== undefined ? (
+          <div className="mt-4 rounded-xl overflow-hidden border border-gray-100">
+            {d._remisesLignes > 0 && (
+              <div className="flex justify-between items-center px-4 py-2 bg-amber-50 text-sm">
+                <span className="text-amber-700">Remises par ligne</span>
+                <span className="text-amber-700 font-semibold">- CHF {Number(d._remisesLignes).toFixed(2)}</span>
+              </div>
+            )}
+            {d._bonCadeau > 0 && (
+              <div className="flex justify-between items-center px-4 py-2 bg-orange-50 text-sm">
+                <span className="text-orange-700">🎁 {d._bonCadeauDesc || "Bon cadeau"}</span>
+                <span className="text-orange-700 font-semibold">+ CHF {Number(d._bonCadeau).toFixed(2)}</span>
+              </div>
+            )}
+            {d._remiseGlobale > 0 && (
+              <div className="flex justify-between items-center px-4 py-2 bg-amber-50 text-sm">
+                <span className="text-amber-700">{d._remiseGlobaleLabel || "Remise commerciale"}</span>
+                <span className="text-amber-700 font-semibold">- CHF {Number(d._remiseGlobale).toFixed(2)}</span>
+              </div>
+            )}
+            {d._fraisLivraison > 0 && (
+              <div className="flex justify-between items-center px-4 py-2 bg-blue-50 text-sm">
+                <span className="text-blue-700">Frais de livraison</span>
+                <span className="text-blue-700 font-semibold">+ CHF {Number(d._fraisLivraison).toFixed(2)}</span>
+              </div>
+            )}
+            {d._livraisonGratuite && (
+              <div className="flex justify-between items-center px-4 py-2 bg-green-50 text-sm">
+                <span className="text-green-700">Livraison</span>
+                <span className="text-green-700 font-semibold">Offerte</span>
+              </div>
+            )}
+            <div className="flex justify-between items-center px-4 py-3 bg-[#0a0a0a]">
+              <span className="text-[#f2c94c] font-bold text-sm">
+                {d._typeClient === "client" ? "TOTAL CLIENT" : "TOTAL PARTENAIRE"} (hors TVA)
+              </span>
+              <span className="text-[#f2c94c] font-bold text-base">CHF {Number(d._totalFinal).toFixed(2)}</span>
+            </div>
           </div>
-        )}
-        {d.totalPrix !== undefined && !d.totalHT && (
-          <div className="pt-3 border-t border-gray-100 flex justify-between font-bold text-gray-900">
-            <span>Total partenaire (hors TVA)</span>
-            <span>CHF {Number(d.totalPrix).toFixed(2)}</span>
-          </div>
-        )}
-        {d.montantTotal !== undefined && !d.totalPrix && !d.totalHT && (
-          <div className="pt-3 border-t border-gray-100 flex justify-between font-bold text-gray-900">
-            <span>Montant total</span>
-            <span>CHF {Number(d.montantTotal).toFixed(2)}</span>
-          </div>
+        ) : (
+          <>
+            {d.totalHT !== undefined && (
+              <div className="pt-3 border-t border-gray-100 flex justify-between font-bold text-gray-900">
+                <span>Total HT</span>
+                <span>CHF {Number(d.totalHT).toFixed(2)}</span>
+              </div>
+            )}
+            {d.totalPrix !== undefined && !d.totalHT && (
+              <div className="pt-3 border-t border-gray-100 flex justify-between font-bold text-gray-900">
+                <span>Total partenaire (hors TVA)</span>
+                <span>CHF {Number(d.totalPrix).toFixed(2)}</span>
+              </div>
+            )}
+            {d.montantTotal !== undefined && !d.totalPrix && !d.totalHT && (
+              <div className="pt-3 border-t border-gray-100 flex justify-between font-bold text-gray-900">
+                <span>Montant total</span>
+                <span>CHF {Number(d.montantTotal).toFixed(2)}</span>
+              </div>
+            )}
+          </>
         )}
       </div>
       {type === "convention" && d.conventionTexte && (

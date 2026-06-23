@@ -12353,7 +12353,7 @@ try {
   }
 
   // Signatures (Goûtstoso + Client)
-  if(offre.signJordan || offre.signClient) {
+  if(offre.signJordan || offre.signClient || offre.statut==="acceptée") {
     y+=6;
     const sigColW = (W - mg*2 - 10) / 2;
     const sigHO = 36;
@@ -13054,7 +13054,39 @@ if(view) return (
         {view.signJordan?"✅ Ma signature enregistrée (modifier)":"✍️ Apposer ma signature (Goûtstoso)"}
       </button>}
 
-  <button onClick={async()=>{const enriched={...view,lignes:(view.lignes||[]).map(l=>{const prod=(st.produits||[]).find(p=>p.id===l.produitId);return {...l,designation:prod?`${prod.nom}${prod.format?" · "+prod.format:""}`:l.produitId,prixUnitaire:getPrixOffre(prod,view.typeClient)};})};const token=await envoyerPourSignature("offre","Offre "+view.numero,enriched,view.clientEmail||"");if(token)setSt(p=>({...p,offres:p.offres.map(o=>o.id===view.id?{...o,signingToken:token}:o)}));}} style={{width:"100%",marginBottom:view.signingToken?4:10,background:"linear-gradient(135deg,#0a0a0a,#1a1a1a)",border:"none",borderRadius:10,padding:"11px",fontWeight:700,fontSize:12,color:"#F2C94C",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+  <button onClick={async()=>{
+    const tc=view.typeClient||"revendeur";
+    const lignesEnrichies=(view.lignes||[]).map(l=>{
+      const prod=(st.produits||[]).find(p=>p.id===l.produitId);
+      const pu=getPrixOffre(prod,tc);
+      const remisePct=parseFloat(l.remise)||0;
+      const brut=pu*(l.qte||0);
+      const totalLigne=remisePct>0?brut*(1-remisePct/100):brut;
+      return {...l,designation:prod?`${prod.nom} ${prod.variante||""} ${prod.format||""}`.trim():l.produitId,prixUnitaire:pu,remisePct,totalLigne};
+    });
+    const totalBrut=lignesEnrichies.reduce((s,l)=>s+(l.prixUnitaire*(l.qte||0)),0);
+    const totalApresRemisesLignes=lignesEnrichies.reduce((s,l)=>s+l.totalLigne,0);
+    const remisesLignesMontant=totalBrut-totalApresRemisesLignes;
+    const bonCadeauMontant=view.bonCadeau?.enabled?(parseFloat(view.bonCadeau?.montant)||0):0;
+    const baseRemiseGlobale=totalApresRemisesLignes+bonCadeauMontant;
+    const remiseGlobaleMontant=(()=>{const rg=view.remiseGlobale;if(!rg||!(parseFloat(String(rg.valeur))>0))return 0;return rg.type==="pourcent"?baseRemiseGlobale*(parseFloat(String(rg.valeur))/100):Math.min(parseFloat(String(rg.valeur))||0,baseRemiseGlobale);})();
+    const fraisLiv=parseFloat(view.fraisLivraison)||0;
+    const totalFinal=baseRemiseGlobale-remiseGlobaleMontant+fraisLiv;
+    const enriched={...view,lignes:lignesEnrichies,
+      _totalBrut:totalBrut,
+      _remisesLignes:remisesLignesMontant,
+      _bonCadeau:bonCadeauMontant,
+      _bonCadeauDesc:view.bonCadeau?.description||"Bon cadeau",
+      _remiseGlobale:remiseGlobaleMontant,
+      _remiseGlobaleLabel:view.remiseGlobale?.type==="pourcent"?"Remise commerciale "+view.remiseGlobale.valeur+"%":"Remise commerciale",
+      _fraisLivraison:fraisLiv,
+      _livraisonGratuite:!fraisLiv&&!!(view.livraisonGratuite),
+      _totalFinal:totalFinal,
+      _typeClient:tc,
+    };
+    const token=await envoyerPourSignature("offre","Offre "+view.numero,enriched,view.clientEmail||"");
+    if(token)setSt(p=>({...p,offres:p.offres.map(o=>o.id===view.id?{...o,signingToken:token}:o)}));
+  }} style={{width:"100%",marginBottom:view.signingToken?4:10,background:"linear-gradient(135deg,#0a0a0a,#1a1a1a)",border:"none",borderRadius:10,padding:"11px",fontWeight:700,fontSize:12,color:"#F2C94C",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
     🔏 Envoyer pour signature
   </button>
   {view.signingToken&&<button onClick={async()=>{try{const r=await fetch(`${SIGN_API}/sign/${view.signingToken}`);const d=await r.json();if(d.status!=="signed"){alert("Pas encore signé. Relancez une fois que votre partenaire a cliqué le lien.");return;}setSt(p=>({...p,offres:p.offres.map(o=>o.id===view.id?{...o,signClient:d.signatureData,statut:"acceptée",signerNom:d.signerName,signedAt:d.signedAt||new Date().toISOString(),signingToken:null}:o)}));alert(`✅ ${d.signerName} a signé !\nLa signature est maintenant intégrée dans le PDF.`);}catch(e){alert("Erreur : "+e.message);}}} style={{width:"100%",marginBottom:4,background:"#DCFCE7",border:"1.5px solid #86EFAC",borderRadius:10,padding:"10px",fontWeight:700,fontSize:12,color:"#166534",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>🔄 Vérifier la signature</button>}
