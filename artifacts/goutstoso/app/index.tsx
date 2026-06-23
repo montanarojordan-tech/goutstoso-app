@@ -4814,7 +4814,7 @@ const marquerPayee = (id) => {
   if(!facture) return;
   const rappels = facture.rappels||[];
   const dernierRappel = rappels[rappels.length-1];
-  const frais = dernierRappel ? (dernierRappel.degree>=3?25:dernierRappel.degree>=2?15:0) : 0;
+  const frais = dernierRappel&&!dernierRappel.fraisAnnules ? (dernierRappel.degree>=3?25:dernierRappel.degree>=2?15:0) : 0;
   const pv = (st.partenaires||[]).find(par=>par.id===facture.partenaireId);
   const montant = parseFloat(facture.total||0);
   const viaPostFinance = window.confirm("Paiement reçu sur PostFinance ?\n(OK = oui, Annuler = autre moyen de paiement)");
@@ -4977,7 +4977,7 @@ const jours = Math.floor((new Date()-echeance)/86400000);
 if(jours < 0) return null;
 const rappels = f.rappels||[];
 const dernierRappel = rappels[rappels.length-1];
-const frais = dernierRappel ? (dernierRappel.degree>=3?25:dernierRappel.degree>=2?15:0) : 0;
+const frais = dernierRappel&&!dernierRappel.fraisAnnules ? (dernierRappel.degree>=3?25:dernierRappel.degree>=2?15:0) : 0;
 const niveau = jours>=60?"critique":jours>=30?"rappel2":"rappel1";
 return {jours, frais, niveau};
 };
@@ -5505,14 +5505,24 @@ return (
       <div style={{background:"#F9F9F6",border:"1px solid #E5E5E0",borderRadius:12,padding:"10px 14px",marginBottom:14}}>
         <p style={{fontWeight:700,fontSize:11,color:"#6B7280",textTransform:"uppercase",marginBottom:8}}>Historique des rappels</p>
         {rappelsEnvoyes.map((r,i)=>(
-          <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 0",borderBottom:i<rappelsEnvoyes.length-1?"1px solid #EEEEEA":"none"}}>
-            <div style={{display:"flex",alignItems:"center",gap:8}}>
-              <span style={{background:r.degree===1?"#FEF3C7":r.degree===2?"#FFEDD5":"#FEE2E2",color:r.degree===1?"#92400E":r.degree===2?"#9A3412":"#991B1B",borderRadius:20,padding:"2px 10px",fontSize:11,fontWeight:700}}>
-                Rappel {r.degree}
+          <div key={i} style={{padding:"7px 0",borderBottom:i<rappelsEnvoyes.length-1?"1px solid #EEEEEA":"none"}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <div style={{display:"flex",alignItems:"center",gap:8}}>
+                <span style={{background:r.degree===1?"#FEF3C7":r.degree===2?"#FFEDD5":"#FEE2E2",color:r.degree===1?"#92400E":r.degree===2?"#9A3412":"#991B1B",borderRadius:20,padding:"2px 10px",fontSize:11,fontWeight:700}}>
+                  Rappel {r.degree}
+                </span>
+                <span style={{fontSize:12,color:"#374151"}}>Envoyé le {fmt(r.date)}</span>
+              </div>
+              <span style={{fontSize:12,fontWeight:600,color:r.fraisAnnules?"#6B7280":r.frais>0?"#991B1B":"#6B7280",textDecoration:r.fraisAnnules?"line-through":"none"}}>
+                {r.frais>0?"+ CHF "+r.frais.toFixed(2):"Sans frais"}
               </span>
-              <span style={{fontSize:12,color:"#374151"}}>Envoyé le {fmt(r.date)}</span>
             </div>
-            <span style={{fontSize:12,fontWeight:600,color:r.frais>0?"#991B1B":"#6B7280"}}>{r.frais>0?"+ CHF "+r.frais.toFixed(2):"Sans frais"}</span>
+            {r.frais>0&&(
+              <button onClick={()=>annulerFraisRappel(viewId,i)}
+                style={{marginTop:5,padding:"4px 10px",fontSize:11,fontWeight:700,borderRadius:7,border:"1.5px solid "+(r.fraisAnnules?"#86EFAC":"#FCA5A5"),background:r.fraisAnnules?"#F0FDF4":"#FEF2F2",color:r.fraisAnnules?"#166534":"#991B1B",cursor:"pointer"}}>
+                {r.fraisAnnules?"✓ Frais annulés — Rétablir":"✕ Annuler les CHF "+r.frais.toFixed(2)+" de frais"}
+              </button>
+            )}
           </div>
         ))}
       </div>
@@ -5637,7 +5647,7 @@ return (
         </button>
         {(view.rappels||[]).length>0&&(()=>{
           const lastR=(view.rappels||[])[view.rappels.length-1];
-          const fraisR=lastR?.degree>=3?25:lastR?.degree>=2?15:0;
+          const fraisR=lastR&&!lastR.fraisAnnules?(lastR.degree>=3?25:lastR.degree>=2?15:0):0;
           return fraisR>0?(
             <p style={{fontSize:10,color:"#166534",textAlign:"center",marginTop:5}}>
               ↳ CHF {fraisR.toFixed(2)} frais de rappel seront enregistrés automatiquement en comptabilité (compte 3750)
@@ -12740,6 +12750,7 @@ const convertirEnCommande = (offre) => {
 };
 
 const setStatut = (id, statut) => setSt(p=>({...p,offres:(p.offres||[]).map(o=>o.id===id?{...o,statut}:o)}));
+const annulerFraisRappel = (factureId, rappelIdx) => setSt(p=>({...p,factures:(p.factures||[]).map(f=>f.id===factureId?{...f,rappels:(f.rappels||[]).map((r,i)=>i===rappelIdx?{...r,fraisAnnules:!r.fraisAnnules}:r)}:f)}));
 
 const getPrixOffre = (prod, tc) => tc==="client" ? (prod?.prixClient||0) : (prod?.prixRevendeur||prod?.prixClient||0);
 const totalOffre = (offre) => {
