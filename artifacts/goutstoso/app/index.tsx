@@ -12258,7 +12258,8 @@ try {
   const fraisLivOffre = parseFloat(offre.fraisLivraison)||0;
   const livOffreGratuite = !fraisLivOffre && !!(offre.livraisonGratuite);
   const remiseGlobaleOfrePDF = calcRemiseGlobale(totalPrix, offre.remiseGlobale);
-  const totalAvecFrais = totalPrix - remiseGlobaleOfrePDF + fraisLivOffre;
+  const bonCadeauPDF = offre.bonCadeau?.enabled ? (parseFloat(offre.bonCadeau?.montant)||0) : 0;
+  const totalAvecFrais = totalPrix - remiseGlobaleOfrePDF + fraisLivOffre + bonCadeauPDF;
   if(totalPrixBrut>totalPrix) {
     doc.setFillColor(255,251,235); doc.rect(startX,y,tableW,8,"F");
     doc.setDrawColor(253,230,138); doc.setLineWidth(0.2); doc.rect(startX,y,tableW,8,"S");
@@ -12295,6 +12296,14 @@ try {
       doc.text("Livraison",startX+4,y+5.5);
       doc.text("Offerte",startX+tableW-4,y+5.5,{align:"right"});
     }
+    y+=8;
+  }
+  if(bonCadeauPDF>0){
+    doc.setFillColor(255,237,213); doc.rect(startX,y,tableW,8,"F");
+    doc.setDrawColor(253,186,116); doc.setLineWidth(0.2); doc.rect(startX,y,tableW,8,"S");
+    doc.setFont("helvetica","normal"); doc.setFontSize(8.5); doc.setTextColor(154,52,18);
+    doc.text(offre.bonCadeau?.description||"Bon cadeau",startX+4,y+5.5);
+    doc.text("+ CHF "+bonCadeauPDF.toFixed(2),startX+tableW-4,y+5.5,{align:"right"});
     y+=8;
   }
   doc.setFillColor(10,10,10);
@@ -12542,6 +12551,7 @@ const emptyForm = () => ({
   livraisonGratuite:false,
   remiseGlobale:{type:"pourcent",valeur:0},
   typeClient:"revendeur",
+  bonCadeau:{enabled:false,montant:0,description:"Bon cadeau"},
 });
 
 const saveOffre = () => {
@@ -12741,7 +12751,8 @@ const totalOffre = (offre) => {
     return s+(remisePct>0?brut*(1-remisePct/100):brut);
   },0);
   const remiseGlobale = calcRemiseGlobale(base, offre.remiseGlobale);
-  return base - remiseGlobale + (parseFloat(offre.fraisLivraison)||0);
+  const bonCadeauMontant = offre.bonCadeau?.enabled ? (parseFloat(offre.bonCadeau?.montant)||0) : 0;
+  return base - remiseGlobale + (parseFloat(offre.fraisLivraison)||0) + bonCadeauMontant;
 };
 
 const statutConfig = {
@@ -13093,7 +13104,7 @@ if(view) return (
       );
     })}
     <div style={{padding:"12px 14px",background:"#0A0A0A",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-      <p style={{fontSize:12,fontWeight:600,color:"#9CA3AF"}}>{view.typeClient==="client"?"TOTAL CLIENT":"TOTAL PARTENAIRE"}</p>
+      <p style={{fontSize:12,fontWeight:600,color:"#9CA3AF"}}>{view.typeClient==="client"?"TOTAL CLIENT":"TOTAL PARTENAIRE"}{view.bonCadeau?.enabled?" (+ bon cadeau)":""}</p>
       <p style={{fontSize:16,fontWeight:700,color:"#F2C94C",fontFamily:"'Cormorant Garamond',serif"}}>{chf(totalOffre(view))}</p>
     </div>
   </Card>
@@ -13456,6 +13467,20 @@ return (
         </label>
         {!form.livraisonGratuite && !form.fraisLivraison && (
           <p style={{fontSize:10,color:"#9CA3AF",marginTop:6}}>Aucune ligne livraison ne sera affichée si les deux sont à zéro.</p>
+        )}
+      </div>
+      {/* Bon cadeau */}
+      <div style={{background:"#FFF7ED",border:"1px solid #FED7AA",borderRadius:10,padding:"10px 12px"}}>
+        <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",userSelect:"none" as any,marginBottom:form.bonCadeau?.enabled?10:0}}>
+          <input type="checkbox" checked={!!(form.bonCadeau?.enabled)} onChange={e=>setForm(p=>({...p,bonCadeau:{...(p.bonCadeau||{enabled:false,montant:0,description:"Bon cadeau"}),enabled:e.target.checked}}))}
+            style={{width:16,height:16,accentColor:"#EA580C",cursor:"pointer"}}/>
+          <span style={{fontSize:12,color:"#C2410C",fontWeight:700}}>🎁 Inclure un bon cadeau</span>
+        </label>
+        {form.bonCadeau?.enabled&&(
+          <div style={{display:"flex",flexDirection:"column" as any,gap:8}}>
+            <F label="Description" value={form.bonCadeau?.description||""} onChange={v=>setForm(p=>({...p,bonCadeau:{...(p.bonCadeau||{}),description:v}}))} placeholder="Ex: Bon cadeau découverte"/>
+            <F label="Montant (CHF)" type="number" value={form.bonCadeau?.montant||""} onChange={v=>setForm(p=>({...p,bonCadeau:{...(p.bonCadeau||{}),montant:parseFloat(v)||0}}))} placeholder="0.00"/>
+          </div>
         )}
       </div>
       <F label="Notes / remarques" value={form.notes||""} onChange={v=>setForm(p=>({...p,notes:v}))} placeholder="Conditions particulières, délai de livraison..."/>
