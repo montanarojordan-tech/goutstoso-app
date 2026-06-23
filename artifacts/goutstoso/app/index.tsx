@@ -5163,7 +5163,8 @@ const echeance=new Date(new Date(f.date).getTime()+30*86400000).toISOString().sl
     y+=7;
     offerts.forEach((l,i)=>{
       const p2=st.produits.find(x=>x.id===l.produitId);
-      const pu=p2?(f.typeClient==="revendeur"?p2.prixRevendeur:p2.prixClient):0;
+      const puCat=p2?(f.typeClient==="revendeur"?p2.prixRevendeur:p2.prixClient):0;
+      const pu=(l.prixUnitaire!=null&&l.prixUnitaire!=="")?parseFloat(l.prixUnitaire)||0:puCat;
       const rabais=pu*(l.qte||0);
       doc.setFillColor(i%2===0?255:252,i%2===0?245:248,i%2===0?245:248);
       doc.rect(mg,y,W-mg*2,11,"F");
@@ -5728,7 +5729,8 @@ return (
           </div>
           {(view.lignesOffertes||[]).filter(l=>l.produitId).map((l,i)=>{
             const p=st.produits.find(x=>x.id===l.produitId);
-            const pu=p?(view.typeClient==="revendeur"?p.prixRevendeur:p.prixClient):0;
+            const puCat=p?(view.typeClient==="revendeur"?p.prixRevendeur:p.prixClient):0;
+            const pu=(l.prixUnitaire!=null&&l.prixUnitaire!=="")?parseFloat(l.prixUnitaire)||0:puCat;
             const rabais=pu*(l.qte||0);
             return (
               <div key={i} style={{background:i%2===0?"#FFF5F5":"#fff",padding:"8px 10px",display:"flex",alignItems:"center",border:"1px solid #FCA5A5",borderTop:"none"}}>
@@ -6096,11 +6098,19 @@ return {Numero:f.numero,Date:f.date,Client:pv?.nom,Total:total,Statut:f.statut};
           </div>
           {(form.lignesOffertes||[]).map((l,i)=>(
             <div key={i} style={{background:"#F0FDF4",border:"1px solid #BBF7D0",borderRadius:10,padding:"10px",marginBottom:8}}>
-              <div style={{display:"grid",gridTemplateColumns:"1fr 50px auto",gap:8,marginBottom:6,alignItems:"flex-end"}}>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 50px 90px auto",gap:8,marginBottom:6,alignItems:"flex-end"}}>
                 <Sel label="" value={l.produitId} onChange={v=>updLigneOfferte(i,"produitId",v)}
                   options={[{v:"",l:"- Produit -"},...st.produits.filter(p=>p.actif).map(p=>({v:p.id,l:`${p.nom} ${p.variante} ${p.format}`}))]}/>
                 <input type="number" value={l.qte} min={1} onChange={e=>updLigneOfferte(i,"qte",+e.target.value)}
                   style={{padding:"11px 8px",fontSize:16,border:"1.5px solid #BBF7D0",borderRadius:10,textAlign:"center",width:50,background:"#fff"}}/>
+                <div style={{display:"flex",flexDirection:"column" as any}}>
+                  <span style={{fontSize:9,color:"#6B7280",marginBottom:2}}>CHF / unité</span>
+                  <input type="number" step="0.01" min="0"
+                    value={l.prixUnitaire!=null&&l.prixUnitaire!==""?l.prixUnitaire:""}
+                    placeholder={(()=>{const p=st.produits.find((x:any)=>x.id===l.produitId);return p?(form.typeClient==="revendeur"?p.prixRevendeur:p.prixClient).toFixed(2):"auto";})()}
+                    onChange={e=>updLigneOfferte(i,"prixUnitaire",e.target.value===""?"":e.target.value)}
+                    style={{padding:"8px 6px",fontSize:13,border:"1.5px solid #BBF7D0",borderRadius:8,textAlign:"right",background:"#fff",width:"100%"}}/>
+                </div>
                 <button onClick={()=>delLigneOfferte(i)} style={{background:"#FEE2E2",border:"none",borderRadius:8,padding:"10px 8px",cursor:"pointer",display:"flex"}}>
                   <Ic n="trash" s={13}/>
                 </button>
