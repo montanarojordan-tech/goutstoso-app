@@ -4969,6 +4969,7 @@ const updLigne = (i,k,v) => setForm(p=>{
 const addLigneOfferte = () => setForm(p=>({...p,lignesOffertes:[...(p.lignesOffertes||[]),{produitId:"",qte:1,texte:"Offert avec votre commande"}]}));
 const updLigneOfferte = (i,k,v) => setForm(p=>({...p,lignesOffertes:(p.lignesOffertes||[]).map((l,j)=>j===i?{...l,[k]:v}:l)}));
 const delLigneOfferte = (i) => setForm(p=>({...p,lignesOffertes:(p.lignesOffertes||[]).filter((_,j)=>j!==i)}));
+const annulerFraisRappel = (factureId, rappelIdx) => setSt(p=>({...p,factures:(p.factures||[]).map(f=>f.id===factureId?{...f,rappels:(f.rappels||[]).map((r,i)=>i===rappelIdx?{...r,fraisAnnules:!r.fraisAnnules}:r)}:f)}));
 
 const getInfosRetard = (f) => {
 if(f.statut==="payée") return null;
@@ -12760,7 +12761,6 @@ const convertirEnCommande = (offre) => {
 };
 
 const setStatut = (id, statut) => setSt(p=>({...p,offres:(p.offres||[]).map(o=>o.id===id?{...o,statut}:o)}));
-const annulerFraisRappel = (factureId, rappelIdx) => setSt(p=>({...p,factures:(p.factures||[]).map(f=>f.id===factureId?{...f,rappels:(f.rappels||[]).map((r,i)=>i===rappelIdx?{...r,fraisAnnules:!r.fraisAnnules}:r)}:f)}));
 
 const getPrixOffre = (prod, tc) => tc==="client" ? (prod?.prixClient||0) : (prod?.prixRevendeur||prod?.prixClient||0);
 const totalOffre = (offre) => {
