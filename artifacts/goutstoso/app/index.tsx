@@ -12257,15 +12257,23 @@ try {
   // Total produits
   const fraisLivOffre = parseFloat(offre.fraisLivraison)||0;
   const livOffreGratuite = !fraisLivOffre && !!(offre.livraisonGratuite);
-  const remiseGlobaleOfrePDF = calcRemiseGlobale(totalPrix, offre.remiseGlobale);
   const bonCadeauPDF = offre.bonCadeau?.enabled ? (parseFloat(offre.bonCadeau?.montant)||0) : 0;
-  const totalAvecFrais = totalPrix - remiseGlobaleOfrePDF + fraisLivOffre + bonCadeauPDF;
+  const remiseGlobaleOfrePDF = calcRemiseGlobale(totalPrix + bonCadeauPDF, offre.remiseGlobale);
+  const totalAvecFrais = totalPrix + bonCadeauPDF - remiseGlobaleOfrePDF + fraisLivOffre;
   if(totalPrixBrut>totalPrix) {
     doc.setFillColor(255,251,235); doc.rect(startX,y,tableW,8,"F");
     doc.setDrawColor(253,230,138); doc.setLineWidth(0.2); doc.rect(startX,y,tableW,8,"S");
     doc.setFont("helvetica","normal"); doc.setFontSize(8.5); doc.setTextColor(217,119,6);
     doc.text("Remises par ligne",startX+4,y+5.5);
     doc.text("- CHF "+(totalPrixBrut-totalPrix).toFixed(2),startX+tableW-4,y+5.5,{align:"right"});
+    y+=8;
+  }
+  if(bonCadeauPDF>0){
+    doc.setFillColor(255,237,213); doc.rect(startX,y,tableW,8,"F");
+    doc.setDrawColor(253,186,116); doc.setLineWidth(0.2); doc.rect(startX,y,tableW,8,"S");
+    doc.setFont("helvetica","normal"); doc.setFontSize(8.5); doc.setTextColor(154,52,18);
+    doc.text(offre.bonCadeau?.description||"Bon cadeau",startX+4,y+5.5);
+    doc.text("+ CHF "+bonCadeauPDF.toFixed(2),startX+tableW-4,y+5.5,{align:"right"});
     y+=8;
   }
   if(remiseGlobaleOfrePDF>0) {
@@ -12282,7 +12290,7 @@ try {
     doc.setDrawColor(191,219,254); doc.setLineWidth(0.2); doc.rect(startX,y,tableW,8,"S");
     doc.setFont("helvetica","normal"); doc.setFontSize(8.5); doc.setTextColor(3,105,161);
     doc.text("Sous-total produits",startX+4,y+5.5);
-    doc.text("CHF "+(totalPrix-remiseGlobaleOfrePDF).toFixed(2),startX+tableW-4,y+5.5,{align:"right"});
+    doc.text("CHF "+(totalPrix+bonCadeauPDF-remiseGlobaleOfrePDF).toFixed(2),startX+tableW-4,y+5.5,{align:"right"});
     y+=8;
     doc.setFillColor(fraisLivOffre>0?224:220,fraisLivOffre>0?242:252,fraisLivOffre>0?254:231); doc.rect(startX,y,tableW,8,"F");
     doc.setDrawColor(fraisLivOffre>0?186:187,fraisLivOffre>0?230:247,fraisLivOffre>0?253:208); doc.setLineWidth(0.2); doc.rect(startX,y,tableW,8,"S");
@@ -12296,14 +12304,6 @@ try {
       doc.text("Livraison",startX+4,y+5.5);
       doc.text("Offerte",startX+tableW-4,y+5.5,{align:"right"});
     }
-    y+=8;
-  }
-  if(bonCadeauPDF>0){
-    doc.setFillColor(255,237,213); doc.rect(startX,y,tableW,8,"F");
-    doc.setDrawColor(253,186,116); doc.setLineWidth(0.2); doc.rect(startX,y,tableW,8,"S");
-    doc.setFont("helvetica","normal"); doc.setFontSize(8.5); doc.setTextColor(154,52,18);
-    doc.text(offre.bonCadeau?.description||"Bon cadeau",startX+4,y+5.5);
-    doc.text("+ CHF "+bonCadeauPDF.toFixed(2),startX+tableW-4,y+5.5,{align:"right"});
     y+=8;
   }
   doc.setFillColor(10,10,10);
@@ -12750,9 +12750,9 @@ const totalOffre = (offre) => {
     const remisePct=parseFloat(l.remise)||0;
     return s+(remisePct>0?brut*(1-remisePct/100):brut);
   },0);
-  const remiseGlobale = calcRemiseGlobale(base, offre.remiseGlobale);
   const bonCadeauMontant = offre.bonCadeau?.enabled ? (parseFloat(offre.bonCadeau?.montant)||0) : 0;
-  return base - remiseGlobale + (parseFloat(offre.fraisLivraison)||0) + bonCadeauMontant;
+  const remiseGlobale = calcRemiseGlobale(base + bonCadeauMontant, offre.remiseGlobale);
+  return base + bonCadeauMontant - remiseGlobale + (parseFloat(offre.fraisLivraison)||0);
 };
 
 const statutConfig = {
@@ -13399,17 +13399,22 @@ return (
         </div>
         {(()=>{
           const total=sum((form.lignes||[]).map(l=>{const p=(st.produits||[]).find(x=>x.id===l.produitId);const brut=getPrixOffre(p,form.typeClient)*(l.qte||0);const remisePct=parseFloat(l.remise)||0;return remisePct>0?brut*(1-remisePct/100):brut;}));
-          const remiseGlobaleMontant=calcRemiseGlobale(total,form.remiseGlobale);
-          if(!total) return null;
+          const bonCadeauBar=(form.bonCadeau?.enabled)?(parseFloat(form.bonCadeau?.montant as any)||0):0;
+          const remiseGlobaleMontant=calcRemiseGlobale(total+bonCadeauBar,form.remiseGlobale);
+          if(!total&&!bonCadeauBar) return null;
           return (
             <div style={{background:"#0A0A0A",borderRadius:"0 0 10px 10px",padding:"10px 12px"}}>
+              {bonCadeauBar>0&&<div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
+                <p style={{fontSize:11,color:"#FB923C"}}>+ Bon cadeau</p>
+                <p style={{fontSize:11,color:"#FB923C"}}>{chf(bonCadeauBar)}</p>
+              </div>}
               {remiseGlobaleMontant>0&&<div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
                 <p style={{fontSize:11,color:"#F59E0B"}}>Remise globale</p>
                 <p style={{fontSize:11,color:"#F59E0B"}}>- {chf(remiseGlobaleMontant)}</p>
               </div>}
               <div style={{display:"flex",justifyContent:"space-between"}}>
                 <p style={{fontSize:12,color:"#9CA3AF",fontWeight:600}}>{form.typeClient==="client"?"TOTAL CLIENT":"TOTAL PARTENAIRE"}</p>
-                <p style={{fontSize:14,fontWeight:700,color:"#F2C94C"}}>{chf(total-remiseGlobaleMontant)}</p>
+                <p style={{fontSize:14,fontWeight:700,color:"#F2C94C"}}>{chf(total+bonCadeauBar-remiseGlobaleMontant)}</p>
               </div>
             </div>
           );
@@ -13448,7 +13453,8 @@ return (
           </div>
           {((form.remiseGlobale||{}).valeur>0)&&(()=>{
             const baseTotal=sum((form.lignes||[]).map(l=>{const p=(st.produits||[]).find(x=>x.id===l.produitId);const brut=getPrixOffre(p,form.typeClient)*(l.qte||0);const rp=parseFloat(l.remise)||0;return rp>0?brut*(1-rp/100):brut;}));
-            const remAmt=calcRemiseGlobale(baseTotal,form.remiseGlobale);
+            const bonCadeauPreview=(form.bonCadeau?.enabled)?(parseFloat(form.bonCadeau?.montant as any)||0):0;
+            const remAmt=calcRemiseGlobale(baseTotal+bonCadeauPreview,form.remiseGlobale);
             return <p style={{fontSize:11,color:"#166534",fontWeight:700,marginTop:8,textAlign:"center"}}>Remise : - {chf(remAmt)}</p>;
           })()}
         </div>
