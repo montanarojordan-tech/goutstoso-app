@@ -12509,7 +12509,7 @@ const dateValiditeDefaut = () => {
 };
 
 const allProduitsLignes = (existingLignes=[]) =>
-  (st.produits||[]).filter(p=>p.actif&&!p.nom.includes("Coffret")).map(p=>{
+  (st.produits||[]).filter(p=>p.actif).map(p=>{
     const ex = existingLignes.find(l=>l.produitId===p.id);
     return {produitId:p.id, qte:ex?.qte||0, remise:ex?.remise||0};
   });
