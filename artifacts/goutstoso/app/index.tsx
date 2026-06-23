@@ -12282,7 +12282,7 @@ try {
     doc.setDrawColor(191,219,254); doc.setLineWidth(0.2); doc.rect(startX,y,tableW,8,"S");
     doc.setFont("helvetica","normal"); doc.setFontSize(8.5); doc.setTextColor(3,105,161);
     doc.text("Sous-total produits",startX+4,y+5.5);
-    doc.text("CHF "+totalPrix.toFixed(2),startX+tableW-4,y+5.5,{align:"right"});
+    doc.text("CHF "+(totalPrix-remiseGlobaleOfrePDF).toFixed(2),startX+tableW-4,y+5.5,{align:"right"});
     y+=8;
     doc.setFillColor(fraisLivOffre>0?224:220,fraisLivOffre>0?242:252,fraisLivOffre>0?254:231); doc.rect(startX,y,tableW,8,"F");
     doc.setDrawColor(fraisLivOffre>0?186:187,fraisLivOffre>0?230:247,fraisLivOffre>0?253:208); doc.setLineWidth(0.2); doc.rect(startX,y,tableW,8,"S");
