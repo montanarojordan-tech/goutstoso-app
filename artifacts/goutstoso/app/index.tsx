@@ -7023,13 +7023,23 @@ return (
         const caTotal = Object.values(caByC1).reduce((a:number,b:number)=>a+b,0);
         const ca3004 = caByC1["3004"]||0;
         let totalUnites=0, totalMarge=0;
-        // Bouteilles (compte unique par produit — dynamique)
-        st.produits.filter(p=>p.actif&&!p.nom.includes("Coffret")).forEach(p=>{
-          const caP = caByC1[getCompteVente(p)]||0;
-          const prix = p.prixClient||1;
-          const units = Math.round(caP/prix);
+        // Bouteilles — grouper par compte pour gérer les produits qui partagent un compte (ex: Fragoli 25cl + 50cl → 3005)
+        const bouteilles1 = st.produits.filter(p=>p.actif&&!p.nom.includes("Coffret"));
+        const compteCount1: Record<string,number> = {};
+        bouteilles1.forEach(p=>{const c=getCompteVente(p);compteCount1[c]=(compteCount1[c]||0)+1;});
+        // Éviter de compter plusieurs fois le même compte
+        const comptesDeja1 = new Set<string>();
+        bouteilles1.forEach(p=>{
+          const c = getCompteVente(p);
+          if(comptesDeja1.has(c)) return;
+          comptesDeja1.add(c);
+          const caC = caByC1[c]||0;
+          const nb = compteCount1[c]||1;
+          const prixMoy1 = bouteilles1.filter(x=>getCompteVente(x)===c).reduce((s,x)=>s+(x.prixClient||0),0)/nb;
+          const coutMoy1 = bouteilles1.filter(x=>getCompteVente(x)===c).reduce((s,x)=>s+(x.coutRevient||0),0)/nb;
+          const units = prixMoy1>0?Math.round(caC/prixMoy1):0;
           totalUnites += units;
-          totalMarge += caP - units*(p.coutRevient||0);
+          totalMarge += caC - units*coutMoy1;
         });
         // Coffrets (partagent 3004)
         const coffretsProd = st.produits.filter(p=>p.actif&&p.nom.includes("Coffret"));
@@ -7074,6 +7084,9 @@ return (
           transByPeriode.filter(t=>t.type==="recette").forEach(t=>{caByC2[t.compte]=(caByC2[t.compte]||0)+(+t.montant);});
           const ca3004b = caByC2["3004"]||0;
           const nbCoffrets = Math.max(1, st.produits.filter(p=>p.actif&&p.nom.includes("Coffret")).length);
+          // Compter combien de produits actifs (non-coffret) partagent chaque compte
+          const compteCount2: Record<string,number> = {};
+          st.produits.filter(p=>p.actif&&!p.nom.includes("Coffret")).forEach(p=>{const c=getCompteVente(p);compteCount2[c]=(compteCount2[c]||0)+1;});
 
           return st.produits.filter(p=>p.actif).map((p,idx,arr)=>{
             const isCoffret = p.nom.includes("Coffret");
@@ -7086,10 +7099,12 @@ return (
             const margeProPct = p.prixRevendeur?((margePro/p.prixRevendeur)*100).toFixed(0):0;
             const c = getCouleur(p);
 
-            // CA depuis les transactions (compte produit)
+            // CA depuis les transactions — divisé par le nb de produits partageant ce compte
+            const nbSharing = compteCount2[getCompteVente(p)]||1;
             const caP = isCoffret
               ? ca3004b/nbCoffrets
-              : caByC2[getCompteVente(p)]||0;
+              : (caByC2[getCompteVente(p)]||0)/nbSharing;
+            const partage = !isCoffret && nbSharing > 1;
             const totalUnites = p.prixClient>0?Math.round(caP/p.prixClient):0;
             const margeGeneree = caP - totalUnites*cout;
 
@@ -7126,12 +7141,13 @@ return (
                       <div style={{textAlign:"center"}}>
                         <p style={{fontSize:8,color:"#1E40AF",fontWeight:600,textTransform:"uppercase"}}>Vendues</p>
                         <p style={{fontSize:14,fontWeight:700,color:"#1E40AF",marginTop:1}}>{totalUnites}</p>
-                        <p style={{fontSize:8,color:"#6B7280"}}>{isCoffret?"estimé*":"estimé"}</p>
+                        <p style={{fontSize:8,color:"#6B7280"}}>{isCoffret||partage?"estimé*":"estimé"}</p>
                       </div>
                       <div style={{textAlign:"center"}}>
                         <p style={{fontSize:8,color:"#1E40AF",fontWeight:600,textTransform:"uppercase"}}>CA</p>
                         <p style={{fontSize:13,fontWeight:700,color:"#1E40AF",marginTop:1}}>{chf(caP)}</p>
                         {isCoffret&&<p style={{fontSize:8,color:"#6B7280"}}>réparti /coffret</p>}
+                        {partage&&<p style={{fontSize:8,color:"#6B7280"}}>réparti /format</p>}
                       </div>
                       <div style={{textAlign:"center"}}>
                         <p style={{fontSize:8,color:margeGeneree>0?"#15803D":"#B91C1C",fontWeight:600,textTransform:"uppercase"}}>Marge</p>
