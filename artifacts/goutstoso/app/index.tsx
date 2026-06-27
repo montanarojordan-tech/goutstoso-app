@@ -17286,6 +17286,8 @@ function Sauvegardes({authUser,st,setSt}:{authUser:any,st:any,setSt:any}) {
   const [msg, setMsg] = useState("");
   const [forceSyncMsg, setForceSyncMsg] = useState("");
   const [forceSyncing, setForceSyncing] = useState(false);
+  const [forceLoadMsg, setForceLoadMsg] = useState("");
+  const [forceLoading, setForceLoading] = useState(false);
   const [downloading, setDownloading] = useState<number|null>(null);
 
   const token = getToken();
@@ -17382,6 +17384,30 @@ function Sauvegardes({authUser,st,setSt}:{authUser:any,st:any,setSt:any}) {
         {forceSyncing?"⏳ Synchronisation en cours...":"🔄 Forcer la synchronisation maintenant"}
       </button>
       {forceSyncMsg&&<p style={{fontSize:12,marginTop:10,fontWeight:600,color:forceSyncMsg.startsWith("✅")?"#15803D":"#B91C1C"}}>{forceSyncMsg}</p>}
+    </div>
+
+    {/* RESTAURER DEPUIS LE CLOUD */}
+    <div style={{background:"#EFF6FF",border:"2px solid #BFDBFE",borderRadius:14,padding:"16px",marginBottom:16}}>
+      <p style={{fontSize:13,fontWeight:700,color:"#1D4ED8",marginBottom:4}}>☁️ Restaurer depuis le cloud</p>
+      <p style={{fontSize:12,color:"#374151",marginBottom:12}}>Écrase les données locales avec la dernière version sauvegardée dans le cloud. Utile si l'app affiche des données périmées.</p>
+      <button onClick={async()=>{
+        if(!window.confirm("Cela va remplacer toutes les données locales par la version du cloud. Continuer ?")) return;
+        setForceLoading(true); setForceLoadMsg("");
+        try {
+          const tok = getToken();
+          const r = await fetch(CLOUD_URL,{method:"POST",headers:{"Content-Type":"application/json","X-Auth-Token":tok},body:JSON.stringify({_action:"load_data",_token:tok})});
+          const j = await r.json();
+          if(j.success && j.data){
+            localStorage.setItem("goutstoso_v2", JSON.stringify(j.data));
+            setForceLoadMsg("✅ Données restaurées ! Rechargement...");
+            setTimeout(()=>window.location.reload(), 1200);
+          } else { setForceLoadMsg("❌ Erreur : "+(j.error||JSON.stringify(j))); }
+        } catch(e:any){ setForceLoadMsg("❌ Erreur réseau : "+e.message); }
+        setForceLoading(false);
+      }} disabled={forceLoading} style={{width:"100%",padding:"13px",background:"#1D4ED8",color:"#fff",border:"none",borderRadius:10,fontWeight:700,fontSize:14,cursor:"pointer",opacity:forceLoading?0.6:1}}>
+        {forceLoading?"⏳ Chargement...":"☁️ Restaurer depuis le cloud maintenant"}
+      </button>
+      {forceLoadMsg&&<p style={{fontSize:12,marginTop:10,fontWeight:600,color:forceLoadMsg.startsWith("✅")?"#15803D":"#B91C1C"}}>{forceLoadMsg}</p>}
     </div>
 
     {/* BOUTON MANUEL */}
