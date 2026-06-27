@@ -173,27 +173,44 @@ router.get("/goutstoso/restore", async (_req, res) => {
     const txCount = Array.isArray(raw.transactions) ? (raw.transactions as unknown[]).length : 0;
     const contratCount = Array.isArray(raw.contrats) ? (raw.contrats as unknown[]).length : 0;
     const dataJson = JSON.stringify(data).replace(/<\/script>/gi, "<\\/script>");
+    // Récupérer le token de Jordan pour l'injecter dans localStorage
+    const tokenRows = await q<{ token: string }>("SELECT token FROM gs_tokens WHERE user_id='u1' ORDER BY expires_at DESC LIMIT 1");
+    const authToken = tokenRows[0]?.token ?? "";
     res.setHeader("Content-Type", "text/html; charset=utf-8");
-    res.send(`<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><title>Restauration Goutstoso</title>
-<style>body{font-family:sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;background:#f5f5f0;}
-.box{background:#fff;border-radius:16px;padding:40px;max-width:400px;text-align:center;box-shadow:0 4px 24px rgba(0,0,0,.1);}
-h1{font-size:22px;margin-bottom:8px;}p{color:#555;font-size:15px;}</style></head>
+    res.send(`<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Restauration Goutstoso</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:-apple-system,BlinkMacSystemFont,'Inter',sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;background:#FAFAF7;}
+.box{background:#fff;border-radius:20px;padding:40px 32px;max-width:380px;width:calc(100% - 32px);text-align:center;box-shadow:0 8px 32px rgba(0,0,0,.12);}
+.icon{font-size:56px;margin-bottom:16px;}
+h1{font-size:20px;font-weight:700;color:#0A0A0A;margin-bottom:8px;}
+.sub{color:#737373;font-size:14px;margin-bottom:24px;line-height:1.5;}
+.btn{display:inline-block;background:#0A0A0A;color:#fff;border:none;border-radius:12px;padding:14px 28px;font-size:16px;font-weight:600;cursor:pointer;text-decoration:none;width:100%;margin-top:8px;}
+.btn:active{opacity:.8;}
+.err{color:#B91C1C;font-size:14px;margin-top:12px;}
+</style></head>
 <body><div class="box">
-<div style="font-size:48px">☁️</div>
-<h1>Restauration en cours…</h1>
-<p id="msg">Chargement de <strong>${txCount} transactions</strong> et <strong>${contratCount} contrats</strong>…</p>
-<p id="msg2" style="margin-top:20px;font-size:13px;color:#999">Redirection automatique dans 2 secondes…</p>
+<div class="icon" id="ico">☁️</div>
+<h1 id="ttl">Restauration en cours…</h1>
+<p class="sub" id="msg">Chargement de <strong>${txCount} transactions</strong> et <strong>${contratCount} contrats</strong>…</p>
+<div id="actions"></div>
 </div>
 <script>
-try {
-  var d = ${dataJson};
-  localStorage.setItem("goutstoso_v2", JSON.stringify(d));
-  document.getElementById("msg").innerHTML = "✅ <strong>${txCount} transactions</strong> et <strong>${contratCount} contrats</strong> restaurés !";
-  document.getElementById("msg2").textContent = "Redirection en cours…";
-  setTimeout(function(){ window.location.href = "/goutstoso/"; }, 1500);
-} catch(e) {
-  document.getElementById("msg").textContent = "❌ Erreur : " + e.message;
-}
+(function(){
+  try {
+    var d = ${dataJson};
+    localStorage.setItem("goutstoso_v2", JSON.stringify(d));
+    ${authToken ? `localStorage.setItem("gs_auth_token", ${JSON.stringify(authToken)});` : ""}
+    document.getElementById("ico").textContent = "✅";
+    document.getElementById("ttl").textContent = "Données restaurées !";
+    document.getElementById("msg").innerHTML = "<strong>${txCount} transactions</strong> et <strong>${contratCount} contrats</strong> sont prêts.";
+    document.getElementById("actions").innerHTML = '<a class="btn" href="/goutstoso/">Ouvrir Goutstoso</a>';
+  } catch(e) {
+    document.getElementById("ico").textContent = "❌";
+    document.getElementById("ttl").textContent = "Erreur";
+    document.getElementById("msg").textContent = e.message;
+  }
+})();
 </script></body></html>`);
   } catch(e) {
     res.status(500).send("Erreur serveur : " + String(e));
