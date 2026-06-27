@@ -17735,19 +17735,29 @@ try {
   try { localStorage.setItem("goutstoso_v2", JSON.stringify(next)); } catch(e2){}
 }
 } else {
+// cloudLoad a échoué — charger le localStorage SANS réécrire le cloud
 try {
 const saved = localStorage.getItem("goutstoso_v2");
 if(saved) {
 const p = JSON.parse(saved);
-// On a des données locales avec des produits → on sync vers le cloud
-if(p?.produits?.length > 0) { const next = hydrateData(p); setSt(next); cloudSave(next); }
-// Données locales vides → on repart de INIT mais on ne touche PAS au cloud (il peut contenir des vraies données)
+if(p?.produits?.length > 0) { const next = hydrateData(p); setSt(next); /* NE PAS cloudSave ici — le cloud peut avoir des données plus récentes */ }
 else { setSt(hydrateData(INIT)); }
 } else {
-// Aucune donnée locale → on ne touche JAMAIS au cloud avec INIT
 setSt(hydrateData(INIT));
 }
 } catch(e){ setSt(hydrateData(INIT)); }
+// Vérifier si la session est expirée pour prévenir l'utilisateur
+try {
+  const tok = getToken();
+  if(tok) {
+    const r2 = await fetch(CLOUD_URL,{method:"POST",headers:{"Content-Type":"application/json","X-Auth-Token":tok},body:JSON.stringify({_action:"load_data",_token:tok})});
+    const j2 = await r2.json();
+    if(j2?._auth_required) {
+      // Token invalide — forcer déconnexion pour que l'utilisateur se reconnecte
+      clearToken();
+    }
+  }
+} catch(e2){}
 }
 setLoading(false);
 })();
