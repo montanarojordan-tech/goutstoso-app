@@ -178,7 +178,7 @@ try {
   localStorage.setItem("goutstoso_v2", JSON.stringify(d));
   document.getElementById("msg").innerHTML = "✅ <strong>${txCount} transactions</strong> et <strong>${contratCount} contrats</strong> restaurés !";
   document.getElementById("msg2").textContent = "Redirection en cours…";
-  setTimeout(function(){ window.location.href = "/goutstoso"; }, 1500);
+  setTimeout(function(){ window.location.href = "/goutstoso/"; }, 1500);
 } catch(e) {
   document.getElementById("msg").textContent = "❌ Erreur : " + e.message;
 }
