@@ -17284,6 +17284,8 @@ function Sauvegardes({authUser,st,setSt}:{authUser:any,st:any,setSt:any}) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
+  const [forceSyncMsg, setForceSyncMsg] = useState("");
+  const [forceSyncing, setForceSyncing] = useState(false);
   const [downloading, setDownloading] = useState<number|null>(null);
 
   const token = getToken();
@@ -17357,6 +17359,29 @@ function Sauvegardes({authUser,st,setSt}:{authUser:any,st:any,setSt:any}) {
         <p style={{fontSize:13,fontWeight:600,color:"var(--blue)"}}>Sauvegarde automatique mensuelle</p>
         <p style={{fontSize:12,color:"#374151",marginTop:2}}>Une sauvegarde est créée automatiquement au démarrage de l'app chaque nouveau mois. Les 36 dernières sauvegardes sont conservées.</p>
       </div>
+    </div>
+
+    {/* FORCE SYNC */}
+    <div style={{background:"#FEF2F2",border:"2px solid #FECACA",borderRadius:14,padding:"16px",marginBottom:16}}>
+      <p style={{fontSize:13,fontWeight:700,color:"#B91C1C",marginBottom:4}}>⚠️ Sync manuelle</p>
+      <p style={{fontSize:12,color:"#374151",marginBottom:12}}>Si tes données sont visibles sur l'ordi mais pas sur le téléphone, force la sync ici.</p>
+      <button onClick={async()=>{
+        setForceSyncing(true); setForceSyncMsg("");
+        try {
+          const raw = localStorage.getItem("goutstoso_v2");
+          if(!raw){ setForceSyncMsg("❌ Aucune donnée locale trouvée."); setForceSyncing(false); return; }
+          const data = JSON.parse(raw);
+          const tok = getToken();
+          const r = await fetch(CLOUD_URL,{method:"POST",headers:{"Content-Type":"application/json","X-Auth-Token":tok},body:JSON.stringify({...data,_action:"save_data",_token:tok})});
+          const j = await r.json();
+          if(j.success){ setForceSyncMsg("✅ Sauvegardé ! "+((data.transactions||[]).length)+" transactions · "+((data.offres||[]).length)+" offres · "+((data.produits||[]).length)+" produits"); }
+          else { setForceSyncMsg("❌ Erreur : "+(j.error||JSON.stringify(j))); }
+        } catch(e:any){ setForceSyncMsg("❌ Erreur réseau : "+e.message); }
+        setForceSyncing(false);
+      }} disabled={forceSyncing} style={{width:"100%",padding:"13px",background:"#B91C1C",color:"#fff",border:"none",borderRadius:10,fontWeight:700,fontSize:14,cursor:"pointer",opacity:forceSyncing?0.6:1}}>
+        {forceSyncing?"⏳ Synchronisation en cours...":"🔄 Forcer la synchronisation maintenant"}
+      </button>
+      {forceSyncMsg&&<p style={{fontSize:12,marginTop:10,fontWeight:600,color:forceSyncMsg.startsWith("✅")?"#15803D":"#B91C1C"}}>{forceSyncMsg}</p>}
     </div>
 
     {/* BOUTON MANUEL */}
