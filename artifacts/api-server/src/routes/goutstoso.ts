@@ -153,6 +153,21 @@ router.get("/goutstoso", (_req, res) => {
   res.json({ success: true, message: "Goutstoso API – OK" });
 });
 
+// ── Auto-token (app privée Jordan) ────────────────────────────────────────────
+router.get("/goutstoso/auto-token", async (_req, res) => {
+  try {
+    const rows = await q<{ token: string }>("SELECT token FROM gs_tokens WHERE user_id='u1' AND expires_at > EXTRACT(EPOCH FROM NOW())*1000 ORDER BY expires_at DESC LIMIT 1");
+    if (rows[0]) return res.json({ success: true, token: rows[0].token });
+    // Créer un nouveau token si expiré
+    const userRows = await q<{ id: string }>("SELECT id FROM gs_users WHERE id='u1' LIMIT 1");
+    if (!userRows[0]) return res.json({ success: false });
+    const newToken = await createToken("u1");
+    return res.json({ success: true, token: newToken });
+  } catch(e) {
+    return res.status(500).json({ success: false });
+  }
+});
+
 router.get("/goutstoso/restore", async (_req, res) => {
   try {
     const rows = await q<{ data: Record<string, unknown> }>("SELECT data FROM gs_data WHERE id=1 LIMIT 1");

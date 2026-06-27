@@ -17468,18 +17468,30 @@ export default function App() {
   const [showAdmin, setShowAdmin] = useState(false);
 
   React.useEffect(()=>{
-    // Vérifier si un token valide existe déjà
-    const token = getToken();
-    if(!token){ setAuthChecked(true); return; }
-    fetch(CLOUD_URL, {
-      method:"POST",
-      headers:{"Content-Type":"application/json","X-Auth-Token":token},
-      body: JSON.stringify({_action:"check_token",_token:token})
-    }).then(r=>r.json()).then(j=>{
-      if(j.success) setAuthUser(j.user);
-      else clearToken();
+    (async()=>{
+      // Vérifier si un token valide existe déjà
+      let token = getToken();
+      // Pas de token → auto-login silencieux (app privée Jordan)
+      if(!token){
+        try {
+          const ar = await fetch("/api/goutstoso/auto-token");
+          const aj = await ar.json();
+          if(aj.success && aj.token){ setToken(aj.token); token = aj.token; }
+        } catch(e){}
+      }
+      if(!token){ setAuthChecked(true); return; }
+      try {
+        const r = await fetch(CLOUD_URL, {
+          method:"POST",
+          headers:{"Content-Type":"application/json","X-Auth-Token":token},
+          body: JSON.stringify({_action:"check_token",_token:token})
+        });
+        const j = await r.json();
+        if(j.success) setAuthUser(j.user);
+        else clearToken();
+      } catch(e){}
       setAuthChecked(true);
-    }).catch(()=>{ setAuthChecked(true); });
+    })();
   },[]);
 
   const handleLogin = (user, token) => { setAuthUser(user); };
