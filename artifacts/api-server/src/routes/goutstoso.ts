@@ -323,7 +323,8 @@ router.all("/goutstoso", async (req: Request, res: Response) => {
 
   // SAVE DATA
   if (action === "save_data" || (!action && body.produits !== undefined)) {
-    if (!await requireAuth(req, res)) return;
+    const user = await requireAuth(req, res);
+    if (!user) return;
     const toSave: Record<string, unknown> = { ...body };
     delete toSave["_token"];
     delete toSave["_action"];
@@ -333,6 +334,28 @@ router.all("/goutstoso", async (req: Request, res: Response) => {
          ON CONFLICT(id) DO UPDATE SET data=EXCLUDED.data, updated_at=NOW()`,
         [JSON.stringify(toSave)]
       );
+      // Backup quotidien automatique — conserve les 30 derniers jours
+      try {
+        const today = new Date().toISOString().slice(0, 10);
+        const existingToday = await q<{ id: string }>(
+          "SELECT id FROM gs_backups WHERE type='auto-daily' AND label=$1 LIMIT 1",
+          [today]
+        );
+        if (!existingToday[0]) {
+          const nbTx = Array.isArray((toSave as any).transactions) ? (toSave as any).transactions.length : 0;
+          const backupLabel = `Auto ${today} (${nbTx} tx)`;
+          await pool.query(
+            "INSERT INTO gs_backups(id,label,type,data,created_at,created_by) VALUES($1,$2,'auto-daily',$3::jsonb,NOW(),$4)",
+            ["b" + Date.now(), backupLabel, JSON.stringify(toSave), user.display_name]
+          );
+          // Garder seulement les 30 derniers backups auto
+          await pool.query(
+            `DELETE FROM gs_backups WHERE type='auto-daily' AND id NOT IN (
+              SELECT id FROM gs_backups WHERE type='auto-daily' ORDER BY created_at DESC LIMIT 30
+            )`
+          );
+        }
+      } catch(e) { /* backup non bloquant */ }
     }
     return ok(res);
   }

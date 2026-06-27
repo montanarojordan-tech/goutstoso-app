@@ -17728,6 +17728,27 @@ conventionAssocies: data.conventionAssocies||INIT.conventionAssocies,
 };
 };
 
+// FUSION SÉCURISÉE cloud + local — jamais de perte de données locales
+const mergeCloudLocal = (cloud:any, local:any):any => {
+  const mergeArr = (cloudArr:any[], localArr:any[]) => {
+    const byId = new Map<string,any>();
+    (cloudArr||[]).forEach((x:any)=>{ if(x?.id) byId.set(x.id,x); });
+    (localArr||[]).forEach((x:any)=>{ if(x?.id) byId.set(x.id,x); }); // local écrase (plus récent)
+    return Array.from(byId.values());
+  };
+  return {
+    ...cloud,
+    transactions: mergeArr(cloud.transactions||[], local.transactions||[]),
+    contrats: mergeArr(cloud.contrats||[], local.contrats||[]),
+    factures: mergeArr(cloud.factures||[], local.factures||[]),
+    clients: mergeArr(cloud.clients||[], local.clients||[]),
+    fournisseurs: mergeArr(cloud.fournisseurs||[], local.fournisseurs||[]),
+    partenaires: mergeArr(cloud.partenaires||[], local.partenaires||[]),
+    production: mergeArr(cloud.production||[], local.production||[]),
+    associes: mergeArr(cloud.associes||[], local.associes||[]),
+  };
+};
+
 // Charger au démarrage
 React.useEffect(()=>{
 (async()=>{
@@ -17735,13 +17756,14 @@ setLoading(true);
 const remote = await cloudLoad();
 if(remote) {
 const next = hydrateData(remote);
-// Réinjecter les binaires locaux (photos base64, PDFs) qui ont été strippés avant la sync cloud
 try {
   const saved = localStorage.getItem("goutstoso_v2");
   const localState = saved ? JSON.parse(saved) : null;
-  const merged = localState ? mergeBinaries(next, localState) : next;
-  setSt(merged);
-  try { localStorage.setItem("goutstoso_v2", JSON.stringify(merged)); } catch(e){}
+  // Fusion : union cloud + local pour ne jamais perdre d'entrées locales
+  const fused = localState ? mergeCloudLocal(next, localState) : next;
+  const withBin = localState ? mergeBinaries(fused, localState) : fused;
+  setSt(withBin);
+  try { localStorage.setItem("goutstoso_v2", JSON.stringify(withBin)); } catch(e){}
 } catch(e) {
   setSt(next);
   try { localStorage.setItem("goutstoso_v2", JSON.stringify(next)); } catch(e2){}
