@@ -157,9 +157,21 @@ router.get("/goutstoso/restore", async (_req, res) => {
   try {
     const rows = await q<{ data: Record<string, unknown> }>("SELECT data FROM gs_data WHERE id=1 LIMIT 1");
     if (!rows[0]) { res.status(404).send("Aucune donnée dans le cloud."); return; }
-    const data = rows[0].data;
-    const txCount = Array.isArray(data.transactions) ? data.transactions.length : 0;
-    const contratCount = Array.isArray(data.contrats) ? data.contrats.length : 0;
+    const raw = rows[0].data as Record<string, unknown>;
+    // Supprimer tous les champs base64 pour réduire la taille (évite quota localStorage)
+    function stripBase64(val: unknown): unknown {
+      if (typeof val === "string" && val.startsWith("data:")) return "";
+      if (Array.isArray(val)) return val.map(stripBase64);
+      if (val && typeof val === "object") {
+        const out: Record<string, unknown> = {};
+        for (const [k, v] of Object.entries(val as Record<string, unknown>)) out[k] = stripBase64(v);
+        return out;
+      }
+      return val;
+    }
+    const data = stripBase64(raw) as Record<string, unknown>;
+    const txCount = Array.isArray(raw.transactions) ? (raw.transactions as unknown[]).length : 0;
+    const contratCount = Array.isArray(raw.contrats) ? (raw.contrats as unknown[]).length : 0;
     const dataJson = JSON.stringify(data).replace(/<\/script>/gi, "<\\/script>");
     res.setHeader("Content-Type", "text/html; charset=utf-8");
     res.send(`<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><title>Restauration Goutstoso</title>
