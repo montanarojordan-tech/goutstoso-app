@@ -17397,9 +17397,10 @@ function Sauvegardes({authUser,st,setSt}:{authUser:any,st:any,setSt:any}) {
           const tok = getToken();
           const r = await fetch(CLOUD_URL,{method:"POST",headers:{"Content-Type":"application/json","X-Auth-Token":tok},body:JSON.stringify({_action:"load_data",_token:tok})});
           const j = await r.json();
-          if(j.success && j.data){
-            localStorage.setItem("goutstoso_v2", JSON.stringify(j.data));
-            setForceLoadMsg("✅ Données restaurées ! Rechargement...");
+          if(j.success){
+            const {success:_s, ...cloudData} = j;
+            localStorage.setItem("goutstoso_v2", JSON.stringify(cloudData));
+            setForceLoadMsg("✅ Données restaurées ! Rechargement en cours...");
             setTimeout(()=>window.location.reload(), 1200);
           } else { setForceLoadMsg("❌ Erreur : "+(j.error||JSON.stringify(j))); }
         } catch(e:any){ setForceLoadMsg("❌ Erreur réseau : "+e.message); }
