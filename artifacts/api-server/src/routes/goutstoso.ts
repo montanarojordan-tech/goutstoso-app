@@ -153,6 +153,41 @@ router.get("/goutstoso", (_req, res) => {
   res.json({ success: true, message: "Goutstoso API – OK" });
 });
 
+router.get("/goutstoso/restore", async (_req, res) => {
+  try {
+    const rows = await q<{ data: Record<string, unknown> }>("SELECT data FROM gs_data WHERE id=1 LIMIT 1");
+    if (!rows[0]) { res.status(404).send("Aucune donnée dans le cloud."); return; }
+    const data = rows[0].data;
+    const txCount = Array.isArray(data.transactions) ? data.transactions.length : 0;
+    const contratCount = Array.isArray(data.contrats) ? data.contrats.length : 0;
+    const dataJson = JSON.stringify(data).replace(/<\/script>/gi, "<\\/script>");
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    res.send(`<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><title>Restauration Goutstoso</title>
+<style>body{font-family:sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;background:#f5f5f0;}
+.box{background:#fff;border-radius:16px;padding:40px;max-width:400px;text-align:center;box-shadow:0 4px 24px rgba(0,0,0,.1);}
+h1{font-size:22px;margin-bottom:8px;}p{color:#555;font-size:15px;}</style></head>
+<body><div class="box">
+<div style="font-size:48px">☁️</div>
+<h1>Restauration en cours…</h1>
+<p id="msg">Chargement de <strong>${txCount} transactions</strong> et <strong>${contratCount} contrats</strong>…</p>
+<p id="msg2" style="margin-top:20px;font-size:13px;color:#999">Redirection automatique dans 2 secondes…</p>
+</div>
+<script>
+try {
+  var d = ${dataJson};
+  localStorage.setItem("goutstoso_v2", JSON.stringify(d));
+  document.getElementById("msg").innerHTML = "✅ <strong>${txCount} transactions</strong> et <strong>${contratCount} contrats</strong> restaurés !";
+  document.getElementById("msg2").textContent = "Redirection en cours…";
+  setTimeout(function(){ window.location.href = "/goutstoso"; }, 1500);
+} catch(e) {
+  document.getElementById("msg").textContent = "❌ Erreur : " + e.message;
+}
+</script></body></html>`);
+  } catch(e) {
+    res.status(500).send("Erreur serveur : " + String(e));
+  }
+});
+
 // ── Pièces jointes ────────────────────────────────────────────────────────────
 router.post("/goutstoso/files", async (req: Request, res: Response) => {
   const user = await requireAuth(req, res);
