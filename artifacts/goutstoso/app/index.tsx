@@ -4803,7 +4803,7 @@ const total = sousTotal - remiseMontant;
 if(form.id) {
 setSt(p=>({...p,factures:p.factures.map(f=>f.id===form.id?{...form,lignes:lignesOk,lignesOffertes,total,totalRabais,remiseMontant,comptOffert:form.comptOffert||"3900"}:f)}));
 } else {
-const numero = genNumero();
+const numero = (form.numero||"").trim() || genNumero();
 setSt(p=>({...p,factures:[...(p.factures||[]),{...form,id:uid(),numero,statut:"en attente de paiement",lignes:lignesOk,lignesOffertes,total,totalRabais,remiseMontant,comptOffert:form.comptOffert||"3900",datePaiement:""}]}));
 }
 setModal(null);
@@ -5830,7 +5830,7 @@ return {Numero:f.numero,Date:f.date,Client:pv?.nom,Total:total,Statut:f.statut};
 }),"goutstoso_factures.csv")}>Export</Btn>
 <Btn icon="plus" variant="ghost" small onClick={()=>{setSelectedForRegroup([]);setModalRegroup(true);}}>Regrouper</Btn>
 <button onClick={()=>{setShowArchived(x=>!x);setFiltre("toutes");}} style={{background:showArchived?"#0A0A0A":"#F4F4F2",color:showArchived?"#fff":"#6B7280",border:"none",borderRadius:8,padding:"6px 10px",fontSize:11,fontWeight:600,cursor:"pointer"}}>📦</button>
-<Btn icon="plus" onClick={()=>{setForm({...emptyF,id:null});setModal("form");}}>Nouvelle</Btn>
+<Btn icon="plus" onClick={()=>{setForm({...emptyF,id:null,numero:genNumero()});setModal("form");}}>Nouvelle</Btn>
 </div>
 }>Factures</SectionTitle>
 
@@ -5952,7 +5952,7 @@ return {Numero:f.numero,Date:f.date,Client:pv?.nom,Total:total,Statut:f.statut};
     ? <div style={{textAlign:"center",padding:"40px 20px",color:"#9CA3AF"}}>
         <p style={{fontSize:40,marginBottom:12}}>🧾</p>
         <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:20,fontWeight:600,color:"#374151"}}>Aucune facture</p>
-        <button onClick={()=>{setForm({...emptyF,id:null});setModal("form");}} style={{marginTop:16,background:"#F2C94C",border:"none",borderRadius:12,padding:"12px 24px",fontWeight:700,fontSize:14,cursor:"pointer"}}>
+        <button onClick={()=>{setForm({...emptyF,id:null,numero:genNumero()});setModal("form");}} style={{marginTop:16,background:"#F2C94C",border:"none",borderRadius:12,padding:"12px 24px",fontWeight:700,fontSize:14,cursor:"pointer"}}>
           + Créer une facture
         </button>
       </div>
@@ -6027,7 +6027,15 @@ return {Numero:f.numero,Date:f.date,Client:pv?.nom,Total:total,Statut:f.statut};
             })
           }))} options={[{v:"revendeur",l:"Prix pro"},{v:"client",l:"Prix public"}]}/>
         </div>
-        <F label="Date" type="date" value={form.date} onChange={v=>setForm(p=>({...p,date:v}))}/>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+          <F label="Date" type="date" value={form.date} onChange={v=>setForm(p=>({...p,date:v}))}/>
+          <div>
+            <label style={{fontSize:11,fontWeight:600,color:"#9CA3AF",textTransform:"uppercase",letterSpacing:".06em",display:"block",marginBottom:6}}>N° Facture</label>
+            <input value={form.numero||""} onChange={e=>setForm(p=>({...p,numero:e.target.value}))}
+              placeholder="FAC-2026-001"
+              style={{width:"100%",padding:"11px 10px",fontSize:14,border:"1.5px solid #E5E5E0",borderRadius:10,background:"#fff",color:"#111",outline:"none",boxSizing:"border-box"}}/>
+          </div>
+        </div>
         <div>
           <label style={{fontSize:11,fontWeight:600,color:"#9CA3AF",textTransform:"uppercase",letterSpacing:".06em",display:"block",marginBottom:8}}>Produits</label>
           {(form.lignes||[]).map((l,i)=>{
@@ -6209,7 +6217,7 @@ return {Numero:f.numero,Date:f.date,Client:pv?.nom,Total:total,Statut:f.statut};
         <F label="Notes" value={form.notes||""} onChange={v=>setForm(p=>({...p,notes:v}))} placeholder="Informations complémentaires..."/>
       </div>
       <div style={{display:"flex",gap:10,marginTop:20}}>
-        <Btn onClick={save} full icon="check">Créer la facture</Btn>
+        <Btn onClick={save} full icon="check">{form.id?"Enregistrer":"Créer la facture"}</Btn>
         <Btn onClick={()=>setModal(null)} variant="ghost" full>Annuler</Btn>
       </div>
     </Modal>
