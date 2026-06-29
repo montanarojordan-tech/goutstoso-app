@@ -71,3 +71,15 @@ id = "AROyHvkw863sVpvqS2fYB"
 uri = "file://goutstoso_index.txt"
 type = "text"
 title = "Goutstoso — code complet (index.tsx)"
+
+[[outputs]]
+id = "KjVCwS6AYP_KZN-VpKAvT"
+uri = "file://goutstoso_part1.txt"
+type = "text"
+title = "Goutstoso — Partie 1/2 (lignes 1–9123)"
+
+[[outputs]]
+id = "dDDwPhQCWpaj10V-sdkty"
+uri = "file://goutstoso_part2.txt"
+type = "text"
+title = "Goutstoso — Partie 2/2 (lignes 9124–18247)"
