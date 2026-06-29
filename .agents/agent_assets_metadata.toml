@@ -65,3 +65,9 @@ id = "B-2voP8nIj39GleNmp-m-"
 uri = "file://goutstoso_app.txt"
 type = "text"
 title = "goutstoso — index.tsx (code complet, 17 893 lignes)"
+
+[[outputs]]
+id = "AROyHvkw863sVpvqS2fYB"
+uri = "file://goutstoso_index.txt"
+type = "text"
+title = "Goutstoso — code complet (index.tsx)"
