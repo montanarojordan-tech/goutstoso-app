@@ -264,7 +264,100 @@ router.get("/goutstoso/files/:fileId", async (req: Request, res: Response) => {
   const file = rows[0];
   res.setHeader("Content-Type", file.mime_type);
   res.setHeader("Content-Disposition", `inline; filename="${file.name}"`);
-  res.send(file.data);
+  return res.send(file.data);
+});
+
+// ── Lots / Traçabilité ────────────────────────────────────────────────────────
+interface Lot {
+  id: number; produit_id: string; numero_lot: string; date_fabrication: string;
+  quantite_produite: number; quantite_restante: number;
+  degre_alcool_mesure: string | null; degre_alcool_etiquette: string | null;
+  date_durabilite: string | null; controle_par: string | null; statut: string; created_at: string;
+}
+interface MouvementStock {
+  id: number; lot_id: number; type: string; quantite: number;
+  facture_id: string | null; client_nom: string | null; canal_vente: string | null; date_mouvement: string;
+}
+
+async function getProduitsFromCloud(): Promise<Array<Record<string, unknown>>> {
+  const rows = await q<{ data: Record<string, unknown> }>("SELECT data FROM gs_data WHERE id=1 LIMIT 1");
+  const produits = rows[0]?.data?.["produits"];
+  return Array.isArray(produits) ? (produits as Array<Record<string, unknown>>) : [];
+}
+
+function csvEscape(val: unknown): string {
+  const s = val === null || val === undefined ? "" : String(val);
+  if (/[",\n;]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+  return s;
+}
+function toCsv(headers: string[], rows: unknown[][]): string {
+  const lines = [headers.map(csvEscape).join(";"), ...rows.map(r => r.map(csvEscape).join(";"))];
+  return "\uFEFF" + lines.join("\r\n");
+}
+
+// GET export per lot: /goutstoso/lots/export/:numeroLot?token=...
+router.get("/goutstoso/lots/export/:numeroLot", async (req: Request, res: Response) => {
+  const tok = (req.query["token"] as string) || (req.headers["x-auth-token"] as string) || "";
+  const t = tok ? await findToken(tok) : null;
+  if (!t) return res.status(401).json({ error: "Non autorisé" });
+  const numeroLot = req.params["numeroLot"]!;
+  const lots = await q<Lot>("SELECT * FROM gs_lots WHERE numero_lot=$1 LIMIT 1", [numeroLot]);
+  const lot = lots[0];
+  if (!lot) return res.status(404).json({ error: "Lot introuvable" });
+  const produits = await getProduitsFromCloud();
+  const produit = produits.find(p => p["id"] === lot.produit_id);
+  const mouvements = await q<MouvementStock>(
+    "SELECT * FROM gs_mouvements_stock WHERE lot_id=$1 AND type='sortie_vente' ORDER BY date_mouvement ASC",
+    [lot.id]
+  );
+  const headers = ["Numéro de lot", "Produit", "Format", "Code UGS", "Date fabrication", "Quantité produite", "Degré mesuré", "Date livraison", "Client", "Canal de vente", "Quantité livrée", "Numéro commande"];
+  const baseInfo = [
+    lot.numero_lot, produit?.["nom"] ?? "", produit?.["format"] ?? "", produit?.["codeUgs"] ?? "",
+    lot.date_fabrication, lot.quantite_produite, lot.degre_alcool_mesure ?? "",
+  ];
+  const rows = mouvements.length
+    ? mouvements.map(m => [...baseInfo, m.date_mouvement, m.client_nom ?? "", m.canal_vente ?? "", m.quantite, m.facture_id ?? ""])
+    : [[...baseInfo, "", "", "", "", ""]];
+  const csv = toCsv(headers, rows);
+  const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+  res.setHeader("Content-Type", "text/csv; charset=utf-8");
+  res.setHeader("Content-Disposition", `attachment; filename="tracabilite_${lot.numero_lot}_${dateStr}.csv"`);
+  return res.send(csv);
+});
+
+// GET export global: /goutstoso/lots/export-global?token=...&from=&to=&produitId=
+router.get("/goutstoso/lots/export-global", async (req: Request, res: Response) => {
+  const tok = (req.query["token"] as string) || (req.headers["x-auth-token"] as string) || "";
+  const t = tok ? await findToken(tok) : null;
+  if (!t) return res.status(401).json({ error: "Non autorisé" });
+  const from = (req.query["from"] as string) || "";
+  const to = (req.query["to"] as string) || "";
+  const produitId = (req.query["produitId"] as string) || "";
+  const params: unknown[] = [];
+  const conditions: string[] = ["m.type='sortie_vente'"];
+  if (from) { params.push(from); conditions.push(`m.date_mouvement >= $${params.length}`); }
+  if (to) { params.push(to + " 23:59:59"); conditions.push(`m.date_mouvement <= $${params.length}`); }
+  if (produitId) { params.push(produitId); conditions.push(`l.produit_id = $${params.length}`); }
+  const mouvements = await q<MouvementStock & { numero_lot: string; produit_id: string }>(
+    `SELECT m.*, l.numero_lot, l.produit_id FROM gs_mouvements_stock m
+     JOIN gs_lots l ON l.id = m.lot_id
+     WHERE ${conditions.join(" AND ")}
+     ORDER BY m.date_mouvement ASC`,
+    params
+  );
+  const produits = await getProduitsFromCloud();
+  const produitMap: Record<string, Record<string, unknown>> = {};
+  for (const p of produits) produitMap[String(p["id"])] = p;
+  const headers = ["Numéro de lot", "Produit", "Format", "Date", "Client", "Canal de vente", "Quantité", "Numéro commande"];
+  const rows = mouvements.map(m => {
+    const p = produitMap[m.produit_id];
+    return [m.numero_lot, p?.["nom"] ?? "", p?.["format"] ?? "", m.date_mouvement, m.client_nom ?? "", m.canal_vente ?? "", m.quantite, m.facture_id ?? ""];
+  });
+  const csv = toCsv(headers, rows);
+  const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+  res.setHeader("Content-Type", "text/csv; charset=utf-8");
+  res.setHeader("Content-Disposition", `attachment; filename="tracabilite_globale_${dateStr}.csv"`);
+  return res.send(csv);
 });
 
 // ── Route principale ──────────────────────────────────────────────────────────
@@ -490,6 +583,153 @@ router.all("/goutstoso", async (req: Request, res: Response) => {
       "SELECT user_id,action,ip,created_at FROM gs_activity ORDER BY created_at DESC LIMIT $1", [limit]
     );
     return ok(res, { activity: entries.map(e => ({ ...e, display_name: userMap[e.user_id] || e.user_id })) });
+  }
+
+  // LIST LOTS (optionally by produitId), FIFO order
+  if (action === "list_lots") {
+    if (!await requireAuth(req, res)) return;
+    const produitId = body.produitId ? String(body.produitId) : "";
+    const lots = produitId
+      ? await q<Lot>("SELECT * FROM gs_lots WHERE produit_id=$1 ORDER BY date_fabrication ASC, id ASC", [produitId])
+      : await q<Lot>("SELECT * FROM gs_lots ORDER BY date_fabrication ASC, id ASC");
+    return ok(res, { lots });
+  }
+
+  // CREATE LOT
+  if (action === "create_lot") {
+    const user = await requireAuth(req, res);
+    if (!user) return;
+    const produitId = String(body.produitId || "");
+    const numeroLot = String(body.numeroLot || "").trim();
+    const dateFabrication = String(body.dateFabrication || "");
+    const quantiteProduite = Math.max(0, parseInt(String(body.quantiteProduite || 0), 10) || 0);
+    if (!produitId || !numeroLot || !dateFabrication || !quantiteProduite) {
+      return fail(res, "Produit, numéro de lot, date de fabrication et quantité sont requis.");
+    }
+    const existing = await q<{ id: number }>("SELECT id FROM gs_lots WHERE numero_lot=$1 LIMIT 1", [numeroLot]);
+    if (existing[0]) return fail(res, `Le numéro de lot "${numeroLot}" existe déjà.`);
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      const inserted = await client.query<Lot>(
+        `INSERT INTO gs_lots(produit_id,numero_lot,date_fabrication,quantite_produite,quantite_restante,degre_alcool_mesure,degre_alcool_etiquette,date_durabilite,controle_par,statut)
+         VALUES($1,$2,$3,$4,$4,$5,$6,$7,$8,'en_stock') RETURNING *`,
+        [
+          produitId, numeroLot, dateFabrication, quantiteProduite,
+          body.degreAlcoolMesure ? parseFloat(String(body.degreAlcoolMesure)) : null,
+          body.degreAlcoolEtiquette ? parseFloat(String(body.degreAlcoolEtiquette)) : null,
+          body.dateDurabilite ? String(body.dateDurabilite) : null,
+          body.controlePar ? String(body.controlePar) : user.display_name,
+        ]
+      );
+      const lot = inserted.rows[0]!;
+      await client.query(
+        "INSERT INTO gs_mouvements_stock(lot_id,type,quantite) VALUES($1,'entree_production',$2)",
+        [lot.id, quantiteProduite]
+      );
+      await client.query("COMMIT");
+      await logActivity(user.id, `create_lot:${numeroLot}`, ip);
+      return ok(res, { lot });
+    } catch (e) {
+      await client.query("ROLLBACK");
+      return fail(res, "Erreur lors de la création du lot : " + String(e), 500);
+    } finally {
+      client.release();
+    }
+  }
+
+  // UPDATE LOT (statut: bloque / en_stock, ou correction manuelle)
+  if (action === "update_lot") {
+    const user = await requireAuth(req, res);
+    if (!user) return;
+    const id = parseInt(String(body.id || 0), 10);
+    if (!id) return fail(res, "Lot introuvable.");
+    const rows = await q<Lot>("SELECT * FROM gs_lots WHERE id=$1 LIMIT 1", [id]);
+    if (!rows[0]) return fail(res, "Lot introuvable.");
+    const statut = body.statut ? String(body.statut) : rows[0].statut;
+    await pool.query("UPDATE gs_lots SET statut=$1 WHERE id=$2", [statut, id]);
+    await logActivity(user.id, `update_lot:${rows[0].numero_lot}`, ip);
+    return ok(res);
+  }
+
+  // CONSUME LOT (sortie vente) — transactionnel, verrouillage anti-survente
+  if (action === "consume_lot") {
+    const user = await requireAuth(req, res);
+    if (!user) return;
+    const lotId = parseInt(String(body.lotId || 0), 10);
+    const quantite = Math.max(0, parseInt(String(body.quantite || 0), 10) || 0);
+    if (!lotId || !quantite) return fail(res, "Lot et quantité requis.");
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      const rows = await client.query<Lot>("SELECT * FROM gs_lots WHERE id=$1 FOR UPDATE", [lotId]);
+      const lot = rows.rows[0];
+      if (!lot) { await client.query("ROLLBACK"); return fail(res, "Lot introuvable."); }
+      if (lot.quantite_restante < quantite) {
+        await client.query("ROLLBACK");
+        return fail(res, `Stock insuffisant sur le lot ${lot.numero_lot} : ${lot.quantite_restante} restant(s), ${quantite} demandé(s).`);
+      }
+      const nouvelleQuantite = lot.quantite_restante - quantite;
+      const nouveauStatut = nouvelleQuantite <= 0 ? "epuise" : lot.statut;
+      await client.query("UPDATE gs_lots SET quantite_restante=$1, statut=$2 WHERE id=$3", [nouvelleQuantite, nouveauStatut, lotId]);
+      await client.query(
+        `INSERT INTO gs_mouvements_stock(lot_id,type,quantite,facture_id,client_nom,canal_vente)
+         VALUES($1,'sortie_vente',$2,$3,$4,$5)`,
+        [lotId, quantite, body.factureId ? String(body.factureId) : null, body.clientNom ? String(body.clientNom) : null, body.canalVente ? String(body.canalVente) : null]
+      );
+      await client.query("COMMIT");
+      return ok(res, { quantiteRestante: nouvelleQuantite, statut: nouveauStatut });
+    } catch (e) {
+      await client.query("ROLLBACK");
+      return fail(res, "Erreur lors de la sortie de stock : " + String(e), 500);
+    } finally {
+      client.release();
+    }
+  }
+
+  // RESTOCK LOT (ajustement — ex: annulation/modification d'une facture)
+  if (action === "restock_lot") {
+    const user = await requireAuth(req, res);
+    if (!user) return;
+    const lotId = parseInt(String(body.lotId || 0), 10);
+    const quantite = Math.max(0, parseInt(String(body.quantite || 0), 10) || 0);
+    if (!lotId || !quantite) return fail(res, "Lot et quantité requis.");
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      const rows = await client.query<Lot>("SELECT * FROM gs_lots WHERE id=$1 FOR UPDATE", [lotId]);
+      const lot = rows.rows[0];
+      if (!lot) { await client.query("ROLLBACK"); return fail(res, "Lot introuvable."); }
+      const nouvelleQuantite = Math.min(lot.quantite_produite, lot.quantite_restante + quantite);
+      const nouveauStatut = nouvelleQuantite > 0 && lot.statut === "epuise" ? "en_stock" : lot.statut;
+      await client.query("UPDATE gs_lots SET quantite_restante=$1, statut=$2 WHERE id=$3", [nouvelleQuantite, nouveauStatut, lotId]);
+      await client.query(
+        `INSERT INTO gs_mouvements_stock(lot_id,type,quantite,facture_id,client_nom,canal_vente)
+         VALUES($1,'ajustement',$2,$3,$4,$5)`,
+        [lotId, quantite, body.factureId ? String(body.factureId) : null, body.clientNom ? String(body.clientNom) : null, body.canalVente ? String(body.canalVente) : null]
+      );
+      await client.query("COMMIT");
+      return ok(res, { quantiteRestante: nouvelleQuantite, statut: nouveauStatut });
+    } catch (e) {
+      await client.query("ROLLBACK");
+      return fail(res, "Erreur lors du réajustement de stock : " + String(e), 500);
+    } finally {
+      client.release();
+    }
+  }
+
+  // SEARCH LOT (traçabilité)
+  if (action === "search_lot") {
+    if (!await requireAuth(req, res)) return;
+    const numeroLot = String(body.numeroLot || "").trim();
+    if (!numeroLot) return fail(res, "Numéro de lot requis.");
+    const rows = await q<Lot>("SELECT * FROM gs_lots WHERE numero_lot ILIKE $1 LIMIT 1", [numeroLot]);
+    const lot = rows[0];
+    if (!lot) return fail(res, "Aucun lot trouvé avec ce numéro.");
+    const mouvements = await q<MouvementStock>(
+      "SELECT * FROM gs_mouvements_stock WHERE lot_id=$1 ORDER BY date_mouvement ASC", [lot.id]
+    );
+    return ok(res, { lot, mouvements });
   }
 
   return fail(res, `Action inconnue : '${action}'`);

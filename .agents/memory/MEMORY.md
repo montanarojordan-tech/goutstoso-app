@@ -1,1 +1,3 @@
 - [Goutstoso line-range removal pitfall](goutstoso-line-removal.md) — Python bulk line removal must re-grep line numbers AFTER each edit batch, not use pre-edit numbers.
+- [Goutstoso DB: never run drizzle-kit push](goutstoso-db-push-danger.md) — legacy gs_* tables aren't in Drizzle schema; push prompts to DROP them. Create new tables via raw SQL instead.
+- [Goutstoso Expo testing](goutstoso-expo-testing.md) — must test via $REPLIT_EXPO_DEV_DOMAIN root, not the /goutstoso proxy path; also has a private-app auto-login endpoint.

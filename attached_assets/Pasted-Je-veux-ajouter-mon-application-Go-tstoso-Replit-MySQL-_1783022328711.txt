@@ -1,0 +1,74 @@
+Je veux ajouter à mon application Goûtstoso (Replit, MySQL, API PHP) une gestion de stock par numéro de lot, liée aux articles, avec export de traçabilité.
+
+CONTEXTE ACTUEL
+L'application gère déjà les produits, clients, commandes et facturation. Je veux ajouter une couche de traçabilité sans casser l'existant.
+
+1. MODÈLE DE DONNÉES
+
+Table "articles" (un article = un couple produit + format) :
+- id_article (clé primaire)
+- nom_produit (ex: "Clementino")
+- format (ex: "25cl", "50cl")
+- code_article / UGS (unique, ex: GTS-CLE-25 / GTS-CLE-50)
+- prix_unitaire
+- statut (actif/inactif)
+
+Un même produit (ex: Clementino) doit pouvoir avoir plusieurs articles (un par format), chacun avec son propre code UGS et son propre stock.
+
+Table "lots" :
+- id_lot (clé primaire)
+- id_article (clé étrangère vers articles)
+- numero_lot (unique, ex: L2026-03)
+- date_fabrication
+- quantite_produite
+- quantite_restante
+- degre_alcool_mesure
+- degre_alcool_etiquette
+- date_durabilite (nullable, optionnel si le produit titre >= 10% vol, car exempté de DLUO)
+- controle_par
+- statut (en_stock / epuise / bloque)
+
+Table "mouvements_stock" :
+- id_mouvement
+- id_lot (clé étrangère)
+- type (entree_production / sortie_vente / ajustement / perte)
+- quantite
+- id_commande (nullable, lien vers la commande si sortie vente)
+- client_nom
+- canal_vente (shopify / vente_directe / revendeur / marche / autre)
+- date_mouvement
+
+Adapter la table des lignes de commande existante en ajoutant deux colonnes optionnelles : id_article et id_lot (clés étrangères), sans casser les commandes déjà existantes.
+
+2. LIEN AVEC LES COMMANDES
+
+Dans le processus de création/traitement d'une commande, quand on ajoute une ligne de commande pour un article :
+- Afficher les lots disponibles pour cet article (avec quantité restante par lot), triés du plus ancien au plus récent (FIFO).
+- Permettre de choisir manuellement le(s) lot(s) utilisé(s) pour cette ligne de commande.
+- À la validation, décrémenter automatiquement la quantité restante du lot choisi et créer une entrée dans mouvements_stock (type sortie_vente).
+- Verrouiller la ligne du lot pendant l'opération pour éviter une survente en cas d'accès concurrent (transaction + FOR UPDATE).
+- Empêcher de valider une commande si la quantité demandée dépasse le stock disponible sur le lot choisi, avec un message d'erreur clair.
+- Quand un lot atteint 0 de quantité restante, passer automatiquement son statut à "epuise".
+
+3. INTERFACE
+
+- Page "Articles" : liste des articles avec code UGS, produit, format, stock total (somme des lots en_stock).
+- Page "Nouveau lot" : formulaire de création rattaché à un article, avec numéro de lot, date de fabrication, quantité produite, degré d'alcool mesuré et annoncé, date de durabilité optionnelle.
+- Dans le formulaire de commande : sélecteur d'article, puis sélecteur de lot(s) avec quantité disponible affichée à côté de chaque lot (FIFO en premier).
+- Page "Traçabilité" : recherche par numéro de lot, affichage de toutes les commandes/clients ayant reçu ce lot.
+- Un bouton "Exporter" sur chaque lot.
+
+4. EXPORT TRAÇABILITÉ
+
+- Export CSV pour un numéro de lot donné : numéro de lot, produit, format, code UGS, date de fabrication, quantité produite, degré d'alcool mesuré, puis pour chaque sortie : date de livraison, client, canal de vente, quantité livrée, numéro de commande.
+- Export CSV global filtrable par plage de dates et/ou par article : une ligne par mouvement de sortie (numéro de lot, produit, format, date, client, canal de vente, quantité, numéro de commande).
+- Nom du fichier exporté avec numéro de lot et date d'export (ex: tracabilite_L2026-03_20260702.csv), encodé en UTF-8 avec BOM pour un affichage correct des accents dans Excel.
+
+5. CONTRAINTES
+
+- Ne pas casser les commandes déjà existantes dans la base actuelle (les colonnes id_article/id_lot doivent être nullable).
+- Les numéros de lot doivent être uniques dans toute la base, même entre articles différents.
+- Prévoir un champ de recherche par numéro de lot pour retrouver rapidement toutes les infos liées (fabrication + clients livrés) en cas de contrôle du laboratoire cantonal.
+- Utiliser des transactions SQL pour toute opération qui touche au stock, afin d'éviter les incohérences.
+
+Commence par me proposer le schéma de base de données modifié (nouvelles tables + modifications des tables existantes), avant de toucher au code. Une fois validé, implémente les fichiers API PHP, puis les pages front-end décrites ci-dessus.

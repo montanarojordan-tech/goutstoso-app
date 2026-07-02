@@ -1173,7 +1173,7 @@ const STATUTS_COULEURS: Record<string,{bg:string,border:string,text:string,emoji
 const Produits = ({st,setSt}) => {
 const [modal,setModal] = useState(null);
 const [selected,setSelected] = useState(null);
-const empty = {nom:"",variante:"",format:"",description:"",alcool:"30% vol.",ingredients:"",prixClient:0,prixRevendeur:0,coutRevient:0,actif:true,couleurIdx:null,compteVente:"",
+const empty = {nom:"",variante:"",format:"",description:"",alcool:"30% vol.",ingredients:"",prixClient:0,prixRevendeur:0,coutRevient:0,actif:true,couleurIdx:null,compteVente:"",codeUgs:"",
 coutDetail:{bouteille:"",bouchon:"",etiquette:"",alcool:"",fruits:"",sucre:"",emballage:"",mainOeuvre:"",autres:""}};
 const [form,setForm] = useState(empty);
 const save = () => {
@@ -1340,6 +1340,7 @@ Catalogue
           <F label="Variante / Parfum" value={form.variante||""} onChange={v=>setForm(p=>({...p,variante:v}))}/>
           <F label="Format (25cl, 50cl...)" value={form.format||""} onChange={v=>setForm(p=>({...p,format:v}))}/>
         </div>
+        <F label="Code UGS (optionnel)" value={(form as any).codeUgs||""} onChange={v=>setForm((p:any)=>({...p,codeUgs:v}))} placeholder="Code interne pour la traçabilité"/>
 
         {/* Couleur de fond */}
         <div>
@@ -1750,6 +1751,288 @@ return (
   )}
 </div>
 );
+};
+
+// ── LOTS (traçabilité par numéro de lot) ─────────────────────────
+const lotApiCall = async (action:string, extra:any={}) => {
+  const token = getToken();
+  const r = await fetch(CLOUD_URL, {method:"POST",headers:{"Content-Type":"application/json","X-Auth-Token":token},body:JSON.stringify({_action:action,_token:token,...extra})});
+  const text = await r.text();
+  try { return JSON.parse(text); } catch(e) { return {_raw:text,_parseError:String(e)}; }
+};
+
+const LOT_STATUT_BADGE:any = {
+  en_stock:{c:"green",l:"En stock"},
+  bloque:{c:"red",l:"Bloqué"},
+  epuise:{c:"gray",l:"Épuisé"},
+};
+
+const Lots = ({st}:{st:any}) => {
+  const [lots,setLots] = useState<any[]>([]);
+  const [loading,setLoading] = useState(true);
+  const [msg,setMsg] = useState("");
+  const [filtreProduit,setFiltreProduit] = useState("");
+  const [modal,setModal] = useState<string|null>(null);
+  const [form,setForm] = useState<any>({produitId:"",numeroLot:"",dateFabrication:today(),quantiteProduite:"",degreAlcoolMesure:"",degreAlcoolEtiquette:"",dateDurabilite:"",controlePar:""});
+  const [selLot,setSelLot] = useState<any>(null);
+  const [mvtForm,setMvtForm] = useState<any>({quantite:"",clientNom:"",canalVente:""});
+
+  const load = async () => {
+    setLoading(true);
+    const r = await lotApiCall("list_lots");
+    if(r._parseError) setMsg("Erreur serveur: "+(r._raw||"").slice(0,200));
+    else if(r.error) setMsg(r.error);
+    else if(r.lots) { setLots(r.lots); setMsg(""); }
+    setLoading(false);
+  };
+  React.useEffect(()=>{ load(); },[]);
+
+  const produitNom = (id:string) => { const p=(st.produits||[]).find((x:any)=>x.id===id); return p?`${p.nom} ${p.variante||""} ${p.format||""}`.trim():id; };
+
+  const lotsAffiches = filtreProduit ? lots.filter(l=>l.produit_id===filtreProduit) : lots;
+
+  const createLot = async () => {
+    if(!form.produitId||!form.numeroLot||!form.dateFabrication||!form.quantiteProduite){ setMsg("Produit, numéro de lot, date de fabrication et quantité sont requis."); return; }
+    const r = await lotApiCall("create_lot", form);
+    if(r.error){ setMsg(r.error); return; }
+    setModal(null);
+    setForm({produitId:"",numeroLot:"",dateFabrication:today(),quantiteProduite:"",degreAlcoolMesure:"",degreAlcoolEtiquette:"",dateDurabilite:"",controlePar:""});
+    load();
+  };
+
+  const toggleBloque = async (lot:any) => {
+    const nouveauStatut = lot.statut==="bloque"?"en_stock":"bloque";
+    await lotApiCall("update_lot",{id:lot.id,statut:nouveauStatut});
+    load();
+  };
+
+  const consumeLot = async () => {
+    if(!selLot||!mvtForm.quantite) return;
+    const r = await lotApiCall("consume_lot",{lotId:selLot.id,quantite:mvtForm.quantite,clientNom:mvtForm.clientNom,canalVente:mvtForm.canalVente});
+    if(r.error){ setMsg(r.error); return; }
+    setModal(null); setSelLot(null); setMvtForm({quantite:"",clientNom:"",canalVente:""});
+    load();
+  };
+
+  const restockLot = async () => {
+    if(!selLot||!mvtForm.quantite) return;
+    const r = await lotApiCall("restock_lot",{lotId:selLot.id,quantite:mvtForm.quantite,clientNom:mvtForm.clientNom,canalVente:mvtForm.canalVente});
+    if(r.error){ setMsg(r.error); return; }
+    setModal(null); setSelLot(null); setMvtForm({quantite:"",clientNom:"",canalVente:""});
+    load();
+  };
+
+  return (
+    <div className="fade">
+      <SectionTitle action={<Btn icon="plus" small onClick={()=>{setForm({produitId:"",numeroLot:"",dateFabrication:today(),quantiteProduite:"",degreAlcoolMesure:"",degreAlcoolEtiquette:"",dateDurabilite:"",controlePar:""});setModal("form");}}>Nouveau lot</Btn>}>
+        Lots de production
+      </SectionTitle>
+      <p style={{fontSize:12,color:"#737373",marginBottom:14}}>Traçabilité par numéro de lot — conservation, contrôle qualité et export pour le laboratoire cantonal.</p>
+
+      {msg && <div style={{background:"#FEF2F2",border:"1px solid #FECACA",borderRadius:10,padding:"10px 14px",marginBottom:12}}><p style={{fontSize:12,color:"#B91C1C"}}>{msg}</p></div>}
+
+      <div style={{marginBottom:14}}>
+        <Sel label="Filtrer par produit" value={filtreProduit} onChange={setFiltreProduit}
+          options={[{v:"",l:"Tous les produits"},...(st.produits||[]).map((p:any)=>({v:p.id,l:`${p.nom} ${p.variante||""} ${p.format||""}`}))]}/>
+      </div>
+
+      {loading ? (
+        <p style={{fontSize:13,color:"#9CA3AF",textAlign:"center",padding:20}}>Chargement…</p>
+      ) : lotsAffiches.length===0 ? (
+        <div style={{textAlign:"center",padding:"30px 20px",color:"#9CA3AF"}}>
+          <p style={{fontSize:36,marginBottom:8}}>🏷️</p>
+          <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:18,fontWeight:600,color:"#374151"}}>Aucun lot</p>
+          <p style={{fontSize:12,marginTop:4}}>Crée un premier lot pour démarrer la traçabilité.</p>
+        </div>
+      ) : (
+        <div style={{display:"grid",gap:10}}>
+          {lotsAffiches.map((l:any)=>{
+            const badge = LOT_STATUT_BADGE[l.statut]||LOT_STATUT_BADGE.en_stock;
+            return (
+              <Card key={l.id} style={{padding:"12px 14px"}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+                  <div>
+                    <p style={{fontWeight:700,fontSize:14,color:"#111"}}>Lot {l.numero_lot}</p>
+                    <p style={{fontSize:12,color:"#6B7280",marginTop:2}}>{produitNom(l.produit_id)}</p>
+                    <p style={{fontSize:11,color:"#9CA3AF",marginTop:2}}>Fabriqué le {fmt(l.date_fabrication)}{l.date_durabilite?` · DDM ${fmt(l.date_durabilite)}`:""}</p>
+                  </div>
+                  <Badge c={badge.c}>{badge.l}</Badge>
+                </div>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginTop:10,paddingTop:10,borderTop:"1px solid #F5F5F0"}}>
+                  <span style={{fontSize:11,color:"#737373"}}>Restant / Produit</span>
+                  <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:20,fontWeight:700,color:"#111"}}>{l.quantite_restante} / {l.quantite_produite}</span>
+                </div>
+                <div style={{display:"flex",gap:8,marginTop:10,flexWrap:"wrap"}}>
+                  <button onClick={()=>{setSelLot(l);setMvtForm({quantite:"",clientNom:"",canalVente:""});setModal("consume");}} disabled={l.quantite_restante<=0} style={{flex:1,minWidth:100,background:"#FEE2E2",border:"none",borderRadius:8,padding:"7px",fontSize:12,fontWeight:600,color:"#991B1B",cursor:l.quantite_restante<=0?"not-allowed":"pointer",opacity:l.quantite_restante<=0?.5:1}}>↓ Sortie</button>
+                  <button onClick={()=>{setSelLot(l);setMvtForm({quantite:"",clientNom:"",canalVente:""});setModal("restock");}} style={{flex:1,minWidth:100,background:"#DCFCE7",border:"none",borderRadius:8,padding:"7px",fontSize:12,fontWeight:600,color:"#166534",cursor:"pointer"}}>↑ Réintégration</button>
+                  <button onClick={()=>toggleBloque(l)} style={{flex:1,minWidth:100,background:"#F5F5F0",border:"none",borderRadius:8,padding:"7px",fontSize:12,fontWeight:500,color:"#374151",cursor:"pointer"}}>{l.statut==="bloque"?"Débloquer":"Bloquer"}</button>
+                </div>
+              </Card>
+            );
+          })}
+        </div>
+      )}
+
+      {modal==="form" && (
+        <Modal title="Nouveau lot" onClose={()=>setModal(null)}>
+          <div style={{display:"grid",gap:14}}>
+            <Sel label="Produit" value={form.produitId} onChange={(v:string)=>setForm((p:any)=>({...p,produitId:v}))} required
+              options={[{v:"",l:"- Sélectionner un produit -"},...(st.produits||[]).map((p:any)=>({v:p.id,l:`${p.nom} ${p.variante||""} ${p.format||""}`}))]}/>
+            <F label="Numéro de lot" value={form.numeroLot} onChange={(v:string)=>setForm((p:any)=>({...p,numeroLot:v}))} placeholder="ex: 12-03.2026" required/>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+              <F label="Date de fabrication" type="date" value={form.dateFabrication} onChange={(v:string)=>setForm((p:any)=>({...p,dateFabrication:v}))} required/>
+              <F label="Quantité produite" type="number" value={form.quantiteProduite} onChange={(v:string)=>setForm((p:any)=>({...p,quantiteProduite:v}))} required/>
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+              <F label="Degré alcool mesuré (%)" type="number" value={form.degreAlcoolMesure} onChange={(v:string)=>setForm((p:any)=>({...p,degreAlcoolMesure:v}))}/>
+              <F label="Degré alcool étiquette (%)" type="number" value={form.degreAlcoolEtiquette} onChange={(v:string)=>setForm((p:any)=>({...p,degreAlcoolEtiquette:v}))}/>
+            </div>
+            <F label="Date de durabilité minimale (DDM)" type="date" value={form.dateDurabilite} onChange={(v:string)=>setForm((p:any)=>({...p,dateDurabilite:v}))}/>
+            <F label="Contrôlé par" value={form.controlePar} onChange={(v:string)=>setForm((p:any)=>({...p,controlePar:v}))} placeholder="Nom du responsable"/>
+          </div>
+          <div style={{display:"flex",gap:10,marginTop:20}}>
+            <Btn onClick={createLot} full icon="check">Créer le lot</Btn>
+            <Btn onClick={()=>setModal(null)} variant="ghost" full>Annuler</Btn>
+          </div>
+        </Modal>
+      )}
+
+      {modal==="consume" && selLot && (
+        <Modal title={`Sortie de stock — Lot ${selLot.numero_lot}`} onClose={()=>setModal(null)}>
+          <div style={{display:"grid",gap:14}}>
+            <div style={{background:"#F5F5F0",borderRadius:10,padding:"10px 14px",fontSize:12,color:"#525252"}}>Quantité restante sur ce lot : <strong>{selLot.quantite_restante}</strong></div>
+            <F label="Quantité à sortir" type="number" value={mvtForm.quantite} onChange={(v:string)=>setMvtForm((p:any)=>({...p,quantite:v}))} required/>
+            <F label="Client / destinataire" value={mvtForm.clientNom} onChange={(v:string)=>setMvtForm((p:any)=>({...p,clientNom:v}))}/>
+            <F label="Canal de vente" value={mvtForm.canalVente} onChange={(v:string)=>setMvtForm((p:any)=>({...p,canalVente:v}))} placeholder="ex: Boutique, revendeur, direct..."/>
+          </div>
+          <div style={{display:"flex",gap:10,marginTop:20}}>
+            <Btn onClick={consumeLot} full icon="check">Valider la sortie</Btn>
+            <Btn onClick={()=>setModal(null)} variant="ghost" full>Annuler</Btn>
+          </div>
+        </Modal>
+      )}
+
+      {modal==="restock" && selLot && (
+        <Modal title={`Réintégration — Lot ${selLot.numero_lot}`} onClose={()=>setModal(null)}>
+          <div style={{display:"grid",gap:14}}>
+            <div style={{background:"#F5F5F0",borderRadius:10,padding:"10px 14px",fontSize:12,color:"#525252"}}>À utiliser en cas d'annulation ou de modification d'une commande déjà sortie de ce lot.</div>
+            <F label="Quantité à réintégrer" type="number" value={mvtForm.quantite} onChange={(v:string)=>setMvtForm((p:any)=>({...p,quantite:v}))} required/>
+            <F label="Client / destinataire" value={mvtForm.clientNom} onChange={(v:string)=>setMvtForm((p:any)=>({...p,clientNom:v}))}/>
+            <F label="Canal de vente" value={mvtForm.canalVente} onChange={(v:string)=>setMvtForm((p:any)=>({...p,canalVente:v}))}/>
+          </div>
+          <div style={{display:"flex",gap:10,marginTop:20}}>
+            <Btn onClick={restockLot} full icon="check">Valider la réintégration</Btn>
+            <Btn onClick={()=>setModal(null)} variant="ghost" full>Annuler</Btn>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+};
+
+// ── TRAÇABILITÉ (recherche par numéro de lot + export CSV labo) ──
+const Tracabilite = ({st}:{st:any}) => {
+  const [numeroLot,setNumeroLot] = useState("");
+  const [resultat,setResultat] = useState<any>(null);
+  const [msg,setMsg] = useState("");
+  const [loading,setLoading] = useState(false);
+  const [expFrom,setExpFrom] = useState("");
+  const [expTo,setExpTo] = useState("");
+  const [expProduit,setExpProduit] = useState("");
+
+  const produitNom = (id:string) => { const p=(st.produits||[]).find((x:any)=>x.id===id); return p?`${p.nom} ${p.variante||""} ${p.format||""}`.trim():id; };
+
+  const rechercher = async () => {
+    if(!numeroLot.trim()) return;
+    setLoading(true); setMsg(""); setResultat(null);
+    const r = await lotApiCall("search_lot",{numeroLot:numeroLot.trim()});
+    if(r.error) setMsg(r.error);
+    else if(r._parseError) setMsg("Erreur serveur: "+(r._raw||"").slice(0,200));
+    else setResultat(r);
+    setLoading(false);
+  };
+
+  const exportLotUrl = resultat?.lot ? `${CLOUD_URL}/lots/export/${encodeURIComponent(resultat.lot.numero_lot)}?token=${encodeURIComponent(getToken())}` : "";
+  const exportGlobalUrl = (() => {
+    const params = new URLSearchParams({token:getToken()});
+    if(expFrom) params.set("from",expFrom);
+    if(expTo) params.set("to",expTo);
+    if(expProduit) params.set("produitId",expProduit);
+    return `${CLOUD_URL}/lots/export-global?${params.toString()}`;
+  })();
+
+  return (
+    <div className="fade">
+      <SectionTitle>Traçabilité</SectionTitle>
+      <p style={{fontSize:12,color:"#737373",marginBottom:14}}>Recherche d'un lot et export CSV pour le laboratoire cantonal ou tout contrôle sanitaire.</p>
+
+      <Card style={{marginBottom:16,padding:"14px"}}>
+        <p style={{fontSize:12,fontWeight:700,color:"#111",marginBottom:10}}>Rechercher un lot</p>
+        <div style={{display:"flex",gap:8}}>
+          <div style={{flex:1}}>
+            <F label="" value={numeroLot} onChange={setNumeroLot} placeholder="Numéro de lot exact"/>
+          </div>
+          <Btn onClick={rechercher} icon="check">Chercher</Btn>
+        </div>
+        {msg && <p style={{fontSize:12,color:"#B91C1C",marginTop:10}}>{msg}</p>}
+      </Card>
+
+      {loading && <p style={{fontSize:13,color:"#9CA3AF",textAlign:"center",padding:20}}>Recherche…</p>}
+
+      {resultat?.lot && (
+        <Card style={{marginBottom:16,padding:"14px"}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:10}}>
+            <div>
+              <p style={{fontWeight:700,fontSize:16,color:"#111"}}>Lot {resultat.lot.numero_lot}</p>
+              <p style={{fontSize:12,color:"#6B7280",marginTop:2}}>{produitNom(resultat.lot.produit_id)}</p>
+            </div>
+            <Badge c={(LOT_STATUT_BADGE[resultat.lot.statut]||LOT_STATUT_BADGE.en_stock).c}>{(LOT_STATUT_BADGE[resultat.lot.statut]||LOT_STATUT_BADGE.en_stock).l}</Badge>
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,fontSize:12,color:"#374151",marginBottom:12}}>
+            <p>Fabrication : <strong>{fmt(resultat.lot.date_fabrication)}</strong></p>
+            <p>DDM : <strong>{resultat.lot.date_durabilite?fmt(resultat.lot.date_durabilite):"-"}</strong></p>
+            <p>Produit / Restant : <strong>{resultat.lot.quantite_produite} / {resultat.lot.quantite_restante}</strong></p>
+            <p>Contrôlé par : <strong>{resultat.lot.controle_par||"-"}</strong></p>
+            {resultat.lot.degre_alcool_mesure!=null && <p>Degré mesuré : <strong>{resultat.lot.degre_alcool_mesure}%</strong></p>}
+            {resultat.lot.degre_alcool_etiquette!=null && <p>Degré étiquette : <strong>{resultat.lot.degre_alcool_etiquette}%</strong></p>}
+          </div>
+          <a href={exportLotUrl} target="_blank" rel="noreferrer">
+            <Btn icon="export" full>Exporter ce lot (CSV)</Btn>
+          </a>
+
+          <p style={{fontSize:12,fontWeight:700,color:"#111",marginTop:16,marginBottom:8}}>Mouvements</p>
+          <div style={{display:"grid",gap:0}}>
+            {(resultat.mouvements||[]).length===0 ? (
+              <p style={{fontSize:12,color:"#9CA3AF"}}>Aucun mouvement enregistré.</p>
+            ) : resultat.mouvements.map((m:any,i:number)=>(
+              <div key={m.id||i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderBottom:i<resultat.mouvements.length-1?"1px solid #F5F5F0":"none"}}>
+                <div>
+                  <p style={{fontSize:12,fontWeight:600,color:"#111"}}>{m.type}</p>
+                  <p style={{fontSize:10,color:"#9CA3AF"}}>{fmt(m.date_mouvement)}{m.client_nom?` · ${m.client_nom}`:""}{m.canal_vente?` · ${m.canal_vente}`:""}</p>
+                </div>
+                <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:16,fontWeight:700,color:"#111"}}>{m.quantite>0?"+":""}{m.quantite}</span>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+
+      <Card style={{padding:"14px"}}>
+        <p style={{fontSize:12,fontWeight:700,color:"#111",marginBottom:10}}>Export global (contrôle sanitaire)</p>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
+          <F label="Du" type="date" value={expFrom} onChange={setExpFrom}/>
+          <F label="Au" type="date" value={expTo} onChange={setExpTo}/>
+        </div>
+        <div style={{marginBottom:12}}>
+          <Sel label="Produit (optionnel)" value={expProduit} onChange={setExpProduit}
+            options={[{v:"",l:"Tous les produits"},...(st.produits||[]).map((p:any)=>({v:p.id,l:`${p.nom} ${p.variante||""} ${p.format||""}`}))]}/>
+        </div>
+        <a href={exportGlobalUrl} target="_blank" rel="noreferrer">
+          <Btn icon="export" full variant="outline">Exporter tous les lots (CSV)</Btn>
+        </a>
+      </Card>
+    </div>
+  );
 };
 
 const SignaturePad = ({onSave,onCancel}) => {
@@ -16982,6 +17265,8 @@ const NAV_MORE = [
   {id:"contrats",       label:"Contrats",           icon:"contrat", emoji:"📋"},
   {id:"fournisseurs",   label:"Fournisseurs",       icon:"facture", emoji:"🏭"},
   {id:"produits",       label:"Produits",           icon:"prod",    emoji:"🍋"},
+  {id:"lots",           label:"Lots",               icon:"stock",   emoji:"🏷️"},
+  {id:"tracabilite",    label:"Traçabilité",        icon:"contrat", emoji:"🔎"},
   {id:"ventesDirectes", label:"Ventes directes",    icon:"facture", emoji:"🏠"},
   {id:"emailTemplates", label:"Templates emails",   icon:"contrat", emoji:"✉️"},
   {id:"sauvegardes",    label:"Sauvegardes",        icon:"stock",   emoji:"💾"},
@@ -17927,6 +18212,8 @@ production:  <Production   st={st} setSt={setSt}/>,
 parametres:  <Parametres   st={st} setSt={setSt} authUser={authUser}/>,
 // modules accessibles via drawer
 produits:    <Produits     st={st} setSt={setSt}/>,
+lots:        <Lots         st={st}/>,
+tracabilite: <Tracabilite  st={st}/>,
 partenaires: <Partenaires  st={st} setSt={setSt}/>,
 contrats:    <Contrats     st={st} setSt={setSt}/>,
 factures:    <Factures     st={st} setSt={setSt}/>,
@@ -17989,6 +18276,8 @@ return (
             {id:"contrats",    label:"Contrats",    emoji:"📋"},
             {id:"fournisseurs",label:"Fournisseurs",emoji:"🏭"},
             {id:"produits",    label:"Produits",    emoji:"🍋"},
+            {id:"lots",        label:"Lots",        emoji:"🏷️"},
+            {id:"tracabilite", label:"Traçabilité", emoji:"🔎"},
           ]},
           {groupe:"Plus", items:[
             {id:"documents",      label:"Documents légaux", emoji:"📜"},
@@ -18163,6 +18452,8 @@ return (
             {id:"contrats",         label:"Contrats",       emoji:"📋"},
             {id:"fournisseurs",     label:"Fournisseurs",   emoji:"🏭"},
             {id:"produits",         label:"Produits",       emoji:"🍋"},
+            {id:"lots",             label:"Lots",           emoji:"🏷️"},
+            {id:"tracabilite",      label:"Traçabilité",    emoji:"🔎"},
           ]},
           {groupe:"Plus", items:[
             {id:"documents",      label:"Documents légaux", emoji:"📜"},
