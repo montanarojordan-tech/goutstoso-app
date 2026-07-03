@@ -17266,8 +17266,6 @@ const NAV_MORE = [
   {id:"contrats",       label:"Contrats",           icon:"contrat", emoji:"📋"},
   {id:"fournisseurs",   label:"Fournisseurs",       icon:"facture", emoji:"🏭"},
   {id:"produits",       label:"Produits",           icon:"prod",    emoji:"🍋"},
-  {id:"lots",           label:"Lots",               icon:"stock",   emoji:"🏷️"},
-  {id:"tracabilite",    label:"Traçabilité",        icon:"contrat", emoji:"🔎"},
   {id:"ventesDirectes", label:"Ventes directes",    icon:"facture", emoji:"🏠"},
   {id:"emailTemplates", label:"Templates emails",   icon:"contrat", emoji:"✉️"},
   {id:"sauvegardes",    label:"Sauvegardes",        icon:"stock",   emoji:"💾"},
@@ -18277,8 +18275,6 @@ return (
             {id:"contrats",    label:"Contrats",    emoji:"📋"},
             {id:"fournisseurs",label:"Fournisseurs",emoji:"🏭"},
             {id:"produits",    label:"Produits",    emoji:"🍋"},
-            {id:"lots",        label:"Lots",        emoji:"🏷️"},
-            {id:"tracabilite", label:"Traçabilité", emoji:"🔎"},
           ]},
           {groupe:"Plus", items:[
             {id:"documents",      label:"Documents légaux", emoji:"📜"},
@@ -18453,8 +18449,6 @@ return (
             {id:"contrats",         label:"Contrats",       emoji:"📋"},
             {id:"fournisseurs",     label:"Fournisseurs",   emoji:"🏭"},
             {id:"produits",         label:"Produits",       emoji:"🍋"},
-            {id:"lots",             label:"Lots",           emoji:"🏷️"},
-            {id:"tracabilite",      label:"Traçabilité",    emoji:"🔎"},
           ]},
           {groupe:"Plus", items:[
             {id:"documents",      label:"Documents légaux", emoji:"📜"},
