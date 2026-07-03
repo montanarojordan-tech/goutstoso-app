@@ -1761,18 +1761,6 @@ const lotApiCall = async (action:string, extra:any={}) => {
   try { return JSON.parse(text); } catch(e) { return {_raw:text,_parseError:String(e)}; }
 };
 
-// Consomme automatiquement le(s) lot(s) le(s) plus ancien(s) (FIFO) pour tracer quel lot a été envoyé à quel client.
-// Additif et best-effort : ne bloque jamais une vente, même si aucun lot n'existe pour ce produit ou si le serveur est injoignable.
-const autoConsumeLotFifo = (produitId:string, qte:number, clientNom:string, canalVente:string, factureId:string) => {
-  if(!produitId || !(qte>0)) return;
-  lotApiCall("consume_lot_fifo", {produitId, quantite:qte, clientNom, canalVente, factureId}).catch(()=>{});
-};
-
-// Annule les sorties de lots FIFO liées à une référence donnée (ex: suppression d'une commande).
-const autoRestockLotFifo = (factureId:string, produitId?:string) => {
-  if(!factureId) return;
-  lotApiCall("restock_lot_fifo_by_reference", {factureId, produitId}).catch(()=>{});
-};
 
 const LOT_STATUT_BADGE:any = {
   en_stock:{c:"green",l:"En stock"},
@@ -3399,7 +3387,6 @@ setSt(p=>{
       // Si stock insuffisant, on ajoute une entrée négative
       if(restant>0) newStocks.push({id:uid(),produitId:l.produitId,qte:-restant,lot:"",dateEntree:doc.date,notes:"Livraison "+doc.numero});
       newMouvements.push({id:uid(),date:doc.date,type:"sortie",produitId:l.produitId,qte:-(+l.qte),source:"Livraison dépôt-vente "+doc.numero+" → "+pv.nom});
-      autoConsumeLotFifo(l.produitId, +l.qte, pv.nom, livForm.type==="depot-vente"?"depot-vente":"livraison", doc.numero);
     });
   }
   return {...p,
@@ -9101,7 +9088,6 @@ if(form.id) {
           });
           const cProd = (st.produits||[]).find((x:any)=>x.id===c.produitId);
           newMouvements.push({id:uid(),date:cleaned.date||today(),type:"sortie",produitId:c.produitId,qte:-((parseInt(c.qte)||1)*qteCoffrets),source:srcLabel+" · Coffret ("+lProd?.nom+" "+lProd?.variante+")",commandeId:cleaned.id});
-          autoConsumeLotFifo(c.produitId, (parseInt(c.qte)||1)*qteCoffrets, cleaned.client, cleaned.source||"direct", cleaned.numero);
         });
       } else if(!isCoffret) {
         // Produit individuel : déduction normale
@@ -9113,7 +9099,6 @@ if(form.id) {
           return {...s, qte:(s.qte||0)-dedd};
         });
         newMouvements.push({id:uid(),date:cleaned.date||today(),type:"sortie",produitId:l.produitId,qte:-(parseInt(l.qte)||0),source:srcLabel,commandeId:cleaned.id});
-        autoConsumeLotFifo(l.produitId, parseInt(l.qte)||0, cleaned.client, cleaned.source||"direct", cleaned.numero);
       }
       // Si coffret sans composition définie : aucune déduction (à compléter manuellement)
     });
@@ -9265,7 +9250,6 @@ setSt(p=>{
       });
       newMouvements.push({id:uid(),date:today(),type:"restauration",produitId:l.produitId,qte:+(parseInt(l.qte)||0),source:`Suppression ${cmd.numInterne?`#${cmd.numInterne} · `:""}Commande ${cmd.numero}${cmd.reference?` · ${cmd.reference}`:""}`,commandeId:id});
     });
-    autoRestockLotFifo(cmd.numero);
   }
   return {
     ...p,
@@ -13064,7 +13048,6 @@ const creerCommandeAchat = (offre) => {
         return {...s, qte:(s.qte||0)-dedd};
       });
       newMouvements.push({id:uid(),date:today(),type:"sortie",produitId:l.produitId,qte:-(parseInt(l.qte)||0),source:srcLabel,commandeId:cid});
-      autoConsumeLotFifo(l.produitId, parseInt(l.qte)||0, offre.clientNom, "partenaire", numero);
     });
     return {
       ...p,

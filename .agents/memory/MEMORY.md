@@ -2,4 +2,4 @@
 - [Goutstoso DB: never run drizzle-kit push](goutstoso-db-push-danger.md) — legacy gs_* tables aren't in Drizzle schema; push prompts to DROP them. Create new tables via raw SQL instead.
 - [Goutstoso Expo testing](goutstoso-expo-testing.md) — must test via $REPLIT_EXPO_DEV_DOMAIN root, not the /goutstoso proxy path; also has a private-app auto-login endpoint.
 - [Goutstoso backup scope](goutstoso-backup-scope.md) — gs_backups snapshots the gs_data JSON blob only; any new dedicated SQL table must be explicitly merged in/out on save/restore or it silently isn't backed up.
-- [Goutstoso lot FIFO sales link](goutstoso-lot-fifo-sales-link.md) — lots auto-consume FIFO on the 4 formal sale flows via fire-and-forget best-effort calls; general stock counter stays independent.
+- [Goutstoso lots stay decoupled from sales](goutstoso-lots-decoupled.md) — auto-linking lot FIFO consumption to sale flows was tried then explicitly reverted by the user; don't reintroduce without asking first.
