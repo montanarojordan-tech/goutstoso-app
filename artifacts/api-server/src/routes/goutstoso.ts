@@ -279,6 +279,49 @@ interface MouvementStock {
   facture_id: string | null; client_nom: string | null; canal_vente: string | null; date_mouvement: string;
 }
 
+async function getLotsSnapshot(): Promise<{ lots: Lot[]; mouvements: MouvementStock[] }> {
+  const lots = await q<Lot>("SELECT * FROM gs_lots ORDER BY id ASC");
+  const mouvements = await q<MouvementStock>("SELECT * FROM gs_mouvements_stock ORDER BY id ASC");
+  return { lots, mouvements };
+}
+
+async function restoreLotsSnapshot(data: Record<string, unknown>): Promise<void> {
+  const lots = data["_lotsTracabilite"];
+  const mouvements = data["_mouvementsStockTracabilite"];
+  // Sauvegardes antérieures à la traçabilité par lot : on ne touche pas aux lots actuels.
+  if (!Array.isArray(lots) || !Array.isArray(mouvements)) return;
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    await client.query("DELETE FROM gs_mouvements_stock");
+    await client.query("DELETE FROM gs_lots");
+    for (const l of lots as Lot[]) {
+      await client.query(
+        `INSERT INTO gs_lots(id,produit_id,numero_lot,date_fabrication,quantite_produite,quantite_restante,
+          degre_alcool_mesure,degre_alcool_etiquette,date_durabilite,controle_par,statut,created_at)
+         VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+        [l.id, l.produit_id, l.numero_lot, l.date_fabrication, l.quantite_produite, l.quantite_restante,
+          l.degre_alcool_mesure, l.degre_alcool_etiquette, l.date_durabilite, l.controle_par, l.statut, l.created_at]
+      );
+    }
+    for (const m of mouvements as MouvementStock[]) {
+      await client.query(
+        `INSERT INTO gs_mouvements_stock(id,lot_id,type,quantite,facture_id,client_nom,canal_vente,date_mouvement)
+         VALUES($1,$2,$3,$4,$5,$6,$7,$8)`,
+        [m.id, m.lot_id, m.type, m.quantite, m.facture_id, m.client_nom, m.canal_vente, m.date_mouvement]
+      );
+    }
+    await client.query("SELECT setval('gs_lots_id_seq', COALESCE((SELECT MAX(id) FROM gs_lots), 1))");
+    await client.query("SELECT setval('gs_mouvements_stock_id_seq', COALESCE((SELECT MAX(id) FROM gs_mouvements_stock), 1))");
+    await client.query("COMMIT");
+  } catch (e) {
+    await client.query("ROLLBACK");
+    throw e;
+  } finally {
+    client.release();
+  }
+}
+
 async function getProduitsFromCloud(): Promise<Array<Record<string, unknown>>> {
   const rows = await q<{ data: Record<string, unknown> }>("SELECT data FROM gs_data WHERE id=1 LIMIT 1");
   const produits = rows[0]?.data?.["produits"];
@@ -421,6 +464,8 @@ router.all("/goutstoso", async (req: Request, res: Response) => {
     const toSave: Record<string, unknown> = { ...body };
     delete toSave["_token"];
     delete toSave["_action"];
+    delete toSave["_lotsTracabilite"];
+    delete toSave["_mouvementsStockTracabilite"];
     if (Object.keys(toSave).length > 0) {
       await pool.query(
         `INSERT INTO gs_data(id,data,updated_at) VALUES(1,$1::jsonb,NOW())
@@ -437,9 +482,11 @@ router.all("/goutstoso", async (req: Request, res: Response) => {
         if (!existingToday[0]) {
           const nbTx = Array.isArray((toSave as any).transactions) ? (toSave as any).transactions.length : 0;
           const backupLabel = `Auto ${today} (${nbTx} tx)`;
+          const { lots, mouvements } = await getLotsSnapshot();
+          const toSaveWithLots = { ...toSave, _lotsTracabilite: lots, _mouvementsStockTracabilite: mouvements };
           await pool.query(
             "INSERT INTO gs_backups(id,label,type,data,created_at,created_by) VALUES($1,$2,'auto-daily',$3::jsonb,NOW(),$4)",
-            ["b" + Date.now(), backupLabel, JSON.stringify(toSave), user.display_name]
+            ["b" + Date.now(), backupLabel, JSON.stringify(toSaveWithLots), user.display_name]
           );
           // Garder seulement les 30 derniers backups auto
           await pool.query(
@@ -462,9 +509,11 @@ router.all("/goutstoso", async (req: Request, res: Response) => {
     const rows = await q<{ data: Record<string, unknown> }>("SELECT data FROM gs_data WHERE id=1 LIMIT 1");
     if (!rows[0]) return fail(res, "Aucune donnée à sauvegarder.");
     const id = "b" + Date.now();
+    const { lots, mouvements } = await getLotsSnapshot();
+    const dataWithLots = { ...rows[0].data, _lotsTracabilite: lots, _mouvementsStockTracabilite: mouvements };
     await pool.query(
       "INSERT INTO gs_backups(id,label,type,data,created_at,created_by) VALUES($1,$2,$3,$4::jsonb,NOW(),$5)",
-      [id, label, type, JSON.stringify(rows[0].data), user.display_name]
+      [id, label, type, JSON.stringify(dataWithLots), user.display_name]
     );
     // Keep only last MAX_BACKUPS
     await pool.query(
@@ -506,11 +555,15 @@ router.all("/goutstoso", async (req: Request, res: Response) => {
       "SELECT data FROM gs_backups WHERE id=$1 LIMIT 1", [bid]
     );
     if (!rows[0]) return fail(res, "Sauvegarde introuvable.");
+    const backupData = { ...rows[0].data };
+    delete backupData["_lotsTracabilite"];
+    delete backupData["_mouvementsStockTracabilite"];
     await pool.query(
       `INSERT INTO gs_data(id,data,updated_at) VALUES(1,$1::jsonb,NOW())
        ON CONFLICT(id) DO UPDATE SET data=EXCLUDED.data, updated_at=NOW()`,
-      [JSON.stringify(rows[0].data)]
+      [JSON.stringify(backupData)]
     );
+    await restoreLotsSnapshot(rows[0].data);
     await logActivity(user.id, "restore_backup", ip);
     return ok(res);
   }
